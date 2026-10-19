@@ -4,8 +4,7 @@ import { validatePolicy } from './calculations'
 export function initialRuntime(): Runtime { return { schema: 1, active: { ...defaultPolicy }, draft: { ...defaultPolicy, version: 2 }, trial: null, versions: [{ policy: { ...defaultPolicy }, at: '2026-09-14 09:00', action: '演示基线' }], risks: {}, decisions: [] } }
 export function fingerprint(p: Policy): string { return JSON.stringify(p) }
 export function editDraft(r: Runtime, draft: Policy): void { r.draft = { ...draft }; r.trial = null }
-export function publishTrial(r: Runtime, role: string): void {
- if (role !== '规则批准人') throw new Error('当前角色无发布权限（本地演示）')
+export function publishTrial(r: Runtime): void {
  const errors = validatePolicy(r.draft); if (errors.length) throw new Error(errors.join('；'))
  if (!r.trial || r.trial.fingerprint !== fingerprint(r.draft)) throw new Error('草稿已改变，请先重新试算')
  r.active = { ...r.draft, version: r.active.version + 1, snapshot }

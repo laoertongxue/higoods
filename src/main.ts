@@ -858,6 +858,8 @@ async function closeDialogsOnEscape(): Promise<boolean> {
   // Printing dialogs and image previews already handle Escape locally. Loading
   // the aggregate FCS closer here initializes unrelated cutting/warehouse pages.
   if (pagePath.startsWith('/fcs/craft/printing/')) return false
+  // 辅料仓页面自行管理弹窗/图片的 Escape，不初始化无关裁床运行资料。
+  if (pagePath.startsWith('/wls/accessory-warehouses/')) return false
 
   const handlerSystem = getCurrentHandlerSystem(pathname)
   try {
@@ -1238,7 +1240,8 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // 无关采购、请款和供应商列表的全部初始化，避免阻塞PDA实际任务。
     const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
       || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
-    if (!isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
+    const factoryReceiptReadEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/pending-receipts$/.test(normalizedPathname)
+    if (!factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }

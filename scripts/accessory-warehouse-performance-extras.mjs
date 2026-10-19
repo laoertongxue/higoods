@@ -3,6 +3,9 @@
  * The owning collector supplies trusted-event timing, fixed-dist navigation,
  * isolated contexts and readonly persistence assertions. No source-module
  * imports, fixture-file writes, build, or automatic batch runs live here.
+ * Web demo-role switches are retired UI families; real PDA session/role and
+ * factory-access predicates remain below. Migration/records tests retain the
+ * retired maintenance controls' data-protection contracts.
  */
 export const ACCESSORY_PERFORMANCE_EXTRA_FAMILIES = [
   ['gtp', '补采GTP排序'],
@@ -12,8 +15,6 @@ export const ACCESSORY_PERFORMANCE_EXTRA_FAMILIES = [
   ['fcs', '补采FCS只读最重列表投影'],
   ['fcs', '补采FCS只读跟进详情'],
   ['fcs', '补采FCS前往GTP'],
-  ['sewing', '补采车缝领料PPIC只读切换'],
-  ['sewing', '补采调拨PPIC只读切换'],
   ['sewing', '补采PPIC补打签发新版本'],
   ['sewing', '补采旧领料凭证PDA阻断'],
   ['sewing', '补采车缝最后领齐保存'],
@@ -25,7 +26,6 @@ export const ACCESSORY_PERFORMANCE_EXTRA_FAMILIES = [
   ['sewing', '补采PPIC凭证图片关闭'],
   ['sewing', '补采PPIC原生打印就绪'],
   ['sewing', '补采领料凭证新上下文直达'],
-  ['post', '补采后道Web角色只读切换'],
   ['post', '补采后道Web刷新'],
   ['post', '补采后道PDA图片打开'],
   ['post', '补采后道PDA图片关闭'],
@@ -36,6 +36,7 @@ export const ACCESSORY_PERFORMANCE_EXTRA_FAMILIES = [
 
 const GTP = '/wls/accessory-warehouses/gtp/preparation'
 const GTP_ROOT = '[data-accessory-preparation-root]'
+const GTP_CARD = `${GTP_ROOT} [data-aw-preparation-card]`
 const FCS_READ = '/fcs/material-prep/sewing'
 const POST_WEB = '/fcs/craft/post-finishing/material-transfers'
 const POST_PDA = '/fcs/pda/handover?tab=pickup&materialOrderNo=POST-UI-1'
@@ -165,31 +166,43 @@ export async function runAccessoryPerformanceExtras(env) {
   if (groups.has('gtp'))
     await withContext(undefined, { width: 1366, height: 768 }, async (page) => {
       await setupNav(page, GTP, GTP_ROOT)
-      const firstPage = await page.locator(`${GTP_ROOT} tbody tr`).count()
+      const firstPage = await page.locator(GTP_CARD).count()
       await selectAction(page, '补采GTP每页50条', '[data-accessory-field="pageSize"]', '50', async () => {
         await expect(page.locator('[data-accessory-field="pageSize"]')).toHaveValue('50')
-        await expect.poll(() => page.locator(`${GTP_ROOT} tbody tr`).count()).toBeGreaterThan(firstPage)
-        const total = await page.locator(`${GTP_ROOT} tbody tr`).count()
+        await expect.poll(() => page.locator(GTP_CARD).count()).toBeGreaterThan(firstPage)
+        const total = await page.locator(GTP_CARD).count()
         requireValue(
           total > firstPage && total <= 50,
           'GTP page-size representative must actually include the complete larger list',
         )
         await expect(page.locator(a('next-page'))).toBeDisabled()
       })
-      const identities = await page.locator(`${GTP_ROOT} tbody tr td:first-child strong`).allTextContents()
-      await action(
+      const sheetNumbers = () =>
+        page.locator(GTP_CARD).evaluateAll((cards) =>
+          cards.map((card) => {
+            const label = [...card.querySelectorAll('header span')].find((node) => node.textContent === '配料单号')
+            if (!label?.nextElementSibling) throw Error('Missing visible preparation number')
+            return label.nextElementSibling.textContent
+          }),
+        )
+      const identities = await sheetNumbers()
+      await choose(page, '[data-accessory-sort-field]', 'number')
+      await selectAction(
         page,
         '补采GTP排序',
-        () => page.locator(`${a('sort-column')}[data-column-key="order"]`).click(),
+        '[data-accessory-sort-direction]',
+        'asc',
         async () => {
+          await expect(page.locator('[data-accessory-sort-field]')).toHaveValue('number')
+          await expect(page.locator('[data-accessory-sort-direction]')).toHaveValue('asc')
           await expect
-            .poll(() => page.locator(`${GTP_ROOT} tbody tr td:first-child strong`).allTextContents())
-            .toEqual([...identities].sort((x, y) => x.localeCompare(y, 'zh-CN')))
+            .poll(sheetNumbers)
+            .toEqual([...identities].sort((x, y) => x.localeCompare(y, 'zh-CN', { numeric: true })))
         },
       )
       await page.locator(a('open-column-settings')).click()
-      const source = page.locator('[data-standard-list-column-drag][data-drag-source="remark"]')
-      const target = page.locator('[data-standard-list-column-drag][data-drop-target="factory"]')
+      const source = page.locator('[data-standard-list-column-drag][data-drag-source="required"]')
+      const target = page.locator('[data-standard-list-column-drag][data-drop-target="source"]')
       await action(
         page,
         '补采GTP拖动列顺序',
@@ -197,17 +210,19 @@ export async function runAccessoryPerformanceExtras(env) {
         async () => {
           await expect
             .poll(async () => {
-              const names = await page.locator(`${GTP_ROOT} thead th`).allTextContents()
-              return (
-                names.findIndex((name) => name.includes('备注')) < names.findIndex((name) => name.includes('裁剪工厂'))
-              )
+              const names = await page.locator(GTP_CARD).first().locator('thead th').allTextContents()
+              const required = names.findIndex((name) => name.includes('计划数量'))
+              const source = names.findIndex((name) => name.includes('来源'))
+              return required >= 0 && source >= 0 && required < source
             })
             .toBe(true)
           const preference = await page.evaluate(() =>
             JSON.parse(localStorage.getItem('/wls/accessory-warehouses/gtp/preparation:list-columns') || 'null'),
           )
           requireValue(
-            preference?.order?.indexOf('remark') < preference?.order?.indexOf('factory'),
+            preference?.order?.indexOf('required') >= 0 &&
+              preference?.order?.indexOf('source') >= 0 &&
+              preference.order.indexOf('required') < preference.order.indexOf('source'),
             'Column order is not durable',
           )
         },
@@ -223,7 +238,7 @@ export async function runAccessoryPerformanceExtras(env) {
         .click()
       await page.locator('[data-accessory-field="keyword"]').fill('PO-AW-202610-F01')
       await page.locator(a('query')).click()
-      await expect(page.locator(`${GTP_ROOT} tbody tr`)).toHaveCount(1)
+      await expect(page.locator(GTP_CARD)).toHaveCount(1)
       await page.locator(a('prepare')).click()
       const location = page.getByLabel('拉链来源库位', { exact: true })
       const lineId = await location.getAttribute('data-aw-location')
@@ -287,38 +302,6 @@ export async function runAccessoryPerformanceExtras(env) {
       await setupNav(page, PICKUPS, '[data-accessory-pickup-root]')
       await page.locator('[data-accessory-pickup-action="create"]').click()
       await expect(page.getByRole('status')).toContainText('已按有效车缝任务建立')
-      if (wanted('补采车缝领料PPIC只读切换')) {
-        await expect(page.locator('[data-accessory-pickup-action="handover"]').first()).toBeEnabled()
-        await selectAction(
-          page,
-          '补采车缝领料PPIC只读切换',
-          '[data-accessory-pickup-field="role"]',
-          'PPIC',
-          async () => {
-            const buttons = page.locator('[data-accessory-pickup-action="handover"]')
-            requireValue((await buttons.count()) > 0, 'Permission fixture has no actionable pickup')
-            for (const button of await buttons.all()) await expect(button).toBeDisabled()
-          },
-        )
-      }
-      if (wanted('补采调拨PPIC只读切换')) {
-        await setupNav(page, '/wls/accessory-warehouses/hilon/transfers', '[data-accessory-transfer-root]')
-        await expect(page.locator('[data-accessory-transfer-action="dispatch"]').first()).toBeEnabled()
-        await selectAction(page, '补采调拨PPIC只读切换', '[data-accessory-transfer-field="role"]', 'PPIC', async () => {
-          await expect(page.locator('[data-accessory-transfer-root]')).toContainText('PPIC 可查看')
-          for (const button of await page.locator('[data-accessory-transfer-action="dispatch"]').all())
-            await expect(button).toBeDisabled()
-        })
-      }
-      if (
-        !ACCESSORY_PERFORMANCE_EXTRA_FAMILIES.some(
-          (row) =>
-            row.group === 'sewing' &&
-            !['补采车缝领料PPIC只读切换', '补采调拨PPIC只读切换'].includes(row.name) &&
-            wanted(row.name),
-        )
-      )
-        return
       const openTask = async () => {
         await setupNav(page, TASKS, '[data-ppic-task-page]')
         await page.locator('[data-ppic-task-field="keyword"]').fill('AW-SEW-A')
@@ -530,12 +513,6 @@ export async function runAccessoryPerformanceExtras(env) {
     await withContext(fixtures.post, { width: 1024, height: 768 }, async (page) => {
       await setupNav(page, POST_WEB, '[data-post-material-workspace]')
       await nav(page, '补采后道Web刷新', '', '[data-post-material-workspace]', 'reload')
-      const transfer = page.locator('[data-post-finishing-material-transfers-action="detail"][data-id="POST-UI-1"]')
-      await transfer.click()
-      await expect(page.locator('[data-post-finishing-material-transfers-action="receive"]')).toBeEnabled()
-      await selectAction(page, '补采后道Web角色只读切换', '[data-post-material-role]', 'PPIC', () =>
-        expect(page.locator('[data-post-finishing-material-transfers-action="receive"]')).toBeDisabled(),
-      )
     })
     await withContext(fixtures.post, { width: 390, height: 844 }, async (page) => {
       await setupNav(page, POST_PDA, '[data-managed-accessory-post-root]')

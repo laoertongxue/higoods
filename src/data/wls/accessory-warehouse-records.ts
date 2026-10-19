@@ -118,6 +118,6 @@ export async function withAccessoryWarehouseRecords(render: () => string | Promi
   try { await prepare(); return await render() }
   catch (error) {
     const message = (error instanceof Error ? error.message : String(error)).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
-    return `<section class="rounded-lg border border-red-200 bg-red-50 p-5" role="alert" data-accessory-read-error data-skip-page-rerender="true"><h1 class="font-semibold">辅料资料无法读取</h1><p class="mt-2 text-sm">${message}</p><div class="mt-3 flex gap-2"><button class="rounded border px-3 py-2" data-accessory-action="reload">重新读取</button><button class="rounded border px-3 py-2" data-accessory-action="data">本机资料</button></div><div data-aw-overlay-host></div></section>`
+    return `<section class="rounded-lg border border-red-200 bg-red-50 p-5" role="alert" data-accessory-read-error data-skip-page-rerender="true"><h1 class="font-semibold">辅料资料无法读取</h1><p class="mt-2 text-sm">${message}</p><div class="mt-3 flex gap-2"><button class="rounded border px-3 py-2" data-accessory-action="reload">重新读取</button></div><div data-aw-overlay-host></div></section>`
   }
 }

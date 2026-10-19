@@ -212,6 +212,27 @@ test('新增列表须声明模式且实际调用标准组件，注释不能冒�
   assert.doesNotThrow(() => assertListPage('src/pages/new.ts', standard.replace('paginationHtml: renderTablePagination({})', '').replace('// @page-pattern: list', '// @page-pattern: list\n// @list-pagination: none — 固定四项展示，无分页需求'), null, {}))
 })
 
+test('非列表任务队列可修复历史无效模式，不能借修复将历史表格降级为非列表', () => {
+  const before = '// @page-pattern: workbench\nexport function renderTaskPage() { return "<section>任务核对</section>" }'
+  const after = before.replace('workbench', 'pda')
+  assert.doesNotThrow(() => assertListPage('src/pages/queue.ts', after, before, {}))
+  assert.throws(() => assertListPage('src/pages/queue.ts', before, before, {}), /声明无效/)
+  const table = before.replace('<section>任务核对</section>', '<table data-order-table><tbody></tbody></table>')
+  assert.throws(() => assertListPage('src/pages/table.ts', table.replace('workbench', 'pda'), table, {}), /旧页面模式无效/)
+  const loneTable = before.replace('<section>任务核对</section>', '<table></table>')
+  assert.throws(() => assertListPage('src/pages/table.ts', loneTable.replace('workbench', 'pda'), loneTable, {}), /旧页面模式无效/)
+})
+
+test('单据卡片map返回的标准物料表计入表格槽，丢弃调用和未消费的map不能冒充', () => {
+  const source = `import { renderStandardListPage } from '../components/ui/list-page.ts'
+import { renderStandardListTable } from '../components/ui/list-table.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
+export function renderCardsPage() { return renderStandardListPage({tableHtml: rows.map(row => renderStandardListTable({rows: row.lines})).join(''),paginationHtml: renderTablePagination({})}) }`
+  assert.equal(hasStandardListContract(source), true)
+  assert.equal(hasStandardListContract(source.replace('row => renderStandardListTable({rows: row.lines})', 'row => { renderStandardListTable({rows: row.lines}); return "bad" }')), false)
+  assert.equal(hasStandardListContract(source.replace("rows.map(row => renderStandardListTable({rows: row.lines})).join('')", '"bad"')), false)
+})
+
 test('完整标准列表可修正历史无效声明；当前声明与骨架契约仍严格验证', () => {
   const before = '// @page-pattern: list, detail, form\n' + BEFORE
   const current = STANDARD_IMPORTS + '// @page-pattern: list\nexport function renderMigratedPage() { return renderStandardListPage({ tableHtml: renderStandardListTable({}), paginationHtml: renderTablePagination({}) }) }'

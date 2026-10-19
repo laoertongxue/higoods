@@ -1,4 +1,4 @@
-import { ACCESSORY_BROWSER_CONTRACT_PATHS, ACCESSORY_BROWSER_FIXTURE_PATHS } from '../check-accessory-warehouse-browser-contracts.ts'
+import { ACCESSORY_BROWSER_CONTRACT_PATHS, ACCESSORY_BROWSER_FIXTURE_PATHS, ACCESSORY_RETIRED_UI_CONTRACT_PATHS } from '../check-accessory-warehouse-browser-contracts.ts'
 import assert from 'node:assert/strict'
 import { normalizeChangedPath } from './changed-paths.ts'
 import { isPrototypePath } from './governance-scope.ts'
@@ -99,6 +99,22 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if ((ACCESSORY_RETIRED_UI_CONTRACT_PATHS as readonly string[]).includes(path)) {
+      add(fastChecks, `test ! -e ${shellQuote(path)}`)
+      add(fullChecks, 'npm run build')
+      add(fullChecks, 'node --import tsx scripts/check-accessory-warehouse-browser-contracts.ts')
+      continue
+    }
+    if (['scripts/check-gtp-online-performance.mjs', 'scripts/check-accessory-warehouse-performance.mjs', 'scripts/accessory-warehouse-performance-extras.mjs'].includes(path)) {
+      // Syntax only: fixed-build performance evidence is measured separately
+      // after heavy checks, never concurrently with this verification runner.
+      add(fastChecks, `node --check ${shellQuote(path)}`)
+      continue
+    }
+    if (path === 'tests/material-decision.spec.ts') {
+      add(fullChecks, 'PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/material-decision.spec.ts --workers=1 --reporter=line')
+      continue
+    }
     if ((ACCESSORY_BROWSER_CONTRACT_PATHS as readonly string[]).includes(path)
       || (ACCESSORY_BROWSER_FIXTURE_PATHS as readonly string[]).includes(path)
       || path === 'scripts/check-accessory-warehouse-browser-contracts.ts') {

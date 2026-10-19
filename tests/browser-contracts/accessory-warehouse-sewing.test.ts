@@ -6,7 +6,7 @@ import { chromium, expect, type Browser, type Page } from '@playwright/test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 let server: ViteDevServer, browser: Browser, base = ''
-const output = resolve('output/verification/accessory-warehouse-sewing')
+const output = resolve(process.env.ACCESSORY_WAREHOUSE_TEST_OUTPUT ? `${process.env.ACCESSORY_WAREHOUSE_TEST_OUTPUT}/sewing` : 'output/verification/accessory-warehouse-sewing')
 before(async () => {
  await mkdir(output,{recursive:true})
  server=await createServer({root:process.cwd(),server:{port:0,watch:{ignored:['**/*']}}});await server.listen();const address=server.httpServer!.address() as {port:number};base=`http://127.0.0.1:${address.port}`
@@ -44,7 +44,7 @@ async function openPickup(page: Page, pickupId: string, versionId: string) {
  await page.getByRole('dialog',{name:'登记车缝领料实交'}).waitFor()
 }
 
-test('P30/P31 真实UI建任务范围、PPIC打印、分次实交与同源刷新，旧码与PPIC阻断，保存失败保留输入', {timeout:120000}, async()=>{
+test('P30/P31 真实UI建任务范围、PPIC打印、分次实交与同源刷新，操作直接展示且旧码阻断，保存失败保留输入', {timeout:120000}, async()=>{
  const context=await browser.newContext({viewport:{width:1024,height:768}});const page=await context.newPage();const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));await page.addInitScript(()=>{(globalThis as any).__name=(value:unknown)=>value})
  try {
   await page.goto(base+'/wls/accessory-warehouses/gtp/preparation');await page.locator('[data-accessory-preparation-root]').waitFor();const fixture=await seed(page);await dumpPerfFixture(page,'perf-fixture.json','SEWING')
@@ -71,7 +71,7 @@ test('P30/P31 真实UI建任务范围、PPIC打印、分次实交与同源刷新
   await page.goto(base+`/fcs/pda/handover?tab=handout&sewingPickupVersionId=${encodeURIComponent(first.versionId)}`);await expect(page.getByText('该凭证已失效或领料清单已变更，请扫描 PPIC 当前版本。')).toBeVisible();await expect(page.locator('[data-pda-handover-action="confirm-sewing-pickup"]')).toHaveCount(0)
   await openPickup(page,a.id,first.versionId);await expect(page.getByRole('dialog')).toContainText('扫码版本已失效');await page.getByLabel('价格吊牌本次实交',{exact:true}).fill('3');await page.getByRole('button',{name:'确认本次实交',exact:true}).click();await expect(page.locator('[data-aw-pickup-error]')).toContainText('版本已失效');await expect(page.getByLabel('价格吊牌本次实交',{exact:true})).toHaveValue('3')
   page.once('dialog',dialog=>dialog.accept());await page.getByRole('dialog').getByRole('button',{name:'关闭',exact:true}).click()
-  await page.locator('[data-accessory-pickup-field="role"]').selectOption('PPIC');await expect(page.locator('[data-accessory-pickup-action="handover"]').first()).toBeDisabled();await page.locator('[data-accessory-pickup-field="role"]').selectOption('仓管')
+  await expect(page.locator('[data-accessory-pickup-field="role"]')).toHaveCount(0);await expect(page.locator('[data-accessory-pickup-action="handover"]').first()).toBeEnabled()
   await openPickup(page,a.id,second.versionId);await page.getByLabel('价格吊牌本次实交',{exact:true}).fill('5')
   await page.evaluate(()=>{const original=IDBDatabase.prototype.transaction;(globalThis as any).__awOriginalTransaction=original;IDBDatabase.prototype.transaction=function(...args:Parameters<typeof original>){const tx=original.apply(this,args);if(tx.mode==='readwrite')queueMicrotask(()=>tx.abort());return tx}})
   await page.getByRole('button',{name:'确认本次实交',exact:true}).click();await expect(page.locator('[data-aw-pickup-error]')).not.toBeEmpty();await expect(page.getByLabel('价格吊牌本次实交',{exact:true})).toHaveValue('5')
@@ -114,7 +114,7 @@ test('P31 合并任务同张凭证保留面料与辅料，原入口仅办面料�
  } finally {await context.close()}
 })
 
-test('STORE04 旧slip显式迁移保留共享条目与实交，marker无整键快照，晚到旧写明确阻断且不合并canonical', {timeout:120000}, async()=>{
+test('STORE04 建立清单时兼容旧slip保留共享条目与实交，marker无整键快照，晚到旧写明确阻断且不合并canonical', {timeout:120000}, async()=>{
  const context=await browser.newContext();const page=await context.newPage();await page.addInitScript(()=>{(globalThis as any).__name=(value:unknown)=>value})
  try {
   await page.goto(base+'/wls/accessory-warehouses/gtp/preparation');await page.locator('[data-accessory-preparation-root]').waitFor();await seed(page)
@@ -125,13 +125,13 @@ test('STORE04 旧slip显式迁移保留共享条目与实交，marker无整键�
    const result={commandId:'OLD-HAND',versionId:version.versionId,sourceRecordId:'OLD-SOURCE',sourceRecordNo:'OLD-SOURCE',recordedAt:'2026-10-18T12:00:00Z',recordedBy:'旧仓管',actorFactoryId:'OLD-WH',objectKind:'ACCESSORY',recordedByRole:'MATERIAL_WAREHOUSE',quantities:[{lineId:version.lines[0].lineId,actualQty:7}]}
    localStorage.setItem('higood:ppic:sewing-pickup-slips:v1',JSON.stringify({version:1,versions:[version,unrelated],handoverResults:[result],userMetadata:{preserved:true}}));return {version,result,unrelated,before:records.currentAccessorySnapshot()}
   })
-  await page.goto(base+'/wls/accessory-warehouses/hilon/pickups');await expect(page.locator('[data-accessory-pickup-root]')).toContainText('待迁移')
+  await page.goto(base+'/wls/accessory-warehouses/hilon/pickups');await page.locator('[data-accessory-pickup-root]').waitFor();await expect(page.getByRole('button',{name:'迁移原领料凭证和实交历史'})).toHaveCount(0);assert.deepEqual(await page.evaluate(async()=>(await import('/src/data/wls/accessory-warehouse-records.ts')).currentAccessorySnapshot()),original.before)
   await page.evaluate(()=>{const set=Storage.prototype.setItem;(globalThis as any).__restoreSlipSet=set;Storage.prototype.setItem=function(key:string,value:string){if(key==='higood:ppic:sewing-pickup-slips:v1')throw new DOMException('旧键清理拒写','QuotaExceededError');return set.call(this,key,value)}})
-  await page.getByRole('button',{name:'迁移原领料凭证和实交历史'}).click();await expect(page.getByRole('status')).toContainText('旧键清理拒写')
+  await page.locator('[data-accessory-pickup-action="create"]').click();await expect(page.getByRole('status')).toContainText('旧键清理拒写')
   const copied=await page.evaluate(async()=>{const rec=await import('/src/data/wls/accessory-warehouse-records.ts');return {marker:rec.findAccessoryRecord<any>('migration','sewing-pickup-v1'),legacy:JSON.parse(localStorage.getItem('higood:ppic:sewing-pickup-slips:v1')!),count:rec.listAccessoryRecords('sewing-handover').length}})
   assert.equal(copied.marker.phase,'COPIED');assert.equal(copied.legacy.versions.length,2);assert.equal(copied.legacy.handoverResults.length,1);assert.equal(copied.count,1);assert.ok(!('sourceRaw' in copied.marker))
   await page.evaluate(()=>{Storage.prototype.setItem=(globalThis as any).__restoreSlipSet})
-  await page.getByRole('button',{name:'迁移原领料凭证和实交历史'}).click();await expect(page.getByRole('status')).toContainText('迁移完成')
+  await page.locator('[data-accessory-pickup-action="create"]').click();await expect(page.getByRole('status')).toContainText('原领料凭证已有辅料实交')
   const migrated=await page.evaluate(async()=>{
    const rec=await import('/src/data/wls/accessory-warehouse-records.ts');const api=await import('/src/data/wls/accessory-warehouse-sewing.ts');const hand=await import('/src/data/fcs/sewing-material-handover.ts');return {snapshot:rec.currentAccessorySnapshot(),status:api.inspectLegacySewingPickupMigration(),projection:hand.getSewingMaterialHandoverProjection('AW-TEST-ASG-0'),legacy:JSON.parse(localStorage.getItem('higood:ppic:sewing-pickup-slips:v1')!)}
   })
@@ -142,7 +142,7 @@ test('STORE04 旧slip显式迁移保留共享条目与实交，marker无整键�
   const deniedRead=await denied.evaluate(async()=>{const api=await import('/src/data/wls/accessory-warehouse-sewing.ts');const slips=await import('/src/data/fcs/sewing-pickup-slips.ts');await api.prepareAccessorySewing();return {status:api.inspectLegacySewingPickupMigration(),current:slips.getCurrentSewingPickupSlip('AW-TEST-ASG-0','ACCESSORY')}});assert.equal(deniedRead.status.state,'已完成');assert.equal(deniedRead.current?.versionId,original.version.versionId);await denied.close()
   await page.locator('[data-accessory-pickup-action="create"]').click();await expect(page.getByRole('status')).toContainText('原领料凭证已有辅料实交')
   await page.evaluate(({version,result})=>{const old=JSON.parse(localStorage.getItem('higood:ppic:sewing-pickup-slips:v1')!);old.versions.push({...version,versionId:'LATE-OLD-V2',versionNo:2});old.handoverResults.push({...result,versionId:'LATE-OLD-V2',commandId:'LATE-OLD-HAND',quantities:[{...result.quantities[0],actualQty:3}]});localStorage.setItem('higood:ppic:sewing-pickup-slips:v1',JSON.stringify(old))},original)
-  await page.reload();await expect(page.locator('[data-accessory-pickup-root]')).toContainText('旧页面再次写入')
+  await page.reload();await expect(page.locator('[data-accessory-pickup-root]')).toBeVisible();await page.locator('[data-accessory-pickup-action="create"]').click();await expect(page.getByRole('status')).toContainText('旧页面再次写入')
   const conflict=await page.evaluate(async()=>{const api=await import('/src/data/wls/accessory-warehouse-sewing.ts');const rec=await import('/src/data/wls/accessory-warehouse-records.ts');return {status:api.inspectLegacySewingPickupMigration(),snapshot:rec.currentAccessorySnapshot(),legacy:JSON.parse(localStorage.getItem('higood:ppic:sewing-pickup-slips:v1')!),conflictExport:await api.exportAccessorySewingLegacyConflict()}})
   assert.equal(conflict.status.state,'已阻塞');assert.deepEqual(conflict.snapshot.records,migrated.snapshot.records);assert.ok(conflict.legacy.handoverResults.some((row:any)=>row.commandId==='LATE-OLD-HAND'));assert.equal(conflict.conflictExport?.versions.length,1);assert.equal(conflict.conflictExport?.handoverResults[0].commandId,'LATE-OLD-HAND');assert.ok(!JSON.stringify(conflict.conflictExport).includes('无关用户款式'))
   const backup=await page.evaluate(async()=>{const api=await import('/src/data/wls/accessory-warehouse-migration.ts');return api.exportAccessoryWarehouseBackup()})

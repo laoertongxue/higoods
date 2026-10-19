@@ -1,6 +1,6 @@
 import { renderWashingWarehouseSection } from './wls/raw/washing-stock.ts'
 // @page-pattern: list
-// WH-001–006：原交出单中转区域实收；原型身份选择，不代替生产鉴权。
+// WH-001–006：原交出单中转区域实收；按实际收货员登记。
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
 import { renderDialog } from '../components/ui/dialog.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
@@ -11,14 +11,14 @@ import { escapeHtml } from '../utils.ts'
 
 interface ReceiptRow { head: PdaHandoverHead; record: PdaHandoverRecord }
 interface InboundState extends ProcessOrderListControllerState {
-  keyword: string; actorRole: string; actorName: string; rows: ReceiptRow[]
+  keyword: string; actorName: string; rows: ReceiptRow[]
   selected: ReceiptRow | null; qty: string; reason: string; feedback: string; busy: boolean
 }
 const PREFIX = 'wls-inbound'
 const ROOT = '[data-wls-inbound-root]'
 const state: InboundState = {
   currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
-  preferencesLoaded: false, showColumnSettings: false, keyword: '', actorRole: 'READONLY', actorName: '',
+  preferencesLoaded: false, showColumnSettings: false, keyword: '', actorName: '',
   rows: [], selected: null, qty: '', reason: '', feedback: '', busy: false,
 }
 function inScope(head: PdaHandoverHead): boolean {
@@ -38,8 +38,7 @@ function receiptBlock(row: ReceiptRow | undefined): string {
   if (record.recordLines?.some(line => line.qtyUnit !== unit(row))) return '该批明细单位不一致，请交出方核对后再收货。'
   return ''
 }
-function validateReceipt(row: ReceiptRow | undefined, role: string, name: string, rawQty: string, reason: string): number {
-  if (role !== 'TRANSFER_CLERK') throw new Error('只读身份不能确认收货，请选择中转区域收货员。')
+function validateReceipt(row: ReceiptRow | undefined, name: string, rawQty: string, reason: string): number {
   if (!name.trim()) throw new Error('请填写实际收货员姓名。')
   const blocked = receiptBlock(row)
   if (blocked) throw new Error(blocked)
@@ -73,7 +72,7 @@ const columns: StandardListColumn<ReceiptRow>[] = [
   { key: 'receipt', title: '收货人／时间', width: 180, render: ({ record }) => `<div>${escapeHtml(record.receiverWrittenBy || '待收货')}</div><div class="text-xs">${escapeHtml(record.receiverWrittenAt || '')}</div>` },
   { key: 'actions', title: '操作', width: 230, required: true, actionColumn: true, render: row => {
     const blocked = receiptBlock(row)
-    return `${blocked ? `<span class="text-xs text-slate-500">${escapeHtml(blocked)}</span>` : `<button class="rounded border px-3 py-2 disabled:opacity-40" ${action('open')} data-record-id="${escapeHtml(row.record.recordId)}" ${state.actorRole !== 'TRANSFER_CLERK' ? 'disabled' : ''}>确认实际收货</button>`}<button class="mt-1 block text-xs text-blue-700" data-nav="/fcs/pda/handover/${encodeURIComponent(row.head.handoverId)}">查看原交出单</button>`
+    return `${blocked ? `<span class="text-xs text-slate-500">${escapeHtml(blocked)}</span>` : `<button class="rounded border px-3 py-2 disabled:opacity-40" ${action('open')} data-record-id="${escapeHtml(row.record.recordId)}">确认实际收货</button>`}<button class="mt-1 block text-xs text-blue-700" data-nav="/fcs/pda/handover/${encodeURIComponent(row.head.handoverId)}">查看原交出单</button>`
   } },
 ]
 const controller = createProcessOrderListController({ state, columns, preferenceKey: 'higood:list:/wls/inbound', pageSizeOptions: [10, 20, 50], eventPrefix: PREFIX, rootSelector: ROOT, tableSurfaceSelector: '[data-wls-inbound-table]', paginationSurfaceSelector: '[data-wls-inbound-pagination]', overlaysSurfaceSelector: '[data-wls-inbound-columns]', defaultFrozenKeys: ['source'], columnSettingsTitle: '中转区域收货列设置', emptyText: '暂无发往中转区域的交出记录', getRows: filteredRows, locallyManagedEvents: true })
@@ -100,7 +99,7 @@ export function renderWlsInboundPage(): string {
   const view = controller.getView()
   return `<div data-wls-inbound-root data-skip-page-rerender="true">${renderWashingWarehouseSection()}${renderStandardListPage({
     title: '中转区域收货',
-    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-sm"><span>原型操作身份</span><select class="rounded border p-2" data-wls-inbound-field="actorRole"><option value="READONLY" ${state.actorRole === 'READONLY' ? 'selected' : ''}>只读查看</option><option value="TRANSFER_CLERK" ${state.actorRole === 'TRANSFER_CLERK' ? 'selected' : ''}>中转区域收货员</option></select><label>收货员姓名 <input class="rounded border p-2" data-wls-inbound-field="actorName" value="${escapeHtml(state.actorName)}" placeholder="填写实际操作人姓名"></label></div>`,
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-sm"><label>收货员姓名 <input class="rounded border p-2" data-wls-inbound-field="actorName" value="${escapeHtml(state.actorName)}" placeholder="填写实际操作人姓名"></label></div>`,
     feedbackHtml: `<p role="status" data-wls-inbound-feedback>${escapeHtml(state.feedback)}</p>`,
     filtersHtml: `<div class="flex flex-wrap gap-2"><input class="min-w-0 flex-1 rounded border p-2" aria-label="交出单、生产单或物料" data-wls-inbound-field="keyword" value="${escapeHtml(state.keyword)}" placeholder="交出单、生产单或物料"><button class="rounded border px-3" ${action('query')}>查询</button><button class="rounded border px-3" ${action('reload')}>刷新记录</button></div>`,
     statsHtml: `<div data-wls-inbound-stats>${stats()}</div>`, listTitle: '原交出批次', listActionsHtml: `<button ${action('open-column-settings')}>列设置</button>`,
@@ -113,8 +112,8 @@ function localTime(): string {
 }
 function saveReceipt(): void {
   if (state.busy || !state.selected) return
-  const selected = state.selected, role = state.actorRole, name = state.actorName, qtyText = state.qty, reason = state.reason
-  try { validateReceipt(selected, role, name, qtyText, reason) } catch (error) { state.feedback = (error as Error).message; refreshOverlays(); return }
+  const selected = state.selected, name = state.actorName, qtyText = state.qty, reason = state.reason
+  try { validateReceipt(selected, name, qtyText, reason) } catch (error) { state.feedback = (error as Error).message; refreshOverlays(); return }
   state.busy = true; state.feedback = '正在确认实际收货…'; refreshOverlays(); refreshFeedback()
   // 先显示反馈，确认时重读原单，禁止用打开弹窗时的旧余额写入。
   requestAnimationFrame(() => setTimeout(() => {
@@ -123,8 +122,8 @@ function saveReceipt(): void {
       const record = findPdaHandoverRecord(selected.record.recordId)
       const head = record ? findPdaHandoverHead(record.handoverId) : undefined
       const current = record && head ? { record, head } : undefined
-      const qty = validateReceipt(current, state.actorRole, state.actorName, qtyText, reason)
-      if (role !== state.actorRole || name !== state.actorName || record!.submittedQty !== selected.record.submittedQty || unit(current!) !== unit(selected) || head!.handoverId !== selected.head.handoverId) throw new Error('交出记录或收货身份已变化，请重新打开确认。')
+      const qty = validateReceipt(current, state.actorName, qtyText, reason)
+      if (name !== state.actorName || record!.submittedQty !== selected.record.submittedQty || unit(current!) !== unit(selected) || head!.handoverId !== selected.head.handoverId) throw new Error('交出记录或收货员已变化，请重新打开确认。')
       const writtenAt = localTime(), writtenBy = `中转区域收货员 · ${name.trim()}`
       writeBackHandoverRecord({ handoverRecordId: record!.recordId, receiverWrittenQty: qty, receiverWrittenAt: writtenAt, receiverWrittenBy: writtenBy, diffReason: reason.trim(), receiverRemark: '中转区域实际清点收货' })
       submitted = true
@@ -158,7 +157,6 @@ export function handleWlsInboundEvent(target: HTMLElement, event?: Event): boole
     if (key === 'actorName') state.actorName = field.value
     if (key === 'qty') state.qty = field.value
     if (key === 'reason') state.reason = field.value
-    if (key === 'actorRole' && event?.type === 'change') { state.actorRole = field.value; state.selected = null; controller.refresh(); refreshOverlays() }
     if (key === 'pageSize' && event?.type === 'change') { controller.setPageSize(Number(field.value)); controller.refresh() }
     return true
   }

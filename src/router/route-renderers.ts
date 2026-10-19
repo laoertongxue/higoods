@@ -46,6 +46,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
+    if (exportName === 'renderWlsInboundPage') {
+      // 中转收货包含毛织交出，独立直达时先读取其实际依赖，不能依赖访问过其它页面。
+      await (await import('../data/pcs-record-runtime.ts')).ensurePcsRecordState(['higood-fcs-wool-stage-store-v3'])
+    }
     if (ppicReturnReadScope) await (await import('../data/fcs/ppic-daily-return-records.ts')).ensurePpicDailyReturnState()
     if (postFinishingScope) {
       await import('../data/fcs/post-finishing-full-flow.ts')

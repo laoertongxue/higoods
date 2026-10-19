@@ -149,7 +149,7 @@ async function fillWholePreparation(page: Page, order: string, verifyMaterialPic
   assert.equal(initial.records.length, 0, 'opening source fixtures must not copy accessory records into DB')
   await page.locator('[data-accessory-field="keyword"]').fill(order)
   await page.locator('[data-accessory-action="query"]').click()
-  await expect(page.locator('[data-accessory-preparation-root] tbody tr')).toHaveCount(1)
+  await expect(page.locator('[data-aw-preparation-card]')).toHaveCount(1)
   const source = await preparationSource(page, order)
   assert.ok(source, `${order} must come from actual upstream production source`)
   assert.equal(source.lines.length, 6)

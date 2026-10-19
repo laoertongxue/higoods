@@ -1,6 +1,6 @@
 import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
 // @page-pattern: list
-// POST-010/014/021/025: 外部成衣仓出货接收。身份选择仅用于原型演示。
+// POST-010/014/021/025: 外部成衣仓出货接收。按实际收货人登记实物数量。
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
 import { renderDialog } from '../components/ui/dialog.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
@@ -11,14 +11,14 @@ import { escapeHtml } from '../utils.ts'
 
 type Row = PostFinishingOutboundOrder
 interface State extends ProcessOrderListControllerState {
-  rows: Row[]; keyword: string; actorRole: string; actorName: string; selected: Row | null
+  rows: Row[]; keyword: string; actorName: string; selected: Row | null
   quantities: Record<string, string>; authorizationCode: string; reason: string; feedback: string; busy: boolean
   image: { url: string; label: string } | null
 }
 const PREFIX = 'wls-finished-inbound', ROOT = '[data-wls-finished-inbound-root]'
 const state: State = {
   currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
-  preferencesLoaded: false, showColumnSettings: false, rows: [], keyword: '', actorRole: 'READONLY', actorName: '',
+  preferencesLoaded: false, showColumnSettings: false, rows: [], keyword: '', actorName: '',
   selected: null, quantities: {}, authorizationCode: '', reason: '', feedback: '', busy: false, image: null,
 }
 const action = (name: string) => `data-wls-finished-inbound-action="${name}" data-skip-page-rerender="true"`
@@ -43,7 +43,7 @@ const columns: StandardListColumn<Row>[] = [
   { key: 'sku', title: '成衣 SKU / 数量', width: 340, required: true, render: r => r.lines.map(l => `<div class="mb-2">${sku(l)}<div class="ml-12 text-xs">应收 ${l.outboundQty} ${escapeHtml(l.sku.qtyUnit || '')} · ${l.receivedQty === undefined ? '待实际清点' : `实收 ${l.receivedQty} ${escapeHtml(l.sku.qtyUnit || '')}`}</div></div>`).join('') },
   { key: 'status', title: '接收状态', width: 140, render: r => escapeHtml(r.status) },
   { key: 'actor', title: '成衣仓收货人 / 时间', width: 200, render: r => `<div>${escapeHtml(r.receivedBy?.actorName || '待接收')}</div><div class="text-xs">${r.receivedAt ? escapeHtml(new Date(r.receivedAt).toLocaleString('zh-CN')) : ''}</div>` },
-  { key: 'actions', title: '操作', width: 180, required: true, actionColumn: true, render: r => `${blocked(r) ? `<span class="text-xs">${escapeHtml(blocked(r))}</span>` : `<button class="rounded border px-3 py-2 disabled:opacity-40" ${action('open')} data-order-no="${escapeHtml(r.outboundOrderNo)}" ${state.actorRole === 'GARMENT_RECEIVER' ? '' : 'disabled'}>确认成衣仓实收</button>`}<button class="mt-2 block text-xs text-blue-700" data-nav="/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(r.outboundOrderId)}">查看原出货单</button>` },
+  { key: 'actions', title: '操作', width: 180, required: true, actionColumn: true, render: r => `${blocked(r) ? `<span class="text-xs">${escapeHtml(blocked(r))}</span>` : `<button class="rounded border px-3 py-2 disabled:opacity-40" ${action('open')} data-order-no="${escapeHtml(r.outboundOrderNo)}">确认成衣仓实收</button>`}<button class="mt-2 block text-xs text-blue-700" data-nav="/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(r.outboundOrderId)}">查看原出货单</button>` },
 ]
 const controller = createProcessOrderListController({ state, columns, preferenceKey: 'higood:list:/wls/finished-inbound', pageSizeOptions: [10, 20, 50], eventPrefix: PREFIX, rootSelector: ROOT, tableSurfaceSelector: '[data-finished-inbound-table]', paginationSurfaceSelector: '[data-finished-inbound-pagination]', overlaysSurfaceSelector: '[data-finished-inbound-columns]', defaultFrozenKeys: ['source'], columnSettingsTitle: '成衣仓收货列设置', emptyText: '暂无成衣仓出货单', getRows: filteredRows, locallyManagedEvents: true })
 function stats(): string { return renderStandardListStats([{ label: '出货单', value: state.rows.length }, { label: '待仓库接收', value: state.rows.filter(r => r.status === '待仓库接收').length }, { label: '已接收入库', value: state.rows.filter(r => r.status === '已接收入库').length }]) }
@@ -55,8 +55,7 @@ function overlays(): string {
 }
 function refreshOverlays(): void { const e = root()?.querySelector('[data-finished-inbound-overlays]'); if (e) e.innerHTML = overlays() }
 function feedback(): void { const e = root()?.querySelector('[data-finished-inbound-feedback]'); if (e) e.textContent = state.feedback }
-function validate(row: Row | undefined, role: string, name: string, values: Record<string, string>, authorizationCode: string, reason: string): Array<{ skuId: string; receivedQty: number }> {
-  if (role !== 'GARMENT_RECEIVER') throw new Error('请使用原型成衣仓收货员身份，不允许其他角色代收。')
+function validate(row: Row | undefined, name: string, values: Record<string, string>, authorizationCode: string, reason: string): Array<{ skuId: string; receivedQty: number }> {
   if (!name.trim()) throw new Error('请填写实际收货人姓名。')
   const error = blocked(row); if (error) throw new Error(error)
   const result = row!.lines.map(l => {
@@ -69,15 +68,15 @@ function validate(row: Row | undefined, role: string, name: string, values: Reco
 }
 function save(): void {
   if (state.busy || !state.selected) return
-  const selected = state.selected, role = state.actorRole, name = state.actorName.trim(), values = { ...state.quantities }, code = state.authorizationCode.trim(), reason = state.reason.trim()
-  try { validate(selected, role, name, values, code, reason) } catch (error) { state.feedback = (error as Error).message; refreshOverlays(); return }
+  const selected = state.selected, name = state.actorName.trim(), values = { ...state.quantities }, code = state.authorizationCode.trim(), reason = state.reason.trim()
+  try { validate(selected, name, values, code, reason) } catch (error) { state.feedback = (error as Error).message; refreshOverlays(); return }
   state.busy = true; state.feedback = '正在确认成衣仓实际收货…'; refreshOverlays(); feedback()
   requestAnimationFrame(() => setTimeout(async () => {
     let submitted = false
     try {
       const current = getPostFinishingFullFlowOutboundOrder(selected.outboundOrderNo)
-      const quantities = validate(current, state.actorRole, state.actorName, values, code, reason)
-      if (role !== state.actorRole || name !== state.actorName.trim() || JSON.stringify(current!.lines.map(l => [l.sku.skuId, l.sku.skuCode, l.sku.qtyUnit, l.outboundQty])) !== JSON.stringify(selected.lines.map(l => [l.sku.skuId, l.sku.skuCode, l.sku.qtyUnit, l.outboundQty]))) throw new Error('收货身份或原出货数量已变化，请重新打开确认。')
+      const quantities = validate(current, state.actorName, values, code, reason)
+      if (name !== state.actorName.trim() || JSON.stringify(current!.lines.map(l => [l.sku.skuId, l.sku.skuCode, l.sku.qtyUnit, l.outboundQty])) !== JSON.stringify(selected.lines.map(l => [l.sku.skuId, l.sku.skuCode, l.sku.qtyUnit, l.outboundQty]))) throw new Error('收货人或原出货数量已变化，请重新打开确认。')
       const result = await runPostFinishingCommand(() => receivePostFinishingOutboundOrder({ outboundOrderNo: current!.outboundOrderNo, actor: { actorId: `WLS-GARMENT:${name}`, actorName: name, roleName: '成衣仓收货员' }, receivedQuantities: quantities, authorization: code ? { scanValue: code, differenceReason: reason } : undefined }))
       submitted = true
       const saved = getPostFinishingFullFlowOutboundOrder(current!.outboundOrderNo)
@@ -94,7 +93,7 @@ export function renderWlsFinishedInboundPage(): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(root())); state.selected = null; state.image = null; state.busy = false
   controller.installColumnDragEvents(); state.rows = listPostFinishingFullFlowOutboundOrders()
   const view = controller.getView()
-  return `<div data-wls-finished-inbound-root data-skip-page-rerender="true">${renderStandardListPage({ title: '成衣仓收货', primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-sm"><span>原型操作身份</span><select class="rounded border p-2" data-wls-finished-inbound-field="role"><option value="READONLY" ${state.actorRole === 'READONLY' ? 'selected' : ''}>只读查看</option><option value="GARMENT_RECEIVER" ${state.actorRole === 'GARMENT_RECEIVER' ? 'selected' : ''}>成衣仓收货员</option></select><input class="rounded border p-2" data-wls-finished-inbound-field="name" value="${escapeHtml(state.actorName)}" placeholder="实际收货人姓名"></div>`, feedbackHtml: `<p role="status" data-finished-inbound-feedback>${escapeHtml(state.feedback)}</p>`, filtersHtml: `<div class="flex gap-2"><input class="min-w-0 flex-1 rounded border p-2" data-wls-finished-inbound-field="keyword" value="${escapeHtml(state.keyword)}" placeholder="完整出货单号、生产单或SKU"><button class="rounded border px-3" ${action('query')}>查询</button><button class="rounded border px-3" ${action('reload')}>刷新记录</button></div>`, statsHtml: `<div data-finished-inbound-stats>${stats()}</div>`, listTitle: '原成衣仓出货单', listActionsHtml: `<button ${action('open-column-settings')}>列设置</button>`, tableHtml: `<div data-finished-inbound-table>${view.tableHtml}</div>`, paginationHtml: `<div data-finished-inbound-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-finished-inbound-overlays>${overlays()}</div>` })}</div>`
+  return `<div data-wls-finished-inbound-root data-skip-page-rerender="true">${renderStandardListPage({ title: '成衣仓收货', primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-sm"><label for="wls-finished-inbound-actor">实际收货人</label><input id="wls-finished-inbound-actor" class="rounded border p-2" data-wls-finished-inbound-field="name" value="${escapeHtml(state.actorName)}" placeholder="实际收货人姓名"></div>`, feedbackHtml: `<p role="status" data-finished-inbound-feedback>${escapeHtml(state.feedback)}</p>`, filtersHtml: `<div class="flex gap-2"><input class="min-w-0 flex-1 rounded border p-2" data-wls-finished-inbound-field="keyword" value="${escapeHtml(state.keyword)}" placeholder="完整出货单号、生产单或SKU"><button class="rounded border px-3" ${action('query')}>查询</button><button class="rounded border px-3" ${action('reload')}>刷新记录</button></div>`, statsHtml: `<div data-finished-inbound-stats>${stats()}</div>`, listTitle: '原成衣仓出货单', listActionsHtml: `<button ${action('open-column-settings')}>列设置</button>`, tableHtml: `<div data-finished-inbound-table>${view.tableHtml}</div>`, paginationHtml: `<div data-finished-inbound-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-finished-inbound-overlays>${overlays()}</div>` })}</div>`
 }
 export function closeWlsFinishedInboundOverlays(): boolean {
   if (!root() || (!state.selected && !state.image && !state.showColumnSettings)) return false
@@ -116,7 +115,6 @@ export function handleWlsFinishedInboundEvent(target: HTMLElement, event?: Event
     if (key === 'authorization') state.authorizationCode = field.value
     if (key === 'reason') state.reason = field.value
     if (key === 'pageSize' && event?.type === 'change') { controller.setPageSize(Number(field.value)); controller.refresh() }
-    if (key === 'role' && event?.type === 'change') { state.actorRole = field.value; state.selected = null; controller.refresh(); refreshOverlays() }
     return true
   }
   const node = target.closest<HTMLElement>('[data-wls-finished-inbound-action]'), name = node?.dataset.wlsFinishedInboundAction

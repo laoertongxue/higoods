@@ -382,6 +382,11 @@ export async function resolvePage(pathname: string): Promise<string> {
     const pda=washingEntry[1]==='pda/washing'
     return washingEntry[2]?pages.renderFabricWashingDetailPage(decodeURIComponent(washingEntry[2]),pda):pages.renderFabricWashingListPage(pda)
   }
+  if (normalizedPathname === '/fcs/craft/dyeing/pending-receipts' || normalizedPathname === '/fcs/craft/printing/pending-receipts') {
+    const pages = await import('../pages/process-factory/dyeing/pending-receipts.ts')
+    const { withWashingRecords } = await import('../data/fcs/fabric-washing-repository.ts')
+    return withWashingRecords(() => normalizedPathname.includes('/printing/') ? pages.renderPrintingPendingReceiptsPage() : pages.renderFactoryPendingReceiptsPage())
+  }
   const processWarehouse=/^\/fcs\/craft\/(dyeing|printing)\/wait-(process|handover)-warehouse$/.exec(normalizedPathname)
   if(processWarehouse){
     const pages=await import('./route-renderers-fcs')

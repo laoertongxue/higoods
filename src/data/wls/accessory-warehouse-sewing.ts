@@ -126,9 +126,10 @@ export async function prepareAccessorySewing(): Promise<void> {
 export async function createAccessorySewingPickups(input: { preparationId: string; commandId: string; at: string; actor: AccessoryWarehouseActor }): Promise<{ pickups: AccessoryPickup[]; postTransfers: AccessoryTransfer[] }> {
   const preparation = listAccessoryPreparations().find(row => row.id === input.preparationId)
   requireValue(preparation, '没有找到当前配料单。')
-  assertPreparation(preparation)
   const transfer = receivedForPreparation(preparation)
   requireActor(input.actor, transfer.toWarehouse!)
+  await migrateLegacySewingPickupSlips({ commandId: `${input.commandId}:legacy`, at: input.at, by: input.actor.name })
+  assertPreparation(preparation)
   const scopes = getAccessorySewingTaskScopes(preparation, transfer)
   const pickups: AccessoryPickup[] = [], postTransfers: AccessoryTransfer[] = [], puts: CuttingRecordChange['puts'] = []
   for (const scope of scopes) {
@@ -226,6 +227,8 @@ export function buildAccessorySewingHandover(input: { pickup: AccessoryPickup; s
 export async function confirmAccessorySewingPickup(input: { pickupId: string; versionId: string; entries: readonly { lineId: string; qty: number }[]; actor: AccessoryWarehouseActor; commandId: string; at: string }): Promise<SewingPickupHandoverResult> {
   const pickup = getAccessorySewingPickup(input.pickupId)
   requireValue(pickup, '领料清单不存在，请重新读取。')
+  requireActor(input.actor, pickup.warehouseCode)
+  await migrateLegacySewingPickupSlips({ commandId: `${input.commandId}:legacy`, at: input.at, by: input.actor.name })
   const { preparation, scope, context } = scopeForPickup(pickup)
   assertPreparation(preparation)
   const prior = results().find(row => row.commandId === input.commandId)

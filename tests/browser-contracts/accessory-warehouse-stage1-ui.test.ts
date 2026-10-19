@@ -69,7 +69,7 @@ async function withPage(name: string, run: (page: Page) => Promise<void>): Promi
 async function openGtp(page: Page): Promise<void> {
   await page.goto(base + gtpPath)
   await page.locator('[data-accessory-preparation-root]').waitFor()
-  await expect(page.locator('[data-accessory-preparation-root] tbody tr')).not.toHaveCount(0)
+  await expect(page.locator('[data-aw-preparation-card]')).not.toHaveCount(0)
 }
 async function queryGtp(page: Page, keyword: string, status = ''): Promise<void> {
   await page.locator('[data-accessory-field="keyword"]').fill(keyword)
@@ -78,7 +78,7 @@ async function queryGtp(page: Page, keyword: string, status = ''): Promise<void>
   // Leaf handlers load asynchronously; wait for the actual filtered rows before
   // choosing the next row action rather than racing the previous first page.
   const matching = (await readPreparations(page)).filter((row: any) => (!keyword || row.productionOrderNo.includes(keyword)) && (!status || row.status === status))
-  await expect(page.locator('[data-accessory-preparation-root] tbody tr')).toHaveCount(Math.min(10, matching.length))
+  await expect(page.locator('[data-aw-preparation-card]')).toHaveCount(Math.min(10, matching.length))
 }
 async function readPreparations(page: Page) {
   return page.evaluate(async () => {
@@ -117,7 +117,7 @@ test('GTP查询、部分登记、真实保存、备注和操作记录经刷新�
     const line = baseline.lines.find((row: any) => row.preparedQty === 0 && row.availableQty >= 5)!
     assert.ok(line)
     await queryGtp(page, baseline.productionOrderNo)
-    await expect(page.locator('[data-accessory-preparation-root] tbody tr')).toHaveCount(1)
+    await expect(page.locator('[data-aw-preparation-card]')).toHaveCount(1)
     await page.locator('[data-accessory-action="prepare"]').click()
     const dialog = page.getByRole('dialog', { name: '登记配料', exact: true })
     await expect(dialog).toBeVisible()
@@ -151,7 +151,7 @@ test('GTP查询、部分登记、真实保存、备注和操作记录经刷新�
     const refreshed = (await readPreparations(page)).find((row: any) => row.id === baseline.id)!
     assert.equal(refreshed.lines.find((row: any) => row.id === line.id)!.preparedQty, line.preparedQty + 5)
     assert.equal(refreshed.remark, '阶段一实际页面验收：先配 5 条，余量待配。')
-    await expect(page.locator('[data-accessory-preparation-root] tbody')).toContainText(refreshed.remark)
+    await expect(page.locator('[data-aw-preparation-card]')).toContainText(refreshed.remark)
     checks['gtp-preparation'] = { passed: true, preparationId: baseline.id, lineId: line.id, preparedBefore: line.preparedQty, preparedAfter: refreshed.lines.find((row: any) => row.id === line.id)!.preparedQty, history: refreshed.history, persisted: await readPersisted(page) }
   })
 })
@@ -173,12 +173,8 @@ test('GTP可用不足与未逐行配齐均阻断，真实保存失败保留输�
     await page.screenshot({ path: resolve(output, 'gtp-insufficient-stock.png'), fullPage: true })
     page.once('dialog', (confirmation) => confirmation.accept())
     await dialog.getByRole('button', { name: '关闭', exact: true }).click()
-    await page.locator('[data-accessory-action="complete"]').click()
-    const completion = page.getByRole('dialog', { name: '完成配齐', exact: true })
-    await completion.getByRole('button', { name: '确认配齐并建立调拨', exact: true }).click()
-    await expect(completion.locator('[data-aw-modal-error]')).toContainText('尚未逐行配齐')
+    await expect(page.locator('[data-accessory-action="complete"]')).toBeDisabled()
     assert.equal((await readPersisted(page)).records.length, 0)
-    await completion.getByRole('button', { name: '关闭', exact: true }).click()
 
     await queryGtp(page, 'PO-202603-0008')
     await page.locator('[data-accessory-action="prepare"]').click()
@@ -214,9 +210,9 @@ test('GTP导出覆盖全部筛选记录，列显示与冻结保存，图片大�
     await queryGtp(page, 'PO-202603', '待配料')
     const expected = (await readPreparations(page)).filter((row: any) => row.status === '待配料' && row.productionOrderNo.includes('PO-202603'))
     assert.ok(expected.length > 10)
-    await expect(page.locator('[data-accessory-preparation-root] tbody tr')).toHaveCount(10)
+    await expect(page.locator('[data-aw-preparation-card]')).toHaveCount(10)
     await page.locator('[data-accessory-action="next-page"]').click()
-    await expect(page.locator('[data-accessory-preparation-root] tbody tr')).toHaveCount(expected.length - 10)
+    await expect(page.locator('[data-aw-preparation-card]')).toHaveCount(expected.length - 10)
     await page.screenshot({ path: resolve(output, 'gtp-filtered-second-page.png'), fullPage: true })
     const downloadPromise = page.waitForEvent('download')
     await page.locator('[data-accessory-action="export"]').click()
@@ -224,54 +220,54 @@ test('GTP导出覆盖全部筛选记录，列显示与冻结保存，图片大�
     const csvPath = resolve(output, 'gtp-filtered-export.csv')
     await download.saveAs(csvPath)
     const csv = await readFile(csvPath, 'utf8')
-    assert.equal(csv.trim().split(/\r?\n/).length, expected.length + 1)
+    assert.equal(csv.trim().split(/\r?\n/).length, expected.reduce((sum: number, row: any) => sum + row.lines.length, 0) + 1)
     assert.ok(expected.every((row: any) => csv.includes(row.productionOrderNo)))
     assert.ok(!csv.split(/\r?\n/)[0].includes('操作'))
     await page.locator('[data-accessory-action="prev-page"]').click()
-    await expect(page.locator('[data-accessory-preparation-root] tbody tr')).toHaveCount(10)
+    await expect(page.locator('[data-aw-preparation-card]')).toHaveCount(10)
 
     await page.locator('[data-accessory-action="open-column-settings"]').click()
-    const factorySetting = page.locator('[data-accessory-column-key="factory"]')
+    const factorySetting = page.locator('[data-accessory-column-key="source"]')
     await factorySetting.getByRole('checkbox', { name: '显示', exact: true }).uncheck()
-    await page.locator('[data-accessory-column-key="order"]').getByRole('checkbox', { name: '冻结', exact: true }).check()
+    await page.locator('[data-accessory-column-key="material"]').getByRole('checkbox', { name: '冻结', exact: true }).check()
     await page.locator('[data-accessory-action="close-column-settings"]').first().click()
-    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="factory"]')).toHaveCount(0)
-    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="order"]')).toHaveClass(/sticky/)
+    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="source"]')).toHaveCount(0)
+    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="material"]').first()).toHaveClass(/sticky/)
     await page.reload()
     await page.locator('[data-accessory-preparation-root]').waitFor()
-    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="factory"]')).toHaveCount(0)
-    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="order"]')).toHaveClass(/sticky/)
+    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="source"]')).toHaveCount(0)
+    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="material"]').first()).toHaveClass(/sticky/)
 
     await page.locator('[data-accessory-action="open-column-settings"]').click()
-    await page.locator('[data-standard-list-column-key="remark"]').dragTo(page.locator('[data-standard-list-column-key="factory"]'), {
+    await page.locator('[data-standard-list-column-key="required"]').dragTo(page.locator('[data-standard-list-column-key="source"]'), {
       sourcePosition: { x: 18, y: 24 }, targetPosition: { x: 60, y: 24 },
     })
     await expect.poll(async () => page.locator('[data-standard-list-column-key]').evaluateAll((nodes) => {
       const keys = nodes.map((node) => (node as HTMLElement).dataset.standardListColumnKey)
-      return keys.indexOf('remark') < keys.indexOf('factory')
+      return keys.indexOf('required') < keys.indexOf('source')
     })).toBe(true)
     const preferenceBeforeReload = await page.evaluate(() => localStorage.getItem('/wls/accessory-warehouses/gtp/preparation:list-columns'))
     await page.locator('[data-accessory-action="close-column-settings"]').first().click()
     await page.reload()
     await page.locator('[data-accessory-preparation-root]').waitFor()
     await page.locator('[data-accessory-action="open-column-settings"]').click()
-    await page.locator('[data-standard-list-column-key="remark"]').waitFor()
+    await page.locator('[data-standard-list-column-key="required"]').waitFor()
     const reordered = await page.locator('[data-standard-list-column-key]').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.standardListColumnKey))
-    assert.ok(reordered.indexOf('remark') < reordered.indexOf('factory'), JSON.stringify({ preferenceBeforeReload, preferenceAfterReload: await page.evaluate(() => localStorage.getItem('/wls/accessory-warehouses/gtp/preparation:list-columns')), reordered }))
+    assert.ok(reordered.indexOf('required') < reordered.indexOf('source'), JSON.stringify({ preferenceBeforeReload, preferenceAfterReload: await page.evaluate(() => localStorage.getItem('/wls/accessory-warehouses/gtp/preparation:list-columns')), reordered }))
     await page.locator('[data-accessory-action="restore-column-settings"]').click()
     await page.locator('[data-accessory-action="close-column-settings"]').first().click()
-    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="factory"]')).toHaveCount(1)
-    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="order"]')).not.toHaveClass(/sticky/)
+    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="source"]').first()).toBeVisible()
+    await expect(page.locator('[data-accessory-preparation-root] th[data-column-key="material"]').first()).toHaveClass(/sticky/)
 
     // Demo style images may differ from the style name per the user's explicit
     // decision. Every production-order style must still have a working image.
     await page.locator('[data-accessory-field="pageSize"]').selectOption('50')
     const allRows = await readPreparations(page)
-    await expect(page.locator('[data-accessory-preparation-root] tbody tr')).toHaveCount(allRows.length)
+    await expect(page.locator('[data-aw-preparation-card]')).toHaveCount(allRows.length)
     const styleImages: Array<{ productionOrderNo: string; imageUrl: string | null }> = []
     for (let index = 0; index < allRows.length; index++) {
-      const row = page.locator('[data-accessory-preparation-root] tbody tr').nth(index)
-      const imageButton = row.locator('[data-accessory-action="image"]')
+      const row = page.locator('[data-aw-preparation-card]').nth(index)
+      const imageButton = row.locator('[data-accessory-action="image"]').first()
       await imageButton.scrollIntoViewIfNeeded()
       const imageUrl = await imageButton.getAttribute('data-image')
       assert.ok(imageUrl, `style image required for ${allRows[index].productionOrderNo}`)

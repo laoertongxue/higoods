@@ -5,6 +5,19 @@ import { routeAffectedChecks } from '../../scripts/workflow-governance/affected-
 import { verificationCheckEnvironment } from '../../scripts/workflow-governance/check-execution.ts'
 import { isProductionCreateImportOnly } from '../../scripts/workflow-governance/production-create-test-import.ts'
 
+test('退役维护UI验证删除与存续业务契约，性能脚本语法不冒充正式性能', () => {
+  const retired = routeAffectedChecks(['tests/browser-contracts/accessory-full-backup-ui.test.ts'])
+  assert.deepEqual(retired.unknownPaths, [])
+  assert.deepEqual(retired.fastChecks, ["test ! -e 'tests/browser-contracts/accessory-full-backup-ui.test.ts'"])
+  assert.ok(retired.fullChecks.includes('node --import tsx scripts/check-accessory-warehouse-browser-contracts.ts'))
+  const performance = routeAffectedChecks(['scripts/check-gtp-online-performance.mjs'])
+  assert.deepEqual(performance.unknownPaths, [])
+  assert.deepEqual(performance.fastChecks, ["node --check 'scripts/check-gtp-online-performance.mjs'"])
+  assert.deepEqual(performance.fullChecks, [])
+  assert.ok(routeAffectedChecks(['tests/material-decision.spec.ts']).fullChecks[0]?.includes('playwright test tests/material-decision.spec.ts'))
+  assert.deepEqual(routeAffectedChecks(['scripts/unknown-performance.mjs']).unknownPaths, ['scripts/unknown-performance.mjs'])
+})
+
 test('生产建单与冻结独立Node专项精确路由，未知脚本不获得豁免', () => {
   for (const path of ['tests/fcs-demand-to-order-current-tech-pack.spec.ts', 'tests/fcs-production-tech-pack-snapshot-freeze.spec.ts']) {
     const result = routeAffectedChecks([path])

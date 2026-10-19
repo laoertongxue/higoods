@@ -19,7 +19,7 @@ interface StockRow { id: string; stock?: AccessoryStock; transfer?: AccessoryTra
 const prefix = 'accessory-transfer'
 let key: AccessoryWarehouseKey = 'gtp', view: View = 'transfers', mountedPath = ''
 let keyword = '', status = '', stockMode = 'warehouse', page = 1, pageSize = 10
-let queryDraft = '', statusDraft = '', role: AccessoryWarehouseActor['role'] = '仓管'
+let queryDraft = '', statusDraft = ''
 let modal: Modal | null = null, dirty = false, busy = false, error = '', feedback = ''
 let drafts = new Map<string, string>()
 let pending: Parameters<typeof saveAccessoryWarehouseAction<AccessoryTransfer>>[0] | null = null
@@ -42,8 +42,8 @@ function route(transfer: AccessoryTransfer): string { return `${warehouseName(tr
 function quantities(transfer: AccessoryTransfer): string {
   return [...new Set(transfer.lines.map(line => line.unit))].map(unit => qty(transfer.lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.qty, 0), unit)).join('<br>')
 }
-function canDispatch(transfer: AccessoryTransfer): boolean { return role === '仓管' && transfer.fromWarehouse === warehouse().code && transfer.status === '待出库' && Boolean(transfer.toWarehouse) }
-function canReceive(row: TransferRow): boolean { return role === '仓管' && row.receipt?.warehouseCode === warehouse().code && row.receipt.status === '待收货' && row.transfer.toWarehouse === warehouse().code && row.transfer.status === '已出库待收货' }
+function canDispatch(transfer: AccessoryTransfer): boolean { return transfer.fromWarehouse === warehouse().code && transfer.status === '待出库' && Boolean(transfer.toWarehouse) }
+function canReceive(row: TransferRow): boolean { return row.receipt?.warehouseCode === warehouse().code && row.receipt.status === '待收货' && row.transfer.toWarehouse === warehouse().code && row.transfer.status === '已出库待收货' }
 function filteredTransfers(): TransferRow[] {
   const all = transfers(), prepared = preparations()
   const rows: TransferRow[] = view === 'receipts'
@@ -94,8 +94,7 @@ function renderWorkspace(): string {
   const options = view === 'transfers' ? ['待定调入方', '待出库', '已出库待收货', '已收货', '已作废'] : ['待收货', '已收货', '已取消']
   return renderStandardListPage({
     title: `${current.name} · ${title}`,
-    primaryActionsHtml: `<label class="flex items-center gap-2 text-sm">演示角色<select class="h-9 rounded border px-2" data-${prefix}-field="role"><option ${role === '仓管' ? 'selected' : ''}>仓管</option><option ${role === 'PPIC' ? 'selected' : ''}>PPIC</option></select></label>`,
-    feedbackHtml: `${feedback ? `<p role="status" class="rounded border border-green-200 bg-green-50 p-3 text-sm">${escapeHtml(feedback)}</p>` : ''}${role === 'PPIC' ? '<p class="text-sm text-muted-foreground">PPIC 可查看，本仓仓管确认实物交接。</p>' : ''}`,
+    feedbackHtml: feedback ? `<p role="status" class="rounded border border-green-200 bg-green-50 p-3 text-sm">${escapeHtml(feedback)}</p>` : '',
     filtersHtml: renderStandardListFilters({ actionPrefix: prefix, fieldsHtml: `<label class="grid gap-1 text-sm">${view === 'stock' ? '物料 / 库位 / 生产单' : '生产单 / 款式 / 物料'}<input class="h-9 rounded border px-3" data-${prefix}-field="keyword" value="${escapeHtml(queryDraft)}"></label>${view === 'stock' ? `<label class="grid gap-1 text-sm">库存范围<select class="h-9 rounded border px-3" data-${prefix}-field="stockMode"><option value="warehouse" ${stockMode === 'warehouse' ? 'selected' : ''}>在仓库存</option><option value="transit" ${stockMode === 'transit' ? 'selected' : ''}>在途辅料</option></select></label>` : `<label class="grid gap-1 text-sm">状态<select class="h-9 rounded border px-3" data-${prefix}-field="status"><option value="">全部</option>${options.map(value => `<option ${statusDraft === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label>`}` }),
     statsHtml: renderStandardListStats(view === 'stock' ? [{ label: stockMode === 'transit' ? '筛选在途明细' : '筛选库存明细', value: rows.length }, { label: '数量单位', value: new Set((rows as StockRow[]).map(row => row.stock?.unit || row.line?.unit)).size }] : [{ label: '筛选调拨单', value: rows.length }, { label: '待办理', value: (rows as TransferRow[]).filter(row => view === 'receipts' ? row.receipt?.status === '待收货' && row.transfer.status === '已出库待收货' : row.transfer.status === '待出库').length }, { label: '在途', value: (rows as TransferRow[]).filter(row => row.transfer.status === '已出库待收货').length }]),
     listTitle: view === 'stock' ? (stockMode === 'transit' ? '已出库待收货的辅料' : '仓内实物与预留') : title,
@@ -128,7 +127,7 @@ function clearModal(): void { modal = null; drafts.clear(); dirty = false; error
 function closeModal(): void { if (busy || (dirty && !window.confirm('收发货输入尚未保存。关闭将丢弃这些输入，是否关闭？'))) return; clearModal() }
 function openModal(value: Modal): void {
   if (busy) return
-  modal = value; drafts = new Map([['actor', `${warehouse().name}仓管（演示）`]]); dirty = false; pending = null; error = ''; refreshModal(); focusAccessoryOverlay()
+  modal = value; drafts = new Map([['actor', `${warehouse().name}仓管`]]); dirty = false; pending = null; error = ''; refreshModal(); focusAccessoryOverlay()
 }
 function showError(value: unknown): void { error = value instanceof Error ? value.message : String(value); const node = root()?.querySelector('[data-aw-transfer-error]'); if (node) node.textContent = error }
 async function save(): Promise<void> {
@@ -137,10 +136,10 @@ async function save(): Promise<void> {
     if (!pending) {
       const transfer = transfers().find(item => item.id === modal?.transferId)
       if (!transfer) throw new Error('调拨单已变化，请重新读取。')
-      const actor: AccessoryWarehouseActor = { role, warehouseCode: warehouse().code, name: drafts.get('actor')?.trim() || '' }
+      const actor: AccessoryWarehouseActor = { role: '仓管', warehouseCode: warehouse().code, name: drafts.get('actor')?.trim() || '' }
       const commandId = crypto.randomUUID(), at = new Date().toISOString()
       if (modal.type === 'dispatch') {
-        if (!canDispatch(transfer)) throw new Error('当前角色、发出仓或调拨状态不允许确认出库。')
+        if (!canDispatch(transfer)) throw new Error('当前发出仓或调拨状态不允许确认出库。')
         const result = buildAccessoryDispatchChange({ transfer, stocks: stocks(), actor, commandId, at })
         pending = { commandId, intent: `dispatch:${transfer.id}`, result: result.transfer, change: result.change }
       } else {
@@ -164,7 +163,7 @@ async function save(): Promise<void> {
 
 export function renderAccessoryTransfersPage(warehouseKey: AccessoryWarehouseKey, requestedView: View): string {
   const path = typeof window === 'undefined' ? '' : window.location.pathname + window.location.search
-  if (key !== warehouseKey || view !== requestedView || mountedPath !== path) { key = warehouseKey; view = requestedView; page = 1; pageSize = 10; keyword = ''; queryDraft = ''; status = ''; statusDraft = ''; stockMode = 'warehouse'; role = '仓管'; modal = null; drafts.clear(); pending = null; dirty = false; feedback = '' }
+  if (key !== warehouseKey || view !== requestedView || mountedPath !== path) { key = warehouseKey; view = requestedView; page = 1; pageSize = 10; keyword = ''; queryDraft = ''; status = ''; statusDraft = ''; stockMode = 'warehouse'; modal = null; drafts.clear(); pending = null; dirty = false; feedback = '' }
   mountedPath = path
   return `<div data-accessory-transfer-root="${warehouseKey}" data-accessory-transfer-view="${requestedView}" data-skip-page-rerender="true"><div data-aw-transfer-workspace>${renderWorkspace()}</div><div data-aw-transfer-modal>${renderModal()}</div><div data-aw-transfer-image></div></div>`
 }
@@ -181,7 +180,6 @@ export function handleAccessoryTransferEvent(target: HTMLElement, event?: Event)
     const name = field.dataset.accessoryTransferField
     if (name === 'keyword') queryDraft = field.value
     if (name === 'status') statusDraft = field.value
-    if (name === 'role' && event?.type === 'change') { role = field.value === 'PPIC' ? 'PPIC' : '仓管'; refreshWorkspace() }
     if (name === 'stockMode' && event?.type === 'change') { stockMode = field.value === 'transit' ? 'transit' : 'warehouse'; page = 1; refreshWorkspace() }
     if (name === 'pageSize' && event?.type === 'change') { pageSize = [10, 20, 50].includes(Number(field.value)) ? Number(field.value) : 10; page = 1; refreshWorkspace() }
     return true
@@ -204,7 +202,7 @@ export function handleAccessoryTransferEvent(target: HTMLElement, event?: Event)
   if (action === 'save') { void save(); return true }
   const transfer = transfers().find(item => item.id === node.dataset.id)
   if (action === 'detail' && transfer) { openModal({ type: 'detail', transferId: transfer.id }); return true }
-  if (action === 'dispatch') { if (!transfer || !canDispatch(transfer)) { feedback = '当前角色、发出仓或调拨状态不允许确认出库。'; refreshWorkspace(); return true }; openModal({ type: 'dispatch', transferId: transfer.id }); return true }
+  if (action === 'dispatch') { if (!transfer || !canDispatch(transfer)) { feedback = '当前发出仓或调拨状态不允许确认出库。'; refreshWorkspace(); return true }; openModal({ type: 'dispatch', transferId: transfer.id }); return true }
   if (action === 'receive') {
     const receipt = receipts().find(item => item.id === node.dataset.id), receiving = transfers().find(item => item.id === receipt?.transferId)
     if (!receipt || !receiving || !canReceive({ id: receipt.id, receipt, transfer: receiving })) { feedback = '当前接收事项已失效、已取消或不属于本仓。'; refreshWorkspace(); return true }

@@ -1,3 +1,9 @@
+/**
+ * Current accessory-flow UI performance collector. Retired local-data,
+ * migration, backup/restore and transfer-cutover controls are not UI families.
+ * Their data-protection contracts remain in the migration/records tests;
+ * removing the controls does not mark those contracts or timings as passed.
+ */
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -37,9 +43,6 @@ const indexSha = sha('dist/index.html'),
 const save = () => fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(report, null, 2))
 const readFixture = (file) => JSON.parse(fs.readFileSync(file, 'utf8'))
 const fixtures = {
-  gtpLegacy: readFixture('tests/fixtures/accessory-warehouse/gtpLegacy.json'),
-  sewingLegacy: readFixture('tests/fixtures/accessory-warehouse/sewingLegacy.json'),
-  postLegacy: readFixture('tests/fixtures/accessory-warehouse/postLegacy.json'),
   sew: readFixture('tests/fixtures/accessory-warehouse/sew.json'),
   mixed: readFixture('tests/fixtures/accessory-warehouse/mixed.json'),
   post: readFixture('tests/fixtures/accessory-warehouse/post.json'),
@@ -80,9 +83,7 @@ report.fixtureDigests = Object.fromEntries(
     createHash('sha256').update(JSON.stringify(value)).digest('hex'),
   ]),
 )
-let iteration = 0,
-  browser,
-  lastBackup
+let iteration = 0, browser
 async function ready(page, predicate) {
   if (typeof predicate === 'string') await page.locator(predicate).first().waitFor({ state: 'visible' })
   else await predicate()
@@ -405,6 +406,7 @@ async function db(page) {
 const rows = (s, k) => s.records.filter((r) => r.collection === `accessory-warehouse:${k}`).map((r) => r.value)
 const gtp = '/wls/accessory-warehouses/gtp/preparation',
   root = '[data-accessory-preparation-root]',
+  card = `${root} [data-aw-preparation-card]`,
   a = (n) => `[data-accessory-action="${n}"]`,
   t = (n) => `[data-accessory-transfer-action="${n}"]`,
   trRoot = '[data-accessory-transfer-root]'
@@ -414,7 +416,7 @@ const query = async (page, order) => {
     page,
     'GTP查询',
     () => page.locator(a('query')).click(),
-    () => expect(page.locator(`${root} tbody tr`)).toHaveCount(1),
+    () => expect(page.locator(card)).toHaveCount(1),
   )
 }
 async function close(page, name = 'GTP弹窗关闭') {
@@ -540,21 +542,6 @@ async function gtpFlow(page, order = 'PO-AW-202610-F02', exerciseFailure = true)
       if (!(await d.path())) throw Error('download unavailable')
     },
   )
-  await action(page, 'GTP本机资料打开', () => page.locator(a('data')).click(), '[data-aw-backup]')
-  const backup = page.waitForEvent('download')
-  await action(
-    page,
-    'GTP完整备份下载',
-    () => page.locator(a('export-backup')).click(),
-    async () => {
-      const d = await backup
-      const content = JSON.parse(fs.readFileSync(await d.path(), 'utf8'))
-      lastBackup = Buffer.from(JSON.stringify(content))
-      if (!content.records?.some((x) => x.collection === 'accessory-warehouse:transfer'))
-        throw Error('backup lacks transfer')
-    },
-  )
-  await close(page)
   return rows(await db(page), 'transfer').find((x) => x.productionOrderId === order && x.kind === 'GTP_TO_SITE')
 }
 async function transferPage(page, key, view, order) {
@@ -818,28 +805,6 @@ async function sewingFlow(exerciseFailure = true) {
       },
     )
     await page.screenshot({ path: path.join(out, `sewing-${iteration}.png`), fullPage: true })
-    if (!exerciseFailure) {
-      await page.goto(base + gtp)
-      await page.locator(root).waitFor()
-      await page.locator(a('data')).click()
-      const downloaded = page.waitForEvent('download')
-      await action(
-        page,
-        '任务及实交几十行完整备份下载',
-        () => page.locator(a('export-backup')).click(),
-        async () => {
-          const download = await downloaded
-          lastBackup = fs.readFileSync(await download.path())
-          const data = JSON.parse(lastBackup.toString('utf8'))
-          if (
-            data.records.length + data.dependencies.length < 30 ||
-            !data.records.some((x) => x.collection === 'accessory-warehouse:sewing-result')
-          )
-            throw Error('backup does not include actual task and handover')
-          fs.writeFileSync(path.join(out, `task-full-backup-${iteration}.json`), lastBackup)
-        },
-      )
-    }
   } finally {
     await c.close()
   }
@@ -961,7 +926,7 @@ async function utilityFlow() {
       page,
       'GTP翻页下一页',
       () => page.locator(a('next-page')).click(),
-      () => expect(page.locator(`${root} tbody`)).not.toContainText('PO-AW-202610-F01'),
+      () => expect(page.locator(`${card}[data-production-order-no="PO-AW-202610-F01"]`)).toHaveCount(0),
     )
     await action(
       page,
@@ -978,22 +943,22 @@ async function utilityFlow() {
     await action(
       page,
       'GTP列显隐',
-      () => page.locator(`[data-accessory-column-key="remark"] ${a('toggle-column-visibility')}`).uncheck(),
-      () => expect(page.locator(`${root} th`).filter({ hasText: '备注' })).toHaveCount(0),
+      () => page.locator(`[data-accessory-column-key="source"] ${a('toggle-column-visibility')}`).uncheck(),
+      () => expect(page.locator(card).first().getByRole('columnheader', { name: '来源', exact: true })).toHaveCount(0),
       { type: 'change' },
     )
     await action(
       page,
       'GTP列冻结',
-      () => page.locator(`[data-accessory-column-key="order"] ${a('toggle-column-freeze')}`).check(),
-      () => expect(page.locator(`[data-accessory-column-key="order"] ${a('toggle-column-freeze')}`)).toBeChecked(),
+      () => page.locator(`[data-accessory-column-key="required"] ${a('toggle-column-freeze')}`).check(),
+      () => expect(page.locator(`[data-accessory-column-key="required"] ${a('toggle-column-freeze')}`)).toBeChecked(),
       { type: 'change' },
     )
     await action(
       page,
       'GTP列设置恢复',
       () => page.locator(a('restore-column-settings')).click(),
-      () => expect(page.locator(`${root} th`).filter({ hasText: '备注' })).toHaveCount(1),
+      () => expect(page.locator(card).first().getByRole('columnheader', { name: '来源', exact: true })).toHaveCount(1),
     )
     await action(
       page,
@@ -1013,7 +978,10 @@ async function utilityFlow() {
       page,
       'GTP部分配料保存',
       () => page.locator(a('save-preparation')).click(),
-      () => expect(page.getByRole('dialog')).toHaveCount(0),
+      async () => {
+        await expect(page.getByRole('dialog')).toHaveCount(0)
+        await expect(page.locator(a('complete'))).toBeDisabled()
+      },
       {
         durable: async () => {
           const x = await db(page)
@@ -1024,22 +992,9 @@ async function utilityFlow() {
     )
     await action(
       page,
-      'GTP完成配齐核对打开',
-      () => page.locator(a('complete')).click(),
-      () => expect(page.getByRole('dialog', { name: '完成配齐', exact: true })).toBeVisible(),
-    )
-    await action(
-      page,
-      'GTP未齐完成阻断',
-      () => page.locator(a('save-complete')).click(),
-      () => expect(page.locator('[data-aw-modal-error]')).not.toBeEmpty(),
-    )
-    await close(page, 'GTP完成核对取消')
-    await action(
-      page,
       'GTP重置筛选',
       () => page.locator(a('reset')).click(),
-      () => expect(page.locator(`${root} tbody tr`)).toHaveCount(10),
+      () => expect(page.locator(card)).toHaveCount(10),
     )
     const menu = page.locator('aside [data-menu-group-header="辅料中央仓（GTP）管理"]')
     if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click()
@@ -1119,211 +1074,6 @@ async function pendingFlow() {
     await nav(page, '待定GTP输入进入', gtp, root)
     await gtpFlow(page, 'PO-AW-202610-F03')
     await reassign(page, 'PO-AW-202610-F03', 'SEA-CUTTING-001', '待定后分配', true)
-  } finally {
-    await c.close()
-  }
-}
-async function cutoverFlow() {
-  const source = readFixture('tests/fixtures/accessory-warehouse/cutover.json').snapshot
-  const fixture = {
-    databases: [
-      {
-        name: 'higood-cutting-records-v1',
-        version: 1,
-        stores: {
-          records: source.records,
-          commands: source.commands,
-          meta: [{ id: 'revision', value: source.revision }],
-          files: [],
-        },
-      },
-    ],
-  }
-  const { c, page } = await context(fixture)
-  try {
-    await nav(page, '历史配齐切换进入', gtp, root)
-    await action(
-      page,
-      '历史切换本机资料打开',
-      () => page.locator(a('data')).click(),
-      () => expect(page.locator(a('transfer-cutover'))).toBeVisible(),
-    )
-    await action(
-      page,
-      '历史配齐显式补建',
-      () => page.locator(a('transfer-cutover')).click(),
-      () => expect(page.locator(a('transfer-cutover'))).toHaveCount(0),
-      {
-        durable: async () => {
-          if (rows(await db(page), 'transfer').length !== 2) throw Error('cutover result missing')
-        },
-      },
-    )
-  } finally {
-    await c.close()
-  }
-}
-
-async function restoreFlow(label = '') {
-  if (!lastBackup) throw Error('Run GTP export before restore performance')
-  const { c, page } = await context()
-  try {
-    await nav(page, '空环境恢复进入', gtp, root)
-    await page.locator(a('data')).click()
-    await page.locator('[data-aw-backup]').waitFor()
-    await page
-      .locator('[data-aw-backup]')
-      .setInputFiles({ name: '完整辅料备份.json', mimeType: 'application/json', buffer: lastBackup })
-    const backup = JSON.parse(lastBackup.toString('utf8'))
-    await action(
-      page,
-      `${label}完整备份空环境恢复`,
-      () => page.locator(a('restore-backup')).click(),
-      () => expect(page.locator(a('restore-backup'))).toHaveCount(0),
-      {
-        durable: async () => {
-          const actual = await db(page)
-          if (
-            actual.records.filter((x) => x.collection.startsWith('accessory-warehouse:')).length !==
-            backup.records.length
-          )
-            throw Error('restore records incomplete')
-        },
-      },
-    )
-    await page
-      .locator('[data-aw-backup]')
-      .setInputFiles({ name: '同一合法备份.json', mimeType: 'application/json', buffer: lastBackup })
-    const beforeReject = await db(page)
-    await action(
-      page,
-      `${label}合法备份非空目标拒绝`,
-      () => page.locator(a('restore-backup')).click(),
-      () => expect(page.locator('[data-aw-modal-error]')).toContainText('非空'),
-      {
-        durable: async () => {
-          if (JSON.stringify(await db(page)) !== JSON.stringify(beforeReject)) throw Error('nonempty target changed')
-        },
-      },
-    )
-    await page
-      .locator('[data-aw-backup]')
-      .setInputFiles({ name: '坏备份.json', mimeType: 'application/json', buffer: Buffer.from('{bad') })
-    await action(
-      page,
-      '错误备份恢复阻断',
-      () => page.locator(a('restore-backup')).click(),
-      () => expect(page.locator('[data-aw-modal-error]')).toContainText('无法解析'),
-    )
-  } finally {
-    await c.close()
-  }
-}
-
-async function migrationFlow(kind, resume = false) {
-  const data = fixtures[kind + 'Legacy'],
-    { c, page } = await context(data, { width: 1024, height: 768 })
-  try {
-    const g = kind === 'gtp',
-      sew = kind === 'sewing',
-      route = g
-        ? gtp
-        : sew
-          ? '/wls/accessory-warehouses/hilon/pickups'
-          : '/fcs/craft/post-finishing/material-transfers',
-      selector = g ? root : sew ? '[data-accessory-pickup-root]' : '[data-post-material-workspace]'
-    await nav(page, `${kind}旧资料迁移首次直达`, route, selector)
-    if (g) await page.locator(a('data')).click()
-    const migrate = g
-      ? a('migrate-data')
-      : sew
-        ? '[data-accessory-pickup-action="migrate"]'
-        : '[data-post-finishing-material-transfers-action="migrate"]'
-    await page.locator(migrate).waitFor()
-    if (resume) {
-      await page.evaluate(() => {
-        window.__awOrigPut = IDBObjectStore.prototype.put
-        IDBObjectStore.prototype.put = function (value, ...args) {
-          if (
-            this.name === 'records' &&
-            value.collection === 'accessory-warehouse:migration' &&
-            value.value?.phase === 'COMPLETE'
-          )
-            throw new DOMException('perf-resume-interrupt', 'QuotaExceededError')
-          return window.__awOrigPut.call(this, value, ...args)
-        }
-      })
-      await action(
-        page,
-        `${kind}旧资料完成标记事务中止`,
-        () => page.locator(migrate).click(),
-        () => expect(page.locator(g ? '[data-aw-modal-error]' : selector)).toContainText('perf-resume-interrupt'),
-        {
-          durable: async () => {
-            const snapshot = await db(page)
-            if (!rows(snapshot, 'migration').some((row) => ['COPIED', 'VERIFIED'].includes(row.phase)))
-              throw Error('no durable progress')
-          },
-        },
-      )
-      await page.evaluate(() => {
-        IDBObjectStore.prototype.put = window.__awOrigPut
-      })
-    }
-    await action(
-      page,
-      resume ? `${kind}旧资料中断续办` : `${kind}旧资料显式迁移`,
-      () => page.locator(migrate).click(),
-      () => expect(page.locator(migrate)).toHaveCount(0),
-      {
-        durable: async () => {
-          const s = await db(page)
-          if (!rows(s, 'migration').some((x) => x.phase === 'COMPLETE')) throw Error('migration not complete')
-        },
-      },
-    )
-    if (!g && sew) {
-      await page.goto(base + gtp)
-      await page.locator(root).waitFor()
-      await page.locator(a('data')).click()
-    }
-    const backup = g || sew ? a('export-backup') : '[data-post-finishing-material-transfers-action="backup"]',
-      download = page.waitForEvent('download')
-    await action(
-      page,
-      `${kind}旧资料备份下载`,
-      () => page.locator(backup).click(),
-      async () => {
-        const d = await download,
-          bytes = fs.readFileSync(await d.path())
-        if (!bytes.length) throw Error('empty backup')
-        const parsed = JSON.parse(bytes.toString('utf8'))
-        if (resume && kind === 'post') {
-          if (parsed.format !== 'accessory-post-legacy-scope' || !parsed.files?.length)
-            throw Error('legacy source attachment backup missing')
-          fs.writeFileSync(path.join(out, `legacy-source-backup-${iteration}.json`), bytes)
-        }
-      },
-    )
-    if (resume && kind === 'post') {
-      await page.goto(base + gtp)
-      await page.locator(root).waitFor()
-      await page.locator(a('data')).click()
-      const event = page.waitForEvent('download')
-      await action(
-        page,
-        '含旧附件统一完整备份下载',
-        () => page.locator(a('export-backup')).click(),
-        async () => {
-          const download = await event
-          lastBackup = fs.readFileSync(await download.path())
-          const parsed = JSON.parse(lastBackup.toString('utf8'))
-          if (parsed.format !== 'higood-accessory-warehouse-backup' || !parsed.files?.length)
-            throw Error('unified backup lacks archived Blob')
-          fs.writeFileSync(path.join(out, `legacy-blob-backup-${iteration}.json`), lastBackup)
-        },
-      )
-    }
   } finally {
     await c.close()
   }
@@ -1444,25 +1194,10 @@ const supplementalExpected = {
     '六物料收货晚事务失败',
     '六物料收货晚失败重试保存',
     '车缝首次实交保存',
-    '任务及实交几十行完整备份下载',
-    '任务及实交几十行完整备份空环境恢复',
-    '任务及实交几十行合法备份非空目标拒绝',
     '后道Web首次整单收货上架保存',
     '后道PDA首次整单收货上架保存',
   ],
-  recovery: [
-    'gtp旧资料完成标记事务中止',
-    'gtp旧资料中断续办',
-    'sewing旧资料完成标记事务中止',
-    'sewing旧资料中断续办',
-    'post旧资料完成标记事务中止',
-    'post旧资料中断续办',
-    '含旧附件统一完整备份下载',
-    '含旧附件完整备份空环境恢复',
-    '含旧附件合法备份非空目标拒绝',
-    '辅料读取故障页面直达',
-    '读取故障重新读取恢复',
-  ],
+  'read-recovery': ['辅料读取故障页面直达', '读取故障重新读取恢复'],
   mixed: [
     '含裁剪合并任务领料首次',
     '合并任务建立领料',
@@ -1474,6 +1209,12 @@ const supplementalExpected = {
 async function main() {
   const count = Number(process.env.AW_PERF_ITERATIONS || 5),
     groups = (process.env.AW_PERF_GROUPS || 'gtp,sew,post-web,post-pda').split(',')
+  const supportedGroups = new Set([
+    'first-success', 'gtp', 'sew', 'post-web', 'post-pda', 'basic', 'utility',
+    'pending', 'read-recovery', 'loads', 'mixed', 'extras',
+  ])
+  for (const group of groups)
+    if (!supportedGroups.has(group)) throw Error(`Unknown or retired UI performance group: ${group}`)
   report.selectedGroups = groups
   report.expectedSupplemental = groups.flatMap((group) => supplementalExpected[group] || [])
   for (iteration = 1; iteration <= count; iteration++) {
@@ -1508,7 +1249,6 @@ async function main() {
           await initial.c.close()
         }
         await sewingFlow(false)
-        await restoreFlow('任务及实交几十行')
         await postFlow(false, false)
         await postFlow(true, false)
       }
@@ -1537,17 +1277,6 @@ async function main() {
       if (groups.includes('basic')) await basicFlow()
       if (groups.includes('utility')) await utilityFlow()
       if (groups.includes('pending')) await pendingFlow()
-      if (groups.includes('cutover')) await cutoverFlow()
-      if (groups.includes('restore')) await restoreFlow()
-      if (groups.includes('gtp-legacy')) await migrationFlow('gtp')
-      if (groups.includes('sewing-legacy')) await migrationFlow('sewing')
-      if (groups.includes('post-legacy')) await migrationFlow('post')
-      if (groups.includes('recovery')) {
-        for (const kind of (process.env.AW_PERF_RECOVERY_KINDS || 'gtp,sewing,post').split(','))
-          await migrationFlow(kind, true)
-        await restoreFlow('含旧附件')
-        await recoveryFlow()
-      }
       if (groups.includes('read-recovery')) await recoveryFlow()
       if (groups.includes('loads')) await loadFlow()
       if (groups.includes('mixed')) await mixedFlow()

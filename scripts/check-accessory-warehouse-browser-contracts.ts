@@ -5,20 +5,19 @@ import { createServer } from 'vite'
 
 // Explicit consumers only: unknown browser tests remain a receipt blocker.
 export const ACCESSORY_BROWSER_CONTRACT_PATHS = [
-  "tests/browser-contracts/accessory-backup-post-source.test.ts",
+  "tests/browser-contracts/accessory-combined-sewing.test.ts",
+  "tests/browser-contracts/gtp-online-alignment.test.ts",
+  "tests/browser-contracts/full-function-role-entrypoints.test.ts",
   "tests/browser-contracts/accessory-fcs-readonly.test.ts",
   "tests/browser-contracts/accessory-final-boundaries-ui.test.ts",
-  "tests/browser-contracts/accessory-full-backup-ui.test.ts",
   "tests/browser-contracts/accessory-mixed-print-ui.test.ts",
   "tests/browser-contracts/accessory-pickup-print-images-ui.test.ts",
   "tests/browser-contracts/accessory-post-finishing.test.ts",
   "tests/browser-contracts/accessory-print-layout-ui.test.ts",
   "tests/browser-contracts/accessory-reopen-images-ui.test.ts",
   "tests/browser-contracts/accessory-retired-module.test.ts",
-  "tests/browser-contracts/accessory-transfer-cutover-ui.test.ts",
   "tests/browser-contracts/accessory-transfer-ui.test.ts",
   "tests/browser-contracts/accessory-upstream-transfer.test.ts",
-  "tests/browser-contracts/accessory-warehouse-maintenance-ui.test.ts",
   "tests/browser-contracts/accessory-warehouse-migration.test.ts",
   "tests/browser-contracts/accessory-warehouse-records.test.ts",
   "tests/browser-contracts/accessory-warehouse-sewing.test.ts",
@@ -26,6 +25,14 @@ export const ACCESSORY_BROWSER_CONTRACT_PATHS = [
   "tests/browser-contracts/sewing-material-handover-images-ui.test.ts"
 ] as const
 export const ACCESSORY_BROWSER_FIXTURE_PATH = 'tests/browser-contracts/helpers/accessory-sewing-fixture.ts'
+// Superseded maintenance UI only. Underlying migration/records contracts and
+// combined sewing coverage remain in ACCESSORY_BROWSER_CONTRACT_PATHS.
+export const ACCESSORY_RETIRED_UI_CONTRACT_PATHS = [
+  'tests/browser-contracts/accessory-full-backup-ui.test.ts',
+  'tests/browser-contracts/accessory-warehouse-maintenance-ui.test.ts',
+  'tests/browser-contracts/accessory-backup-post-source.test.ts',
+  'tests/browser-contracts/accessory-transfer-cutover-ui.test.ts',
+] as const
 export const ACCESSORY_BROWSER_FIXTURE_PATHS = [ACCESSORY_BROWSER_FIXTURE_PATH, 'tests/fixtures/accessory-warehouse/cutover.json', 'tests/fixtures/accessory-warehouse/gtpLegacy.json', 'tests/fixtures/accessory-warehouse/mixed.json', 'tests/fixtures/accessory-warehouse/post.json', 'tests/fixtures/accessory-warehouse/postLegacy.json', 'tests/fixtures/accessory-warehouse/sew.json', 'tests/fixtures/accessory-warehouse/sewingLegacy.json'] as const
 
 async function main(): Promise<void> {
@@ -43,7 +50,7 @@ async function main(): Promise<void> {
     if (!address || typeof address === 'string') throw new Error('Cannot determine isolated accessory test server')
     const base = `http://127.0.0.1:${address.port}`
     const env = { ...process.env }
-    for (const key of ['ACCESSORY_CUTOVER_UI_URL', 'ACCESSORY_POST_TEST_URL', 'ACCESSORY_MAINTENANCE_UI_URL', 'ACCESSORY_STORAGE_TEST_URL', 'ACCESSORY_FCS_TEST_URL', 'ACCESSORY_TRANSFER_TEST_URL', 'ACCESSORY_STAGE1_UI_URL', 'ACCESSORY_UPSTREAM_TEST_URL']) env[key] = base
+    for (const key of ['FULL_FUNCTION_TEST_URL', 'ACCESSORY_POST_TEST_URL', 'ACCESSORY_STORAGE_TEST_URL', 'ACCESSORY_FCS_TEST_URL', 'ACCESSORY_TRANSFER_TEST_URL', 'ACCESSORY_STAGE1_UI_URL', 'ACCESSORY_UPSTREAM_TEST_URL']) env[key] = base
     console.log(`Accessory contracts: fresh source server ${base}; ${ACCESSORY_BROWSER_CONTRACT_PATHS.length} explicit files; sequential isolated browser contexts`)
     const child = spawn(process.execPath, ['--import', 'tsx', '--test', '--test-concurrency=1', ...ACCESSORY_BROWSER_CONTRACT_PATHS], { stdio: 'inherit', env })
     process.exitCode = await new Promise<number>((resolve, reject) => { child.once('error', reject); child.once('exit', code => resolve(code ?? 1)) })

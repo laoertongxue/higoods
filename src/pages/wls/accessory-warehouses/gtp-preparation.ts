@@ -1,13 +1,18 @@
 // @page-pattern: list
 import { renderStandardListPage, renderStandardListFilters, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListColumnSettings } from '../../../components/ui/list-table.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
+import { listMaterialPrepOrderProjections } from '../../../data/fcs/cutting/production-material-prep.ts'
+import { productionOrders } from '../../../data/fcs/production-orders.ts'
+import { productionDemands } from '../../../data/fcs/production-demands.ts'
+import { listRuntimeProcessTasks } from '../../../data/fcs/runtime-process-tasks.ts'
 import { listAccessoryPreparations, getAccessoryPreparation, prepareAccessoryWarehouseSources, listAccessoryWarehouseSourceIssues } from '../../../data/wls/accessory-warehouse-sources.ts'
-import { registerAccessoryPreparation, completeAccessoryPreparation, getAccessoryLineAllocations, type AccessoryPreparation, type AccessoryTransfer } from '../../../data/wls/accessory-warehouse-flow.ts'
+import { registerAccessoryPreparation, completeAccessoryPreparation, getAccessoryLineAllocations, type AccessoryPreparation, type AccessoryTransfer, type AccessoryPickup } from '../../../data/wls/accessory-warehouse-flow.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { accessoryReceiptForTransfer } from '../../../data/wls/accessory-warehouse-commands.ts'
 import { accessoryRecord, listAccessoryRecords, saveAccessoryWarehouseAction } from '../../../data/wls/accessory-warehouse-records.ts'
@@ -16,57 +21,66 @@ import { cuttingRecordUuid } from '../../../data/fcs/cutting/cutting-record-iden
 import { reserveAccessoryPreparationStock, type AccessoryStock } from '../../../data/wls/accessory-warehouse-stock.ts'
 import { listAccessoryStockSources, projectAccessoryPreparationAvailability } from '../../../data/wls/accessory-warehouse-stock-sources.ts'
 import { accessoryButton as button, accessoryImage, accessoryOverlay, focusAccessoryOverlay, restoreAccessoryFocus, trapAccessoryOverlayFocus } from './shared.ts'
+import { buildGtpPreparationSheets, filterGtpPreparationSheets, emptyGtpPreparationFilters, type GtpPreparationSheet, type GtpPreparationFilters } from './gtp-preparation-model.ts'
+import { gtpMaterialColumns as columns, gtpExportColumns, renderGtpPreparationSheets, expandGtpMaterialRows } from './gtp-preparation-sheet.ts'
 
 const PREFIX = 'accessory'
 const PREFERENCE_KEY = '/wls/accessory-warehouses/gtp/preparation:list-columns'
 const sizes = [10, 20, 50]
-const state = { keyword: '', status: '', currentPage: 1, sort: null as StandardListSortState | null, preferences: null as StandardListColumnPreferences | null }
-let modal: { type: 'prepare' | 'remark' | 'history' | 'complete' | 'print' | 'data'; id: string; version: number } | null = null
+const state = { ...emptyGtpPreparationFilters(), currentPage: 1, sort: null as StandardListSortState | null, preferences: null as StandardListColumnPreferences | null }
+let appliedFilters = emptyGtpPreparationFilters()
+let modal: { type: 'prepare' | 'remark' | 'history' | 'complete' | 'print'; id: string; version: number; lineId?: string } | null = null
 let dirty = false, busy = false, modalError = '', columnSettings = false
 let mountedPath = '/wls/accessory-warehouses/gtp/preparation'
 const drafts = new Map<string, string>()
 let pending: Parameters<typeof saveAccessoryWarehouseAction>[0] | null = null
-let backupFile: File | null = null
-let maintenanceCommand: { commandId: string; operator: string; at: string } | null = null
 let printingSource: HTMLElement | null = null
 const qty = (value: number, unit: string) => `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 6 })} ${escapeHtml(unit)}`
 const visibleMaterialCode = (sku: string) => sku.includes('-bom-') || sku.startsWith('prep-line-') || sku.includes('::') ? '' : sku
 const ownerRoot = () => document.querySelector('[data-accessory-preparation-root],[data-accessory-read-error]')
-
-const columns: StandardListColumn<AccessoryPreparation>[] = [
-  { key: 'order', title: '生产单 / 款式', width: 300, required: true, freezeable: true, sortable: true, sortValue: row => row.productionOrderNo, render: row => `<div class="flex items-center gap-3">${accessoryImage(row.styleImageUrl, row.styleName)}<div><strong>${escapeHtml(row.productionOrderNo)}</strong><p class="text-sm">${escapeHtml(row.styleName)}</p></div></div>` },
-  { key: 'factory', title: '裁剪工厂', width: 160, sortable: true, sortValue: row => row.cuttingFactoryName || '', render: row => escapeHtml(row.cuttingFactoryName || '待分配') },
-  { key: 'status', title: '配料状态', width: 100, sortable: true, sortValue: row => row.status, render: row => `<span class="rounded px-2 py-1 text-xs ${row.status === '已配齐' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-800'}">${row.status}</span>` },
-  { key: 'quantity', title: '辅料进度', width: 220, render: row => [...new Set(row.lines.map(line => line.unit))].map(unit => { const lines = row.lines.filter(line => line.unit === unit); return `已配 ${qty(lines.reduce((sum, line) => sum + line.preparedQty, 0), unit)} / 应配 ${qty(lines.reduce((sum, line) => sum + line.requiredQty, 0), unit)}` }).join('<br>') },
-  { key: 'remark', title: '备注', width: 180, render: row => escapeHtml(row.remark || '—') },
-  { key: 'actions', title: '操作', width: 290, required: true, actionColumn: true, render: row => `<div class="flex flex-wrap gap-1">${button(row.status === '已配齐' ? '查看配料' : '登记配料', 'prepare', row.id)}${button('记录', 'history', row.id)}${button('备注', 'remark', row.id)}${button('配料凭证', 'print', row.id)}${row.status !== '已配齐' ? button('完成配齐', 'complete', row.id, true) : ''}</div>` },
-]
 const rules = columns.map(column => ({ key: column.key, required: column.required, freezeable: column.freezeable, actionColumn: column.actionColumn }))
 function preferences(): StandardListColumnPreferences {
   if (state.preferences) return state.preferences
-  const defaults = normalizeListColumnPreferences(rules, { order: columns.map(column => column.key), visibleKeys: columns.map(column => column.key), frozenKeys: [], pageSize: 10 }, sizes)
+  const defaults = normalizeListColumnPreferences(rules, { order: columns.map(column => column.key), visibleKeys: columns.map(column => column.key), frozenKeys: ['material'], pageSize: 10 }, sizes)
   try { state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, rules, defaults, sizes) } catch { state.preferences = defaults }
   return state.preferences
 }
 function persistPreferences(): void { try { saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, preferences()) } catch { /* 偏好失败不影响业务保存。 */ } }
-function filteredRows(): AccessoryPreparation[] {
-  const keyword = state.keyword.toLowerCase().trim()
-  return listAccessoryPreparations().filter(row => (!state.status || row.status === state.status) && (!keyword || [row.productionOrderNo, row.styleName, row.cuttingFactoryName, ...row.lines.map(line => line.materialName)].join(' ').toLowerCase().includes(keyword)))
+function sheets(): GtpPreparationSheet[] {
+  const preparations = listAccessoryPreparations()
+  return buildGtpPreparationSheets({ preparations, projections: listMaterialPrepOrderProjections(getBrowserLocalStorage()), orders: productionOrders,
+    demands: productionDemands, tasks: listRuntimeProcessTasks(), transfers: listAccessoryRecords<AccessoryTransfer>('transfer'), pickups: listAccessoryRecords<AccessoryPickup>('pickup') })
+}
+function filteredRows(): GtpPreparationSheet[] { return filterGtpPreparationSheets(sheets(), appliedFilters) }
+function selectFilter(label: string, field: keyof GtpPreparationFilters, options: Array<[string, string]>, className = ''): string {
+  return `<label class="grid gap-1 text-sm ${className}">${label}<select class="h-9 min-w-28 rounded border bg-background px-2" data-accessory-field="${field}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${state[field] === value ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`
+}
+function filtersHtml(all: GtpPreparationSheet[]): string {
+  return renderStandardListFilters({ actionPrefix: PREFIX, extraActionsHtml: button('导出查询结果', 'export'), fieldsHtml: `<div class="flex w-full flex-wrap items-end gap-3">
+    ${selectFilter('裁剪工厂', 'factory', [['', '全部'], ...[...new Set(all.map(row => row.preparation.cuttingFactoryName || '待分配'))].sort().map(value => [value, value] as [string, string])])}
+    ${selectFilter('查询类型', 'searchField', [['all','全部'], ['preparation','配料单号'], ['order','生产单号'], ['task','任务编号'], ['demand','需求单号'], ['spu','SPU'], ['material','物料 SKU / 名称']])}
+    <label class="grid min-w-48 flex-1 gap-1 text-sm">关键词<input class="h-9 w-full rounded border px-3" data-accessory-field="keyword" placeholder="输入单号、款式或物料" value="${escapeHtml(state.keyword)}"></label>
+    ${selectFilter('配料状态', 'status', [['','全部'], ['待配料','待配料'], ['配料中','配料中'], ['已配齐','已配齐']])}
+    ${selectFilter('车缝领料状态', 'pickupStatus', [['','全部'], ['待领料','待领料'], ['领料中','领料中'], ['已领料','已领料']])}
+  </div><details class="w-full" data-aw-more-filters><summary class="cursor-pointer py-1 text-sm text-blue-700">更多筛选</summary><div class="mt-2 flex flex-wrap items-end gap-3">
+    ${selectFilter('售卖类型', 'saleType', [['','全部'], ...[...new Set(all.map(row => row.saleType).filter(Boolean))].sort().map(value => [value,value] as [string,string])])}
+    ${selectFilter('物料是否齐全', 'stockFull', [['','全部'], ['yes','齐全'], ['no','不齐全']])}
+    ${selectFilter('拆解状态', 'breakdown', [['','全部'], ['yes','已拆解'], ['no','未拆解']])}
+    ${selectFilter('时间条件', 'dateField', [['createdAt','配料单创建时间'], ['firstPreparedAt','首次配料时间'], ['firstPickedAt','首次车缝领料时间'], ['demandCreatedAt','需求单创建时间'], ['orderCreatedAt','生产单创建时间']])}
+    <label class="grid gap-1 text-sm">开始日期<input class="h-9 rounded border px-2" type="date" data-accessory-field="from" value="${escapeHtml(state.from)}"></label>
+    <label class="grid gap-1 text-sm">结束日期<input class="h-9 rounded border px-2" type="date" data-accessory-field="to" value="${escapeHtml(state.to)}"></label>
+  </div></details><div class="flex w-full flex-wrap items-end gap-3 border-t pt-3"><label class="grid gap-1 text-sm">排序字段<select class="h-9 rounded border bg-background px-2" data-accessory-sort-field><option value="">默认</option>${[['demandCreatedAt','需求单创建时间'], ['orderCreatedAt','生产单创建时间'], ['firstPreparedAt','首次配料时间'], ['number','配料单号']].map(([value,label]) => `<option value="${value}" ${state.sort?.key === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label class="grid gap-1 text-sm">排序方式<select class="h-9 rounded border bg-background px-2" data-accessory-sort-direction><option value="desc" ${state.sort?.direction !== 'asc' ? 'selected' : ''}>降序</option><option value="asc" ${state.sort?.direction === 'asc' ? 'selected' : ''}>升序</option></select></label></div>` })
 }
 function workspace(): string {
-  const rows = sortStandardListRows(filteredRows(), state.sort, (row, key) => columns.find(column => column.key === key)?.sortValue?.(row))
+  const all = sheets(), filtered = filterGtpPreparationSheets(all, appliedFilters)
+  const rows = sortStandardListRows(filtered, state.sort, (row, key) => ({ number: row.number, demandCreatedAt: row.demandCreatedAt, orderCreatedAt: row.orderCreatedAt, firstPreparedAt: row.firstPreparedAt } as Record<string, string>)[key])
   const pref = preferences(), page = paginateStandardListRows(rows, state.currentPage, pref.pageSize)
   state.currentPage = page.currentPage
-  const rowIds = new Set(rows.map(row => row.id))
-  const issues = listAccessoryWarehouseSourceIssues().filter(issue => rowIds.has(issue.preparationId))
-  return renderStandardListPage({
-    title: '辅料中央仓（GTP） · 车缝配料',
-    primaryActionsHtml: button('本机资料', 'data'),
-    filtersHtml: renderStandardListFilters({ actionPrefix: PREFIX, fieldsHtml: `<label class="grid gap-1 text-sm">生产单 / 款式 / 物料<input class="h-9 rounded border px-3" data-accessory-field="keyword" value="${escapeHtml(state.keyword)}"></label><label class="grid gap-1 text-sm">配料状态<select class="h-9 rounded border px-3" data-accessory-field="status"><option value="">全部</option>${['待配料', '配料中', '已配齐'].map(value => `<option ${state.status === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>` }),
-    feedbackHtml: issues.length ? `<div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm" role="status">查询范围内有 ${new Set(issues.map(issue => issue.preparationId)).size} 张生产单的来源需核对，打开配料明细可查看原因。</div>` : '',
-    statsHtml: renderStandardListStats([{ label: '生产单', value: rows.length }, { label: '待配齐', value: rows.filter(row => row.status !== '已配齐').length }, { label: '已配齐', value: rows.filter(row => row.status === '已配齐').length }]),
-    listTitle: '生产单辅料', listActionsHtml: button('导出查询结果', 'export') + button('列设置', 'open-column-settings'),
-    tableHtml: renderStandardListTable({ columns, rows: page.rows, preferences: pref, sort: state.sort, eventPrefix: PREFIX, skipPageRerender: true }),
+  const stocks = listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock'))
+  return renderStandardListPage({ title: '辅料中央仓（GTP） · 车缝配料', filtersHtml: filtersHtml(all),
+    statsHtml: renderStandardListStats([{ label: '配料单', value: rows.length }, { label: '待配齐', value: rows.filter(row => row.preparation.status !== '已配齐').length }, { label: '已配齐', value: rows.filter(row => row.preparation.status === '已配齐').length }]),
+    listTitle: '车缝配料单', listActionsHtml: button('列设置', 'open-column-settings'),
+    tableHtml: renderGtpPreparationSheets(page.rows, stocks, pref),
     paginationHtml: renderTablePagination({ ...page, actionPrefix: PREFIX, pageSizeOptions: sizes, skipPageRerender: true }),
   })
 }
@@ -75,7 +89,7 @@ export function renderGtpPreparationPage(): string {
   if (typeof window !== 'undefined') mountedPath = window.location.pathname + window.location.search
   return `<div data-accessory-preparation-root data-skip-page-rerender="true"><div data-aw-workspace>${workspace()}</div><div data-aw-overlay-host></div></div>`
 }
-function refreshWorkspace(): void { const node = document.querySelector('[data-aw-workspace]'); if (node) node.innerHTML = workspace() }
+function refreshWorkspace(): void { const node = document.querySelector('[data-aw-workspace]'); if (node) { const expanded = Boolean(node.querySelector<HTMLDetailsElement>('[data-aw-more-filters]')?.open); node.innerHTML = workspace(); const details = node.querySelector<HTMLDetailsElement>('[data-aw-more-filters]'); if (details) details.open = expanded; hydrateIcons(node) } }
 function refreshColumnSettings(): void {
   const host = document.querySelector<HTMLElement>('[data-aw-overlay-host]')
   if (!host) return
@@ -85,12 +99,11 @@ function refreshColumnSettings(): void {
 function errorHtml(): string { return `<p class="mb-3 text-sm text-red-600" role="alert" data-aw-modal-error>${escapeHtml(modalError)}</p>` }
 function lineTable(preparation: AccessoryPreparation, editable: boolean): string {
   const locations = listAccessoryWarehouseLocations('WH-FITTING-001').filter(location => location.enabled)
-  return `<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">物料</th><th class="p-2">应配 / 已配 / 待配</th><th class="p-2">可用</th><th class="p-2">本次配料</th><th class="p-2">来源库位</th></tr></thead><tbody>${preparation.lines.map(line => `<tr class="border-b"><td class="p-2"><div class="flex items-center gap-2">${accessoryImage(line.imageUrl, line.materialName)}<div>${escapeHtml(line.materialName)}<p class="text-xs text-muted-foreground">${visibleMaterialCode(line.materialSku) ? escapeHtml(visibleMaterialCode(line.materialSku)) + " · " : ""}${escapeHtml(line.color)} ${escapeHtml(line.spec)}</p></div></div></td><td class="p-2">${qty(line.requiredQty, line.unit)}<br>${qty(line.preparedQty, line.unit)}<br>${qty(Math.max(0, line.requiredQty - line.preparedQty), line.unit)}</td><td class="p-2" data-aw-available="${escapeHtml(line.id)}">${qty(line.availableQty, line.unit)}</td><td class="p-2">${editable ? `<input class="h-9 w-24 rounded border px-2" type="number" min="0" step="any" aria-label="${escapeHtml(line.materialName)}本次配料" data-aw-qty="${escapeHtml(line.id)}" value="${escapeHtml(drafts.get(line.id) || '')}">` : '—'}</td><td class="p-2">${editable ? `<select class="h-9 max-w-40 rounded border px-2" aria-label="${escapeHtml(line.materialName)}来源库位" data-aw-location="${escapeHtml(line.id)}"><option value="">选择库位</option>${locations.map(location => `<option value="${escapeHtml(location.id)}" ${(drafts.get(`location:${line.id}`) || line.locationId) === location.id ? 'selected' : ''}>${escapeHtml(location.locationCode)}</option>`).join('')}</select>` : getAccessoryLineAllocations(line).map(allocation => `${escapeHtml(locations.find(location => location.id === allocation.locationId)?.locationCode || allocation.locationId)}：${qty(allocation.qty, line.unit)}`).join('<br>') || '未登记'}</td></tr>`).join('')}</tbody></table></div>`
+  return `<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">物料</th><th class="p-2">应配 / 已配 / 待配</th><th class="p-2">可用</th><th class="p-2">本次配料</th><th class="p-2">来源库位</th></tr></thead><tbody>${preparation.lines.filter(line => !editable || !modal?.lineId || line.id === modal.lineId).map(line => `<tr class="border-b"><td class="p-2"><div class="flex items-center gap-2">${accessoryImage(line.imageUrl, line.materialName)}<div>${escapeHtml(line.materialName)}<p class="text-xs text-muted-foreground">${visibleMaterialCode(line.materialSku) ? escapeHtml(visibleMaterialCode(line.materialSku)) + " · " : ""}${escapeHtml(line.color)} ${escapeHtml(line.spec)}</p></div></div></td><td class="p-2">${qty(line.requiredQty, line.unit)}<br>${qty(line.preparedQty, line.unit)}<br>${qty(Math.max(0, line.requiredQty - line.preparedQty), line.unit)}</td><td class="p-2" data-aw-available="${escapeHtml(line.id)}">${qty(line.availableQty, line.unit)}</td><td class="p-2">${editable ? `<input class="h-9 w-24 rounded border px-2" type="number" min="0" step="any" aria-label="${escapeHtml(line.materialName)}本次配料" data-aw-qty="${escapeHtml(line.id)}" value="${escapeHtml(drafts.get(line.id) || '')}">` : '—'}</td><td class="p-2">${editable ? `<select class="h-9 max-w-40 rounded border px-2" aria-label="${escapeHtml(line.materialName)}来源库位" data-aw-location="${escapeHtml(line.id)}"><option value="">选择库位</option>${locations.map(location => `<option value="${escapeHtml(location.id)}" ${(drafts.get(`location:${line.id}`) || line.locationId) === location.id ? 'selected' : ''}>${escapeHtml(location.locationCode)}</option>`).join('')}</select>` : getAccessoryLineAllocations(line).map(allocation => `${escapeHtml(locations.find(location => location.id === allocation.locationId)?.locationCode || allocation.locationId)}：${qty(allocation.qty, line.unit)}`).join('<br>') || '未登记'}</td></tr>`).join('')}</tbody></table></div>`
 }
 function renderModal(): void {
   const host = document.querySelector('[data-aw-overlay-host]'); if (!host) return
   if (!modal) { host.innerHTML = ''; return }
-  if (modal.type === 'data') { void renderDataModal().catch(showError); return }
   const row = getAccessoryPreparation(modal.id)
   if (!row) { modalError = '配料来源已变化，请重新读取。'; host.innerHTML = accessoryOverlay('配料来源变化', errorHtml()); return }
   const identification = `<p class="mb-4 font-medium">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.styleName)}</p>`
@@ -102,14 +115,14 @@ function renderModal(): void {
   if (modal.type === 'history') content = row.history.length ? `<ol class="space-y-3">${row.history.map(item => `<li class="rounded border p-3"><strong>${escapeHtml(item.action)}</strong><p>${escapeHtml(item.detail)}</p><p class="text-xs text-muted-foreground">${escapeHtml(item.by)} · ${escapeHtml(item.at)}</p></li>`).join('')}</ol>` : '<p>尚无本轮操作记录。</p>'
   if (modal.type === 'complete') { content = `<p class="mb-3">逐行确认已配齐后，将为本生产单建立整单调拨。裁剪工厂待定时，调入方保持待定。</p>${lineTable(row, false)}`; footer = button('确认配齐并建立调拨', 'save-complete', row.id, true) }
   if (modal.type === 'print') { content = `<div data-aw-print>${identification}${lineTable(row, false)}<p class="mt-3 text-xs">配料版本 ${row.version} · ${escapeHtml(row.techPackVersion)}</p></div>`; footer = button('打印配料凭证', 'print-now') }
-  const actor = ['prepare', 'remark', 'complete'].includes(modal.type) ? `<label class="mt-4 grid gap-1 text-sm">操作人<input class="h-9 rounded border px-3" data-aw-actor value="${escapeHtml(drafts.get('actor') || 'GTP仓管（演示）')}"></label>` : ''
+  const actor = ['prepare', 'remark', 'complete'].includes(modal.type) ? `<label class="mt-4 grid gap-1 text-sm">操作人<input class="h-9 rounded border px-3" data-aw-actor value="${escapeHtml(drafts.get('actor') || 'GTP仓管')}"></label>` : ''
   host.innerHTML = accessoryOverlay({ prepare: '登记配料', remark: '配料备注', history: '配料记录', complete: '完成配齐', print: '配料凭证' }[modal.type], errorHtml() + identification + sourceWarning + content + actor, footer)
   focusAccessoryOverlay()
 }
 function closeModal(): void {
   if (busy) return
   if (dirty && !window.confirm('本次配料输入尚未保存。关闭窗口将丢弃这些输入，是否关闭？')) return
-  modal = null; dirty = false; modalError = ''; pending = null; drafts.clear(); backupFile = null; maintenanceCommand = null
+  modal = null; dirty = false; modalError = ''; pending = null; drafts.clear()
   const host = document.querySelector('[data-aw-overlay-host]'); if (host) host.innerHTML = ''
   restoreAccessoryFocus()
 }
@@ -153,65 +166,12 @@ async function printPreparation(): Promise<void> {
   } catch { if (current()) showError(new Error('配料凭证图片未能加载，关闭后重新打开凭证再打印。')) }
   finally { if (printingSource === source) printingSource = null }
 }
-async function renderDataModal(): Promise<void> {
-  const host = document.querySelector('[data-aw-overlay-host]'); if (!host || modal?.type !== 'data') return
-  const hadDialog = Boolean(host.querySelector('[role="dialog"]'))
-  const module = await import('../../../data/wls/accessory-warehouse-migration.ts')
-  const status = await module.inspectLegacyAccessoryMigration()
-  let pendingTransferCount = 0
-  try {
-    const transfers = listAccessoryRecords<AccessoryTransfer>('transfer')
-    pendingTransferCount = listAccessoryRecords<AccessoryPreparation>('preparation').filter(row => row.status === '已配齐' && !transfers.some(transfer => transfer.kind === 'GTP_TO_SITE' && transfer.preparationId === row.id)).length
-  } catch { /* 读取失败时保留原资料备份入口，不把未知记录当作已切换。 */ }
-  if (modal?.type !== 'data') return
-  host.innerHTML = accessoryOverlay('辅料仓本机资料', `${errorHtml()}<div class="space-y-5"><section class="rounded border p-3"><h3 class="font-semibold">原配料资料：${escapeHtml(status.state)}</h3><p class="mt-2 text-sm">涉及 ${status.affectedPreparationIds.length} 张生产单、${status.affectedEntryCount} 条原记录；已复制 ${status.copiedCount} 条。</p>${status.issues.map(issue => `<p class="mt-2 text-sm text-red-600">${escapeHtml(issue)}</p>`).join('')}<p class="mt-2 text-sm">迁移会保留原配料数量与历史，核对新资料后再移出对应旧明细，其他工艺及共用资料保留。</p><label class="mt-3 grid gap-1 text-sm">操作人<input class="h-9 rounded border px-3" data-aw-actor value="${escapeHtml(drafts.get('actor') || 'GTP仓管（演示）')}"></label><div class="mt-3">${['待迁移', '待清理'].includes(status.state) ? button('迁移并切换原配料资料', 'migrate-data', '', true) : ''}</div></section><section class="rounded border p-3">${pendingTransferCount ? `<div class="mb-4 rounded border p-3"><h3 class="font-semibold">历史已配齐调拨切换</h3><p class="my-2 text-sm">${pendingTransferCount} 张已保存配齐记录尚无首次调拨，补建保留原配齐时间、数量及来源库位。</p>${button('核对并补建已配齐调拨', 'transfer-cutover', '', true)}</div>` : ''}<h3 class="font-semibold">备份与恢复</h3><p class="mt-2 text-sm">备份包含本范围记录、必要附件与原资料引用。恢复仅用于空白本机演示环境；已有资料时整批拒绝，不覆盖现有资料。</p><div class="mt-3 flex flex-wrap gap-2">${button('导出辅料仓备份', 'export-backup')}<label class="rounded border px-3 py-2 text-sm">选择备份<input class="ml-2 max-w-full" type="file" accept="application/json,.json" data-aw-backup></label></div>${backupFile ? `<p class="mt-2 break-all text-sm">已选择：${escapeHtml(backupFile.name)}</p><div class="mt-3">${button('恢复本范围资料', 'restore-backup', '', true)}</div>` : ''}</section></div>`)
-  if (!hadDialog) focusAccessoryOverlay()
-  else host.querySelector<HTMLElement>('[role="dialog"]')?.focus()
-}
-async function runMaintenance(action: string): Promise<void> {
-  if (busy || modal?.type !== 'data') return
-  busy = true
-  const controls = [...document.querySelectorAll<HTMLButtonElement | HTMLInputElement>('[data-aw-overlay] button,[data-aw-overlay] input')].map(node => ({ node, disabled: node.disabled }))
-  controls.forEach(({ node }) => { node.disabled = true })
-  try {
-    const module = await import('../../../data/wls/accessory-warehouse-migration.ts')
-    if (action === 'transfer-cutover') {
-      const status = await module.inspectLegacyAccessoryMigration()
-      if (['待迁移', '待清理', '已阻塞'].includes(status.state)) throw new Error('先完成原配料资料迁移及冲突核对，再补建已配齐调拨。')
-      maintenanceCommand ||= { commandId: `ACCESSORY-CUTOVER:${cuttingRecordUuid()}`, operator: drafts.get('actor') || 'GTP仓管（演示）', at: new Date().toISOString() }
-      const cutover = await import('../../../data/wls/accessory-warehouse-transfer-cutover.ts')
-      const created = await cutover.migrateCompletedAccessoryPreparationTransfers(maintenanceCommand)
-      await prepareAccessoryWarehouseSources(); refreshWorkspace(); maintenanceCommand = null
-      showListFeedback(`已核对历史配齐记录，补建 ${created.length} 张调拨；原配齐时间和数量保留。`)
-    } else if (action === 'migrate-data') {
-      maintenanceCommand ||= { commandId: `ACCESSORY-MIGRATE:${cuttingRecordUuid()}`, operator: drafts.get('actor') || 'GTP仓管（演示）', at: new Date().toISOString() }
-      const result = await module.migrateLegacyAccessoryPreparation(maintenanceCommand)
-      if (result.state !== '已完成' && result.state !== '无需迁移') throw new Error(`原资料${result.state}，请保留资料并继续核对。`)
-      await prepareAccessoryWarehouseSources(); refreshWorkspace(); dirty = false; maintenanceCommand = null
-      showListFeedback('原配料资料已迁移并核对。')
-    } else if (action === 'export-backup') {
-      const backup = await module.exportAccessoryWarehouseBackup(), blob = await module.encodeAccessoryWarehouseBackup(backup)
-      const url = URL.createObjectURL(blob), link = document.createElement('a')
-      link.href = url; link.download = `辅料仓备份-${new Date().toISOString().slice(0, 10)}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 0)
-      showListFeedback('辅料仓备份已导出。')
-    } else {
-      if (!backupFile) throw new Error('先选择需要恢复的备份文件。')
-      const backup = await module.parseAccessoryWarehouseBackup(backupFile)
-      await module.restoreAccessoryWarehouseBackup(backup)
-      await prepareAccessoryWarehouseSources(); refreshWorkspace(); backupFile = null; dirty = false
-      showListFeedback('辅料仓资料已恢复并重新读取。')
-    }
-    modalError = ''
-  } catch (error) { showError(error) }
-  finally { busy = false; controls.forEach(({ node, disabled }) => { node.disabled = disabled }); if (modal?.type === 'data') await renderDataModal().catch(showError) }
-}
-function actionInput(row: AccessoryPreparation, action: string): Parameters<typeof saveAccessoryWarehouseAction>[0] {
+function actionInput(row: AccessoryPreparation, action: string, commandId = `ACCESSORY-UI:${cuttingRecordUuid()}`): Parameters<typeof saveAccessoryWarehouseAction>[0] {
   const issues = listAccessoryWarehouseSourceIssues(row.id).filter(issue => issue.blocking)
   if (issues.length) throw new Error(issues.map(issue => issue.message).join('；'))
   if (row.version !== modal?.version) throw new Error('配料记录已变化，请关闭并重新读取。')
-  const at = new Date().toISOString(), by = (drafts.get('actor') || 'GTP仓管（演示）').trim()
+  const at = new Date().toISOString(), by = (drafts.get('actor') || 'GTP仓管').trim()
   if (!by) throw new Error('填写实际操作人。')
-  const commandId = `ACCESSORY-UI:${cuttingRecordUuid()}`
   const stocks = listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock'))
   let stockChanges: AccessoryStock[] = []
   let next = row, transfer: AccessoryTransfer | undefined
@@ -249,12 +209,22 @@ async function save(action: string): Promise<void> {
   try {
     busy = true
     document.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-aw-overlay] button,[data-aw-overlay] input,[data-aw-overlay] textarea,[data-aw-overlay] select').forEach(node => { controls.push({ node, disabled: node.disabled }); node.disabled = true })
-    const legacy = await (await import('../../../data/wls/accessory-warehouse-migration.ts')).inspectLegacyAccessoryMigration()
-    if (['待迁移', '待清理', '已阻塞'].includes(legacy.state) && legacy.affectedPreparationIds.includes(modal.id)) throw new Error(legacy.state === '已阻塞'
-      ? '这张生产单存在原资料冲突。停止旧页面写入，并在“本机资料”导出冲突备份后核对；原资料和本次输入均已保留。'
-      : '这张生产单有待迁移的原配料资料，请先完成旧资料迁移，再办理新配料。原资料和本次输入均已保留。')
     const row = getAccessoryPreparation(modal.id); if (!row) throw new Error('配料来源已不存在。')
-    pending ||= actionInput(row, action)
+    // 先校验业务输入，再在本次实际保存中兼容旧格式；普通读取不转换、不写种子。
+    let nextInput = pending || actionInput(row, action)
+    const module = await import('../../../data/wls/accessory-warehouse-migration.ts')
+    const legacy = await module.inspectLegacyAccessoryMigration()
+    if (legacy.state === '已阻塞' && (legacy.affectedPreparationIds.includes(row.id) || legacy.sourcePresent === null)) throw new Error('原配料记录无法核对，本次未保存。原记录和输入已保留，请重新读取后核对。')
+    if (['待迁移', '待清理'].includes(legacy.state) && legacy.affectedPreparationIds.includes(row.id)) {
+      const result = await module.migrateLegacyAccessoryPreparation({ commandId: `${nextInput.commandId}:legacy`, operator: drafts.get('actor') || 'GTP仓管', at: new Date().toISOString() })
+      if (!['无需迁移', '已完成'].includes(result.state)) throw new Error('原配料记录尚未核对完成，本次未保存；原记录和输入已保留。')
+      await prepareAccessoryWarehouseSources()
+      const converted = getAccessoryPreparation(row.id)
+      if (!converted) throw new Error('原配料记录转换后无法读取，本次未保存。输入已保留。')
+      // 转换会补齐原历史、完成时间等事实；本次业务结果须基于转换后的记录。
+      nextInput = actionInput(converted, action, nextInput.commandId)
+    }
+    pending = nextInput
     await saveAccessoryWarehouseAction(pending)
     dirty = false; busy = false; closeModal(); refreshWorkspace(); showListFeedback(action === 'save-complete' ? '已配齐，整单调拨已建立。' : '已保存。')
   } catch (error) { busy = false; showError(error) }
@@ -263,8 +233,6 @@ async function save(action: string): Promise<void> {
 export function handleGtpPreparationEvent(target: HTMLElement, event?: Event): boolean {
   const root = ownerRoot()
   if (!root && !target.closest('[data-accessory-action="reload"]')) return false
-  const backupInput = target.closest<HTMLInputElement>('[data-aw-backup]')
-  if (backupInput && event?.type === 'change') { backupFile = backupInput.files?.[0] || null; dirty = Boolean(backupFile); void renderDataModal().catch(showError); return true }
   const drag = event as (DragEvent & { higoodStandardListColumnDrag?: boolean; higoodStandardListColumnKey?: string }) | undefined
   if (drag?.higoodStandardListColumnDrag && columnSettings) {
     if (drag.type === 'drop') {
@@ -293,10 +261,16 @@ export function handleGtpPreparationEvent(target: HTMLElement, event?: Event): b
     }
     return true
   }
+  const sorting = target.closest<HTMLSelectElement>('[data-accessory-sort-field],[data-accessory-sort-direction]')
+  if (sorting && event?.type === 'change') {
+    const field = ownerRoot()?.querySelector<HTMLSelectElement>('[data-accessory-sort-field]')?.value || ''
+    const direction = ownerRoot()?.querySelector<HTMLSelectElement>('[data-accessory-sort-direction]')?.value === 'asc' ? 'asc' : 'desc'
+    state.sort = field ? { key: field, direction } : null; state.currentPage = 1; refreshWorkspace(); return true
+  }
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-accessory-field]')
   if (field) {
-    if (field.dataset.accessoryField === 'keyword') state.keyword = field.value
-    if (field.dataset.accessoryField === 'status') state.status = field.value
+    const key = field.dataset.accessoryField || ''
+    if (Object.hasOwn(emptyGtpPreparationFilters(), key)) state[key as keyof GtpPreparationFilters] = field.value
     if (field.dataset.accessoryField === 'pageSize' && event?.type === 'change') { preferences().pageSize = sizes.includes(Number(field.value)) ? Number(field.value) : 10; state.currentPage = 1; persistPreferences(); refreshWorkspace() }
     return true
   }
@@ -304,14 +278,19 @@ export function handleGtpPreparationEvent(target: HTMLElement, event?: Event): b
   if (!node || !action || event?.type === 'input') return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'reload') { void prepareAccessoryWarehouseSources().then(() => window.dispatchEvent(new PopStateEvent('popstate'))).catch(showError); return true }
-  if (action === 'query' || action === 'reset') { if (action === 'reset') { state.keyword = ''; state.status = '' }; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'query' || action === 'reset') {
+    if (action === 'reset') { Object.assign(state, emptyGtpPreparationFilters()); state.sort = null }
+    if (state.from && state.to && state.from > state.to) { showListFeedback('开始日期不能晚于结束日期。', 'danger'); return true }
+    appliedFilters = Object.fromEntries(Object.keys(emptyGtpPreparationFilters()).map(key => [key, state[key as keyof GtpPreparationFilters]])) as unknown as GtpPreparationFilters
+    state.currentPage = 1; refreshWorkspace(); return true
+  }
   if (action === 'prev-page' || action === 'next-page') { state.currentPage += action === 'next-page' ? 1 : -1; refreshWorkspace(); return true }
-  if (action === 'export') { exportStandardListRows({ fileName: 'GTP车缝配料', columns, rows: filteredRows() }); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: 'GTP车缝配料', columns: gtpExportColumns, rows: expandGtpMaterialRows(filteredRows(), listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock'))) }); return true }
   if (action === 'sort-column') { const key = node.dataset.columnKey || ''; state.sort = state.sort?.key !== key ? { key, direction: 'asc' } : state.sort.direction === 'asc' ? { key, direction: 'desc' } : null; refreshWorkspace(); return true }
   if (action === 'open-column-settings' || action === 'close-column-settings') {
     columnSettings = action === 'open-column-settings'; refreshColumnSettings(); return true
   }
-  if (action === 'restore-column-settings') { state.preferences = normalizeListColumnPreferences(rules, { order: columns.map(column => column.key), visibleKeys: columns.map(column => column.key), frozenKeys: [], pageSize: 10 }, sizes); persistPreferences(); refreshWorkspace(); refreshColumnSettings(); return true }
+  if (action === 'restore-column-settings') { state.preferences = normalizeListColumnPreferences(rules, { order: columns.map(column => column.key), visibleKeys: columns.map(column => column.key), frozenKeys: ['material'], pageSize: 10 }, sizes); persistPreferences(); refreshWorkspace(); refreshColumnSettings(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
     // checkbox 一次物理操作会产生 click/input/change；仅以 change 后的选中值保存。
     if (event?.type !== 'change' || !(node instanceof HTMLInputElement)) return true
@@ -322,12 +301,10 @@ export function handleGtpPreparationEvent(target: HTMLElement, event?: Event): b
   if (action === 'close-image') { document.querySelector('[data-aw-image]')?.remove(); restoreAccessoryFocus(); return true }
   if (action === 'image') { const host = document.querySelector('[data-aw-overlay-host]'); if (host) { const imageHost = document.createElement('div'); imageHost.dataset.awImage = 'true'; imageHost.innerHTML = accessoryOverlay(node.dataset.label || '图片', `<img class="mx-auto max-h-[70vh] max-w-full object-contain" src="${escapeHtml(node.dataset.image || '')}" alt="${escapeHtml(node.dataset.label || '')}" onerror="this.nextElementSibling.hidden=false"><p hidden class="mt-2 text-sm text-red-600">图片加载失败，关闭后点击缩略图重试。</p>`, '', 'close-image'); host.appendChild(imageHost); focusAccessoryOverlay() }; return true }
   if (action === 'print-now') { void printPreparation(); return true }
-  if (['migrate-data', 'transfer-cutover', 'export-backup', 'restore-backup'].includes(action)) { void runMaintenance(action); return true }
-  if (action === 'data') { modal = { type: 'data', id: '', version: 0 }; dirty = false; modalError = ''; drafts.clear(); void renderDataModal().catch(showError); return true }
   if (action.startsWith('save-')) { void save(action); return true }
-  if (['prepare', 'remark', 'history', 'complete', 'print'].includes(action)) {
+  if (['prepare', 'prepare-line', 'remark', 'history', 'complete', 'print'].includes(action)) {
     const row = getAccessoryPreparation(node.dataset.id || ''); if (!row) return true
-    modal = { type: action as NonNullable<typeof modal>['type'], id: row.id, version: row.version }; dirty = false; drafts.clear(); pending = null; modalError = ''; renderModal(); return true
+    modal = { type: (action === 'prepare-line' ? 'prepare' : action) as NonNullable<typeof modal>['type'], id: row.id, version: row.version, lineId: node.dataset.lineId }; dirty = false; drafts.clear(); pending = null; modalError = ''; renderModal(); return true
   }
   return false
 }

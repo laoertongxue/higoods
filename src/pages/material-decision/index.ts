@@ -12,8 +12,8 @@ import { sections, businessSections } from './views'
 connectMaterialDecisionHandlers({
  click(target) {
   const prepAction=target.closest<HTMLElement>('[data-md-prep-action]')?.dataset.mdPrepAction
-  if (prepAction && ['add','edit','save','generate','raw-receive','produce','receive','cancel-record'].includes(prepAction) && (ui.role==='只读查看者'||ui.stale)) {
-   const feedback=document.querySelector('#md-notice'); if(feedback) feedback.textContent=ui.stale?'数据已过期，禁止执行备料建议':'只读查看者不能修改备料记录'
+  if (prepAction && ['add','edit','save','generate','raw-receive','produce','receive','cancel-record'].includes(prepAction) && ui.stale) {
+   const feedback=document.querySelector('#md-notice'); if(feedback) feedback.textContent='数据已过期，禁止执行备料建议'
    return true
   }
   if (handleHealthClick(target) || handleWarningsClick(target) || handleDailyClick(target) || handlePreparationClick(target)) return true

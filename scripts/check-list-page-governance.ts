@@ -331,6 +331,18 @@ export function hasStandardListContract(
         return
       }
       if (ts.isCallExpression(node)) {
+        // Repeated document cards carry each returned table through map(...).join('').
+        // Only consume the mapper's returned value; a discarded renderer call
+        // inside its body is not evidence for this slot.
+        if (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'join'
+          && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0]) && node.arguments[0].text === '') {
+          const mapped = node.expression.expression
+          if (ts.isCallExpression(mapped) && ts.isPropertyAccessExpression(mapped.expression)
+            && mapped.expression.name.text === 'map' && mapped.arguments.length === 1) {
+            invoke(ctx, mapped.arguments[0], [], bindings)
+            return
+          }
+        }
         if (ts.isPropertyAccessExpression(node.expression) && ['replace', 'replaceAll'].includes(node.expression.name.text) && node.arguments.length === 2 && node.arguments.every(ts.isStringLiteral)) {
           const [from, to] = node.arguments as unknown as [ts.StringLiteral, ts.StringLiteral]
           const addsSkipAttribute = /^data-[a-z-]+=$/.test(from.text) && to.text === `data-skip-page-rerender="true" ${from.text}`
@@ -431,7 +443,16 @@ export function assertListPage(
     assert(hasStandardListContract(source, path, readSource), `${path} 声明为列表页，但未完整使用标准列表骨架、表格和适用分页；无分页须声明具体原因`)
     return
   }
-  const wasList = before !== null && isListCandidate(before)
+  let wasList = false
+  if (before !== null) {
+    try { wasList = isListCandidate(before) }
+    catch {
+      // Permit repairing an invalid historical mode on a non-list task queue.
+      // A table/list in that source still requires the complete list contract.
+      assert(pattern && !LIST_SIGNALS.some(signal => signal.test(before)),
+        `${path} 旧页面模式无效且可能包含列表，必须完成标准列表迁移`)
+    }
+  }
   if (before === null && !pattern) {
     throw new Error(`${path} 是新增页面，必须声明 @page-pattern: list|detail|form|dashboard|pda`)
   }

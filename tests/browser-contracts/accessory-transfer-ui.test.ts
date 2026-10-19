@@ -7,7 +7,7 @@ import { chromium, expect, type Browser, type Page } from '@playwright/test'
 // Isolated fixture contract: saved real records + actual exported UI handler.
 // This harness does not claim the upstream route/menu integration is accepted.
 const base = process.env.ACCESSORY_TRANSFER_TEST_URL || 'http://127.0.0.1:43241'
-const output = resolve('output/playwright/accessory-warehouse/stage2-transfer-ui')
+const output = resolve(process.env.ACCESSORY_WAREHOUSE_TEST_OUTPUT ? `${process.env.ACCESSORY_WAREHOUSE_TEST_OUTPUT}/transfers` : 'output/playwright/accessory-warehouse/stage2-transfer-ui')
 let browser: Browser
 const evidence: Record<string, unknown> = {}
 before(async () => { await mkdir(output, { recursive: true }); browser = await chromium.launch({ headless: true }) })
@@ -80,7 +80,7 @@ async function dispatch(page: Page, order: string) {
   await expect(dialog).toHaveCount(0)
 }
 
-test('GTP调拨创建后库存未出，整单出库才原子扣减；待定、PPIC及取消接收均不可执行', { timeout: 120000 }, async () => run(async page => {
+test('GTP调拨创建后库存未出，整单出库才原子扣减；操作直接展示，待定及取消接收均不可执行', { timeout: 120000 }, async () => run(async page => {
   await mount(page, 'gtp', 'transfers')
   await expect(page.locator('[data-aw-transfer-workspace] tbody tr')).toHaveCount(10)
   await page.locator('[data-accessory-transfer-action="next-page"]').click()
@@ -91,13 +91,13 @@ test('GTP调拨创建后库存未出，整单出库才原子扣减；待定、PP
   const before = await snapshot(page)
   const balance = before.records.find(row => row.collection === 'accessory-warehouse:stock' && (row.value as any).materialSku === 'UI-ZIP-1')!.value as any
   assert.equal(balance.onHandQty, 10); assert.equal(balance.reservedQty, 10)
-  await page.locator('[data-accessory-transfer-field="role"]').selectOption('PPIC')
-  await expect(page.locator('[data-accessory-transfer-action="dispatch"]')).toBeDisabled()
+  await expect(page.locator('[data-accessory-transfer-field="role"]')).toHaveCount(0)
+  await expect(page.locator('[data-accessory-transfer-action="dispatch"]')).toBeEnabled()
+  await query(page, 'PO-UI-003')
   await page.locator('[data-accessory-transfer-action="dispatch"]').evaluate(element => element.removeAttribute('disabled'))
   await page.locator('[data-accessory-transfer-action="dispatch"]').click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   assert.deepEqual(await snapshot(page), before)
-  await page.locator('[data-accessory-transfer-field="role"]').selectOption('仓管')
   await dispatch(page, 'PO-UI-001')
   const after = await snapshot(page)
   const updated = after.records.find(row => row.id.endsWith('transfer:UI-1'))!.value as any
@@ -112,7 +112,7 @@ test('GTP调拨创建后库存未出，整单出库才原子扣减；待定、PP
   await expect(page.locator('[data-aw-transfer-workspace]')).toContainText('6 条')
   await mount(page, 'hilon', 'receipts'); await query(page, 'PO-UI-004')
   await expect(page.locator('[data-accessory-transfer-action="receive"]')).toBeDisabled()
-  evidence.dispatch = { passed: true, physicalBefore: 10, physicalAfter: 0, inTransitLines: 2, ppicSourceGuard: true, cancelledReceiptBlocked: true }
+  evidence.dispatch = { passed: true, physicalBefore: 10, physicalAfter: 0, inTransitLines: 2, fullActionsWithoutDemoRole: true, pendingDestinationSourceGuard: true, cancelledReceiptBlocked: true }
 }))
 
 test('HILON一次收货上架逐行阻断缺量、差量、错仓位，失败保留输入并用同命令重试，刷新同源回读', { timeout: 120000 }, async () => run(async page => {

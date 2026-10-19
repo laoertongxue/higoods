@@ -15,7 +15,7 @@ function target(selectors: string[] = [], prepAction?: string): HTMLElement {
 }
 function loadRoute(failDependency = false) {
   const calls: string[] = [], handled = new Set<string>()
-  const ui = { role: '物料计划员', stale: false }, feedback = { textContent: '' }
+  const ui = { stale: false }, feedback = { textContent: '' }
   const handler = (name: string) => () => { calls.push(name); return handled.has(name) }
   const dependencies: Record<string, object> = {
     './events-bridge': bridge,
@@ -68,22 +68,25 @@ test('click 分组顺序、短路、选择器范围保持原行为，重新注�
   assert.equal(bridge.dispatchMaterialDecisionClick(target(['[data-md-action]'])), true)
 })
 
-test('备料写入守卫读取实时角色与水位，阻断时不调用业务处理器', () => {
-  const route = loadRoute(); route.handled.add('preparation'); route.ui.role = '只读查看者'
-  for (const action of ['add','edit','save','generate','raw-receive','produce','receive','cancel-record']) {
+test('备料写入无需演示角色，过期数据仍阻断业务修改且允许查看', () => {
+  const route = loadRoute(); route.handled.add('preparation')
+  const writes = ['add','edit','save','generate','raw-receive','produce','receive','cancel-record']
+  for (const action of writes) {
     assert.equal(bridge.dispatchMaterialDecisionClick(target(['[data-md-prep-action]'], action)), true)
-    assert.equal(route.feedback.textContent, '只读查看者不能修改备料记录')
+    assert.equal(route.feedback.textContent, '')
+    assert.deepEqual(route.calls, ['health', 'warnings', 'daily', 'preparation'])
+    route.calls.length = 0
+  }
+  route.ui.stale = true
+  for (const action of writes) {
+    assert.equal(bridge.dispatchMaterialDecisionClick(target(['[data-md-prep-action]'], action)), true)
+    assert.equal(route.feedback.textContent, '数据已过期，禁止执行备料建议')
     assert.deepEqual(route.calls, [])
   }
-  route.ui.role = '物料计划员'; route.ui.stale = true
-  assert.equal(bridge.dispatchMaterialDecisionClick(target(['[data-md-prep-action]'], 'save')), true)
-  assert.equal(route.feedback.textContent, '数据已过期，禁止执行备料建议')
-  assert.deepEqual(route.calls, [])
-  route.ui.stale = false
-  assert.equal(bridge.dispatchMaterialDecisionClick(target(['[data-md-prep-action]'], 'save')), true)
-  assert.deepEqual(route.calls, ['health', 'warnings', 'daily', 'preparation'])
-  route.calls.length = 0; route.ui.role = '只读查看者'
   assert.equal(bridge.dispatchMaterialDecisionClick(target(['[data-md-prep-action]'], 'view')), true)
+  assert.deepEqual(route.calls, ['health', 'warnings', 'daily', 'preparation'])
+  route.calls.length = 0; route.ui.stale = false
+  assert.equal(bridge.dispatchMaterialDecisionClick(target(['[data-md-prep-action]'], 'save')), true)
   assert.deepEqual(route.calls, ['health', 'warnings', 'daily', 'preparation'])
 })
 

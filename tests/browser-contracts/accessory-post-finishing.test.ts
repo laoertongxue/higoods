@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { chromium, expect, type Browser, type Page } from '@playwright/test'
 const base = process.env.ACCESSORY_POST_TEST_URL || 'http://127.0.0.1:43241'
-const output = resolve('output/playwright/accessory-warehouse/post-finishing')
+const output = resolve(process.env.ACCESSORY_WAREHOUSE_TEST_OUTPUT ? `${process.env.ACCESSORY_WAREHOUSE_TEST_OUTPUT}/post-finishing` : 'output/playwright/accessory-warehouse/post-finishing')
 let browser: Browser
 const evidence: Record<string, unknown> = {}
 before(async () => { await mkdir(output, { recursive: true }); browser = await chromium.launch({ headless: true }) })
@@ -65,7 +65,7 @@ test('首次直接准备不写种子；原ID投影、四类排除、旧receive�
   evidence.coldProjection = { ...read, noSeeds: true, pscUnchanged: true }
 }))
 
-test('Web后道实收上架1024可操作，PPIC/差异/事务中止阻断，原命令重试后库存与下游回读一致', { timeout: 120000 }, async () => run(async page => {
+test('Web后道实收上架1024可操作，无演示角色门槛，差异/事务中止阻断，原命令重试后库存与下游回读一致', { timeout: 120000 }, async () => run(async page => {
   const fixture = await canonicalFixture(page), pcsBefore = await pcsSnapshot(page)
   await mount(page)
   await page.locator('[data-post-material-query] [name="keyword"]').fill(fixture.productionOrderNo)
@@ -74,9 +74,9 @@ test('Web后道实收上架1024可操作，PPIC/差异/事务中止阻断，原�
   await expect(page.locator('[data-standard-list-stats]').first()).toContainText('1')
   await page.locator('[data-post-finishing-material-transfers-action="detail"]').click()
   const dialog = page.getByRole('dialog', { name: '后道辅料调拨单详情', exact: true })
-  await dialog.locator('[data-post-material-role]').selectOption('PPIC')
-  await expect(dialog.locator('[data-post-finishing-material-transfers-action="receive"]')).toBeDisabled()
-  await dialog.locator('[data-post-material-role]').selectOption('仓管')
+  await expect(dialog.locator('[data-post-material-role]')).toHaveCount(0)
+  await expect(dialog.locator('[data-post-finishing-material-transfers-action="receive"]')).toBeEnabled()
+  await expect(page.locator('[data-post-material-migration]')).toHaveCount(0)
   await dialog.locator('[data-accessory-action="image"]').last().click()
   const image = page.getByRole('dialog', { name: '纽扣', exact: true })
   await expect(image).toBeVisible(); await expect.poll(() => image.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
@@ -105,7 +105,7 @@ test('Web后道实收上架1024可操作，PPIC/差异/事务中止阻断，原�
   assert.deepEqual(await snapshot(page), after)
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   await page.screenshot({ path: resolve(output, 'post-received-list-1024.png'), fullPage: true })
-  evidence.webReceipt = { passed: true, originalId: fixture.id, ppicReadOnly: true, differenceBlocked: true, realAbortInputRetained: true, retrySaved: true, pscUntouched: true, downstream, reloadMatches: true, layout1024: true }
+  evidence.webReceipt = { passed: true, originalId: fixture.id, fullActionsWithoutDemoRole: true, differenceBlocked: true, realAbortInputRetained: true, retrySaved: true, pscUntouched: true, downstream, reloadMatches: true, layout1024: true }
 }))
 
 async function legacyFixture(page: Page, ambiguous = false) {
@@ -122,6 +122,114 @@ async function legacyFixture(page: Page, ambiguous = false) {
     await adapter.prepareAccessoryPostFinishing()
   }, ambiguous)
 }
+
+test('成衣仓Web直接显示收货功能，实际收货人/逐SKU数量/差异授权仍必填并同源回读', { timeout: 120000 }, async () => run(async page => {
+  const fixture = await page.evaluate(async () => {
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts'), records = await import('/src/data/fcs/post-finishing-records.ts')
+    await records.ensurePostFinishingRecordState()
+    return records.runPostFinishingCommand(() => {
+      flow.resetPostFinishingFullFlow()
+      const actor = flow.POST_FINISHING_ACCEPTANCE_ACTORS, order = flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]
+      let time = Date.UTC(2026, 9, 20, 1, 0, 0)
+      const next = () => ++time
+      const delivery = flow.registerPostFinishingFactoryReturn({ productionOrderNo: order.productionOrderNo, returnIndex: 1, triggerSource: '车缝正常交出', idempotencyKey: 'FULL-FUNCTION-GARMENT', quantities: order.skus.map(sku => ({ skuId: sku.skuId, registeredQty: 5 })), deliveryPersonName: actor.factoryCourier.actorName, deliveryPersonPhone: '08121234567', evidenceImageUrls: ['/shirt-sample.jpg'], actor: actor.factoryCourier, nowMs: next() })
+      flow.confirmPostFinishingFactoryReturn({ deliveryId: delivery.deliveryId, firstCounts: delivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: 5 })), actor: actor.returnConfirmer, nowMs: next() })
+      const qc = flow.sendPostFinishingFactoryReturnToQc({ deliveryId: delivery.deliveryId, actor: actor.sender, nowMs: next() })
+      flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actor.qcA, nowMs: next() })
+      const completedQc = flow.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, actor: actor.qcA, results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })), nowMs: next() })
+      const post = flow.startPostFinishingPostTask({ postTaskNo: completedQc.postTaskNo!, actor: actor.postOperator, nowMs: next() })
+      const finished = flow.completePostFinishingPostTask({ postTaskId: post.postTaskId, actor: actor.postOperator, results: post.lines.map(line => ({ skuId: line.sku.skuId, processedQty: line.expectedQty, unprocessedQty: 0 })), nowMs: next() })
+      let recheck = flow.claimPostFinishingRecheckOrder({ recheckOrderNo: finished.recheckOrderNo!, actor: actor.recheckerA, nowMs: next() })
+      for (const line of recheck.lines) recheck = flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: recheck.recheckOrderId, skuId: line.sku.skuId, scannedBarcode: line.sku.barcode, actor: actor.recheckerA, nowMs: next() })
+      recheck = flow.completePostFinishingRecheckOrderFullFlow({ recheckOrderId: recheck.recheckOrderId, actor: actor.recheckerA, results: recheck.lines.map(line => ({ skuId: line.sku.skuId, handoverQty: line.expectedQty })), nowMs: next() })
+      return flow.getPostFinishingFullFlowOutboundOrder(recheck.outboundOrderNo!)!
+    })
+  })
+  const before = await pcsSnapshot(page)
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto(`${base}/wls/finished-inbound`)
+  await page.locator('[data-wls-finished-inbound-root]').waitFor()
+  await expect(page.locator('[data-wls-finished-inbound-field="role"]')).toHaveCount(0)
+  const open = page.locator('[data-wls-finished-inbound-action="open"]').first()
+  await expect(open).toBeEnabled()
+  assert.deepEqual(await pcsSnapshot(page), before)
+  await open.click()
+  const dialog = page.locator('[data-finished-inbound-overlays] > div').filter({ has: page.getByRole('heading', { name: '确认成衣仓实收', exact: true }) })
+  await dialog.getByRole('button', { name: '确认并保存实收', exact: true }).click()
+  await expect(dialog.locator('[data-finished-inbound-dialog-feedback]')).toContainText('请填写实际收货人姓名')
+  await dialog.getByRole('button', { name: '取消', exact: true }).click()
+  await page.getByLabel('实际收货人', { exact: true }).fill('成衣仓核收员')
+  await open.click()
+  await dialog.locator('[data-wls-finished-inbound-field="qty"]').first().fill('-1')
+  await dialog.getByRole('button', { name: '确认并保存实收', exact: true }).click()
+  await expect(dialog.locator('[data-finished-inbound-dialog-feedback]')).toContainText('非负整数')
+  for (let index = 0; index < fixture.lines.length; index++) await dialog.locator('[data-wls-finished-inbound-field="qty"]').nth(index).fill(String(fixture.lines[index].outboundQty))
+  await dialog.locator('[data-wls-finished-inbound-field="qty"]').first().fill('4')
+  await dialog.getByRole('button', { name: '确认并保存实收', exact: true }).click()
+  await expect(dialog.locator('[data-finished-inbound-dialog-feedback]')).toContainText('主管动态授权码')
+  assert.deepEqual(await pcsSnapshot(page), before)
+  await dialog.locator('[data-wls-finished-inbound-field="qty"]').first().fill('5')
+  await dialog.getByRole('button', { name: '确认并保存实收', exact: true }).click()
+  await expect(page.locator('[data-finished-inbound-feedback]')).toContainText('实收已保存')
+  await expect(dialog).toHaveCount(0)
+  const saved = await page.evaluate(async no => {
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    return { outbound: flow.getPostFinishingFullFlowOutboundOrder(no), receipts: flow.listPostFinishingWarehouseReceipts().filter(row => row.outboundOrderNo === no) }
+  }, fixture.outboundOrderNo)
+  assert.equal(saved.outbound?.status, '已接收入库')
+  assert.equal(saved.outbound?.receivedBy?.actorName, '成衣仓核收员')
+  assert.equal(saved.receipts.length, 1)
+  assert.ok(saved.receipts[0].lines.every(line => line.receivedQty === 5))
+  await page.reload(); await page.locator('[data-wls-finished-inbound-root]').waitFor()
+  await expect(page.locator('[data-wls-finished-inbound-action="open"]')).toHaveCount(0)
+  await expect(page.locator('[data-wls-finished-inbound-root]')).toContainText('成衣仓核收员')
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+  await page.screenshot({ path: resolve(output, 'garment-received-1366.png'), fullPage: true })
+  evidence.garmentFullFunction = { passed: true, roleSelectorAbsent: true, directlyAvailable: true, actualReceiverRequired: true, perSkuQuantityAndDifferenceAuthorizationPreserved: true, singleReceiptAfterReload: true, receivedBy: saved.outbound?.receivedBy?.actorName }
+}))
+
+test('正常收货直接承接本单旧资料；读取不写，转换中断保留输入，重试只增加本次实收', { timeout: 120000 }, async () => run(async page => {
+  const fixture = await canonicalFixture(page)
+  await legacyFixture(page)
+  const pcsBefore = await pcsSnapshot(page), before = await snapshot(page)
+  await mount(page)
+  await expect(page.locator('[data-post-material-migration]')).toHaveCount(0)
+  assert.deepEqual(await snapshot(page), before)
+  await page.locator('[data-post-finishing-material-transfers-action="detail"][data-id="POST-UI-1"]').click()
+  const dialog = page.getByRole('dialog', { name: '后道辅料调拨单详情', exact: true })
+  for (let index = 0; index < fixture.quantities.length; index++) {
+    await dialog.locator('[data-post-material-qty]').nth(index).fill(String(fixture.quantities[index]))
+    await dialog.locator('[data-post-material-location]').nth(index).selectOption({ label: 'PF-MAT-A01-01' })
+  }
+  await dialog.locator('[data-post-material-actor]').fill('后道核收员')
+  await page.evaluate(() => {
+    ;(globalThis as any).__normalPostPut = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (value: any, ...args: any[]) {
+      if (this.name === 'records' && value.value?.kind === 'post-legacy-batch' && value.value?.phase === 'COMPLETE') throw new DOMException('本单旧资料核验中断', 'QuotaExceededError')
+      return (globalThis as any).__normalPostPut.call(this, value, ...args)
+    }
+  })
+  await dialog.getByRole('button', { name: '确认收货并上架', exact: true }).click()
+  await expect(dialog.locator('[data-post-material-error]')).toContainText('本单旧资料核验中断')
+  await expect(dialog.locator('[data-post-material-qty]').first()).toHaveValue('10')
+  await expect(dialog.locator('[data-post-material-actor]')).toHaveValue('后道核收员')
+  assert.deepEqual(await pcsSnapshot(page), pcsBefore)
+  await page.evaluate(() => { IDBObjectStore.prototype.put = (globalThis as any).__normalPostPut })
+  await dialog.getByRole('button', { name: '确认收货并上架', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  const facts = await page.evaluate(async () => {
+    const records = await import('/src/data/wls/accessory-warehouse-records.ts'), adapter = await import('/src/data/wls/accessory-warehouse-post-finishing.ts')
+    return { snapshot: await records.readAccessoryRecordSnapshot(), inspection: adapter.inspectLegacyAccessoryPostMigration(), stocks: records.listAccessoryRecords<any>('stock'), transfer: records.findAccessoryRecord<any>('transfer', 'POST-UI-1') }
+  })
+  assert.equal(facts.inspection.state, '已完成')
+  assert.equal(facts.transfer.receivedBy, '后道核收员')
+  assert.equal(facts.stocks.find(row => row.materialSku === 'AW-DEMO-ZIPPER').onHandQty, 17)
+  assert.equal(facts.stocks.find(row => row.materialSku === 'AW-DEMO-BUTTON').onHandQty, 20)
+  assert.deepEqual(await pcsSnapshot(page), pcsBefore)
+  await mount(page)
+  assert.deepEqual(await snapshot(page), facts.snapshot)
+  evidence.directLegacyReceipt = { passed: true, noMaintenanceUi: true, readsUnchanged: true, failureInputRetained: true, sameButtonRetry: true, historicalStock: 7, actualReceived: 10, zipperStock: 17, originalPcsAndFilesPreserved: true }
+}))
 
 test('相交旧PCS辅料归档和精确转换保留原ID/实存/附件；中断可续，原源及其他QC字节不变', { timeout: 120000 }, async () => run(async page => {
   await legacyFixture(page)
