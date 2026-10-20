@@ -260,6 +260,32 @@ test('B02/B04：多收、错 SKU、错仓和无权限动作不改变任意下游
 
 })
 
+test('已有实收但历史库存批次缺失时阻断续收，原采购、交出、操作和旧源不被重建覆盖', () => {
+  const order = purchase('LEGACY-MISSING-LOT', 10)
+  prepare(order)
+  receiveTmfBaseProduction(receipt(order, 6), warehouse, 'LEGACY-MISSING-LOT:first')
+  const legacy = getTmfPurchaseState()
+  legacy.lots = legacy.lots.filter(lot => lot.sourcePurchaseOrderNo !== order.purchaseOrderNo)
+  const raw = JSON.stringify(legacy)
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const storage = new Map([[TMF_PURCHASE_STORAGE_KEY, raw]])
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => { storage.set(key, value) },
+  } } })
+  try {
+    reloadTmfPurchaseRuntime()
+    const before = getTmfPurchaseState()
+    assert.throws(() => receiveTmfBaseProduction(receipt(order, 4), warehouse, 'LEGACY-MISSING-LOT:continue'), /原实收批次库存缺失/)
+    assert.deepEqual(getTmfPurchaseState(), before)
+    assert.equal(storage.get(TMF_PURCHASE_STORAGE_KEY), raw)
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'window', original)
+    else Reflect.deleteProperty(globalThis, 'window')
+    reloadTmfPurchaseRuntime()
+  }
+})
+
 test('OVR-001～003：超产与超收须主管二次确认，计划不扩、幂等且下游一致', () => {
   const order = purchase('OVR', 1000)
   const baseId = startScenarioBase(order)
@@ -281,14 +307,20 @@ test('OVR-001～003：超产与超收须主管二次确认，计划不扩、幂�
   const beforeReceive = getTmfPurchaseState()
   assert.throws(() => receiveTmfBaseProduction(receipt(order, 1100), warehouse, 'OVR:recv-clerk'), /仓库主管/)
   assert.throws(() => receiveTmfBaseProduction(receipt(order, 1100), supervisor, 'OVR:recv-unconfirmed'), /二次确认/)
+  assert.throws(() => receiveTmfBaseProduction({ ...receipt(order, 1100), receivedBy: { id: warehouse.id, name: ' ' }, overReceipt: { reason: '主管核对来源', confirmed: true } }, supervisor, 'OVR:receiver-name-missing'), /实际收货人/)
+  assert.throws(() => receiveTmfBaseProduction({ ...receipt(order, 1100), receivedBy: { id: '', name: warehouse.name }, overReceipt: { reason: '主管核对来源', confirmed: true } }, supervisor, 'OVR:receiver-id-missing'), /实际收货人/)
   assert.deepEqual(getTmfPurchaseState(), beforeReceive)
-  receiveTmfBaseProduction({ ...receipt(order, 1100), overReceipt: { reason: '工厂超产10%，仓库主管确认来源', confirmed: true } }, supervisor, 'OVR:recv-sup')
-  receiveTmfBaseProduction({ ...receipt(order, 1100), overReceipt: { reason: '工厂超产10%，仓库主管确认来源', confirmed: true } }, supervisor, 'OVR:recv-sup')
+  receiveTmfBaseProduction({ ...receipt(order, 1100), receivedBy: { id: warehouse.id, name: warehouse.name }, overReceipt: { reason: '工厂超产10%，仓库主管确认来源', confirmed: true } }, supervisor, 'OVR:recv-sup')
+  receiveTmfBaseProduction({ ...receipt(order, 1100), receivedBy: { id: warehouse.id, name: warehouse.name }, overReceipt: { reason: '工厂超产10%，仓库主管确认来源', confirmed: true } }, supervisor, 'OVR:recv-sup')
   state = getTmfPurchaseState()
   const saved = state.orders.find((item) => item.purchaseOrderNo === order.purchaseOrderNo)!
   assert.equal(saved.receivedQty, 1100)
   assert.equal(saved.orderedQty, 1000)
   assert.deepEqual(saved.overReceipts!.map((item) => item.meters), [100])
+  const receiptOperation = state.operations.find((item) => item.id === 'OVR:recv-sup')!
+  assert.deepEqual(receiptOperation.receivedBy, { id: warehouse.id, name: warehouse.name })
+  assert.equal(receiptOperation.actor.id, supervisor.id)
+  assert.equal(receiptOperation.actor.name, supervisor.name)
   assert.equal(state.lots.find((lot) => lot.sourcePurchaseOrderNo === order.purchaseOrderNo)!.onHandMeters, 1100)
   assert.throws(() => receiveTmfBaseProduction(receipt(order, 1), supervisor, 'OVR:recv-beyond'), /超过上游实际交出/)
 })

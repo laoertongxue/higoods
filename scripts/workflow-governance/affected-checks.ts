@@ -1,3 +1,4 @@
+import { PROTOTYPE_FULL_FUNCTION_BROWSER_PATHS, PROTOTYPE_RETIRED_ROLE_DRIVER_PATHS } from '../check-prototype-full-function-browser-contracts.ts'
 import { ACCESSORY_BROWSER_CONTRACT_PATHS, ACCESSORY_BROWSER_FIXTURE_PATHS, ACCESSORY_RETIRED_UI_CONTRACT_PATHS } from '../check-accessory-warehouse-browser-contracts.ts'
 import assert from 'node:assert/strict'
 import { normalizeChangedPath } from './changed-paths.ts'
@@ -116,6 +117,17 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if ((PROTOTYPE_FULL_FUNCTION_BROWSER_PATHS as readonly string[]).includes(path)
+      || (PROTOTYPE_RETIRED_ROLE_DRIVER_PATHS as readonly string[]).includes(path)
+      || path === 'scripts/check-prototype-full-function-browser-contracts.ts') {
+      add(fastChecks, 'node --experimental-strip-types --test tests/workflow-governance/prototype-retired-role-fixtures.test.ts')
+      add(fullChecks, 'node --import tsx scripts/check-prototype-full-function-browser-contracts.ts')
+      continue
+    }
+    if (path === 'scripts/check-prototype-full-function-performance.mjs') {
+      add(fastChecks, `node --check ${shellQuote(path)}`)
+      continue
+    }
     if ((ACCESSORY_RETIRED_UI_CONTRACT_PATHS as readonly string[]).includes(path)) {
       add(fastChecks, `test ! -e ${shellQuote(path)}`)
       add(fullChecks, 'npm run build')

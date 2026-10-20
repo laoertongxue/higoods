@@ -753,7 +753,6 @@ let needsLegacyStateMigration = false
 let hasPersistedFullFlowState = false
 const LEGACY_OUTBOUND_STORAGE_KEY = 'higood-fcs-post-finishing-outbound-orders-v1'
 const LEGACY_OUTBOUND_MIGRATION_MARKER_KEY = 'higood-fcs-post-finishing-outbound-migration-v2'
-export const POST_FINISHING_DEMO_MODE_STORAGE_KEY = 'higood-fcs-post-finishing-demo-mode-v1'
 const RETURN_TOLERANCE_RATE = 0.05
 export const POST_FINISHING_RETURN_DIFFERENCE_POLICY = Object.freeze({
   toleranceRate: RETURN_TOLERANCE_RATE,

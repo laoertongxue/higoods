@@ -371,12 +371,17 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/process-factory/dyeing/washing/work-orders.ts')
     return page.handleFabricWashingEvent(eventTarget, event)
   }
-  if (target.closest('[data-post-finishing-action^="storage-"]') || target.closest('[data-post-finishing-field="storage-import"]')) {
+  if (target.closest('[data-post-finishing-action="storage-migrate"], [data-post-finishing-action="storage-retry"]')) {
     const page = await import('./pages/process-factory/post-finishing/storage-notice.ts')
     return page.handlePostFinishingStorageEvent(eventTarget, event)
   }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/progress/material') {
+    // This list owns its fields; typing and opening a native select must not
+    // initialize unrelated factory execution modules or consume native clicks.
+    return (await import('./pages/progress-material.ts')).handleProgressMaterialEvent(eventTarget, event)
+  }
   if (pagePath === '/fcs/craft/post-finishing/material-transfers' && target.closest('[data-post-material-root]')) {
     return (await import('./pages/process-factory/post-finishing/material-transfers.ts')).handlePostFinishingMaterialTransfersEvent(eventTarget, event)
   }
@@ -1241,7 +1246,9 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
       || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     const factoryReceiptReadEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/pending-receipts$/.test(normalizedPathname)
-    if (!factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
+    // Onboarding retains the existing PCS/FCS preparation and PDA handlers;
+    // its form does not consume procurement initialization.
+    if (normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }

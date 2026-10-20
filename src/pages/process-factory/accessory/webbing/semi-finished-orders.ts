@@ -99,7 +99,7 @@ function createPage(mode: Mode) {
     const headers: Record<string, string> = { 'purchase-return':'交出未用采购退货','purchase-return-receive':'TMF登记退货实收','purchase-resolve':'核对采购变更处置', 'raw-issue':'基础原料实际发出','raw-return-receive':'原料退回实收',raw:'半成品加工原料账', 'raw-receive':'基础原料实际接收', 'raw-consume':'基础原料实际耗用', 'raw-return':'未用原料交回', detail: '采购及半成品加工详情', accept: '确认接受', report: '加工填报', dispatch: '发起交出', receive: '登记本次实际收货' }
     // 弹窗字段只更新弹窗自身；若让全局输入处理器触发整页重绘，现场连续录入时确认按钮会脱离 DOM。
     const input = (field: string, label: string, type = 'text') => `<label class="block text-sm mt-3">${label}<input name="${field}" type="${type}" data-skip-page-rerender="true" ${type === 'number' ? `min="${name==='raw-consume'?'0':'0.001'}" step="0.001"` : ''} class="mt-1 w-full rounded border p-2" required></label>`
-    let content = `<div class="text-sm space-y-2"><p>${escapeHtml(row.purchase.purchaseOrderNo)} · V${row.purchase.version}</p><div class="flex gap-2 items-center">${row.purchase.materialImageUrl ? `<button type="button" data-${prefix}-action="image" data-id="${escapeHtml(id)}" data-skip-page-rerender="true"><img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(row.purchase.materialImageUrl)}" alt="${escapeHtml(row.purchase.materialName)}"></button>` : '缺实物图'}<span>${escapeHtml(row.purchase.materialName)} · ${escapeHtml(row.purchase.materialCode)}</span></div><p>计划 ${row.base?.plannedMeters ?? row.purchase.orderedQty} 米；已产出 ${row.base?.producedMeters ?? 0} 米；交出 ${row.dispatched} 米；实收 ${row.received} 米</p><p>${escapeHtml(row.purchase.productionStandard)}</p><p>操作身份：${escapeHtml(actor.name)}</p></div>`
+    let content = `<div class="text-sm space-y-2"><p>${escapeHtml(row.purchase.purchaseOrderNo)} · V${row.purchase.version}</p><div class="flex gap-2 items-center">${row.purchase.materialImageUrl ? `<button type="button" data-${prefix}-action="image" data-id="${escapeHtml(id)}" data-skip-page-rerender="true"><img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(row.purchase.materialImageUrl)}" alt="${escapeHtml(row.purchase.materialName)}"></button>` : '缺实物图'}<span>${escapeHtml(row.purchase.materialName)} · ${escapeHtml(row.purchase.materialCode)}</span></div><p>计划 ${row.base?.plannedMeters ?? row.purchase.orderedQty} 米；已产出 ${row.base?.producedMeters ?? 0} 米；交出 ${row.dispatched} 米；实收 ${row.received} 米</p><p>${escapeHtml(row.purchase.productionStandard)}</p></div>`
     if (name === 'raw' || name.startsWith('raw-')) {
       const data=getTmfPurchaseState(),issues=data.baseMaterialIssues.filter(i=>i.baseOrderId===row.base?.id)
       content=`<p class="text-sm">半成品加工单 ${escapeHtml(row.base?.id??'')} · 来源采购 ${escapeHtml(row.purchase.purchaseOrderNo)}</p><p class="text-sm mt-2">原料重量独立核算，不能按半成品产出米数推算耗用。</p>`
@@ -148,11 +148,12 @@ function createPage(mode: Mode) {
       content += `<p class="mt-3 text-sm">应收批次：${escapeHtml(row.handover!.batchId)}；尚未实收 ${Math.round((row.dispatched - row.received) * 1000) / 1000} 米</p>`
         + input('scanBatch', '扫描或输入实物批次号') + input('scanSku', '扫描或输入实物 SKU 编码') + input('quantity', '本次清点实收（米）', 'number')
         + `<label class="block text-sm mt-3">实收库位<input name="location" value="${escapeHtml(lot?.location ?? '')}" class="mt-1 w-full rounded border p-2" required></label><p class="mt-2 text-xs text-slate-500">分批实收只累计本次数量；未到部分保留在途。超出交出量请先由主管核实来源。</p>`
-        + `<label class="block text-sm mt-3">收货身份<select name="receiveRole" class="mt-1 w-full rounded border p-2" data-skip-page-rerender="true"><option value="仓管">辅料仓管</option><option value="仓库主管">仓库主管（超收确认）</option></select></label>`
+        + input('receiverName', '实际收货人姓名')
+        + input('supervisorName', '超收确认主管姓名（超过采购计划量时必填）')
         + input('overReceiptReason', '超收原因（超过采购计划量时必填）')
         + '<label class="flex gap-2 mt-3 text-sm"><input name="overReceiptConfirmed" type="checkbox">本次实收超过采购计划量，仓库主管已核对来源并二次确认</label><p class="mt-2 text-xs text-slate-500">实收仍不得超过上游实际交出量；计划数量不会自动扩大。</p>'
     }
-    if (name === 'detail') content += `<p class="mt-3 text-sm">供应方：${escapeHtml(row.purchase.supplierName)}；目标仓：${escapeHtml(row.purchase.warehouse)}</p><p class="mt-2 text-xs">${escapeHtml(row.purchase.remark)}</p><div class="max-h-48 overflow-y-auto mt-3 text-xs space-y-2">${getTmfPurchaseState().operations.filter((op) => [row.purchase.purchaseOrderNo, row.base?.id, row.handover?.id].includes(op.objectId)).map((op) => `<p>${escapeHtml(op.occurredAt)} · ${escapeHtml(op.action)} · ${escapeHtml(op.actor.name)} ${op.quantity ?? ''} ${op.unit ?? ''}</p>`).join('')}</div>`
+    if (name === 'detail') content += `<p class="mt-3 text-sm">供应方：${escapeHtml(row.purchase.supplierName)}；目标仓：${escapeHtml(row.purchase.warehouse)}</p><p class="mt-2 text-xs">${escapeHtml(row.purchase.remark)}</p><div class="max-h-48 overflow-y-auto mt-3 text-xs space-y-2">${getTmfPurchaseState().operations.filter((op) => [row.purchase.purchaseOrderNo, row.base?.id, row.handover?.id].includes(op.objectId)).map((op) => `<p>${escapeHtml(op.occurredAt)} · ${escapeHtml(op.action)} · ${op.receivedBy ? `实收人 ${escapeHtml(op.receivedBy.name)}${op.actor.role === '仓库主管' ? ` · 超收确认 ${escapeHtml(op.actor.name)}` : ''}` : escapeHtml(op.actor.name)} ${op.quantity ?? ''} ${op.unit ?? ''}</p>`).join('')}</div>`
     if (name === 'detail') {
       const refs = row.purchase.masterRefs
       content += refs
@@ -178,7 +179,7 @@ function createPage(mode: Mode) {
     el.addEventListener('error', (event) => { if (event.target instanceof HTMLImageElement) { const text = document.createElement('span'); text.textContent = '图片加载失败'; text.className = 'text-amber-700 text-xs'; event.target.replaceWith(text) } }, true)
     el.addEventListener('change', (event) => { const field = event.target as HTMLSelectElement; if (field.getAttribute(`data-${prefix}-field`) === 'pageSize') { controller.setPageSize(Number(field.value)); refresh() } })
     el.addEventListener('keydown', (event) => { if (event.key === 'Escape') { const preview = el.querySelector('[data-tmf-preview]'); if (preview?.innerHTML) { preview.innerHTML = ''; return }; closeDialog(); state.showColumnSettings = false; controller.refresh({ table: false, pagination: false, overlays: true }) } })
-    el.addEventListener('click', (event) => {
+    el.addEventListener('click', async (event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>(`[data-${prefix}-action]`); if (!target) return
       event.stopPropagation()
       const name = target.getAttribute(`data-${prefix}-action`)!
@@ -240,13 +241,20 @@ function createPage(mode: Mode) {
           if (dialogAction === 'receive') {
             if (el.querySelector<HTMLInputElement>('[name="scanBatch"]')!.value.trim() !== row.handover!.batchId) throw new Error('实物批次不符，请扫描本次交出的正确批次。')
             const scanned = el.querySelector<HTMLInputElement>('[name="scanSku"]')!.value.trim()
-            const supervisorRole = el.querySelector<HTMLSelectElement>('[name="receiveRole"]')?.value === '仓库主管'
-            const receiptActor: TmfPurchaseActor = supervisorRole
-              ? { id: 'TMF-DEMO-WAREHOUSE-SUPERVISOR', name: '仓库主管（演示）', role: '仓库主管' }
-              : actor
-            receiveTmfBaseProduction({ handoverId: row.handover!.id, materialSkuId: scanned === row.purchase.materialCode ? row.purchase.materialSkuId : scanned,
+            const receiverName = el.querySelector<HTMLInputElement>('[name="receiverName"]')?.value.trim() || ''
+            if (!receiverName) throw new Error('请填写实际收货人姓名。')
+            const overPlan = Math.round((row.purchase.receivedQty + quantity - row.purchase.orderedQty) * 1000) > 0
+            const supervisorName = el.querySelector<HTMLInputElement>('[name="supervisorName"]')?.value.trim() || ''
+            const supervisorConfirmed = !!el.querySelector<HTMLInputElement>('[name="overReceiptConfirmed"]')?.checked
+            if (overPlan && !supervisorName) throw new Error('超收须填写本次实际确认主管姓名。')
+            if (overPlan && !supervisorConfirmed) throw new Error('超收须由实际仓库主管核对来源后勾选二次确认。')
+            const receiptActor: TmfPurchaseActor = overPlan
+              ? { id: `TMF-WAREHOUSE-SUPERVISOR:${operationId}`, name: supervisorName, role: '仓库主管' }
+              : { ...actor, id: `TMF-RECEIVER:${operationId}`, name: receiverName }
+            await receiveTmfBaseProduction({ handoverId: row.handover!.id, materialSkuId: scanned === row.purchase.materialCode ? row.purchase.materialSkuId : scanned,
               warehouseId: row.handover!.warehouseId, location: el.querySelector<HTMLInputElement>('[name="location"]')!.value.trim(), receivedMeters: quantity,
-              overReceipt: { reason: el.querySelector<HTMLInputElement>('[name="overReceiptReason"]')?.value.trim() || '', confirmed: !!el.querySelector<HTMLInputElement>('[name="overReceiptConfirmed"]')?.checked } }, receiptActor, operationId)
+              receivedBy: { id: `TMF-RECEIVER:${operationId}`, name: receiverName },
+              overReceipt: { reason: el.querySelector<HTMLInputElement>('[name="overReceiptReason"]')?.value.trim() || '', confirmed: !!el.querySelector<HTMLInputElement>('[name="overReceiptConfirmed"]')?.checked } }, receiptActor, operationId, true)
           } else if (dialogAction === 'accept') acceptTmfBaseOrder(row.base!.id, TMF_DEMO_SUPERVISOR, operationId)
           else if (dialogAction === 'report') reportTmfBaseProduction(row.base!.id, quantity, TMF_DEMO_SUPERVISOR, operationId,
             { reason: el.querySelector<HTMLInputElement>('[name="overPlanReason"]')?.value.trim() || '', confirmed: !!el.querySelector<HTMLInputElement>('[name="overPlanConfirmed"]')?.checked })
@@ -260,7 +268,7 @@ function createPage(mode: Mode) {
       state.currentPage = 1; state.sort = null
     controller.ensurePreferencesLoaded(); const view = controller.getView()
     if (typeof window !== 'undefined') requestAnimationFrame(bind)
-    return `<div data-tmf-base-page="${mode}">${renderStandardListPage({ title, primaryActionsHtml: `<div class="flex gap-2 items-center"><span class="text-xs text-slate-500">${receiving || rawWarehouse ? '原料／辅料仓 · 仓管演示身份' : 'TMF - 辅料厂 · 主管演示身份'}</span>${purchasePage ? '<button class="rounded border px-3 py-1.5 text-sm" data-nav="/pms/material-purchase-orders">PMS 面辅料采购</button>' : ''}</div>`,
+    return `<div data-tmf-base-page="${mode}">${renderStandardListPage({ title, primaryActionsHtml: `<div class="flex gap-2 items-center">${purchasePage ? '<button class="rounded border px-3 py-1.5 text-sm" data-nav="/pms/material-purchase-orders">PMS 面辅料采购</button>' : ''}</div>`,
       feedbackHtml: '<p class="text-sm text-blue-700" role="status" data-tmf-feedback></p>',
       filtersHtml: `<div class="rounded-lg border bg-white p-3"><div class="flex gap-3 flex-wrap"><label class="text-xs">采购单 / 物料 / ${purchasePage ? '款式 / 半成品加工单' : '半成品加工单 / 批次'}<input name="keyword" value="${escapeHtml(state.keyword)}" class="block rounded border p-2 mt-1 w-72 text-sm"></label><label class="text-xs">进度<select name="status" class="block rounded border p-2 mt-1 text-sm"><option value="">全部</option>${(receiving ? ['待实收','部分实收','已收齐'] : ['待生成','待确认接受','加工中','待交出','交出待实收','已收齐','变更待处理','已终止']).map((s) => `<option ${s === state.status ? 'selected' : ''}>${s}</option>`).join('')}</select></label></div><div class="mt-3 flex gap-2">${action('query','查询')}${action('reset','重置')}${action('export','导出')}</div></div>`,
       statsHtml: `<div data-tmf-stats>${stats()}</div>`, listTitle: `数据列表 · ${filteredRows().length} 条`, listActionsHtml: action('open-column-settings', '列设置'),

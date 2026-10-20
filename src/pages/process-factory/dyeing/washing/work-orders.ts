@@ -16,7 +16,6 @@ export { washingOrderStatus } from '../../../../data/fcs/fabric-washing-views.ts
 import { washingInformationColumns, renderWashingInformation, upgradeWashingColumnPreferences } from './order-presentation.ts'
 import { renderWashingDetailTabs, renderWashingDetailPanel, renderWashingDetailSummary, renderWashingDetailBase, renderWashingHandover, renderWashingLogs, washingDetailTab, switchWashingDetailTab, handleWashingDetailTabKey, type WashingDetailTab } from './detail-views.ts'
 import { WASHING_FACTORY_ID } from '../../../../data/fcs/fabric-washing-model.ts'
-import { renderWashingStorageTools, handleWashingStorageAction } from './storage-tools.ts'
 import { isWashingExecutionAction, openWashingExecutionDialog, washingExecutionLabels, washingExecutionRolls } from './execution-dialog.ts'
 
 const ui = { page:1, pageSize:10, query:'', handFeel:'', status:'', busy:false }
@@ -115,7 +114,7 @@ function listContent(pda=false) {
  const paginationHtml=renderTablePagination({currentPage:ui.page,pageSize:ui.pageSize,total:rows.length,pageSizeOptions:[10,20,50],actionPrefix:'fabric-washing',from:rows.length?(ui.page-1)*ui.pageSize+1:0,to:Math.min(ui.page*ui.pageSize,rows.length),totalPages:Math.max(1,Math.ceil(rows.length/ui.pageSize)),skipPageRerender:true})
  installWashingImages()
  if(pda)return `<div class="space-y-3 p-3"><h1 class="text-xl font-semibold">洗水加工单</h1>${filtersHtml}${cardsHtml}${paginationHtml}</div>`
- return renderStandardListPage({title:'洗水加工单',filtersHtml,feedbackHtml:'<p class="empty:hidden text-sm text-red-700" role="alert" data-washing-error></p><p class="empty:hidden text-sm text-green-700" role="status" tabindex="-1" data-washing-result></p>',statsHtml:`<div data-washing-list-stats>${renderStandardListStats([{label:'筛选结果',value:rows.length},{label:'待印花交出',value:rows.filter(o=>washingCanExecute(o)&&!o.cancelledAt&&!o.exception&&!o.completedAt&&!o.rolls.some(r=>r.sentAt)).length},{label:'异常',value:rows.filter(o=>o.exception).length}])}</div>`,listTitle:`洗水加工单 · ${rows.length} 条`,listActionsHtml:button('列设置','columns'),overlaysHtml:(columnsOpen?renderStandardListColumnSettings({title:'洗水列表列设置',columns,preferences,eventPrefix:'fabric-washing',maxFrozenWidth:650,skipPageRerender:true}):'')+'<div data-washing-operation-slot></div>',primaryActionsHtml:button('查看印花产出','candidates')+button('本地资料','storage'),tableHtml,paginationHtml:`<div data-washing-list-pagination>${paginationHtml}</div>`})
+ return renderStandardListPage({title:'洗水加工单',filtersHtml,feedbackHtml:'<p class="empty:hidden text-sm text-red-700" role="alert" data-washing-error></p><p class="empty:hidden text-sm text-green-700" role="status" tabindex="-1" data-washing-result></p>',statsHtml:`<div data-washing-list-stats>${renderStandardListStats([{label:'筛选结果',value:rows.length},{label:'待印花交出',value:rows.filter(o=>washingCanExecute(o)&&!o.cancelledAt&&!o.exception&&!o.completedAt&&!o.rolls.some(r=>r.sentAt)).length},{label:'异常',value:rows.filter(o=>o.exception).length}])}</div>`,listTitle:`洗水加工单 · ${rows.length} 条`,listActionsHtml:button('列设置','columns'),overlaysHtml:(columnsOpen?renderStandardListColumnSettings({title:'洗水列表列设置',columns,preferences,eventPrefix:'fabric-washing',maxFrozenWidth:650,skipPageRerender:true}):'')+'<div data-washing-operation-slot></div>',primaryActionsHtml:button('查看印花产出','candidates'),tableHtml,paginationHtml:`<div data-washing-list-pagination>${paginationHtml}</div>`})
 }
 /** Keep the query, table shell and scroll container mounted when one order changes. */
 function refreshWashingListResults(root:HTMLElement):void {
@@ -246,8 +245,6 @@ export async function handleFabricWashingEvent(target:HTMLElement,event?:Event):
   if(trigger.dataset.fabricWashingPageSize!==undefined){ui.pageSize=Number((trigger as HTMLSelectElement).value);ui.page=1;refresh(root);return true}
   if(['candidates','candidates-prev','candidates-next'].includes(action||'')){if(action==='candidates')candidatePage=1;else candidatePage+=action==='candidates-next'?1:-1;root.innerHTML=renderCandidateView();return true}
   if(action==='list'){refresh(root);return true}
-  if(action==='storage'){root.innerHTML=await renderWashingStorageTools();return true}
-  if(action?.startsWith('storage-'))return handleWashingStorageAction(action,root)
   if(['judge-wash','judge-no','correct-wash','correct-no'].includes(action||'')){
    const source=getWashingSources(root.dataset.printOrder!).find(s=>s.id===root.dataset.washingSource);if(!source)throw new Error('批次不存在，请重新打开原印花单。')
    const pda=root.closest<HTMLElement>('[data-washing-judgment-root]')?.dataset.washingPda==='true'

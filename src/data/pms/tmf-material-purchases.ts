@@ -396,6 +396,8 @@ export interface TmfPurchaseOperation {
   action: string
   objectId: string
   actor: TmfPurchaseActor
+  /** 基础半成品实际收货人；超收时 actor 仍记录负责二次确认的主管。 */
+  receivedBy?: Pick<TmfPurchaseActor, 'id' | 'name'>
   occurredAt: string
   quantity?: number
   unit?: '米' | '条' | '根' | '个' | 'kg' | 'g'
@@ -501,7 +503,7 @@ const pendingTmfCommits: TmfPurchaseState[] = []
  * 拆分映射:
  *   pmsTmfOrders     = orders + baseOrders + handovers + purchaseReturns + workPlans + workCosts
  *                      + supplyPurchaseReceipts + baseMaterialLots + baseMaterialIssues + baseMaterialReturns
- *   pmsTmfProduction  = demands + reservations + processingIssues + cutOutputs + continuousReturns
+ *   pmsTmfProduction  = lots + demands + reservations + processingIssues + cutOutputs + continuousReturns
  *                      + tipMaterialReturns + tipMaterialLots + tipMaterialIssues + tipResults
  *                      + packages + outputHandovers + outputAllocations + productionIssues + productionControls
  *   pmsTmfScrap       = defectiveScraps + factoryScraps + continuousScraps + terminationDisposals + terminationClosures
@@ -527,6 +529,7 @@ function splitTmfStateIntoSections(draft: TmfPurchaseState): {
       baseMaterialReturns: draft.baseMaterialReturns,
     },
     production: {
+      lots: draft.lots,
       demands: draft.demands,
       reservations: draft.reservations,
       processingIssues: draft.processingIssues,
@@ -557,7 +560,7 @@ function splitTmfStateIntoSections(draft: TmfPurchaseState): {
 
 function mergeTmfSectionsIntoState(state: TmfPurchaseState, sections: {
   orders: { orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown; supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown }
-  production: { demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown }
+  production: { lots?: unknown; demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown }
   scrap: { defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown; terminationDisposals: unknown; terminationClosures: unknown }
   operations: { operations: unknown }
 }): void {
@@ -567,18 +570,35 @@ function mergeTmfSectionsIntoState(state: TmfPurchaseState, sections: {
   Object.assign(state, sections.operations)
 }
 
-async function persistTmfPurchaseStateToIdb(draft: TmfPurchaseState): Promise<void> {
+async function persistTmfPurchaseStateToIdb(draft: TmfPurchaseState, expected?: TmfPurchaseState): Promise<void> {
   const sections = splitTmfStateIntoSections(draft)
-  await pmsTx(
-    [PMS_STORES.pmsTmfOrders, PMS_STORES.pmsTmfProduction, PMS_STORES.pmsTmfScrap, PMS_STORES.pmsTmfOperations],
-    'readwrite',
-    (tx) => {
-      tx.objectStore(PMS_STORES.pmsTmfOrders).put({ singleton: 'singleton', section: sections.orders })
-      tx.objectStore(PMS_STORES.pmsTmfProduction).put({ singleton: 'singleton', section: sections.production })
-      tx.objectStore(PMS_STORES.pmsTmfScrap).put({ singleton: 'singleton', section: sections.scrap })
-      tx.objectStore(PMS_STORES.pmsTmfOperations).put({ singleton: 'singleton', section: sections.operations })
-    },
-  )
+  const entries = [
+    [PMS_STORES.pmsTmfOrders, 'orders'], [PMS_STORES.pmsTmfProduction, 'production'],
+    [PMS_STORES.pmsTmfScrap, 'scrap'], [PMS_STORES.pmsTmfOperations, 'operations'],
+  ] as const
+  const observed = expected ? splitTmfStateIntoSections(expected) : undefined
+  await pmsTx(entries.map(([store]) => store), 'readwrite', tx => {
+    const save = () => { for (const [store, key] of entries) tx.objectStore(store).put({ singleton: 'singleton', section: sections[key] }) }
+    if (!observed) { save(); return }
+    // This receipt must use the same facts it validated. Check all four existing
+    // sections inside the write transaction; other tabs cannot interleave writes.
+    return new Promise<void>((resolve, reject) => {
+      let remaining = entries.length
+      for (const [store, key] of entries) {
+        const request = tx.objectStore(store).get('singleton')
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const actual = request.result?.section as Record<string, unknown> | undefined
+          const before = observed[key] as Record<string, unknown>
+          if (Object.keys(before).some(field => JSON.stringify(actual?.[field] ?? []) !== JSON.stringify(before[field]))) {
+            reject(new Error('收货资料已被其他操作更新，本次未保存。刷新页面后重新打开收货记录，再重试。'))
+            return
+          }
+          if (--remaining === 0) { save(); resolve() }
+        }
+      }
+    })
+  })
 }
 
 /**
@@ -592,7 +612,7 @@ async function persistTmfPurchaseStateToIdb(draft: TmfPurchaseState): Promise<vo
 async function readTmfSectionsFromIdb(): Promise<{ orders: unknown; production: unknown; scrap: unknown; operations: unknown }> {
   const [ordersSection, productionSection, scrapSection, operationsSection] = await Promise.all([
     pmsGet<{ singleton: string; section: { orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown; supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown } }>(PMS_STORES.pmsTmfOrders, 'singleton'),
-    pmsGet<{ singleton: string; section: { demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown } }>(PMS_STORES.pmsTmfProduction, 'singleton'),
+    pmsGet<{ singleton: string; section: { lots?: unknown; demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown } }>(PMS_STORES.pmsTmfProduction, 'singleton'),
     pmsGet<{ singleton: string; section: { defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown; terminationDisposals: unknown; terminationClosures: unknown } }>(PMS_STORES.pmsTmfScrap, 'singleton'),
     pmsGet<{ singleton: string; section: { operations: unknown } }>(PMS_STORES.pmsTmfOperations, 'singleton'),
   ])
@@ -724,12 +744,12 @@ function extractOrdersSection(s: TmfPurchaseState): {
   }
 }
 function extractProductionSection(s: TmfPurchaseState): {
-  demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown
+  lots: unknown; demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown
   tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown
   packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown
 } {
   return {
-    demands: s.demands, reservations: s.reservations, processingIssues: s.processingIssues,
+    lots: s.lots ?? [], demands: s.demands, reservations: s.reservations, processingIssues: s.processingIssues,
     cutOutputs: s.cutOutputs, continuousReturns: s.continuousReturns,
     tipMaterialReturns: s.tipMaterialReturns, tipMaterialLots: s.tipMaterialLots,
     tipMaterialIssues: s.tipMaterialIssues, tipResults: s.tipResults,
@@ -945,10 +965,14 @@ function allowed(actor: TmfPurchaseActor, roles: TmfPurchaseActor['role'][]): vo
   if (!actor.id.trim() || !actor.name.trim() || !roles.includes(actor.role)) throw new Error('当前角色不能执行此操作。')
 }
 
+let confirmedTmfSavePending = false
+
 function commit(
   operationId: string, action: string, objectId: string, actor: TmfPurchaseActor,
-  payload: unknown, mutate: (draft: TmfPurchaseState, occurredAt: string) => { quantity?: number; unit?: TmfPurchaseOperation['unit']; reason?: string },
-): void {
+  payload: unknown, mutate: (draft: TmfPurchaseState, occurredAt: string) => { quantity?: number; unit?: TmfPurchaseOperation['unit']; reason?: string; receivedBy?: TmfPurchaseOperation['receivedBy'] },
+  waitForSave = false,
+): void | Promise<void> {
+  if (confirmedTmfSavePending) throw new Error('正在保存实收，请完成后再操作。')
   // § 2.4.1:IDB 可用时内存 state 即权威,不能清空重建——清空会强制 current() 回落到 localStorage,
   // 使 IDB 沦为旁路。仅 IDB 不可用时才清空,让 current() 走 localStorage 降级路径重读最新结果。
   if (typeof window !== 'undefined' && !tmfIdbAvailable) state = undefined
@@ -959,10 +983,18 @@ function commit(
     if (compactOperationSignature(previous.payloadSignature) !== signature) throw new Error('此操作编号已保存其他内容，请查看原记录后重新操作。')
     return
   }
-  const draft = structuredClone(current())
+  const observed = current()
+  const draft = structuredClone(observed)
   const occurredAt = new Date().toISOString()
   const result = mutate(draft, occurredAt)
-  draft.operations.push({ id: operationId, action, objectId, actor: { ...actor }, occurredAt, quantity: result.quantity, unit: result.quantity === undefined ? undefined : result.unit ?? '米', reason: result.reason || '', payloadSignature: signature })
+  draft.operations.push({ id: operationId, action, objectId, actor: { ...actor }, ...(result.receivedBy ? { receivedBy: { ...result.receivedBy } } : {}), occurredAt, quantity: result.quantity, unit: result.quantity === undefined ? undefined : result.unit ?? '米', reason: result.reason || '', payloadSignature: signature })
+  if (waitForSave) {
+    if (!tmfHydrationReady || !tmfIdbAvailable) throw new Error('实收资料尚未读取完成，本次未保存。刷新页面后重新打开收货记录，再重试。')
+    confirmedTmfSavePending = true
+    return persistTmfPurchaseStateToIdb(draft, observed)
+      .then(() => { state = draft })
+      .finally(() => { confirmedTmfSavePending = false })
+  }
   // § 2.4.1 / § 2.4.6:IDB 可用时**不写** localStorage(否则迁移已删除的旧键会被再次写回,双写永久化)。
   // 仅 IDB 不可用时降级写入,保证操作不丢。
   if (typeof window !== 'undefined' && !tmfIdbAvailable) {
@@ -1224,17 +1256,23 @@ export function dispatchTmfBaseProduction(
 
 export function receiveTmfBaseProduction(
   input: { handoverId: string; materialSkuId: string; warehouseId: string; location: string; receivedMeters: number;
+    /** 实物收货人独立于超收确认主管；旧调用省略时沿用 actor。 */
+    receivedBy?: Pick<TmfPurchaseActor, 'id' | 'name'>;
     overReceipt?: { reason: string; confirmed: boolean } },
-  actor: TmfPurchaseActor, operationId: string,
-): void {
+  actor: TmfPurchaseActor, operationId: string, waitForSave = false,
+): void | Promise<void> {
   allowed(actor, ['仓管', '仓库主管'])
   meters(input.receivedMeters)
-  commit(operationId, '基础半成品实收', input.handoverId, actor, input, (draft, at) => {
+  return commit(operationId, '基础半成品实收', input.handoverId, actor, input, (draft, at) => {
+    const receiver = input.receivedBy ?? actor
+    if (!receiver.id?.trim() || !receiver.name?.trim()) throw new Error('请填写实际收货人姓名及身份。')
     const handover = draft.handovers.find((item) => item.id === input.handoverId)
     if (!handover) throw new Error('没有上游实际交出记录，不能凭采购计划收货。')
     if (handover.materialSkuId !== input.materialSkuId || handover.warehouseId !== input.warehouseId) throw new Error('扫码物料或目标仓不符，请核对后重新接收。')
     if (!input.location.trim()) throw new Error('请填写实收库位。')
     if (add(handover.receivedMeters, input.receivedMeters) > handover.dispatchedMeters) throw new Error('实收超过上游实际交出，数量未保存，请主管核实来源。')
+    const receiptLot = draft.lots.find((item) => item.sourceHandoverId === handover.id)
+    if (handover.receivedMeters > 0 && !receiptLot) throw new Error('原实收批次库存缺失，请先核对既有实收记录；本次数量未保存。')
     const order = draft.orders.find((item) => item.purchaseOrderNo === handover.purchaseOrderNo)!
     if (order.status === '已关闭') throw new Error('采购已终止，请主管处理已发在途的接收去向。')
     const overage = add(add(order.receivedQty, input.receivedMeters), -order.orderedQty)
@@ -1246,7 +1284,7 @@ export function receiveTmfBaseProduction(
       order.overReceipts.push({ meters: overage, reason: input.overReceipt.reason.trim(), confirmedBy: actor.id, confirmedAt: at, handoverId: handover.id })
     }
     handover.receivedMeters = add(handover.receivedMeters, input.receivedMeters)
-    let lot = draft.lots.find((item) => item.sourceHandoverId === handover.id)
+    let lot = receiptLot
     if (lot && lot.location !== input.location) throw new Error('该批次已有实收库位，请先收至原库位，再办理移库。')
     if (!lot) {
       lot = { id: handover.batchId, materialSkuId: handover.materialSkuId, sourcePurchaseOrderNo: order.purchaseOrderNo,
@@ -1258,8 +1296,8 @@ export function receiveTmfBaseProduction(
     lot.onHandMeters = add(lot.onHandMeters, input.receivedMeters)
     order.receivedQty = add(order.receivedQty, input.receivedMeters)
     order.status = order.receivedQty >= order.orderedQty ? '已入库' : '部分到货'
-    return { quantity: input.receivedMeters }
-  })
+    return { quantity: input.receivedMeters, receivedBy: { id: receiver.id.trim(), name: receiver.name.trim() } }
+  }, waitForSave)
 }
 
 export function getTmfPurchaseReturnBalance(purchaseOrderNo: string) {

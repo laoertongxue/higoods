@@ -794,7 +794,7 @@ function buildMarkerPlanSourceContextCandidate(input: {
   }
 }
 
-export function buildMarkerPlanContextCandidates(sources: CuttingSummaryBuildOptions): MarkerPlanContextCandidate[] {
+export function buildMarkerPlanContextCandidates(sources: Pick<CuttingSummaryBuildOptions, 'productionRows' | 'cutOrderRows' | 'materialPrepRows'>): MarkerPlanContextCandidate[] {
   const materialPrepRowsById = buildMaterialPrepRowMap(sources.materialPrepRows)
   const cutOrderRowsById = buildCutOrderRowMap(sources.cutOrderRows)
   const productionRowsById = buildProductionRowMap(sources.productionRows)
@@ -2310,7 +2310,7 @@ function mergePlans(seed: MarkerPlan[], stored: MarkerPlan[]): MarkerPlan[] {
   return Array.from(merged.values()).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 }
 
-export function buildMarkerPlanViewModel(sources: CuttingSummaryBuildOptions, storedPlans: MarkerPlan[] = []): MarkerPlanViewModel {
+export function buildMarkerPlanViewModel(sources: Pick<CuttingSummaryBuildOptions, 'productionRows' | 'cutOrderRows' | 'materialPrepRows' | 'markerStore'>, storedPlans: MarkerPlan[] = []): MarkerPlanViewModel {
   const contexts = buildMarkerPlanContextCandidates(sources)
   const seedPlans = buildSystemSeedMarkerPlans(contexts)
   const mergedPlans = mergePlans(seedPlans, storedPlans)

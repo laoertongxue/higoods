@@ -99,3 +99,68 @@ test('four affected settlement/quality/dye-report read entries are exact and do 
     for (const suffix of ['-extra', '/', '/detail', '//']) assert.equal(isIsolatedCraftReadEntry(base + suffix), false, base + suffix)
   }
 })
+
+test('裁床日报精确隔离无关采购初始化，query/hash/尾斜杠不改变范围，邻接业务不受影响', () => {
+  for (const path of variants('/fcs/craft/cutting/statistics/daily-production')) assert.equal(isIsolatedCraftReadEntry(path), true, path)
+  for (const path of ['/fcs/craft/cutting/statistics/daily-production/details', '/fcs/craft/cutting/statistics/daily-production-extra', '/fcs/craft/cutting/cut-orders', '/pms/material-requirements']) assert.equal(isIsolatedCraftReadEntry(path), false, path)
+})
+
+test('日报无effects时不启动无关产物，已有effects仍完整await恢复，失败可重试', async () => {
+  const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
+  const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
+  const fn = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'hydrateProductionSourceEffectsForEntry')!
+  const js = ts.transpileModule(fn.getText(ast).replaceAll('import(', 'loadModule('), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const build = (effects: string | null, fail = false) => {
+    const reads: string[] = []
+    const deps = {
+      isIsolatedCraftReadEntry,
+      productionSourceEffectsHydration: undefined as Promise<void> | undefined,
+      loadModule: async (path: string) => {
+        reads.push(path)
+        if (path.endsWith('/production-context-records.ts')) return { PRODUCTION_CONTEXT_KEYS: { effects: 'effects' }, productionContextStorage: { getItem: (key: string) => { assert.equal(key, 'effects'); return effects } } }
+        assert.ok(path.endsWith('/production-context-actions.ts'))
+        return { hydrateProductionSourceEffects: async () => { await new Promise(resolve => setImmediate(resolve)); if (fail) throw Error('saved source read failed'); reads.push('restored') } }
+      },
+    }
+    return { deps, reads, run: new Function('dependencies', `with (dependencies) { ${js}; return hydrateProductionSourceEffectsForEntry; }`)(deps) as (path: string) => Promise<void> }
+  }
+  const empty = build(null)
+  await empty.run('/fcs/craft/cutting/statistics/daily-production')
+  assert.equal(empty.reads.some(path => path.includes('actions')), false)
+  const saved = build('existing saved effects')
+  await saved.run('/fcs/craft/cutting/statistics/daily-production')
+  assert.equal(saved.reads.at(-1), 'restored')
+  const adjacent = build(null)
+  await adjacent.run('/pms/material-purchase-orders')
+  assert.equal(adjacent.reads.at(-1), 'restored')
+  const fault = build('existing saved effects', true)
+  await assert.rejects(fault.run('/fcs/craft/cutting/statistics/daily-production'), /saved source read failed/)
+  assert.equal(fault.deps.productionSourceEffectsHydration, undefined)
+})
+
+
+test('入驻只跳过无关采购初始化，原PCS/FCS准备与PDA处理器保持，邻接路径不受影响', () => {
+  const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
+  const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
+  const render = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'renderCurrentPageContent')!
+  let condition: ts.Expression | undefined
+  const visit = (node: ts.Node) => {
+    if (ts.isIfStatement(node) && node.thenStatement.getText(ast) === 'startPmsInitialization()') condition = node.expression
+    ts.forEachChild(node, visit)
+  }
+  visit(render)
+  assert.ok(condition)
+  const initialize = new Function('normalizedPathname', 'isIsolatedCraftReadEntry', `
+    const factoryReceiptReadEntry = false, isolatedPcsList = false, postFinishingEntry = false,
+      cuttingReleaseChainEntry = false, sewingPdaExecutionOrHandover = false, generatedPdaTask = null;
+    return ${condition.getText(ast)};
+  `) as (path: string, isolated: typeof isIsolatedCraftReadEntry) => boolean
+  assert.equal(initialize('/fcs/pda/auth/onboarding', isIsolatedCraftReadEntry), false)
+  for (const route of ['/fcs/pda/auth/onboarding-extra', '/fcs/pda/auth/onboarding/details', '/pms/material-purchase-orders']) {
+    assert.equal(initialize(route, isIsolatedCraftReadEntry), true, route)
+  }
+  // This change modifies only the procurement condition; the exact onboarding
+  // renderer is still resolved after the original shared preparation.
+  assert.doesNotMatch(render.getText(ast), /return \(await import\('\.\/pages\/pda-onboarding/)
+  assert.match(render.getText(ast), /await preparePageRouteEntry\(normalizedPathname\)/)
+})

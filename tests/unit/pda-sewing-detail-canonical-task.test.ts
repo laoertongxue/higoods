@@ -18,8 +18,11 @@ import {
 } from '../../src/data/fcs/production-object-overview.ts'
 
 test('PDA order/task link indexes preserve all full-index candidates without constructing unrelated material rows', () => {
+  // Complete existing lazy source registration before capturing the reference.
+  // This is semantic parity on one settled source, never a cold-load measurement.
+  getProductionObjectSearchIndex(true)
   const all = getProductionObjectSearchIndex(true)
-  for (const objectType of ['PRODUCTION_ORDER', 'PROCESS_DOC'] as const) {
+  for (const objectType of ['PRODUCTION_ORDER', 'PROCESS_DOC', 'WAREHOUSE_DOC', 'HANDOVER_ORDER'] as const) {
     const links = getProductionObjectLinkIndex(objectType)
     assert.deepEqual(links, all.filter(row => row.objectType === objectType), objectType)
     assert.notEqual(getProductionObjectLinkIndex(objectType), links, 'each render receives current source rows, not a cross-render cache')

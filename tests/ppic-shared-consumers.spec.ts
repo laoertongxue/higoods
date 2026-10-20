@@ -211,9 +211,9 @@ test('PDA车缝执行读取回货待核对状态，交接列表与明细在小�
   console.log('[consumer-handover-preview-source]', pendingHead)
   await page.evaluate(async handoverId => {
     const { appStore } = await import('/src/state/store.ts')
-    appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(handoverId)}?demoRole=RECEIVER`)
+    appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
   }, pendingHead.handoverId)
-  await page.waitForURL('**/fcs/pda/handover/**?demoRole=RECEIVER')
+  await page.waitForURL('**/fcs/pda/handover/**')
   await expect(page.locator('body')).not.toContainText('PIECE')
   const records = page.locator('details').filter({ hasText: /交出记录（/ }).first()
   if (await records.count() && await records.getAttribute('open') === null) await records.locator('summary').click()

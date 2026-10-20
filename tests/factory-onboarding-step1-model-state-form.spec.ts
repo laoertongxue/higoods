@@ -25,7 +25,7 @@ async function fillRequiredDraft(page: import('@playwright/test').Page, prefix: 
   await page.locator('[data-pda-onboarding-field="factoryShortName"]').fill(`${prefix}_${stamp}`)
   await page.locator('[data-pda-onboarding-field="applicantName"]').fill(`${prefix}申请人`)
   await page.locator('[data-pda-onboarding-field="identityNo"]').fill(`ID-${prefix}-${stamp}`)
-  await page.locator('[data-pda-onboarding-action="use-demo-identity-file"]').click()
+  await page.locator('[data-pda-onboarding-file="identityFile"]').setInputFiles({ name: 'identity-test.pdf', mimeType: 'application/pdf', buffer: Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(16 * 1024, 32), Buffer.from('\n%%EOF')]) })
   await page.locator('[data-pda-onboarding-field="factoryCompanyName"]').fill(factoryCompanyName || `${prefix}演示工厂`)
   await page.locator('[data-pda-onboarding-field="address"]').fill('雅加达工业园 A-01')
   await page.locator('[data-pda-onboarding-field="mobilePhone"]').fill('+62-812-0000-6601')

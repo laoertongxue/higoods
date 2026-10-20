@@ -208,7 +208,7 @@ function getQuery(params: URLSearchParams): CuttingDailyProductionReportQuery {
     factoryId: params.get('factoryId') || 'F090',
     keyword: params.get('keyword') || '',
     executionOwner: normalizeExecutionOwner(params.get('executionOwner')),
-    includeDemoData: params.get('includeDemoData') !== '0',
+    includeDemoData: true,
     timezone: params.get('timezone') || 'Asia/Jakarta',
   }
 }

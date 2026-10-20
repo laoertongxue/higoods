@@ -1077,7 +1077,6 @@ function renderOnboardingBody(application: FactoryOnboardingApplication | null):
               <div class="space-y-2">
                 <input ${readonly ? 'disabled' : ''} type="file" accept=".jpg,.jpeg,.png,.pdf" data-pda-onboarding-file="identityFile" class="w-full rounded-2xl border px-3 py-2" />
                 <div class="rounded-xl border bg-muted/20 px-3 py-2">当前文件：${escapeHtml(state.draft.identityFile?.fileName || '未上传')}</div>
-                ${readonly ? '' : '<button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-onboarding-action="use-demo-identity-file">使用演示身份文件</button>'}
               </div>
             `, true)}
           </div>
@@ -1422,16 +1421,6 @@ export async function handlePdaOnboardingEvent(target: HTMLElement): Promise<boo
     return true
   }
 
-  if (action === 'use-demo-identity-file') {
-    state.draft.identityFile = {
-      fileId: `IDF-DEMO-${Date.now()}`,
-      fileName: '身份证复印件演示文件.pdf',
-      fileType: 'pdf',
-      fileSizeMb: 3,
-      uploadedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
-    }
-    return true
-  }
 
   if (action === 'add-machine') {
     state.draft.machines.push(createDefaultMachineDraft(state.draft.machines.length + 1))

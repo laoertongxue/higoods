@@ -17,7 +17,7 @@ async function source(code:string){
 export function openTmfProductionDemandDialog(surface:HTMLElement, onGenerated:()=>void){
  let preview='',sourceId='',generation=0,busy=false
  const operationId=`tmf-generate:${crypto.randomUUID()}`
- surface.innerHTML=renderDialog({title:'从生产单生成织带加工需求',width:'lg',closeAction:{prefix,action:'close',skipPageRerender:true}},`<div class="max-h-[60vh] overflow-y-auto"><p class="text-xs text-slate-500">操作身份：${e(actor.name)}。读取生产单已采用的技术包，不自动采用最新版本，也不直接产生领料或库存。</p><label class="block mt-3 text-sm">生产单号或系统ID<input name="productionOrder" class="block border rounded p-2 w-full mt-1" autocomplete="off"></label><div class="mt-3">${button('preview','核对需求')}</div><div data-tmf-generate-preview class="mt-3"></div><p role="alert" data-tmf-generate-error class="text-red-700 text-sm mt-2"></p></div>`,button('close','关闭')+button('confirm','确认生成'))
+ surface.innerHTML=renderDialog({title:'从生产单生成织带加工需求',width:'lg',closeAction:{prefix,action:'close',skipPageRerender:true}},`<div class="max-h-[60vh] overflow-y-auto"><p class="text-xs text-slate-500">读取生产单已采用的技术包，不自动采用最新版本，也不直接产生领料或库存。</p><label class="block mt-3 text-sm">生产单号或系统ID<input name="productionOrder" class="block border rounded p-2 w-full mt-1" autocomplete="off"></label><div class="mt-3">${button('preview','核对需求')}</div><div data-tmf-generate-preview class="mt-3"></div><p role="alert" data-tmf-generate-error class="text-red-700 text-sm mt-2"></p></div>`,button('close','关闭')+button('confirm','确认生成'))
  const dialogNode=surface.firstElementChild
  hydrateIcons(surface)
  const read=()=>surface.querySelector<HTMLInputElement>('[name="productionOrder"]')?.value.trim()??''

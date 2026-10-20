@@ -64,7 +64,7 @@ test('旧工程全流程只有精确建单import移位可按迁移契约验，�
 })
 
 test('PPIC每日回货配置与三类浏览器契约统一路由到实际独立服务回放', () => {
-  const paths = ['tests/ppic-daily-return.config.ts', 'tests/fixtures/ppic-current-login.ts', 'tests/ppic-daily-return-pages.spec.ts', 'tests/ppic-daily-return-receipts.spec.ts', 'tests/ppic-shared-consumers.spec.ts']
+  const paths = ['tests/ppic-daily-return.config.ts', 'tests/fixtures/ppic-current-login.ts', 'tests/ppic-daily-return-pages.spec.ts', 'tests/ppic-daily-return-receipts.spec.ts']
   for (const path of paths) {
     const result = routeAffectedChecks([path])
     assert.deepEqual(result.unknownPaths, [])
@@ -555,4 +555,17 @@ test('辅料仓显式浏览器契约和共用夹具绑定fresh顺序运行器，
   assert.deepEqual(routeAffectedChecks(['tests/browser-contracts/accessory-unregistered.test.ts']).unknownPaths, ['tests/browser-contracts/accessory-unregistered.test.ts'])
   assert.deepEqual(routeAffectedChecks(['tests/browser-contracts/helpers/unregistered-fixture.ts']).unknownPaths, ['tests/browser-contracts/helpers/unregistered-fixture.ts'])
   assert.deepEqual(routeAffectedChecks([...ACCESSORY_BROWSER_CONTRACT_PATHS]).fullChecks, ['npm run build', 'node --import tsx scripts/check-accessory-warehouse-browser-contracts.ts'])
+})
+
+
+test('原型全功能清理只接入明确消费者，旧演示夹具必须逐字精确迁移，实际PDA由fresh运行器覆盖',async()=>{
+ const {PROTOTYPE_FULL_FUNCTION_BROWSER_PATHS,PROTOTYPE_RETIRED_ROLE_DRIVER_PATHS}=await import('../../scripts/check-prototype-full-function-browser-contracts.ts')
+ for(const path of [...PROTOTYPE_FULL_FUNCTION_BROWSER_PATHS,...PROTOTYPE_RETIRED_ROLE_DRIVER_PATHS,'scripts/check-prototype-full-function-browser-contracts.ts']){
+  const route=routeAffectedChecks([path]);assert.deepEqual(route.unknownPaths,[])
+  assert.deepEqual(route.fastChecks,['node --experimental-strip-types --test tests/workflow-governance/prototype-retired-role-fixtures.test.ts'])
+  assert.deepEqual(route.fullChecks,['node --import tsx scripts/check-prototype-full-function-browser-contracts.ts'])
+ }
+ assert.deepEqual(routeAffectedChecks(['tests/browser-contracts/prototype-future.test.ts']).unknownPaths,['tests/browser-contracts/prototype-future.test.ts'])
+ assert.deepEqual(routeAffectedChecks(['tests/factory-onboarding-future.spec.ts']).unknownPaths,['tests/factory-onboarding-future.spec.ts'])
+ const perf=routeAffectedChecks(['scripts/check-prototype-full-function-performance.mjs']);assert.deepEqual(perf.unknownPaths,[]);assert.deepEqual(perf.fastChecks,["node --check 'scripts/check-prototype-full-function-performance.mjs'"])
 })

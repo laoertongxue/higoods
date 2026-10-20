@@ -630,9 +630,9 @@ test('任务9：独立水溶通过唯一通用交接单完成交出与相等收�
       localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(admin)))
       const current = store.appStore.getState().pathname.split('?')[0]
       store.appStore.navigate('/fcs/pda/handover?tab=handout')
-      store.appStore.navigate(`${current}?demoRole=RECEIVER`)
+      store.appStore.navigate(`${current}`)
     }, seed.factoryId)
-    await expect(page).toHaveURL(/demoRole=RECEIVER/)
+    await expect(page).toHaveURL(/\/fcs\/pda\/handover\/[^?]+$/)
     await page.getByRole('button', { name: '确认收货', exact: true }).click()
     await page.locator('[data-pda-handoverd-field="writebackQty"]').fill(String(approvedQty))
     await page.getByRole('button', { name: '确认收货', exact: true }).last().click()
@@ -652,7 +652,7 @@ test('任务9：独立水溶通过唯一通用交接单完成交出与相等收�
     expect(closedHead?.writtenBackQtyTotal).toBe(approvedQty)
     expect(closedHead?.diffQtyTotal).toBe(0)
     expect(closedHead?.receiverClosedAt).toBeTruthy()
-    await expect(page).toHaveURL(/demoRole=RECEIVER/)
+    await expect(page).toHaveURL(/\/fcs\/pda\/handover\/[^?]+$/)
   } finally {
     await page.evaluate(async () => {
       const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
@@ -683,7 +683,7 @@ test('任务9闭环：接收方可回写 0，主管接受差异后订单与交�
         scanCode: resolved.order.materialCode,
       })
       const store = await import(/* @vite-ignore */ '/src/state/store.ts')
-      store.appStore.navigate(`/fcs/pda/handover/${ensured.handoverOrderId}?demoRole=RECEIVER`)
+      store.appStore.navigate(`/fcs/pda/handover/${ensured.handoverOrderId}`)
       return { handoverOrderId: ensured.handoverOrderId, recordId: record.recordId, qtyUnit: record.qtyUnit }
     }, seed.orderId)
 
@@ -704,7 +704,7 @@ test('任务9闭环：接收方可回写 0，主管接受差异后订单与交�
 
     await page.evaluate(async (handoverOrderId) => {
       const store = await import(/* @vite-ignore */ '/src/state/store.ts')
-      store.appStore.navigate(`/fcs/pda/handover/${handoverOrderId}?demoRole=FACTORY`)
+      store.appStore.navigate(`/fcs/pda/handover/${handoverOrderId}`)
     }, prepared.handoverOrderId)
     await page.locator(`[data-pda-handoverd-action="accept-record-diff"][data-record-id="${prepared.recordId}"]`).click()
     await expect.poll(() => page.evaluate(async ({ orderId, handoverOrderId }) => {

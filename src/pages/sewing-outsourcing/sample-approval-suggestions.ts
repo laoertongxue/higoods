@@ -24,21 +24,22 @@ import {
 } from '../../data/fcs/sewing-sample-approval-suggestion.ts'
 import { escapeHtml } from '../../utils.ts'
 
-type PageRole = 'PPIC' | 'SAMPLE_APPROVER'
 type SampleSituation = 'PENDING_RETURN' | 'PENDING_APPROVAL' | 'PENDING_FEEDBACK' | 'COMPLETED'
 type ApprovalFormState = SampleApprovalStructuredComments & {
   conclusion: 'NO_PROBLEM' | 'HAS_PROBLEM'
   approvalSheetPhotoUrls: string[]
   requiresAnotherApproval: boolean
+  approverName: string
+  approverConfirmed: boolean
 }
 type DialogState =
   | { kind: 'CARD'; assignmentId: string }
+  | { kind: 'START'; assignmentId: string; commandId: string; error: string; approverName: string; confirmed: boolean }
   | { kind: 'RECEIVE'; assignmentId: string; error: string; receivedSamplePhotoUrls: string[] }
   | { kind: 'APPROVAL'; assignmentId: string; error: string; form: ApprovalFormState }
   | { kind: 'IMAGE'; imageUrl: string; label: string }
   | null
 
-let activeRole: PageRole = 'PPIC'
 let activeSituation: SampleSituation = 'PENDING_RETURN'
 let keyword = ''
 let draftKeyword = ''
@@ -174,6 +175,8 @@ function renderEditablePhotoGallery(input: {
 function readApprovalFormFromDom(fallback: ApprovalFormState): ApprovalFormState {
   const read = (name: string) => document.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-sample-approval-field="${name}"]`)?.value.trim()
   return {
+    approverName: read('approverName') ?? fallback.approverName,
+    approverConfirmed: document.querySelector<HTMLInputElement>('[data-sample-approval-field="approverConfirmed"]')?.checked ?? fallback.approverConfirmed,
     conclusion: read('conclusion') === 'HAS_PROBLEM' ? 'HAS_PROBLEM' : 'NO_PROBLEM',
     fabricApprovalComment: read('fabricApprovalComment') ?? fallback.fabricApprovalComment,
     processComment: read('processComment') ?? fallback.processComment,
@@ -205,19 +208,19 @@ function renderRowAction(record: SewingSampleApprovalRecord): string {
   const status = record.sample.status
   const assignmentId = escapeHtml(record.assignmentId)
   const actions = [`<button class="text-blue-700" data-sample-approval-action="show-card" data-assignment-id="${assignmentId}">${record.suggestionVersions.length ? '查看批版建议卡' : '查看样衣与依据'}</button>`]
-  if (activeRole === 'PPIC' && status === 'WAITING_RETURN_TO_PPIC') {
+  if (status === 'WAITING_RETURN_TO_PPIC') {
     actions.push(`<button class="font-semibold text-blue-700" data-sample-approval-action="receive-sample" data-assignment-id="${assignmentId}">上传样衣照片</button>`)
   }
-  if (activeRole === 'PPIC' && status === 'PPIC_RECEIVED') {
+  if (status === 'PPIC_RECEIVED') {
     actions.push(`<button class="text-blue-700" data-sample-approval-action="handoff-approver" data-assignment-id="${assignmentId}">转交批版人员</button>`)
   }
-  if (activeRole === 'PPIC' && status === 'SUGGESTION_UPLOADED') {
+  if (status === 'SUGGESTION_UPLOADED') {
     actions.push(`<button class="font-semibold text-emerald-700" data-sample-approval-action="feedback-factory" data-assignment-id="${assignmentId}">记录已截图反馈</button>`)
   }
-  if (activeRole === 'SAMPLE_APPROVER' && status === 'HANDED_TO_APPROVER') {
+  if (status === 'HANDED_TO_APPROVER') {
     actions.push(`<button class="text-blue-700" data-sample-approval-action="start-approval" data-assignment-id="${assignmentId}">领取批版</button>`)
   }
-  if (activeRole === 'SAMPLE_APPROVER' && status === 'APPROVAL_IN_PROGRESS') {
+  if (status === 'APPROVAL_IN_PROGRESS') {
     actions.push(`<button class="font-semibold text-blue-700" data-sample-approval-action="open-approval" data-assignment-id="${assignmentId}">填写批版建议</button>`)
   }
   return actions.join('<span class="text-slate-300">·</span>')
@@ -332,8 +335,11 @@ function renderDialog(): string {
   if (dialog.kind === 'CARD') {
     return `<div class="fixed inset-0 z-50 overflow-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label="批版建议截图卡"><button class="fixed inset-0" data-sample-approval-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 mx-auto my-4 w-fit max-w-full"><div class="mb-3 flex justify-end"><button class="rounded bg-white px-4 py-2 text-sm" data-sample-approval-action="close-dialog">关闭</button></div>${renderSuggestionCard(record)}</section></div>`
   }
+  if (dialog.kind === 'START') {
+    return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="领取批版"><section class="relative z-10 w-full max-w-lg rounded-lg bg-white shadow-2xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">领取批版</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(record.sample.taskNo)} · ${escapeHtml(record.sample.sampleNo)}</p></header><div class="space-y-4 p-5">${dialog.error ? `<p role="alert" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</p>` : ''}<p class="text-sm">确认实物已由 PPIC 转交，本次领取后开始记录批版时效。</p><label class="block text-sm">实际领取批版人员姓名<input class="mt-1 h-10 w-full rounded border px-3" value="${escapeHtml(dialog.approverName)}" data-sample-approval-field="startApproverName" autocomplete="name" required></label><label class="flex items-start gap-2 text-sm"><input class="mt-1" type="checkbox" data-sample-approval-field="startConfirmed" ${dialog.confirmed ? 'checked' : ''}><span>本人已接收本件产前版样衣，确认承担本轮批版并按领取责任提交建议</span></label></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-sample-approval-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white" data-sample-approval-action="confirm-start-approval" data-assignment-id="${escapeHtml(record.assignmentId)}">确认接收并领取批版</button></footer></section></div>`
+  }
   const form = dialog.form
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="填写批版建议"><button class="absolute inset-0" data-sample-approval-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 max-h-[94vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-2xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">填写批版建议</h2><p class="mt-1 text-xs text-slate-500">字段与线下批版单一致；实物仍叫“产前版样衣”，本次业务动作和系统记录叫“批版建议”。</p></header><div class="space-y-4 p-5">${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}<section class="grid gap-3 rounded border bg-slate-50 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"><p><span class="text-slate-500">SPU：</span><b>${escapeHtml(record.sample.styleCode)}</b></p><p><span class="text-slate-500">PO：</span><b>${escapeHtml(record.sample.productionOrderNo)}</b></p><p><span class="text-slate-500">三方车缝工厂：</span><b>${escapeHtml(record.sample.factoryName)}</b></p><p><span class="text-slate-500">产前版样衣照片：</span>${samplePhotos(record).length}张</p><p><span class="text-slate-500">批版人员：</span><b>${escapeHtml(record.currentApproverName || '当前领取人')}</b></p><p><span class="text-slate-500">批版日期：</span>提交时自动记录</p></section><label class="block text-sm font-semibold">批版结论<select class="mt-1 h-10 w-full rounded border px-3 font-normal" data-sample-approval-field="conclusion"><option value="NO_PROBLEM"${form.conclusion === 'NO_PROBLEM' ? ' selected' : ''}>无问题</option><option value="HAS_PROBLEM"${form.conclusion === 'HAS_PROBLEM' ? ' selected' : ''}>有问题</option></select><span class="mt-1 block text-xs font-normal text-slate-500">选择“有问题”时，下面四类意见至少填写一项。</span></label><section class="space-y-3"><h3 class="text-sm font-semibold">结构化批版意见</h3>${renderStructuredCommentInputs(form)}</section><section class="space-y-3 rounded border p-4"><div><h3 class="text-sm font-semibold">线下批版单照片</h3><p class="mt-1 text-xs text-slate-500">用于保留现场手写单据、签名与日期佐证；可一次选择多张，也可分次添加。</p></div><input class="block w-full rounded border p-2 text-sm" type="file" accept="image/*" multiple data-sample-approval-field="approvalSheetPhotos" data-sample-approval-action="select-approval-sheet-photos" data-assignment-id="${escapeHtml(record.assignmentId)}">${renderEditablePhotoGallery({ photos: form.approvalSheetPhotoUrls, assignmentId: record.assignmentId, labelPrefix: '线下批版单照片', removeAction: 'remove-approval-sheet-photo', emptyText: '暂未上传线下批版单照片（结构化意见仍会作为正式系统记录）' })}</section><label class="flex items-start gap-2 rounded border p-3 text-sm"><input class="mt-1" type="checkbox" data-sample-approval-field="requiresAnotherApproval"${form.requiresAnotherApproval ? ' checked' : ''}><span>明确要求工厂再做一件并进入下一轮批版（不能仅因“有问题”自动勾选）</span></label></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-sample-approval-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white" data-sample-approval-action="submit-approval" data-assignment-id="${escapeHtml(record.assignmentId)}">提交批版建议</button></footer></section></div>`
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="填写批版建议"><button class="absolute inset-0" data-sample-approval-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 max-h-[94vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-2xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">填写批版建议</h2><p class="mt-1 text-xs text-slate-500">字段与线下批版单一致；实物仍叫“产前版样衣”，本次业务动作和系统记录叫“批版建议”。</p></header><div class="space-y-4 p-5">${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}<section class="grid gap-3 rounded border bg-slate-50 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"><p><span class="text-slate-500">SPU：</span><b>${escapeHtml(record.sample.styleCode)}</b></p><p><span class="text-slate-500">PO：</span><b>${escapeHtml(record.sample.productionOrderNo)}</b></p><p><span class="text-slate-500">三方车缝工厂：</span><b>${escapeHtml(record.sample.factoryName)}</b></p><p><span class="text-slate-500">产前版样衣照片：</span>${samplePhotos(record).length}张</p><p><span class="text-slate-500">批版人员：</span><b>${escapeHtml(record.currentApproverName || '当前领取人')}</b></p><p><span class="text-slate-500">批版日期：</span>提交时自动记录</p></section><label class="block text-sm">实际提交人姓名<input class="mt-1 h-10 w-full rounded border px-3" value="${escapeHtml(form.approverName)}" data-sample-approval-field="approverName" autocomplete="name" required><span class="mt-1 block text-xs text-slate-500">须由本轮领取人 ${escapeHtml(record.currentApproverName || '待核对')} 提交</span></label><label class="flex items-start gap-2 text-sm"><input class="mt-1" type="checkbox" data-sample-approval-field="approverConfirmed" ${form.approverConfirmed ? 'checked' : ''}><span>本人为本轮批版领取人，已核对样衣与引用资料，确认提交本次建议</span></label><label class="block text-sm font-semibold">批版结论<select class="mt-1 h-10 w-full rounded border px-3 font-normal" data-sample-approval-field="conclusion"><option value="NO_PROBLEM"${form.conclusion === 'NO_PROBLEM' ? ' selected' : ''}>无问题</option><option value="HAS_PROBLEM"${form.conclusion === 'HAS_PROBLEM' ? ' selected' : ''}>有问题</option></select><span class="mt-1 block text-xs font-normal text-slate-500">选择“有问题”时，下面四类意见至少填写一项。</span></label><section class="space-y-3"><h3 class="text-sm font-semibold">结构化批版意见</h3>${renderStructuredCommentInputs(form)}</section><section class="space-y-3 rounded border p-4"><div><h3 class="text-sm font-semibold">线下批版单照片</h3><p class="mt-1 text-xs text-slate-500">用于保留现场手写单据、签名与日期佐证；可一次选择多张，也可分次添加。</p></div><input class="block w-full rounded border p-2 text-sm" type="file" accept="image/*" multiple data-sample-approval-field="approvalSheetPhotos" data-sample-approval-action="select-approval-sheet-photos" data-assignment-id="${escapeHtml(record.assignmentId)}">${renderEditablePhotoGallery({ photos: form.approvalSheetPhotoUrls, assignmentId: record.assignmentId, labelPrefix: '线下批版单照片', removeAction: 'remove-approval-sheet-photo', emptyText: '暂未上传线下批版单照片（结构化意见仍会作为正式系统记录）' })}</section><label class="flex items-start gap-2 rounded border p-3 text-sm"><input class="mt-1" type="checkbox" data-sample-approval-field="requiresAnotherApproval"${form.requiresAnotherApproval ? ' checked' : ''}><span>明确要求工厂再做一件并进入下一轮批版（不能仅因“有问题”自动勾选）</span></label></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-sample-approval-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white" data-sample-approval-action="submit-approval" data-assignment-id="${escapeHtml(record.assignmentId)}">提交批版建议</button></footer></section></div>`
 }
 
 export function renderSampleApprovalSuggestionsPage(): string {
@@ -356,7 +362,7 @@ export function renderSampleApprovalSuggestionsPage(): string {
   const records = filteredRecords.slice(start, start + pageSize)
   return `<div data-sample-approval-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '批版建议',
-    primaryActionsHtml: `<div class="flex rounded border bg-white p-1"><button class="rounded px-3 py-2 text-sm ${activeRole === 'PPIC' ? 'bg-blue-600 text-white' : ''}" data-sample-approval-action="switch-role" data-role="PPIC">PPIC视角</button><button class="rounded px-3 py-2 text-sm ${activeRole === 'SAMPLE_APPROVER' ? 'bg-blue-600 text-white' : ''}" data-sample-approval-action="switch-role" data-role="SAMPLE_APPROVER">批版人员视角</button></div>`,
+    feedbackHtml: feedback ? `<p role="status" class="rounded border bg-white p-3 text-sm">${escapeHtml(feedback)}</p>` : '',
     statusTabsHtml: renderUiTabs({
       tabs: (Object.keys(SITUATION_LABELS) as SampleSituation[]).map((situation) => ({ key: situation, label: SITUATION_LABELS[situation], count: allRecords.filter((item) => matchesSituation(item, situation)).length })),
       activeKey: activeSituation,
@@ -376,10 +382,16 @@ export function renderSampleApprovalSuggestionsPage(): string {
   })}</div>`
 }
 
-function actorFor(record: SewingSampleApprovalRecord) {
-  return activeRole === 'PPIC'
-    ? { actorId: record.sample.currentPpicId, actorName: record.sample.currentPpicName, role: 'PPIC' as const }
-    : { actorId: 'SAMPLE-APPROVER-DEMO-001', actorName: '批版人员 林慧', role: 'SAMPLE_APPROVER' as const }
+function ppicActorFor(record: SewingSampleApprovalRecord) {
+  return { actorId: record.sample.currentPpicId, actorName: record.sample.currentPpicName, role: 'PPIC' as const }
+}
+
+function approvingActorFor(record: SewingSampleApprovalRecord, form: ApprovalFormState) {
+  if (!form.approverName.trim()) throw new Error('请填写实际提交人姓名')
+  if (!record.currentApproverId || !record.currentApproverName) throw new Error('请先由实际批版人员领取本轮样衣')
+  if (form.approverName.trim() !== record.currentApproverName.trim()) throw new Error('本轮批版须由原领取人提交，不能变更已有批版责任')
+  if (!form.approverConfirmed) throw new Error('请由原领取人核对样衣与引用资料后勾选确认')
+  return { actorId: record.currentApproverId, actorName: record.currentApproverName, role: 'SAMPLE_APPROVER' as const }
 }
 
 export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, event?: Event): Promise<boolean> {
@@ -402,13 +414,6 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
     (action === 'select-received-photos' || action === 'select-approval-sheet-photos')
     && event?.type !== 'change'
   ) return false
-  if (action === 'switch-role') {
-    activeRole = node.dataset.role === 'SAMPLE_APPROVER' ? 'SAMPLE_APPROVER' : 'PPIC'
-    activePage = 1
-    feedback = ''
-    refreshPage()
-    return true
-  }
   if (action.startsWith('switch-tab:')) {
     activeSituation = action.slice('switch-tab:'.length) as SampleSituation
     activePage = 1
@@ -460,7 +465,7 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
     return true
   }
   try {
-    const actor = actorFor(record)
+    const actor = ppicActorFor(record)
     const now = formatOperationLocalWallClock()
     if (action === 'receive-sample') {
       dialog = { kind: 'RECEIVE', assignmentId, error: '', receivedSamplePhotoUrls: [] }
@@ -489,8 +494,18 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
       await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,}),()=>handoffPreProductionSampleToApprover({ commandId: nextCommandId('HANDOFF'), assignmentId, actor, approverTeamName: '大货批版组', handedAt: now }))
       feedback = '已记录样衣转交批版人员。'
     } else if (action === 'start-approval') {
-      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,}),()=>startSampleApproval({ commandId: nextCommandId('START'), assignmentId, actor, receivedAt: formatOperationLocalWallClock() }))
-      feedback = ''
+      dialog = { kind: 'START', assignmentId, commandId: nextCommandId('START'), error: '', approverName: '', confirmed: false }
+    } else if (action === 'confirm-start-approval' && dialog?.kind === 'START') {
+      const approverName = document.querySelector<HTMLInputElement>('[data-sample-approval-field="startApproverName"]')?.value.trim() || ''
+      const confirmed = !!document.querySelector<HTMLInputElement>('[data-sample-approval-field="startConfirmed"]')?.checked
+      dialog = { ...dialog, approverName, confirmed }
+      if (!approverName) throw new Error('请填写实际领取批版人员姓名')
+      if (!confirmed) throw new Error('请由实际领取人接收样衣后勾选责任确认')
+      const commandId = dialog.commandId
+      const approver = { actorId: `SAMPLE-APPROVER:${commandId}`, actorName: approverName, role: 'SAMPLE_APPROVER' as const }
+      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor:approver}),()=>startSampleApproval({ commandId, assignmentId, actor: approver, receivedAt: now }))
+      feedback = `已由 ${approverName} 接收并领取本轮批版。`
+      dialog = null
     } else if (action === 'open-approval') {
       dialog = {
         kind: 'APPROVAL',
@@ -504,6 +519,8 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
           otherComment: '',
           approvalSheetPhotoUrls: [],
           requiresAnotherApproval: false,
+          approverName: '',
+          approverConfirmed: false,
         },
       }
     } else if (action === 'select-approval-sheet-photos' && dialog?.kind === 'APPROVAL') {
@@ -535,10 +552,12 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
     } else if (action === 'submit-approval' && dialog?.kind === 'APPROVAL') {
       event?.preventDefault()
       const form = readApprovalFormFromDom(dialog.form)
-      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,form}),()=>submitSampleApprovalSuggestion({
+      dialog = { ...dialog, form }
+      const approver = approvingActorFor(record, form)
+      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor:approver,form}),()=>submitSampleApprovalSuggestion({
         commandId: nextCommandId('SUBMIT'),
         assignmentId,
-        actor,
+        actor: approver,
         conclusion: form.conclusion,
         structuredComments: {
           fabricApprovalComment: form.fabricApprovalComment,
@@ -556,7 +575,9 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
       return false
     }
   } catch (error) {
-    if (dialog?.kind === 'RECEIVE') {
+    if (dialog?.kind === 'START') {
+      dialog = { ...dialog, error: error instanceof Error ? error.message : '领取批版未保存' }
+    } else if (dialog?.kind === 'RECEIVE') {
       dialog = { ...dialog, error: error instanceof Error ? error.message : '照片上传失败' }
     }
     else if (dialog?.kind === 'APPROVAL') {

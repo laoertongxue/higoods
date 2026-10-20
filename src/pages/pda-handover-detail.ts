@@ -16,7 +16,7 @@ import {
   renderProductionObjectCodeButton,
   type ProductionObjectCodeType,
 } from '../data/fcs/production-order-identity.ts'
-import { resolveProductionObjectRequest } from '../data/fcs/production-object-overview.ts'
+import { getProductionObjectLinkIndex, resolveProductionObjectRequest, type ProductionObjectSearchIndex } from '../data/fcs/production-object-overview.ts'
 import type { ProcessTask } from '../data/fcs/process-tasks'
 import {
   acceptHandoverRecordDiff,
@@ -97,14 +97,6 @@ import {
 } from '../data/fcs/cutting/sewing-dispatch.ts'
 import { buildWaitHandoverLifecycleByBagCode } from './process-factory/cutting/wait-handover-runtime.ts'
 import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-current-read-model.ts'
-import {
-  ACTION_PERMISSION_DENIED_TEXT,
-  canAcceptDiffAction,
-  canCreateHandoverRecord,
-  canRaiseQuantityObjection,
-  canReceiverWritebackAction,
-  resolveFcsDemoRole,
-} from '../data/fcs/action-permissions.ts'
 import { createPdaPickupDisputeCase } from '../helpers/fcs-pda-pickup-dispute'
 import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { renderPdaFrame } from './pda-shell'
@@ -486,6 +478,8 @@ function renderFieldHtmlRow(label: string, valueHtml: string, highlight = false)
   `
 }
 
+let handoverLinkReadFrame: Map<ProductionObjectCodeType, readonly ProductionObjectSearchIndex[]> | null = null
+
 function renderPdaHandoverObjectCode({
   objectType,
   objectId,
@@ -501,10 +495,15 @@ function renderPdaHandoverObjectCode({
   const targetId = (objectId || '').trim()
   if (!targetId || !objectCode) return escapeHtml(objectCode || '-')
 
-  const preferred = resolveProductionObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
+  let linkSnapshot: readonly ProductionObjectSearchIndex[] | undefined
+  if (objectType === 'PRODUCTION_ORDER' || objectType === 'PROCESS_DOC' || objectType === 'WAREHOUSE_DOC' || objectType === 'HANDOVER_ORDER') {
+    linkSnapshot = handoverLinkReadFrame?.get(objectType) ?? getProductionObjectLinkIndex(objectType)
+    handoverLinkReadFrame?.set(objectType, linkSnapshot)
+  }
+  const preferred = resolveProductionObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo }, linkSnapshot)
   const resolved = preferred.status === 'READY' || !relatedProductionOrderNo
     ? preferred
-    : resolveProductionObjectRequest({ objectType, objectId: targetId })
+    : resolveProductionObjectRequest({ objectType, objectId: targetId }, linkSnapshot)
   // Only render clickable IDs that open a real overview; unresolved PDA refs stay plain text.
   if (resolved.status !== 'READY') return escapeHtml(objectCode)
 
@@ -1844,18 +1843,14 @@ function renderHandoutRecordAuditItem(
   runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>,
   sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>,
 ): string {
-  // 毛织交出详情只允许接收执行工厂进入；来源工厂不能通过上方访问门禁。
-  // 因而毛织记录在此页的默认操作角色必然是接收方，不能沿用通用交出单的来源工厂角色。
-  const defaultRole = head.processBusinessCode === 'WOOL' ? 'RECEIVER' : 'FACTORY'
-  const demoRole = resolveFcsDemoRole(defaultRole)
   const meta = getRecordStatusMeta(record.status)
   const profile = deriveHandoutRecordProfile(record, head, runtimeTask, sourceDoc)
   const receiverWrittenQty = getRecordReceiverWrittenQty(record)
   const receiverWrittenAt = getRecordReceiverWrittenAt(record)
   const diffQty = getRecordDiffQty(record)
-  const canWriteback = canReceiverWriteback(record) && canReceiverWritebackAction(demoRole)
-  const canDiff = canHandleDiff(record) && canAcceptDiffAction(demoRole)
-  const canObjection = canHandleDiff(record) && canRaiseQuantityObjection(demoRole)
+  const canWriteback = canReceiverWriteback(record)
+  const canDiff = canHandleDiff(record)
+  const canObjection = canHandleDiff(record)
   const showObjectionForm = detailState.objectionRecordId === record.recordId && canObjection
   const qrValue = getHandoverRecordQrDisplayValue(record)
   const linkedOutboundRecord = getLinkedOutboundRecord(record.handoverRecordId || record.recordId)
@@ -2086,16 +2081,14 @@ function renderHandoutRecordItem(
   runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>,
   sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>,
 ): string {
-  const defaultRole = head.processBusinessCode === 'WOOL' ? 'RECEIVER' : 'FACTORY'
-  const demoRole = resolveFcsDemoRole(defaultRole)
   const meta = getRecordStatusMeta(record.status)
   const profile = deriveHandoutRecordProfile(record, head, runtimeTask, sourceDoc)
   const submittedQty = record.submittedQty ?? record.plannedQty ?? 0
   const receiverWrittenQty = getRecordReceiverWrittenQty(record)
   const diffQty = getRecordDiffQty(record)
-  const canWriteback = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canReceiverWriteback(record) && canReceiverWritebackAction(demoRole)
-  const canDiff = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canHandleDiff(record) && canAcceptDiffAction(demoRole)
-  const canObjection = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canHandleDiff(record) && canRaiseQuantityObjection(demoRole)
+  const canWriteback = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canReceiverWriteback(record)
+  const canDiff = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canHandleDiff(record)
+  const canObjection = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canHandleDiff(record)
   const showObjectionForm = detailState.objectionRecordId === record.recordId && canObjection
 
   return `
@@ -2130,7 +2123,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
   const waterAccess = isWaterSolubleHandoverHead(head) ? getWaterHandoverAccess(head) : null
   const isWoolHandover = head.processBusinessCode === 'WOOL'
   const canCreateRecord = !isWoolHandover
-    && (waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY')))
+    && (!waterAccess || waterAccess.ok)
   const isCompleted = head.completionStatus === 'COMPLETED'
   const completionCheck = canCompletePdaHandoutHead(head.handoverId)
   const records = getPdaHandoverRecordsByHead(head.handoverId)
@@ -2237,7 +2230,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         ${
           isWoolHandover || (waterAccess !== null && !waterAccess.ok)
             ? ''
-            : `<button class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord && !isCompleted ? '' : `title="${isCompleted ? '交出单已完成，不允许新增交出记录' : ACTION_PERMISSION_DENIED_TEXT}" disabled`}>${head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE') ? '前往染厂待交出列表' : '新增交出记录'}</button>`
+            : `<button class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord && !isCompleted ? '' : `title="${isCompleted ? '交出单已完成，不允许新增交出记录' : '当前任务不允许新增交出记录'}" disabled`}>${head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE') ? '前往染厂待交出列表' : '新增交出记录'}</button>`
         }
       </div>
       ${waterAccess && !waterAccess.ok ? `<div data-testid="water-handover-access-denied" class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">${escapeHtml(waterAccess.message)}</div>` : ''}
@@ -2260,7 +2253,7 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
   const woolOrder = isWoolHandover && head.scopeKey ? readWoolQuerySnapshot().workOrders[head.scopeKey] : undefined
   const linkOnly = isPostReturnLinkOnlyView(head)
   const canCreateRecord = !linkOnly && !isWoolHandover
-    && (waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY')))
+    && (!waterAccess || waterAccess.ok)
   const isCompleted = head.completionStatus === 'COMPLETED'
   const factoryFinished = head.factoryCompletionRequired === true && head.factoryMarkedComplete === true
   const completionCheck = canCompletePdaHandoutHead(head.handoverId)
@@ -2269,12 +2262,10 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
   const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
   const profile = deriveHandoutObjectProfile(head, records, runtimeTask, sourceDoc)
   const source = getPdaHandoverSourceDisplay(head)
-  const recordActionRole = resolveFcsDemoRole(isWoolHandover ? 'RECEIVER' : 'FACTORY')
   const hasActionableRecord = records.some((record) => (
-    (canReceiverWriteback(record) && canReceiverWritebackAction(recordActionRole))
+    canReceiverWriteback(record)
     || (
       canHandleDiff(record)
-      && (canAcceptDiffAction(recordActionRole) || canRaiseQuantityObjection(recordActionRole))
     )
   ))
   const recordHistoryOpen = Boolean(
@@ -2308,7 +2299,7 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
     ${waterAccess && !waterAccess.ok ? `<div data-testid="water-handover-access-denied" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">${escapeHtml(waterAccess.message)}</div>` : ''}
 
     ${!linkOnly && !isWoolHandover && !isCompleted && !factoryFinished && !detailState.newRecordOpen
-      ? `<button type="button" class="h-11 w-full rounded-lg bg-primary text-sm font-medium text-primary-foreground" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord ? '' : `disabled title="${ACTION_PERMISSION_DENIED_TEXT}"`}>本次交出</button>`
+      ? `<button type="button" class="h-11 w-full rounded-lg bg-primary text-sm font-medium text-primary-foreground" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord ? '' : `disabled title="当前任务不允许新增交出记录"`}>本次交出</button>`
       : ''}
     ${linkOnly || isWoolHandover || factoryFinished ? '' : renderNewHandoutRecordForm(head)}
 
@@ -2328,6 +2319,13 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
 }
 
 export function renderPdaHandoverDetailPage(eventId: string): string {
+  const previousFrame = handoverLinkReadFrame
+  handoverLinkReadFrame = new Map()
+  try { return renderPdaHandoverDetailContents(eventId) }
+  finally { handoverLinkReadFrame = previousFrame }
+}
+
+function renderPdaHandoverDetailContents(eventId: string): string {
   const head = findPdaHandoverHead(eventId)
 
   if (!head) {
@@ -2676,9 +2674,6 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
         showPdaHandoverDetailToast(opened.message)
         return true
       }
-    } else if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
     }
     const records = getPdaHandoverRecordsByHead(head.handoverId)
     const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
@@ -2732,9 +2727,6 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
         showPdaHandoverDetailToast(confirmation.message)
         return true
       }
-    } else if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
     }
 
     const submittedQty = Number(detailState.newRecordQty)
@@ -2853,10 +2845,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'open-receiver-writeback') {
-    if (!canReceiverWritebackAction(resolveFcsDemoRole('RECEIVER'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
+
     const recordId = actionNode.dataset.recordId
     const record = recordId ? findPdaHandoverRecord(recordId) : undefined
     if (!record || !canReceiverWriteback(record)) {
@@ -2889,10 +2878,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'submit-receiver-writeback') {
-    if (!canReceiverWritebackAction(resolveFcsDemoRole('RECEIVER'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
+
     const recordId = actionNode.dataset.recordId
     const record = recordId ? findPdaHandoverRecord(recordId) : undefined
     if (!record || !canReceiverWriteback(record)) {
@@ -3079,10 +3065,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'open-record-objection') {
-    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
+
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const record = findPdaHandoverRecord(recordId)
@@ -3188,10 +3171,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'open-pickup-record-objection') {
-    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
+
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
@@ -3243,10 +3223,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'submit-pickup-record-objection') {
-    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
+
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
@@ -3355,10 +3332,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'submit-record-objection') {
-    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
+
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
 
@@ -3415,10 +3389,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'accept-record-diff') {
-    if (!canAcceptDiffAction(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
+
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const updated = acceptHandoverRecordDiff(recordId)

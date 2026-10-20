@@ -8,7 +8,7 @@ import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { listReplacementFabricOrderRows, type ReplacementFabricOrderRow } from '../../../data/fcs/cutting/replacement-fabric-source.ts'
 import { loadReplacementFabricState, addReplacementFabricTickets } from '../../../data/fcs/cutting/replacement-fabric-repository.ts'
 import { replacementFabricTicketLabel, replacementFabricMaterialDisplayCode, type ReplacementFabricMaterial, type ReplacementFabricState, type ReplacementFabricTicket } from '../../../data/fcs/cutting/replacement-fabric-fei-tickets.ts'
-import { loadReplacementFabricDataInformation, renderReplacementFabricDataTools, handleReplacementFabricDataTools, isReplacementFabricDataToolBusy } from './replacement-fabric-data-tools.ts'
+import { renderProductionContextRecovery } from '../../production-context-recovery.ts'
 
 export const REPLACEMENT_FABRIC_ROUTE = '/fcs/craft/cutting/replacement-fabric-fei-tickets'
 const preferenceKey = `${REPLACEMENT_FABRIC_ROUTE}:columns`
@@ -21,7 +21,6 @@ let page = 1; let ticketPage = 1; let sort: StandardListSortState | null = null
 let preferences: StandardListColumnPreferences | null = null
 let orderMode: 'print' | 'detail' = 'print'
 let activeOrder = ''; let settings = false; let feedback = ''; let error = false; let busy = false
-let dataTools = false
 let enlargedTicketId = ''
 let labelTemplate: typeof import('../../print/templates/replacement-fabric-label-template.ts') | null = null
 let hydrateTicketQr: typeof import('../../../components/real-qr.ts').hydrateRealQRCodes | null = null
@@ -119,7 +118,6 @@ function closeTicketPreview(): void {
 }
 function renderOverlay(): string {
   if (history) return renderHistory()
-  if (dataTools) return renderReplacementFabricDataTools()
   if (settings) return renderStandardListColumnSettings({ title: '换片布列表列设置', columns, preferences: prefs(), eventPrefix: 'hpb', maxFrozenWidth: 600, skipPageRerender: true })
   const row = rows.find(item => item.order.productionOrderId === activeOrder)
   if (!row) return ''
@@ -132,7 +130,7 @@ function renderContents(): string {
   const slice = paginateStandardListRows(filtered, page, prefs().pageSize); page = slice.currentPage
   const totalTickets = filtered.flatMap(ticketsFor)
   return renderStandardListPage({ title: '换片布菲票打印',
-    primaryActionsHtml: `<div class="ml-auto flex flex-wrap items-center justify-end gap-2" data-hpb-toolbar>${button('刷新', 'reload')}${button('历史票查询', 'history')}${button('本机数据', 'data-tools')}</div>`,
+    primaryActionsHtml: `<div class="ml-auto flex flex-wrap items-center justify-end gap-2" data-hpb-toolbar>${button('刷新', 'reload')}${button('历史票查询', 'history')}</div>`,
     feedbackHtml: feedback && !activeOrder ? `<p role="status" class="rounded p-2 text-sm ${error ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}">${e(feedback)}</p>` : '',
     filtersHtml: `<div class="space-y-3 rounded-lg border bg-white p-3"><div class="grid gap-3 sm:grid-cols-3">${[['order', '来源生产单号', filter.order], ['material', '面料编码 / 名称', filter.material]].map(([field, label, value]) => `<label class="text-sm">${label}<input class="mt-1 h-9 w-full rounded border px-2" data-hpb-filter="${field}" value="${e(value)}" placeholder="请输入${label}"></label>`).join('')}<label class="text-sm">打印状态<select class="mt-1 h-9 w-full rounded border px-2" data-hpb-filter="status"><option value="">全部</option>${['待打印', '部分已打印', '全部已打印', '无需换片布', '资料待核对'].map(value => `<option ${value === filter.status ? 'selected' : ''}>${value}</option>`).join('')}</select></label></div><div class="flex gap-2" data-standard-list-query>${button('查询', 'query')}${button('重置', 'reset')}${button('导出', 'export')}</div></div>`,
     statsHtml: renderStandardListStats([{ label: '生产单', value: filtered.length }, { label: '当前菲票', value: `${totalTickets.length} 张` }, { label: '待打印', value: `${totalTickets.filter(ticket => !printed(ticket.id).length).length} 张` }, { label: '换片布总长', value: `${totalTickets.length * 5} Yard` }]),
@@ -147,22 +145,27 @@ function refresh(overlayOnly = false) {
   host.innerHTML = renderContents(); hydrateTicketQr?.(host)
 }
 export function closeReplacementFabricOverlay(): boolean {
-  if (!document.querySelector('[data-hpb-page]') || (!activeOrder && !settings && !dataTools && !history)) return false
-  if (busy || isReplacementFabricDataToolBusy()) return true
+  if (!document.querySelector('[data-hpb-page]') || (!activeOrder && !settings && !history)) return false
+  if (busy) return true
   if (enlargedTicketId) { closeTicketPreview(); return true }
   const changedColumns = settings
-  activeOrder = ''; settings = false; dataTools = false; history = false; refresh(!changedColumns); return true
+  activeOrder = ''; settings = false; history = false; refresh(!changedColumns); return true
+}
+function needsSourceRecovery(cause: unknown): boolean {
+  return Boolean(cause && typeof cause === 'object' && 'code' in cause && ['PRODUCTION_CONTEXT_RECOVERY', 'PART_TICKET_RECOVERY'].includes(String(cause.code)))
 }
 async function reload() { rows = listReplacementFabricOrderRows(); records = await loadReplacementFabricState() }
 function savePrefs() { try { localStorage.setItem(preferenceKey, JSON.stringify(prefs())) } catch {} }
 export async function renderReplacementFabricFeiTicketsPage(): Promise<string> {
-  page = 1; sort = null; activeOrder = ''; settings = false; dataTools = false; history = false; feedback = ''; selected.clear()
-  try { await reload(); error = false } catch (cause) { error = true; feedback = cause instanceof Error ? cause.message : String(cause) }
+  page = 1; sort = null; activeOrder = ''; settings = false; history = false; feedback = ''; selected.clear()
+  try { await reload(); error = false } catch (cause) {
+    if (needsSourceRecovery(cause)) throw cause
+    error = true; feedback = cause instanceof Error ? cause.message : String(cause)
+  }
   return `<div data-hpb-page>${renderContents()}</div>`
 }
 export async function handleReplacementFabricEvent(target: HTMLElement, event: Event): Promise<boolean> {
   if (!target.closest('[data-hpb-page]')) return false
-  if (await handleReplacementFabricDataTools(target, event)) return true
   if (event.type === 'drop') {
     const source = (event as Event & { higoodStandardListColumnKey?: string }).higoodStandardListColumnKey
     const destination = target.closest<HTMLElement>('[data-standard-list-column-drag]')?.dataset.dragSource
@@ -179,7 +182,7 @@ export async function handleReplacementFabricEvent(target: HTMLElement, event: E
   if (field?.dataset.hpbField === 'pageSize') { if (event.type === 'change') { prefs().pageSize = Number(field.value); page = 1; savePrefs(); refresh() }; return true }
   const actionNode = target.closest<HTMLElement>('[data-hpb-action]')
   if (!actionNode || event.type !== 'click') return false
-  event.preventDefault(); if (busy || isReplacementFabricDataToolBusy()) return true
+  event.preventDefault(); if (busy) return true
   const action = actionNode.dataset.hpbAction; feedback = ''; error = false
   try {
     if (action === 'preview-ticket') {
@@ -200,7 +203,7 @@ export async function handleReplacementFabricEvent(target: HTMLElement, event: E
         labelTemplate = template; hydrateTicketQr = qr.hydrateRealQRCodes
       }
       enlargedTicketId = ''; await reload(); activeOrder = actionNode.dataset.orderId || ''; orderMode = action; selected.clear(); ticketPage = 1 }
-    else if (action === 'close') { activeOrder = ''; dataTools = false; history = false }
+    else if (action === 'close') { activeOrder = ''; history = false }
     else if (action === 'history') { await reload(); history = true; historyPage = 1 }
     else if (action === 'history-query') { historyQuery = document.querySelector<HTMLInputElement>('[data-hpb-history-query]')?.value.trim() || ''; historyPage = 1 }
     else if (action === 'history-prev') historyPage--
@@ -210,7 +213,6 @@ export async function handleReplacementFabricEvent(target: HTMLElement, event: E
       if (!records.receipts.some(receipt => receipt.ticket.id === id)) throw new Error('仅已交出的历史原票可以补打。')
       window.open(`/fcs/print/preview?documentType=REPLACEMENT_FABRIC_LABEL&ticketIds=${encodeURIComponent(JSON.stringify([id]))}`, '_blank', 'noopener')
     }
-    else if (action === 'data-tools') { await loadReplacementFabricDataInformation(); dataTools = true }
     else if (action === 'column-settings') settings = true
     else if (action === 'close-column-settings') settings = false
     else if (action === 'restore-column-settings') { preferences = defaults(); savePrefs() }
@@ -250,8 +252,16 @@ export async function handleReplacementFabricEvent(target: HTMLElement, event: E
       const csv = [['生产单', '面料', '每张长度', '菲票张数', '已打印张数', '打印状态'], ...data.map(row => [row.order.productionOrderNo, row.materials.map(material => `${material.code} ${material.name} ${material.color}`).join('\n'), '5 Yard', String(ticketsFor(row).length), String(ticketsFor(row).filter(ticket => printed(ticket.id).length).length), status(row)])].map(line => line.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\r\n')
       const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = '换片布菲票.csv'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
     }
-  } catch (cause) { feedback = cause instanceof Error ? cause.message : String(cause); error = true }
+  } catch (cause) {
+    feedback = cause instanceof Error ? cause.message : String(cause); error = true
+    if (needsSourceRecovery(cause)) {
+      // The existing recovery only appears when the data owner rejects a real old source.
+      const host = target.closest<HTMLElement>('[data-hpb-page]')
+      if (host) host.innerHTML = renderProductionContextRecovery(feedback)
+      return true
+    }
+  }
   finally { busy = false }
-  refresh(['history', 'history-query', 'history-prev', 'history-next', 'history-print', 'detail', 'print', 'close', 'data-tools', 'ticket-prev', 'ticket-next', 'clear-selection', 'select-all', 'column-settings'].includes(action || ''))
+  refresh(['history', 'history-query', 'history-prev', 'history-next', 'history-print', 'detail', 'print', 'close', 'ticket-prev', 'ticket-next', 'clear-selection', 'select-all', 'column-settings'].includes(action || ''))
   return true
 }

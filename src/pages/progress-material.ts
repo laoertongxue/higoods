@@ -1,3 +1,9 @@
+// @page-pattern: list
+import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
+import { paginateStandardListRows } from '../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
+
 import { getPdaPickupHeads, getPdaPickupRecordsByHead, markPdaPickupRecordWarehouseHanded } from '../data/fcs/pda-handover-events.ts'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
@@ -40,12 +46,13 @@ type ExecutionStatusFilter = 'ALL' | 'NO_DOC' | WarehouseExecutionStatus
 type HasShortageFilter = 'ALL' | 'YES' | 'NO'
 
 interface MaterialProgressState {
-  warehouseActor: 'READ_ONLY' | 'WAREHOUSE'
   keyword: string
   executionStatus: ExecutionStatusFilter
   hasShortage: HasShortageFilter
   deliveryDateFrom: string
   deliveryDateTo: string
+  listPage: number
+  listPageSize: number
 
   drawerOpen: boolean
   selectedDocId: string | null
@@ -117,12 +124,13 @@ const STATUS_VARIANT_CLASS_MAP: Record<WarehouseExecutionStatus, string> = {
 }
 
 const state: MaterialProgressState = {
-  warehouseActor: 'READ_ONLY',
   keyword: '',
   executionStatus: 'ALL',
   hasShortage: 'ALL',
   deliveryDateFrom: '',
   deliveryDateTo: '',
+  listPage: 1,
+  listPageSize: readMaterialListPageSize(),
 
   drawerOpen: false,
   selectedDocId: null,
@@ -619,57 +627,36 @@ function renderWarehouseDocsSection(orderIds: string[]): string {
   `
 }
 
-function renderMaterialListView(): string {
+const materialListPageSizes = [10, 20, 50] as const
+const materialListPageSizeKey = '/fcs/progress/material:pageSize'
+function readMaterialListPageSize(): number {
+  try { const value = Number(localStorage.getItem('/fcs/progress/material:pageSize')); return [10, 20, 50].includes(value) ? value : 10 } catch { return 10 }
+}
+function materialOrderCell(row: OrderExecutionRow, html: string): string {
+  return `<div class="cursor-pointer" data-material-action="select-po" data-po-id="${escapeHtml(row.productionOrderId)}">${html}</div>`
+}
+const materialOrderColumns: StandardListColumn<OrderExecutionRow>[] = [
+  { key: 'order', title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, width: 190, required: true, freezeable: true, render: row => materialOrderCell(row, renderProductionOrderIdentityCell(row.productionOrderId)) },
+  { key: 'legacyOrderNo', title: '旧单号', width: 150, render: row => materialOrderCell(row, `<span class="text-muted-foreground">${escapeHtml(row.legacyOrderNo)}</span>`) },
+  { key: 'spu', title: 'SPU', width: 190, render: row => materialOrderCell(row, `<div class="text-sm">${renderProductionObjectCodeButton({ objectType: 'PRODUCTION_ORDER', objectId: row.productionOrderId, label: row.spuCode, className: 'font-mono text-blue-600 hover:underline' })}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.spuName)}</div>`) },
+  { key: 'factory', title: '主工厂', width: 170, render: row => materialOrderCell(row, escapeHtml(row.mainFactoryName)) },
+  { key: 'deliveryDate', title: '交付期', width: 120, render: row => materialOrderCell(row, escapeHtml(row.requiredDeliveryDate)) },
+  { key: 'requests', title: '需求数', width: 90, render: row => materialOrderCell(row, String(row.summary.requestCount)) },
+  { key: 'documents', title: '发料/回货/流转', width: 140, render: row => materialOrderCell(row, `<span class="text-xs">${row.summary.issueOrderCount} / ${row.summary.returnOrderCount} / ${row.summary.internalTransferCount}</span>`) },
+  { key: 'completeness', title: '齐套率', width: 110, render: row => materialOrderCell(row, renderProgressBar(row.summary.completenessRate, 'h-2 w-12')) },
+  { key: 'completion', title: '完成率', width: 110, render: row => materialOrderCell(row, renderProgressBar(row.summary.completionRate, 'h-2 w-12')) },
+  { key: 'status', title: '最新执行状态', width: 160, render: row => materialOrderCell(row, row.latestDoc ? renderBadge(EXECUTION_STATUS_LABEL[row.latestDoc.status], STATUS_VARIANT_CLASS_MAP[row.latestDoc.status]) : '<span class="text-muted-foreground">未生成执行单</span>') },
+  { key: 'actions', title: '操作', width: 120, align: 'right', actionColumn: true, render: row => `<button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-material-action="select-po" data-po-id="${escapeHtml(row.productionOrderId)}">查看详情<i data-lucide="chevron-right" class="ml-1 h-4 w-4"></i></button>` },
+]
+
+export function renderMaterialListView(): string {
   const rows = getFilteredOrderRows(getOrderRows())
   const materialRequests = filterMaterialRequestsByKeyword(listMaterialRequests())
   const summary = getAggregatedSummary(rows)
-
-  return `
-    <div class="space-y-4">
-      <div class="flex items-center gap-4">
-        <button class="inline-flex h-8 items-center rounded-md px-3 text-sm hover:bg-muted" data-nav="/fcs/progress/board">
-          <i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>
-          返回
-        </button>
-        <div>
-          <h1 class="flex items-center gap-2 text-xl font-semibold">
-            <i data-lucide="package-search" class="h-5 w-5"></i>
-            接收/配料进度
-          </h1>
-          <p class="text-sm text-muted-foreground">汇总裁床配料、接收和差异状态</p>
-        </div>
-      </div>
-
-      <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-xs text-muted-foreground">正式接收需求数</p>
-          <p class="mt-2 text-2xl font-semibold">${summary.requestCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-xs text-muted-foreground">发料单数</p>
-          <p class="mt-2 text-2xl font-semibold">${summary.issueOrderCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-xs text-muted-foreground">回货单数</p>
-          <p class="mt-2 text-2xl font-semibold">${summary.returnOrderCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-xs text-muted-foreground">仓内流转单数</p>
-          <p class="mt-2 text-2xl font-semibold">${summary.internalTransferCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-xs text-muted-foreground">缺口行数</p>
-          <p class="mt-2 text-2xl font-semibold ${summary.shortLineCount > 0 ? 'text-destructive' : ''}">${summary.shortLineCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-xs text-muted-foreground">齐套率 / 执行完成率</p>
-          <p class="mt-2 text-lg font-semibold">${formatPercent(summary.completenessRate)} / ${formatPercent(summary.completionRate)}</p>
-        </article>
-      </section>
-
-      ${renderCuttingMaterialProgressSection()}
-
-      <section class="rounded-lg border bg-card">
+  const slice = paginateStandardListRows(rows, state.listPage, state.listPageSize)
+  state.listPage = slice.currentPage
+  const preferences = { order: materialOrderColumns.map(column => column.key), visibleKeys: materialOrderColumns.map(column => column.key), frozenKeys: ['order'], pageSize: state.listPageSize }
+  const filtersHtml = `<section class="rounded-lg border bg-card">
         <div class="p-4">
           <div class="flex flex-wrap items-end gap-3">
             <div class="min-w-[220px] flex-1">
@@ -729,85 +716,25 @@ function renderMaterialListView(): string {
             </button>
           </div>
         </div>
-      </section>
-
-      ${renderMaterialRequestSection(materialRequests)}
-
-      ${renderWarehouseDocsSection(rows.map((row) => row.productionOrderId))}
-
-      <section class="rounded-lg border bg-card">
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[1320px] text-sm">
-            <thead>
-              <tr class="border-b bg-muted/40 text-left">
-                <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-                <th class="px-3 py-2 font-medium">旧单号</th>
-                <th class="px-3 py-2 font-medium">SPU</th>
-                <th class="px-3 py-2 font-medium">主工厂</th>
-                <th class="px-3 py-2 font-medium">交付期</th>
-                <th class="px-3 py-2 font-medium">需求数</th>
-                <th class="px-3 py-2 font-medium">发料/回货/流转</th>
-                <th class="px-3 py-2 font-medium">齐套率</th>
-                <th class="px-3 py-2 font-medium">完成率</th>
-                <th class="px-3 py-2 font-medium">最新执行状态</th>
-                <th class="px-3 py-2 text-right font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                rows.length === 0
-                  ? `
-                    <tr>
-                      <td colspan="11" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td>
-                    </tr>
-                  `
-                  : rows
-                      .map((row) => {
-                        const latestStatus = row.latestDoc
-                          ? renderBadge(EXECUTION_STATUS_LABEL[row.latestDoc.status], STATUS_VARIANT_CLASS_MAP[row.latestDoc.status])
-                          : '<span class="text-muted-foreground">未生成执行单</span>'
-
-                        return `
-                          <tr class="cursor-pointer border-b hover:bg-muted/50" data-material-action="select-po" data-po-id="${escapeHtml(
-                            row.productionOrderId,
-                          )}">
-                            <td class="px-3 py-2">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
-                            <td class="px-3 py-2 text-muted-foreground">${escapeHtml(row.legacyOrderNo)}</td>
-                            <td class="px-3 py-2">
-                              <div class="text-sm">${renderProductionObjectCodeButton({
-                                objectType: 'PRODUCTION_ORDER',
-                                objectId: row.productionOrderId,
-                                label: row.spuCode,
-                                className: 'font-mono text-blue-600 hover:underline',
-                              })}</div>
-                              <div class="text-xs text-muted-foreground">${escapeHtml(row.spuName)}</div>
-                            </td>
-                            <td class="px-3 py-2">${escapeHtml(row.mainFactoryName)}</td>
-                            <td class="px-3 py-2">${escapeHtml(row.requiredDeliveryDate)}</td>
-                            <td class="px-3 py-2">${row.summary.requestCount}</td>
-                            <td class="px-3 py-2 text-xs">${row.summary.issueOrderCount} / ${row.summary.returnOrderCount} / ${row.summary.internalTransferCount}</td>
-                            <td class="px-3 py-2">${renderProgressBar(row.summary.completenessRate, 'h-2 w-12')}</td>
-                            <td class="px-3 py-2">${renderProgressBar(row.summary.completionRate, 'h-2 w-12')}</td>
-                            <td class="px-3 py-2">${latestStatus}</td>
-                            <td class="px-3 py-2 text-right">
-                              <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-material-action="select-po" data-po-id="${escapeHtml(
-                                row.productionOrderId,
-                              )}">
-                                查看详情
-                                <i data-lucide="chevron-right" class="ml-1 h-4 w-4"></i>
-                              </button>
-                            </td>
-                          </tr>
-                        `
-                      })
-                      .join('')
-              }
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-  `
+      </section>`
+  const list = renderStandardListPage({
+    title: '接收/配料进度',
+    description: '汇总裁床配料、接收和差异状态',
+    primaryActionsHtml: '<button class="inline-flex h-8 items-center rounded-md px-3 text-sm hover:bg-muted" data-nav="/fcs/progress/board"><i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>返回</button>',
+    filtersHtml,
+    statsHtml: renderStandardListStats([
+      { label: '正式接收需求数', value: summary.requestCount },
+      { label: '发料单数', value: summary.issueOrderCount },
+      { label: '回货单数', value: summary.returnOrderCount },
+      { label: '仓内流转单数', value: summary.internalTransferCount },
+      { label: '缺口行数', value: summary.shortLineCount },
+      { label: '齐套率 / 执行完成率', value: `${formatPercent(summary.completenessRate)} / ${formatPercent(summary.completionRate)}` },
+    ]),
+    listTitle: `生产单接收/配料进度 · ${rows.length} 条`,
+    tableHtml: renderStandardListTable({ columns: materialOrderColumns, rows: slice.rows, preferences, sort: null, eventPrefix: 'material', emptyText: '暂无数据' }),
+    paginationHtml: renderTablePagination({ ...slice, actionPrefix: 'material', pageSizeOptions: materialListPageSizes }),
+  })
+  return `<div class="space-y-4" data-material-list-view data-fast-page-render>${list}${renderCuttingMaterialProgressSection()}${renderMaterialRequestSection(materialRequests)}${renderWarehouseDocsSection(rows.map(row => row.productionOrderId))}</div>`
 }
 
 function renderDocDrawer(poId: string): string {
@@ -830,7 +757,7 @@ function renderDocDrawer(poId: string): string {
             ? `
               <div class="space-y-6 p-4">
                 <section>
-                  <h4 class="mb-3 text-sm font-medium">单头信息</h4>${doc.docType === 'ISSUE' ? `<label class="mb-3 flex items-center gap-2 text-sm">当前操作身份<select data-material-field="warehouseActor" class="h-9 rounded border px-2"><option value="READ_ONLY" ${state.warehouseActor === 'READ_ONLY' ? 'selected' : ''}>只读查看</option><option value="WAREHOUSE" ${state.warehouseActor === 'WAREHOUSE' ? 'selected' : ''}>仓库发料员</option></select><span class="text-xs text-muted-foreground">原型角色演示</span></label>` : ''}
+                  <h4 class="mb-3 text-sm font-medium">单头信息</h4>
                   <div class="grid grid-cols-2 gap-4 rounded-lg bg-muted/50 p-4">
                     <div>
                       <div class="text-xs text-muted-foreground">执行单号</div>
@@ -922,7 +849,7 @@ function renderDocDrawer(poId: string): string {
                                 <td class="px-3 py-2">${escapeHtml(line.unit)}</td>
                                 <td class="px-3 py-2 text-right">${line.plannedQty}</td>
                                 <td class="px-3 py-2 text-right">${line.preparedQty}</td>
-                                <td class="px-3 py-2 text-right">${finishedQty}${doc.docType === 'ISSUE' && line.issuedQty === 0 ? `<button class="mt-1 block rounded border px-2 py-1 text-xs disabled:opacity-50" data-material-action="warehouse-handout" data-doc-id="${escapeHtml(doc.id)}" data-line-id="${escapeHtml(line.lineId)}" ${state.warehouseActor !== 'WAREHOUSE' || line.preparedQty <= 0 ? 'disabled' : ''}>登记实际交付</button>` : ''}</td>
+                                <td class="px-3 py-2 text-right">${finishedQty}${doc.docType === 'ISSUE' && line.issuedQty === 0 ? `<button class="mt-1 block rounded border px-2 py-1 text-xs disabled:opacity-50" data-material-action="warehouse-handout" data-doc-id="${escapeHtml(doc.id)}" data-line-id="${escapeHtml(line.lineId)}" ${line.preparedQty <= 0 ? 'disabled' : ''}>登记实际交付</button>` : ''}</td>
                                 <td class="px-3 py-2 text-right">${
                                   line.shortQty > 0
                                     ? `<span class="font-medium text-destructive">${line.shortQty}</span>`
@@ -1306,6 +1233,7 @@ function syncDetailStateByQuery(poId: string | null, docIdFromQuery: string | nu
 }
 
 function resetListFilters(): void {
+  state.listPage = 1
   state.keyword = ''
   state.executionStatus = 'ALL'
   state.hasShortage = 'ALL'
@@ -1314,7 +1242,15 @@ function resetListFilters(): void {
 }
 
 function updateField(field: string, node: HTMLInputElement | HTMLSelectElement): void {
-  if (field === 'warehouseActor') { state.warehouseActor = node.value === 'WAREHOUSE' ? 'WAREHOUSE' : 'READ_ONLY'; return }
+  if (field === 'pageSize' && node instanceof HTMLSelectElement) {
+    const size = Number(node.value)
+    if (materialListPageSizes.includes(size as 10 | 20 | 50)) {
+      state.listPageSize = size; state.listPage = 1
+      try { localStorage.setItem(materialListPageSizeKey, String(size)) } catch {}
+    }
+    return
+  }
+  if (['keyword', 'deliveryDateFrom', 'deliveryDateTo', 'executionStatus', 'hasShortage'].includes(field)) state.listPage = 1
   if (field === 'keyword' && node instanceof HTMLInputElement) {
     state.keyword = node.value
     return
@@ -1346,8 +1282,11 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
 }
 
 function handleAction(action: string, actionNode: HTMLElement): boolean {
+  if (action === 'prev-page' || action === 'next-page') {
+    state.listPage += action === 'next-page' ? 1 : -1
+    return true
+  }
   if (action === 'warehouse-handout') {
-    if (state.warehouseActor !== 'WAREHOUSE') { window.alert('请由仓库发料员操作'); return true }
     const doc = getWarehouseExecutionDocById(actionNode.dataset.docId || '')
     const line = doc?.docType === 'ISSUE' ? doc.lines.find(item => item.lineId === actionNode.dataset.lineId) : null
     if (!doc || doc.docType !== 'ISSUE' || !line) return true
@@ -1417,9 +1356,10 @@ export function renderProgressMaterialPage(): string {
   return renderMaterialListView()
 }
 
-export function handleProgressMaterialEvent(target: HTMLElement): boolean {
+export function handleProgressMaterialEvent(target: HTMLElement, event?: Event): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-material-field]')
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement) {
+    if (event?.type !== 'input' && event?.type !== 'change') return false
     const field = fieldNode.dataset.materialField
     if (!field) return true
     updateField(field, fieldNode)

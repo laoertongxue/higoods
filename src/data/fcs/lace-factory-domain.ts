@@ -1414,6 +1414,8 @@ export interface ConfirmLaceReceiptCommand {
   receivedAt?: string
   clientActionId: string
   overReceiptConfirmed?: boolean
+  /** 实物收货人与多收确认主管可为不同人员；旧调用省略时沿用 actor。 */
+  receivedBy?: Pick<LaceActor, 'actorId' | 'actorName'>
   actor?: LaceActor
 }
 
@@ -1428,6 +1430,8 @@ export function confirmLaceReceipt(command: ConfirmLaceReceiptCommand): LaceRece
   if (existingReceipt || handover.receiptStatus === '已收货') fail('RECEIPT_ALREADY_CONFIRMED', '该交出记录已经完成最终收货确认')
   const actor = command.actor ?? WLS_ACCESSORY_CLERK
   if (!['中央辅料仓管', '中央辅料仓主管', '平台主管'].includes(actor.role)) fail('WLS_ROLE_REQUIRED', '只有中央辅料仓人员可以确认收货')
+  const receiver = command.receivedBy ?? actor
+  if (!receiver.actorId?.trim() || !receiver.actorName?.trim()) fail('RECEIVER_REQUIRED', '请填写实际收货人姓名及身份')
   if (!Number.isFinite(command.actualQty) || command.actualQty < 0) fail('INVALID_RECEIPT_QTY', '实际收货数量不能小于 0')
   if (!command.warehouseLocation.trim()) fail('WAREHOUSE_LOCATION_REQUIRED', '请填写实际入库库区')
   if (command.actualQty !== handover.qty && !command.differenceReason.trim()) fail('DIFFERENCE_REASON_REQUIRED', '实际收货与交出不一致时必须填写差异原因')
@@ -1453,8 +1457,8 @@ export function confirmLaceReceipt(command: ConfirmLaceReceiptCommand): LaceRece
     warehouseId: handover.toWarehouseId,
     warehouseName: handover.toWarehouseName,
     warehouseLocation: command.warehouseLocation.trim(),
-    receivedById: actor.actorId,
-    receivedByName: actor.actorName,
+    receivedById: receiver.actorId.trim(),
+    receivedByName: receiver.actorName.trim(),
     receivedAt,
     differenceReason: command.differenceReason.trim(),
     evidence: command.evidence.trim(),

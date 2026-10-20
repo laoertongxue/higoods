@@ -48,12 +48,11 @@ interface ReceiptPageState extends ProcessOrderListControllerState {
   keyword: string
   status: '' | '待收货' | '已收货'
   overlay: null
-    | { kind: 'receipt'; handoverId: string; clientActionId: string }
-    | { kind: 'over-confirm'; command: ConfirmLaceReceiptCommand }
+    | { kind: 'receipt'; handoverId: string; clientActionId: string; draft?: { actualQty: number; differenceReason: string; evidence: string; warehouseLocation: string; receiverName: string } }
+    | { kind: 'over-confirm'; command: ConfirmLaceReceiptCommand; supervisorName?: string; supervisorConfirmed?: boolean }
   overlayError: string
   feedback: string
   feedbackOk: boolean
-  actorRole: '中央辅料仓管' | '中央辅料仓主管'
 }
 
 const EVENT_PREFIX = 'wls-lace-receipts'
@@ -70,11 +69,10 @@ const state: ReceiptPageState = {
   overlayError: '',
   feedback: '',
   feedbackOk: true,
-  actorRole: '中央辅料仓管',
 }
 
 function currentReceiptActor(): LaceActor {
-  return state.actorRole === '中央辅料仓主管' ? WLS_ACCESSORY_SUPERVISOR : WLS_ACCESSORY_CLERK
+  return WLS_ACCESSORY_CLERK
 }
 
 function allRows(): ReceiptRow[] {
@@ -142,7 +140,7 @@ const columns: StandardListColumn<ReceiptRow>[] = [
   {
     key: 'time', title: '交出／收货时间', width: 190, sortable: true,
     sortValue: (row) => row.handover.handedOverAt,
-    render: (row) => `<div>${formatJakartaTime(row.handover.handedOverAt)}</div><div class="mt-1 text-xs text-slate-500">${row.receipt ? `${formatJakartaTime(row.receipt.receivedAt)} · ${escapeHtml(row.receipt.receivedByName)}` : '尚未收货'}</div>${row.receipt ? `<div class="mt-1 text-xs text-slate-500">入库库区：${escapeHtml(row.receipt.warehouseLocation)}</div>` : ''}`,
+    render: (row) => `<div>${formatJakartaTime(row.handover.handedOverAt)}</div><div class="mt-1 text-xs text-slate-500">${row.receipt ? `${formatJakartaTime(row.receipt.receivedAt)} · ${escapeHtml(row.receipt.receivedByName)}` : '尚未收货'}</div>${row.receipt ? `<div class="mt-1 text-xs text-slate-500">入库库区：${escapeHtml(row.receipt.warehouseLocation)}</div>` : ''}${row.receipt?.overReceiptConfirmedByName ? `<div class="mt-1 text-xs text-slate-500">多收确认：${escapeHtml(row.receipt.overReceiptConfirmedByName)}</div>` : ''}`,
   },
   {
     key: 'actions', title: '操作', width: 130, required: true, actionColumn: true,
@@ -183,10 +181,10 @@ function renderReceiptOverlay(): string {
   const handover = currentOverlayHandover()
   if (!state.overlay || !handover) return ''
   if (state.overlay.kind === 'over-confirm') {
-    const supervisor = currentReceiptActor().role === '中央辅料仓主管'
-    return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true"><section class="w-full max-w-lg rounded-xl bg-white shadow-2xl"><header class="border-b px-5 py-4"><h2 class="font-semibold">多收二次确认</h2></header><div class="p-5"><div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>交出 ${formatLaceQty(handover.qty, handover.unit)}，拟实收 ${formatLaceQty(state.overlay.command.actualQty, handover.unit)}</strong><p class="mt-2">多收必须由中央辅料仓主管再次确认，并保留差异原因和凭证。</p></div><label class="mt-4 block text-sm"><span class="mb-1 block text-xs text-slate-500">当前收货身份</span><select class="h-9 w-full rounded-md border bg-white px-3" data-wls-lace-receipts-field="actorRole" data-skip-page-rerender="true"><option value="中央辅料仓管" ${state.actorRole === '中央辅料仓管' ? 'selected' : ''}>中央辅料仓收货人员</option><option value="中央辅料仓主管" ${state.actorRole === '中央辅料仓主管' ? 'selected' : ''}>中央辅料仓主管</option></select></label>${!supervisor ? '<p class="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">当前收货人员不能确认多收，请由已登录的中央辅料仓主管切换到本人身份处理。</p>' : ''}${state.overlayError ? `<div class="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">${escapeHtml(state.overlayError)}</div>` : ''}</div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-wls-lace-receipts-action="close-overlay" data-skip-page-rerender="true">取消</button>${supervisor ? '<button class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white" data-wls-lace-receipts-action="confirm-over-receipt" data-skip-page-rerender="true">主管确认并收货</button>' : ''}</footer></section></div>`
+    return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true"><section class="w-full max-w-lg rounded-xl bg-white shadow-2xl"><header class="border-b px-5 py-4"><h2 class="font-semibold">多收二次确认</h2></header><div class="p-5"><div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>交出 ${formatLaceQty(handover.qty, handover.unit)}，拟实收 ${formatLaceQty(state.overlay.command.actualQty, handover.unit)}</strong><p class="mt-2">多收必须由中央辅料仓主管再次确认，并保留差异原因和凭证。</p><p class="mt-2">收货登记人：${escapeHtml(state.overlay.command.actor?.actorName || '')}</p><p class="mt-1">差异原因：${escapeHtml(state.overlay.command.differenceReason)}</p></div><label class="mt-4 block text-sm"><span class="mb-1 block text-xs text-slate-500">实际确认主管姓名</span><input class="h-9 w-full rounded-md border px-3" value="${escapeHtml(state.overlay.supervisorName || '')}" data-wls-lace-receipts-field="supervisorName" autocomplete="name" required></label><label class="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" class="mt-1" data-wls-lace-receipts-field="supervisorConfirmed" ${state.overlay.supervisorConfirmed ? 'checked' : ''}><span>本人为本次中央辅料仓确认主管，已核对实物、差异原因和凭证，确认按上述数量入库</span></label>${state.overlayError ? `<div class="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">${escapeHtml(state.overlayError)}</div>` : ''}</div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-wls-lace-receipts-action="close-overlay" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white" data-wls-lace-receipts-action="confirm-over-receipt" data-skip-page-rerender="true">主管确认并收货</button></footer></section></div>`
   }
-  return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true"><section class="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl"><header class="flex items-center justify-between border-b px-5 py-4"><div><h2 class="font-semibold">确认实际收货</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(handover.handoverNo)} · ${escapeHtml(handover.workOrderNo)}</p></div><button class="rounded-md border px-3 py-1.5 text-sm" data-wls-lace-receipts-action="close-overlay" data-skip-page-rerender="true">关闭</button></header><div class="max-h-[68vh] overflow-y-auto p-5">${state.overlayError ? `<div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">${escapeHtml(state.overlayError)}</div>` : ''}<div class="mb-4 flex items-center gap-3 rounded-md border p-3">${renderLaceBusinessImage(handover.materialImageUrl, `${handover.materialName}（${handover.skuCode}）实物图`, 'h-16 w-16')}<div><strong>${escapeHtml(handover.materialName)}</strong><div class="text-xs text-slate-500">${escapeHtml(handover.skuCode)}</div><div class="mt-1 text-sm">交出 ${formatLaceQty(handover.qty, handover.unit)} · ${escapeHtml(handover.fromFactoryName)}</div></div></div><div class="grid gap-4 sm:grid-cols-2"><label><span class="mb-1 block text-xs text-slate-500">实际收货数量</span><div class="flex items-center gap-2"><input type="number" min="0" step="0.01" class="h-9 w-full rounded-md border px-3" value="${handover.qty}" data-wls-lace-receipts-field="actualQty"><span>${escapeHtml(handover.unit)}</span></div></label><label><span class="mb-1 block text-xs text-slate-500">收货人</span><input class="h-9 w-full rounded-md border bg-slate-50 px-3" value="${escapeHtml(currentReceiptActor().actorName)}" disabled></label><label><span class="mb-1 block text-xs text-slate-500">入库库区</span><input class="h-9 w-full rounded-md border px-3" value="辅料收货区 A-01" data-wls-lace-receipts-field="warehouseLocation"></label><label><span class="mb-1 block text-xs text-slate-500">入库仓库</span><input class="h-9 w-full rounded-md border bg-slate-50 px-3" value="${escapeHtml(handover.toWarehouseName)}" disabled></label></div><label class="mt-4 block"><span class="mb-1 block text-xs text-slate-500">差异原因</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wls-lace-receipts-field="differenceReason" placeholder="数量不一致时必填"></textarea></label><label class="mt-4 block"><span class="mb-1 block text-xs text-slate-500">收货凭证</span><input class="h-9 w-full rounded-md border px-3" value="${escapeHtml(handover.handoverNo)}-收货清点.jpg" data-wls-lace-receipts-field="evidence"><span class="mt-1 block text-xs text-slate-500">原型记录凭证名称；上传失败时本次不会保存，可保留当前单据重新提交。</span></label><p class="mt-4 text-xs text-slate-500">未看到成功提示即表示本次未保存；网络恢复或修正内容后点击“确认实际收货”重试。</p></div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-wls-lace-receipts-action="close-overlay" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white" data-wls-lace-receipts-action="save-receipt" data-skip-page-rerender="true">确认实际收货</button></footer></section></div>`
+  const draft = state.overlay.draft
+  return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true"><section class="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl"><header class="flex items-center justify-between border-b px-5 py-4"><div><h2 class="font-semibold">确认实际收货</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(handover.handoverNo)} · ${escapeHtml(handover.workOrderNo)}</p></div><button class="rounded-md border px-3 py-1.5 text-sm" data-wls-lace-receipts-action="close-overlay" data-skip-page-rerender="true">关闭</button></header><div class="max-h-[68vh] overflow-y-auto p-5">${state.overlayError ? `<div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">${escapeHtml(state.overlayError)}</div>` : ''}<div class="mb-4 flex items-center gap-3 rounded-md border p-3">${renderLaceBusinessImage(handover.materialImageUrl, `${handover.materialName}（${handover.skuCode}）实物图`, 'h-16 w-16')}<div><strong>${escapeHtml(handover.materialName)}</strong><div class="text-xs text-slate-500">${escapeHtml(handover.skuCode)}</div><div class="mt-1 text-sm">交出 ${formatLaceQty(handover.qty, handover.unit)} · ${escapeHtml(handover.fromFactoryName)}</div></div></div><div class="grid gap-4 sm:grid-cols-2"><label><span class="mb-1 block text-xs text-slate-500">实际收货数量</span><div class="flex items-center gap-2"><input type="number" min="0" step="0.01" class="h-9 w-full rounded-md border px-3" value="${draft?.actualQty ?? handover.qty}" data-wls-lace-receipts-field="actualQty"><span>${escapeHtml(handover.unit)}</span></div></label><label><span class="mb-1 block text-xs text-slate-500">收货人</span><input class="h-9 w-full rounded-md border px-3" value="${escapeHtml(draft?.receiverName || '')}" data-wls-lace-receipts-field="receiverName" autocomplete="name" required></label><label><span class="mb-1 block text-xs text-slate-500">入库库区</span><input class="h-9 w-full rounded-md border px-3" value="${escapeHtml(draft?.warehouseLocation ?? '辅料收货区 A-01')}" data-wls-lace-receipts-field="warehouseLocation"></label><label><span class="mb-1 block text-xs text-slate-500">入库仓库</span><input class="h-9 w-full rounded-md border bg-slate-50 px-3" value="${escapeHtml(handover.toWarehouseName)}" disabled></label></div><label class="mt-4 block"><span class="mb-1 block text-xs text-slate-500">差异原因</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wls-lace-receipts-field="differenceReason" placeholder="数量不一致时必填">${escapeHtml(draft?.differenceReason || '')}</textarea></label><label class="mt-4 block"><span class="mb-1 block text-xs text-slate-500">收货凭证</span><input class="h-9 w-full rounded-md border px-3" value="${escapeHtml(draft?.evidence ?? `${handover.handoverNo}-收货清点.jpg`)}" data-wls-lace-receipts-field="evidence"><span class="mt-1 block text-xs text-slate-500">原型记录凭证名称；上传失败时本次不会保存，可保留当前单据重新提交。</span></label><p class="mt-4 text-xs text-slate-500">未看到成功提示即表示本次未保存；网络恢复或修正内容后点击“确认实际收货”重试。</p></div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-wls-lace-receipts-action="close-overlay" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white" data-wls-lace-receipts-action="save-receipt" data-skip-page-rerender="true">确认实际收货</button></footer></section></div>`
 }
 
 function renderOverlays(): string {
@@ -235,7 +233,11 @@ function renderButtonLoopReceiptSection(): string {
 let receiptCategory: 'existing' | 'tmf-base' | 'tmf-output' | 'tmf-return' | 'tmf-supply' = 'existing'
 function renderInner(): string {
   const tabs = `<div class="mb-4 flex flex-wrap gap-2" aria-label="辅料收货分类"><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'existing' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="existing" data-skip-page-rerender="true">花边／盘扣收货</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-base' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-base" data-skip-page-rerender="true">织带／绳子基础半成品</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-output' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-output" data-skip-page-rerender="true">织带／绳子加工产出</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-return' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-return" data-skip-page-rerender="true">织带／绳子连续余料</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-supply' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-supply" data-skip-page-rerender="true">织带投入料采购</button></div>`
-  return tabs + (receiptCategory === 'tmf-supply' ? renderTmfSupplyPurchaseReceiptsPage() : receiptCategory === 'tmf-return' ? renderTmfContinuousReturnReceiptsPage() : receiptCategory === 'tmf-output' ? renderTmfOutputReceiptsPage() : receiptCategory === 'tmf-base' ? renderTmfSemiFinishedFlowPage('base-receipts') : renderExistingReceipts())
+  if (receiptCategory === 'tmf-supply') return tabs + renderTmfSupplyPurchaseReceiptsPage()
+  if (receiptCategory === 'tmf-return') return tabs + renderTmfContinuousReturnReceiptsPage()
+  if (receiptCategory === 'tmf-output') return tabs + renderTmfOutputReceiptsPage()
+  if (receiptCategory === 'tmf-base') return tabs + renderTmfSemiFinishedFlowPage('base-receipts')
+  return tabs + renderExistingReceipts()
 }
 function renderExistingReceipts(): string {
   controller.ensurePreferencesLoaded()
@@ -244,7 +246,7 @@ function renderExistingReceipts(): string {
   const differences = all.filter((row) => row.receipt && row.receipt.actualQty !== row.handover.qty).length
   return renderStandardListPage({
     title: '中央辅料仓收货',
-    primaryActionsHtml: `<label class="flex items-center gap-2 text-xs text-slate-500"><span>当前收货身份</span><select class="h-8 rounded-md border bg-white px-2 text-sm text-slate-800" data-wls-lace-receipts-field="actorRole" data-skip-page-rerender="true"><option value="中央辅料仓管" ${state.actorRole === '中央辅料仓管' ? 'selected' : ''}>中央辅料仓收货人员</option><option value="中央辅料仓主管" ${state.actorRole === '中央辅料仓主管' ? 'selected' : ''}>中央辅料仓主管</option></select><span>中央仓库·辅料仓</span></label>`,
+    primaryActionsHtml: '<span class="text-xs text-slate-500">中央仓库 · 辅料仓</span>',
     feedbackHtml: `<div>${renderLaceFeedback(state.feedback, state.feedbackOk)}</div>${renderButtonLoopReceiptSection()}`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
@@ -325,14 +327,6 @@ export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Eve
     const name = field.dataset.wlsLaceReceiptsField
     if (name === 'keyword') state.keyword = field.value
     if (name === 'status') state.status = field.value as ReceiptPageState['status']
-    if (name === 'actorRole') {
-      state.actorRole = field.value as ReceiptPageState['actorRole']
-      state.feedback = `当前收货身份已切换为${currentReceiptActor().actorName}；多收确认不会自动替换成主管身份。`
-      state.feedbackOk = true
-      if (state.overlay?.kind === 'over-confirm') refreshOverlays()
-      else refreshAll()
-      return true
-    }
     if (name === 'pageSize' && event?.type === 'change') {
       controller.setPageSize(Number(field.value))
       controller.refresh()
@@ -390,6 +384,14 @@ export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Eve
   }
   const scope = rootElement() ?? document
   if (action === 'save-receipt' && state.overlay?.kind === 'receipt') {
+    const draft = {
+      actualQty: readNumberField(scope, '[data-wls-lace-receipts-field="actualQty"]'),
+      differenceReason: readTextField(scope, '[data-wls-lace-receipts-field="differenceReason"]'),
+      evidence: readTextField(scope, '[data-wls-lace-receipts-field="evidence"]'),
+      warehouseLocation: readTextField(scope, '[data-wls-lace-receipts-field="warehouseLocation"]'),
+      receiverName: readTextField(scope, '[data-wls-lace-receipts-field="receiverName"]'),
+    }
+    state.overlay = { ...state.overlay, draft }
     const command: ConfirmLaceReceiptCommand = {
       handoverId: state.overlay.handoverId,
       actualQty: readNumberField(scope, '[data-wls-lace-receipts-field="actualQty"]'),
@@ -397,9 +399,13 @@ export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Eve
       evidence: readTextField(scope, '[data-wls-lace-receipts-field="evidence"]'),
       warehouseLocation: readTextField(scope, '[data-wls-lace-receipts-field="warehouseLocation"]'),
       clientActionId: state.overlay.clientActionId,
-      actor: currentReceiptActor(),
+      actor: { ...WLS_ACCESSORY_CLERK, actorId: `WLS-RECEIPT:${state.overlay.clientActionId}`, actorName: draft.receiverName },
+      receivedBy: { actorId: `WLS-RECEIPT:${state.overlay.clientActionId}`, actorName: draft.receiverName },
     }
     try {
+      if (!draft.receiverName) throw new Error('请填写实际收货人姓名')
+      const source = currentOverlayHandover()
+      if (source && command.actualQty > source.qty && !command.evidence) throw new Error('多收须填写或上传收货凭证')
       confirmLaceReceipt(command)
       state.overlay = null
       state.feedback = '实际收货已确认，并按 WLS 实收数量回写采购单 SKU。'
@@ -418,8 +424,13 @@ export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Eve
     return true
   }
   if (action === 'confirm-over-receipt' && state.overlay?.kind === 'over-confirm') {
+    const supervisorName = readTextField(scope, '[data-wls-lace-receipts-field="supervisorName"]')
+    const supervisorConfirmed = !!scope.querySelector<HTMLInputElement>('[data-wls-lace-receipts-field="supervisorConfirmed"]')?.checked
+    state.overlay = { ...state.overlay, supervisorName, supervisorConfirmed }
     try {
-      confirmLaceReceipt({ ...state.overlay.command, overReceiptConfirmed: true, actor: currentReceiptActor() })
+      if (!supervisorName) throw new Error('请填写本次实际确认主管姓名')
+      if (!supervisorConfirmed) throw new Error('请由实际主管核对实物、差异原因和凭证后勾选确认')
+      confirmLaceReceipt({ ...state.overlay.command, overReceiptConfirmed: true, actor: { ...WLS_ACCESSORY_SUPERVISOR, actorId: `WLS-SUPERVISOR:${state.overlay.command.clientActionId}`, actorName: supervisorName } })
       state.overlay = null
       state.feedback = '中央辅料仓主管已二次确认多收，实收和差异凭证已记录。'
       state.feedbackOk = true

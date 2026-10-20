@@ -45,7 +45,7 @@ test('平台审核退回后可编辑并重新提交', async ({ page }) => {
   await expect(page.locator('[data-pda-onboarding-action="submit"]')).toContainText('重新提交入驻申请')
 
   await page.locator('[data-pda-onboarding-field="address"]').fill('雅加达退回补充工业园 A-02')
-  await page.locator('[data-pda-onboarding-action="use-demo-identity-file"]').click()
+  await page.locator('[data-pda-onboarding-file="identityFile"]').setInputFiles({ name: 'identity-test.pdf', mimeType: 'application/pdf', buffer: Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(16 * 1024, 32), Buffer.from('\n%%EOF')]) })
   await page.locator('[data-pda-onboarding-machine-index="1"][data-pda-onboarding-machine-field="linkedProcessCode"]').selectOption({ index: 1 })
   await page.locator('[data-pda-onboarding-machine-index="1"][data-pda-onboarding-machine-field="linkedCraftCode"]').selectOption({ index: 1 })
   await page.locator('[data-pda-onboarding-action="submit"]').click()
@@ -61,7 +61,7 @@ test('机器关联工序工艺强校验', async ({ page }) => {
   await page.locator('[data-pda-onboarding-field="factoryShortName"]').fill(`p1_machine_${Date.now()}`)
   await page.locator('[data-pda-onboarding-field="applicantName"]').fill('机器校验申请人')
   await page.locator('[data-pda-onboarding-field="identityNo"]').fill('ID-MACHINE-001')
-  await page.locator('[data-pda-onboarding-action="use-demo-identity-file"]').click()
+  await page.locator('[data-pda-onboarding-file="identityFile"]').setInputFiles({ name: 'identity-test.pdf', mimeType: 'application/pdf', buffer: Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(16 * 1024, 32), Buffer.from('\n%%EOF')]) })
   await page.locator('[data-pda-onboarding-field="factoryCompanyName"]').fill('机器校验工厂')
   await page.locator('[data-pda-onboarding-field="mobilePhone"]').fill('+62-812-0000-2011')
   await page.locator('[data-pda-onboarding-field="address"]').fill('机器校验园区 B-11')

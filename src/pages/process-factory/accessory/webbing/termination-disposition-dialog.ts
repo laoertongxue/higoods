@@ -43,7 +43,6 @@ export function openTmfTerminationDispositionDialog(surface: HTMLElement, produc
     try { review = getTmfTerminationReview(productionOrderId) } catch (error) { reviewError = error instanceof Error ? error.message : '终止处置读取失败。' }
     const items = review?.items ?? []
     const content = `<div data-${prefix}-root class="max-h-[64vh] overflow-y-auto space-y-3">
-      <p class="text-sm">操作身份：生产计划（演示）；实物报废与保留按保管方主管身份登记（当前演示）。</p>
       <p class="text-sm">主单状态：${e(review?.controlStatus ?? '未知')}；${review?.closure ? `已于 ${e(review.closure.occurredAt)} 结案（${e(review.closure.reason)}）` : `待处置 ${items.length} 项${(review?.shortagePieces ?? 0) > 0 ? `；生产需求缺口 ${review!.shortagePieces} 条/根` : ''}`}</p>
       ${reviewError ? `<p class="text-sm text-red-700">${e(reviewError)}</p>` : ''}
       ${items.length ? items.map((item) => `<article class="rounded border p-3" data-termination-item="${e(item.objectId)}">

@@ -15,7 +15,8 @@ import { listHandoverOrders, listHandoverRecords } from '../../../data/fcs/cutti
 import { listCutPieceReleaseRecords } from '../../../data/fcs/cut-piece-release.ts'
 import { buildFcsCuttingDomainSnapshot } from '../../../domain/fcs-cutting-runtime/index.ts'
 import {
-  mapCuttingDomainSnapshotToSummaryBuildOptions,
+  mapCuttingDomainSnapshotToDailyReportBuildOptions,
+  type CuttingDailyReportBuildOptions,
   type MarkerSpreadingSummaryBuildOptions,
 } from './runtime-projections.ts'
 import { buildMarkerPlanViewModel, type MarkerPlanViewRow } from './marker-plan-model.ts'
@@ -23,7 +24,6 @@ import {
   buildMarkerSpreadingViewModel,
   type SpreadingSession,
 } from './marker-spreading-model.ts'
-import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 
 export type CuttingDailyExecutionOwner = 'ALL' | 'OWN' | 'THIRD_PARTY' | 'UNASSIGNED' | 'CONFLICT'
 export type CuttingDailyTab =
@@ -742,7 +742,7 @@ function buildDailyDemoSpreadingRows(query: CuttingDailyProductionReportQuery): 
   )
 }
 
-function buildFulfillmentRows(sources: CuttingSummaryBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
+function buildFulfillmentRows(sources: CuttingDailyReportBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
   const fulfillmentRows = filterRowsByScope(
     sources.productionRows,
     query,
@@ -801,7 +801,7 @@ function buildFulfillmentRows(sources: CuttingSummaryBuildOptions, query: Cuttin
   return [...fulfillmentRows, ...releaseRows]
 }
 
-function buildMaterialRows(sources: CuttingSummaryBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
+function buildMaterialRows(sources: CuttingDailyReportBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
   return filterRowsByScope(
     sources.materialPrepRows,
     query,
@@ -901,7 +901,7 @@ function buildDailyDemoMaterialRows(query: CuttingDailyProductionReportQuery): C
   )
 }
 
-function buildTicketRows(sources: CuttingSummaryBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
+function buildTicketRows(sources: CuttingDailyReportBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
   const ticketRows = sources.feiViewModel.ticketRecords.map((ticket) => buildDetailRow({
     id: `ticket:${ticket.ticketRecordId}`,
     tab: 'tickets',
@@ -963,7 +963,7 @@ function buildTicketRows(sources: CuttingSummaryBuildOptions, query: CuttingDail
   )
 }
 
-function buildWarehouseRows(sources: CuttingSummaryBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
+function buildWarehouseRows(sources: CuttingDailyReportBuildOptions, query: CuttingDailyProductionReportQuery): CuttingDailyDetailRow[] {
   const cutPieceRows = sources.cutPieceWarehouseView.items.map((item) => buildDetailRow({
     id: `warehouse-piece:${item.warehouseItemId}`,
     tab: 'warehouse',
@@ -1081,7 +1081,7 @@ function buildDailyDemoWarehouseRows(query: CuttingDailyProductionReportQuery): 
 }
 
 function buildProductionContributions(
-  sources: CuttingSummaryBuildOptions,
+  sources: CuttingDailyReportBuildOptions,
   spreadingRows: CuttingDailyDetailRow[],
   warehouseRows: CuttingDailyDetailRow[],
   query: CuttingDailyProductionReportQuery,
@@ -1134,9 +1134,9 @@ function summarizeUnits(rows: CuttingDailyDetailRow[], unit: string): number {
   return sum(rows.map((row) => safeNumber(row.quantityText.match(new RegExp(`([\\d,]+(?:\\.\\d+)?)\\s*${unit}`))?.[1]?.replace(/,/g, ''))))
 }
 
-function buildReportFromSources(
+export function buildCuttingDailyProductionReportFromSources(
   query: CuttingDailyProductionReportQuery,
-  sources: CuttingSummaryBuildOptions,
+  sources: CuttingDailyReportBuildOptions,
 ): CuttingDailyProductionReport {
   const markerPlanView = buildMarkerPlanViewModel(sources, [])
   const spreadingOptions: MarkerSpreadingSummaryBuildOptions = {
@@ -1385,8 +1385,8 @@ export function buildCuttingDailyProductionReport(
 ): CuttingDailyProductionReport {
   const query = normalizeQuery(input)
   const snapshot = buildFcsCuttingDomainSnapshot()
-  const sources = mapCuttingDomainSnapshotToSummaryBuildOptions(snapshot)
-  return buildReportFromSources(query, sources)
+  const sources = mapCuttingDomainSnapshotToDailyReportBuildOptions(snapshot)
+  return buildCuttingDailyProductionReportFromSources(query, sources)
 }
 
 export function getCuttingDailyExecutionOwnerLabel(owner: CuttingDailyExecutionOwner): string {

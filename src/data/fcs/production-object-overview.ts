@@ -3094,10 +3094,12 @@ export function getProductionObjectSearchIndex(refresh = false): ProductionObjec
 // A PDA order/task code needs only its exact candidates. Use the same source
 // builders and ordering as the full index, without projecting unrelated stock
 // and material preparation. Every call reads current rows; no new cache.
-export function getProductionObjectLinkIndex(objectType: 'PRODUCTION_ORDER' | 'PROCESS_DOC'): ProductionObjectSearchIndex[] {
+export function getProductionObjectLinkIndex(objectType: 'PRODUCTION_ORDER' | 'PROCESS_DOC' | 'WAREHOUSE_DOC' | 'HANDOVER_ORDER'): ProductionObjectSearchIndex[] {
   const rows = productionOrders.flatMap(order => objectType === 'PRODUCTION_ORDER'
-    ? [buildOrderIndex(order)] : buildProcessIndexes(order))
+    ? [buildOrderIndex(order)] : objectType === 'PROCESS_DOC' ? buildProcessIndexes(order)
+      : objectType === 'WAREHOUSE_DOC' ? buildWarehouseIndexes(order) : [])
   if (objectType === 'PROCESS_DOC') rows.push(...buildPostFinishingQcIndexes(true).filter(row => row.objectType === objectType))
+  else if (objectType !== 'PRODUCTION_ORDER') rows.push(...buildPostFinishingQcIndexes().filter(row => row.objectType === objectType))
   rows.push(...buildP1DocumentIndexes().filter(row => row.objectType === objectType))
   return rows
 }

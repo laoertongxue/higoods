@@ -45,6 +45,12 @@ export type MarkerSpreadingSummaryBuildOptions = Pick<
   'productionRows' | 'cutOrderRows' | 'materialPrepRows' | 'markerPlanSources' | 'markerStore'
 >
 
+export type CuttingDailyReportBuildOptions = MarkerSpreadingSummaryBuildOptions & {
+  feiViewModel: Pick<CuttingSummaryBuildOptions['feiViewModel'], 'ticketRecords'>
+  cutPieceWarehouseView: Pick<CuttingSummaryBuildOptions['cutPieceWarehouseView'], 'items'>
+  transferBagView: Pick<CuttingSummaryBuildOptions['transferBagView'], 'usages'>
+}
+
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
@@ -191,9 +197,9 @@ function buildTransferBagStore(
   return mergeTransferBagStores(seed, snapshot.transferBagState.store as unknown as TransferBagStore)
 }
 
-export function mapCuttingDomainSnapshotToSummaryBuildOptions(
+function buildSnapshotFeiSources(
   snapshot: CuttingDomainSnapshot,
-): CuttingSummaryBuildOptions {
+) {
   const progressRows = buildProductionProgressRows(snapshot.progressRecords, {
     pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
     inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
@@ -224,6 +230,14 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     drafts: feiLedger.drafts,
     prefilter: null,
   })
+
+  return { progressRows, cutOrderRows, materialPrepRows, markerPlanSources, markerStore, feiLedger, feiViewModel }
+}
+
+export function mapCuttingDomainSnapshotToSummaryBuildOptions(
+  snapshot: CuttingDomainSnapshot,
+): CuttingSummaryBuildOptions {
+  const { progressRows, cutOrderRows, materialPrepRows, markerPlanSources, markerStore, feiLedger, feiViewModel } = buildSnapshotFeiSources(snapshot)
 
   const fabricWarehouseView = buildFabricWarehouseViewModel(
     cutOrderRows,
@@ -273,6 +287,41 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     transferBagView,
     transferBagReturnView,
     bindingProcessOrders,
+  }
+}
+
+export function mapCuttingDomainSnapshotToDailyReportBuildOptions(
+  snapshot: CuttingDomainSnapshot,
+): CuttingDailyReportBuildOptions {
+  const { progressRows, cutOrderRows, materialPrepRows, markerPlanSources, markerStore, feiLedger, feiViewModel } = buildSnapshotFeiSources(snapshot)
+  const cutPieceWarehouseView = buildCutPieceWarehouseViewModel(
+    cutOrderRows,
+    snapshot.warehouseState.cutPieceRecords,
+    {
+      inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
+      handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
+      warehouseWritebacks: snapshot.warehouseState.cutPieceWritebacks,
+    },
+  )
+  const transferStore = buildTransferBagStore(snapshot, cutOrderRows, feiLedger.ticketRecords, markerPlanSources)
+  // The report reads bag usage facts, not sewing-dispatch stage ledgers or sorting queues.
+  const { usages } = buildTransferBagViewModel({
+    cutOrderRows,
+    ticketRecords: feiLedger.ticketRecords,
+    markerPlanSources,
+    store: transferStore,
+    includeStageDerived: false,
+  })
+
+  return {
+    productionRows: progressRows,
+    cutOrderRows,
+    materialPrepRows,
+    markerPlanSources,
+    markerStore,
+    feiViewModel: { ticketRecords: feiViewModel.ticketRecords },
+    cutPieceWarehouseView: { items: cutPieceWarehouseView.items },
+    transferBagView: { usages },
   }
 }
 
