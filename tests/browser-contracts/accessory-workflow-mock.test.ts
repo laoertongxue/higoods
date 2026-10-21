@@ -7,7 +7,7 @@ const server = process.env.ACCESSORY_MOCK_TEST_URL ? undefined : await createSer
 await server?.listen()
 const addr = server?.httpServer?.address()
 const base = process.env.ACCESSORY_MOCK_TEST_URL || `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : ''}`
-const output = 'output/verification/accessory-workflow-mock'
+const output = process.env.ACCESSORY_MOCK_TEST_OUTPUT || 'output/verification/accessory-workflow-mock'
 let browser: Browser
 before(async () => { await mkdir(output, { recursive: true }); browser = await chromium.launch() })
 after(async () => { await browser?.close(); await server?.close() })
@@ -57,7 +57,7 @@ test('AM-01～08 首次直达16入口有完整Mock/图片，三设备不溢出�
         }
         if (route.endsWith('gtp/preparation')) {
           const data = await facts(page)
-          assert.equal(data.preps.filter(row => row.productionOrderId.startsWith('PO-AW')).length, 17)
+          assert.equal(data.preps.filter(row => row.productionOrderId.startsWith('PO-AW')).length, 29)
           assert.equal(data.issues.filter(row => row.preparationId.includes('PO-AW')).length, 0, JSON.stringify(data.issues))
           assert.equal(data.physical.records.length, 0, 'plain reads never save Mock')
         }
@@ -163,8 +163,16 @@ test('AM-07 既有外部备份包含静态来源与用户覆盖，恢复零余�
       await records.saveAccessoryWarehouseAction({ commandId: 'backup-zero', intent: 'isolated-adjustment', result: true, change: { puts: [records.accessoryRecord('stock', stock.id, { ...stock, onHandQty: 0, reservedQty: 0, sourceRefs: [], version: stock.version + 1 })] } })
       const deleted = records.listAccessoryRecords<any>('stock').find(row => row.materialSku.includes('H06') && row.warehouseCode === 'HILON-2' && row.onHandQty === 0)!
       await records.saveAccessoryWarehouseAction({ commandId: 'backup-tombstone', intent: 'isolated-deletion', result: true, change: { puts: [], deletes: [records.accessoryRecord('stock', deleted.id, deleted).id] } })
+      // 隔离模拟旧版已保存改厂审计：有可核对 changeId，但旧 value 遗漏 id。
+      const legacyAudit = records.listAccessoryRecords<any>('audit').find(row => row.changeId && row.preparationId.includes('H10'))!
+      delete legacyAudit.id
+      await records.saveAccessoryWarehouseAction({ commandId: 'backup-legacy-audit', intent: 'isolated legacy audit identity', result: true, change: { puts: [records.accessoryRecord('audit', legacyAudit.changeId, legacyAudit)] } })
       const data = await backup.exportAccessoryWarehouseBackup()
       backup.validateAccessoryWarehouseBackup(data)
+      const auditRecordId = records.accessoryRecord('audit', legacyAudit.changeId, legacyAudit).id
+      const normalized = data.records.find(row => row.id === auditRecordId)?.value as any
+      const original = records.currentAccessorySnapshot().records.find(row => row.id === auditRecordId)?.value as any
+      if (!normalized || normalized.id !== legacyAudit.changeId || !original || original.id !== undefined) throw new Error('导出须只规范副本，不改原审计资料')
       return { stockId: stock.id, deletedId: deleted.id, backup: data }
     })
     const target = await targetContext.newPage()
@@ -175,6 +183,6 @@ test('AM-07 既有外部备份包含静态来源与用户覆盖，恢复零余�
       await migration.restoreAccessoryWarehouseBackup(backup)
       return { stock: records.findAccessoryRecord<any>('stock', stockId), deleted: records.findAccessoryRecord<any>('stock', deletedId), transfers: records.listAccessoryRecords<any>('transfer').length, pickups: records.listAccessoryRecords<any>('pickup').length }
     }, payload)
-    assert.equal(restored.deleted, undefined); assert.equal(restored.stock.onHandQty, 0); assert.equal(restored.transfers, 19); assert.equal(restored.pickups, 6)
+    assert.equal(restored.deleted, undefined); assert.equal(restored.stock.onHandQty, 0); assert.equal(restored.transfers, 33); assert.equal(restored.pickups, 6)
   } finally { await sourceContext.close(); await targetContext.close() }
 })

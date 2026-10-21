@@ -19,6 +19,16 @@ let mockReady = false
 /** 用户覆盖（含零余额）和删除标记优先；不把固定 Mock 写入业务库。 */
 export function listAccessoryMockRecordSources(): CuttingStoredRecord[] { return structuredClone(mockRecords) }
 
+/** 显式读取静态来源供同库上游动作合并；不读取第二份持久快照、不写种子。 */
+export async function loadAccessoryMockRecordSources(): Promise<CuttingStoredRecord[]> {
+  if (!mockReady) {
+    const { buildAccessoryWorkflowMockRecords } = await import('./accessory-warehouse-mock.ts')
+    mockRecords = buildAccessoryWorkflowMockRecords()
+    mockReady = true
+  }
+  return listAccessoryMockRecordSources()
+}
+
 export function mergeAccessoryMockRecords(base: readonly CuttingStoredRecord[], saved: readonly CuttingStoredRecord[]): CuttingStoredRecord[] {
   const rows = new Map(base.map(row => [row.id, row]))
   for (const row of saved) {
@@ -63,11 +73,7 @@ export async function ensureAccessoryWarehouseRecords(): Promise<void> {
   if (saving) throw new Error('上一笔辅料操作尚未保存，请等待完成。')
   try {
     const read = await readAccessoryRecordSnapshot()
-    if (!mockReady) {
-      const { buildAccessoryWorkflowMockRecords } = await import('./accessory-warehouse-mock.ts')
-      mockRecords = buildAccessoryWorkflowMockRecords()
-      mockReady = true
-    }
+    if (!mockReady) await loadAccessoryMockRecordSources()
     snapshot = read; readFailure = ''
   }
   catch (error) {

@@ -31,7 +31,7 @@ const migrationId = 'sewing-pickup-v1'
 const round = (value: number) => Math.round(value * 1_000_000) / 1_000_000
 function requireValue(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
 const stored = <T>(value: T, id: string): Stored<T> => ({ ...structuredClone(value), id })
-const preparationForOrder = (id: string) => listAccessoryPreparations().find(row => row.productionOrderId === id)
+const preparationForOrder = (id: string) => listAccessoryPreparations(new Set([id])).find(row => row.productionOrderId === id)
 const owned = (assignmentId: string) => {
   const productionOrderId = getEffectiveTaskAssignment(assignmentId)?.productionOrderId || ''
   // 只判断当前任务归属，复用既有单生产单只读投影；实际动作仍完整核对配料和库存。
@@ -89,7 +89,7 @@ function scopeContext(preparation: AccessoryPreparation, scope: AccessorySewingT
 }
 function scopeForPickup(pickup: AccessoryPickup): { preparation: AccessoryPreparation; transfer: AccessoryTransfer; scope: AccessorySewingTaskScope; context: SewingMaterialHandoverContext } {
   requireValue(pickup.status !== '已失效', '该领料清单已失效，请从当前仓库清单办理。')
-  const preparation = listAccessoryPreparations().find(row => row.id === pickup.preparationId)
+  const preparation = listAccessoryPreparations(new Set([pickup.productionOrderId])).find(row => row.id === pickup.preparationId)
   requireValue(preparation, '配料来源已变化，请重新读取。')
   const transfer = receivedForPreparation(preparation)
   requireValue(transfer.id === pickup.sourceTransferId && transfer.toWarehouse === pickup.warehouseCode, '领料仓已发生变化，旧清单不能继续交出。')

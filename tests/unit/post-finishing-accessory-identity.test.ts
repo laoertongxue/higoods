@@ -72,7 +72,7 @@ test.after(() => {
   else Reflect.deleteProperty(globalThis, 'IDBKeyRange')
 })
 
-test('PFN-056/068：逐个候选归属与当前完整21张准备单的ID和单号成员关系相同', context => {
+test('PFN-056/068：逐个候选归属与当前完整准备单的ID和单号成员关系相同', context => {
   context.diagnostic(JSON.stringify({ actualPreparationCount: actualPreparations.length, productionIdentities: actualPreparations.map(row => [row.productionOrderId, row.productionOrderNo]) }))
   const complete = productionIdentities(actualPreparations)
   const issuesBefore = sources.listAccessoryWarehouseSourceIssues()
@@ -152,15 +152,30 @@ test('PFN-054/068：窄范围实际归属仍执行全部已保存物理库存的
   const record = accessoryRecord('stock', stock.id, stock)
   const full = await isolatedSources('invalid-stock-full')
   const scoped = await isolatedSources('invalid-stock-scoped')
+  const rendering = await isolatedSources('invalid-stock-rendering')
+  const filtered = await isolatedSources('invalid-stock-filtered')
   try {
     // Explicit malformed-record fault input through the public record API;
     // this is not a generated stock movement or a claimed normal business fact.
     await saveAccessoryWarehouseAction({ commandId: 'IDENTITY-INVALID-STOCK', intent: 'isolated negative stock read fault', result: stock.id, change: { puts: [record] } })
     assert.throws(() => full.listAccessoryPreparations(), /库存数量必须是有效的非负数量/)
     assert.throws(() => scoped.listAccessoryPreparationProductionIdentities(new Set([actualPreparations[0].productionOrderId])), /库存数量必须是有效的非负数量/)
+    assert.throws(() => rendering.withAccessoryPreparationIdentityReadSnapshot(() => rendering.listAccessoryPreparationProductionIdentities(new Set())), /库存数量必须是有效的非负数量/, '同步渲染复用仍核验全库存，即使候选为空')
+    assert.throws(() => filtered.listAccessoryPreparations(new Set([actualPreparations[0].productionOrderId])), /库存数量必须是有效的非负数量/, '按生产单读取不省略其他已保存库存完整性校验')
   } finally {
     await saveAccessoryWarehouseAction({ commandId: 'IDENTITY-REMOVE-INVALID-STOCK', intent: 'remove isolated invalid stock fault', result: stock.id, change: { puts: [], deletes: [record.id] } })
   }
+})
+
+test('AC-20 当前任务的配料展示与完整投影筛选相同，不清除其他生产单问题', () => {
+  const all = sources.listAccessoryPreparations()
+  const issues = sources.listAccessoryWarehouseSourceIssues()
+  for (const preparation of all) {
+    assert.deepEqual(sources.listAccessoryPreparations(new Set([preparation.productionOrderId])), all.filter(row => row.productionOrderId === preparation.productionOrderId))
+  }
+  const ordered = (rows: unknown[]) => rows.map(row => JSON.stringify(row)).sort()
+  assert.deepEqual(ordered(sources.listAccessoryWarehouseSourceIssues()), ordered(issues))
+  assert.deepEqual(sources.listAccessoryPreparations(), all)
 })
 
 test('PFN-054/068：未知候选不能吞掉原配料JSON损坏或集合结构错误', async () => {
@@ -185,4 +200,34 @@ test('PFN-054/068：已记录的实际来源读取失败必须继续阻断未知
   assert.throws(() => isolated.listAccessoryPreparations(), /原配料资料格式损坏/)
   restoreWindow()
   assert.throws(() => isolated.listAccessoryPreparationProductionIdentities(new Set([unknownIdentity])), /原配料资料格式损坏/, '原错误存在时不能用无交集结果绕过')
+})
+
+test('AC-20 同一次同步列表渲染归属一致，返回值隔离且异常后释放，下一次读取立即看到来源变化', () => {
+  const order = productionOrders.find(row => row.productionOrderId === 'PO-AW-202610-F01' && row.techPackSnapshot)!
+  const original = order.techPackSnapshot
+  const candidate = new Set([order.productionOrderId])
+  const expected = sources.listAccessoryPreparationProductionIdentities(candidate)
+  const fullBefore = sources.listAccessoryPreparations()
+  sources.withAccessoryPreparationIdentityReadSnapshot(() => {
+    const first = sources.listAccessoryPreparationProductionIdentities(candidate) as Set<string>
+    assert.deepEqual(first, expected)
+    first.clear()
+    assert.deepEqual(sources.listAccessoryPreparationProductionIdentities(candidate), expected, 'caller cannot mutate snapshot result')
+    const preparations = sources.listAccessoryPreparations()
+    assert.deepEqual(preparations, fullBefore)
+    preparations[0].lines[0].preparedQty = 987654
+    assert.deepEqual(sources.listAccessoryPreparations(), fullBefore, '完整配料展示复用也必须隔离调用方修改')
+  })
+  assert.throws(() => sources.withAccessoryPreparationIdentityReadSnapshot(() => {
+    assert.deepEqual(sources.listAccessoryPreparationProductionIdentities(candidate), expected)
+    assert.deepEqual(sources.listAccessoryPreparations(), fullBefore)
+    throw new Error('isolated render error')
+  }), /isolated render error/)
+  try {
+    order.techPackSnapshot = null
+    assert.equal(sources.listAccessoryPreparationProductionIdentities(candidate).size, 0, 'failed render must not retain a previous owner')
+    assert.equal(sources.listAccessoryPreparations().some(row => row.productionOrderId === order.productionOrderId), false, '完整来源不得跨渲染保留已失效技术包')
+    sources.withAccessoryPreparationIdentityReadSnapshot(() => assert.equal(sources.listAccessoryPreparationProductionIdentities(candidate).size, 0))
+  } finally { order.techPackSnapshot = original }
+  assert.deepEqual(sources.listAccessoryPreparationProductionIdentities(candidate), expected, 'restored current source is visible without a save or refresh')
 })

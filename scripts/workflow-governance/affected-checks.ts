@@ -117,6 +117,10 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (path === 'tests/browser-contracts/accessory-cutting-change-mock.test.ts') {
+      add(fullChecks, 'node --import tsx --test tests/browser-contracts/accessory-cutting-change-mock.test.ts')
+      continue
+    }
     if (path === 'tests/browser-contracts/accessory-workflow-mock.test.ts') {
       add(fullChecks, 'node --import tsx --test tests/browser-contracts/accessory-workflow-mock.test.ts')
       continue

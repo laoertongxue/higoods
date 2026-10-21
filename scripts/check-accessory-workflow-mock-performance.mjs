@@ -6,6 +6,7 @@ import { chromium, expect } from '@playwright/test'
 const base = process.env.ACCESSORY_MOCK_PERF_URL || 'http://127.0.0.1:43323'
 if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname)) throw Error('Isolated local preview only')
 const output = process.env.ACCESSORY_MOCK_PERF_OUTPUT || 'output/verification/accessory-workflow-mock/performance'
+const calibration = process.env.ACCESSORY_MOCK_PERF_CALIBRATE === '1', rounds = calibration ? 1 : 5
 fs.mkdirSync(output, { recursive: true })
 const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex')
 const assets = () => Object.fromEntries(['dist/index.html', ...fs.readdirSync('dist/assets').filter(f => /\.(js|css)$/.test(f)).map(f => `dist/assets/${f}`)].sort().map(f => [f, hash(f)]))
@@ -14,11 +15,12 @@ const entries = [
   ...['hilon', 'mahameru'].flatMap(site => ['receipts', 'pickups', 'transfers', 'stock'].map(view => ({ route: `/wls/accessory-warehouses/${site}/${view}`, key: `wls-accessory-${site}-${view}` }))),
   { route: '/fcs/craft/post-finishing/material-transfers', key: 'pfos-post-finishing-material-transfers' },
   { route: '/fcs/sewing-outsourcing/tasks', key: 'sewing-outsourcing-tasks' },
+  { route: '/fcs/dispatch/workbench', key: 'cutting-dispatch-workbench' },
 ]
 const report = { at: new Date().toISOString(), cwd: process.cwd(), head: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), base,
   scriptSha256: hash(new URL(import.meta.url)), runtimeAssets: assets(), browser: '', thresholdMs: 1000,
-  conditions: 'Fixed production dist; five new Chromium processes, isolated contexts, 1366x768, Asia/Shanghai, default network, no fixture injection or prewarm. New Mock baseline 14 orders/237 records plus original records; all active data and guards. Cold navigation, refresh and SPA separate. Visible photos/fonts plus two frames; successful save includes readonly IndexedDB readback. User filling time excluded. Locations unchanged static master, functionally checked at three widths; no new performance family.',
-  families: {}, samples: [], failures: [] }
+  conditions: 'Fixed production dist; five new Chromium processes, isolated contexts, 1366x768, Asia/Shanghai, default network, no fixture injection or prewarm. Static baseline 26 workflow orders including twelve cutting-change scenarios plus original records; all active data and guards. Cold navigation, refresh and SPA separate. Visible photos/fonts plus two frames; successful save includes readonly IndexedDB readback. User filling time excluded. Locations unchanged static master, functionally checked at three widths; no new performance family.',
+  mode: calibration ? 'calibration-only' : 'acceptance', families: {}, samples: [], failures: [] }
 fs.copyFileSync(new URL(import.meta.url), path.join(output, 'collector.mjs'))
 const save = () => fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(report, null, 2))
 async function finish(page) {
@@ -36,6 +38,11 @@ function record(family, ms, details = {}) {
 }
 async function ready(page, route) {
   await expect(page).toHaveURL(base + route)
+  const root = route.endsWith('/gtp/preparation') ? '[data-accessory-preparation-root]'
+    : route.includes('/wls/') ? (route.endsWith('/pickups') ? '[data-accessory-pickup-root]' : '[data-accessory-transfer-root]')
+      : route.includes('/sewing-outsourcing/') ? '[data-ppic-task-page]'
+        : route.includes('/dispatch/workbench') ? '[data-unified-field="keyword"]' : '[data-post-finishing-material-transfers-action="detail"]'
+  await expect(page.locator(root).first()).toBeVisible()
   await expect(page.locator('main table').first()).toBeVisible()
   await expect(page.locator('main tbody tr').first()).toBeVisible()
 }
@@ -119,11 +126,68 @@ async function operations(browser) {
     await action(page, 'post-receive:two-lines', () => postDialog.getByRole('button', { name: '确认收货并上架' }).click(), () => expect(page.locator('[data-post-finishing-material-transfers-action="receive"]')).not.toBeVisible(), () => physical(page, rows => rows.some(r => r.collection.endsWith(':transfer') && r.value.kind === 'SITE_TO_POST' && r.value.productionOrderId.endsWith(`${code}05`) && r.value.status === '已收货')))
   } finally { await c.close() }
 }
+async function cuttingChanges(browser) {
+  for (const stage of [7, 8, 9]) {
+    const { c, page } = await context(browser), original = iteration % 2 ? 'H' : 'M'
+    const key = `${original}0${stage}`, order = `PO-AW-202610-${key}`
+    const from = original === 'H' ? 'hilon' : 'mahameru', to = original === 'H' ? 'mahameru' : 'hilon'
+    try {
+      await page.goto(base + '/fcs/dispatch/workbench?type=NON_SEWING')
+      await page.locator('[data-unified-field="keyword"]').fill(order)
+      const open = page.locator(`[data-unified-action="open-reassign"][data-task-id="TASKGEN-AW-202610-${key}-001__ORDER"]`)
+      if (stage === 8) await action(page, 'cutting-reassign:open', () => open.click(), () => expect(page.locator('[data-unified-field="factoryId"]')).toBeVisible())
+      else await open.click()
+      await page.locator('[data-unified-field="factoryId"]').selectOption(original === 'H' ? 'SEA-CUTTING-002' : 'SEA-CUTTING-001')
+      await page.locator('[data-unified-field="price"]').fill('1000')
+      await page.locator('[data-unified-field="reassignReason"]').fill('固定构建改厂响应验收')
+      if (stage === 8) await action(page, 'cutting-reassign:review', () => page.locator('[data-unified-action="confirm-dispatch"]').click(), () => expect(page.getByRole('button', { name: '确认提交并冻结价格', exact: true })).toBeVisible())
+      else await page.locator('[data-unified-action="confirm-dispatch"]').click()
+      await action(page, `cutting-reassign:save-stage-${stage}`, () => page.getByRole('button', { name: '确认提交并冻结价格', exact: true }).click(),
+        () => expect(page.locator('[data-unified-action="confirm-dispatch"]')).toHaveCount(0),
+        () => physical(page, rows => rows.some(r => r.collection === 'accessory-warehouse:preparation' && r.value.productionOrderId === order && r.value.cuttingFactoryName === (original === 'H' ? 'sea cutting2' : 'sea cutting'))))
+      async function query(site, view) {
+        const route = `/wls/accessory-warehouses/${site}/${view}`
+        await page.goto(base + route); await ready(page, route)
+        await page.locator('[data-accessory-transfer-field="keyword"]').fill(order)
+        await page.locator('[data-accessory-transfer-action="query"]').click()
+        await expect(page.locator('main tbody tr')).toHaveCount(1)
+        await expect(page.locator('main tbody')).toContainText(order)
+      }
+      async function send(site, name) {
+        await query(site, 'transfers'); await page.locator(button('dispatch')).click()
+        await action(page, name, () => page.getByRole('dialog').locator(button('save')).click(), () => expect(page.getByRole('dialog')).not.toBeVisible(),
+          () => physical(page, rows => rows.some(r => r.collection === 'accessory-warehouse:transfer' && r.value.productionOrderId === order && r.value.status === '已出库待收货')))
+      }
+      async function receive(site, name, onward) {
+        await query(site, 'receipts')
+        const open = page.locator(button('receive') + ':enabled')
+        if (onward) await action(page, 'old-warehouse-receive:open', () => open.click(), () => expect(page.getByRole('dialog')).toBeVisible())
+        else await open.click()
+        const dialog = page.getByRole('dialog'), qs = dialog.locator('[data-aw-transfer-qty]'), ls = dialog.locator('[data-aw-transfer-location]')
+        for (let i = 0; i < 6; i++) { await qs.nth(i).fill(String([100, 200, 100, 100, 100, 1][i])); await ls.nth(i).selectOption({ index: 1 }) }
+        if (onward) {
+          await qs.first().fill('99')
+          await action(page, 'old-warehouse-receive:short-blocked', () => dialog.locator(button('save')).click(), () => expect(dialog.locator('[data-aw-transfer-error]')).toContainText('实收与应收'))
+          await qs.first().fill('100')
+        }
+        await action(page, name, () => dialog.locator(button('save')).click(), () => expect(dialog).not.toBeVisible(),
+          () => physical(page, rows => rows.some(r => r.collection === 'accessory-warehouse:receipt' && r.value.status === '已收货'
+            && rows.some(t => t.collection === 'accessory-warehouse:transfer' && t.value.productionOrderId === order && t.value.id === r.value.transferId && t.value.toWarehouse === (site === 'hilon' ? 'HILON-2' : 'WH-FITTING-MAHAMERU')))
+            && (!onward || rows.some(r => r.collection === 'accessory-warehouse:transfer' && r.value.productionOrderId === order && r.value.kind === 'SITE_REASSIGN' && r.value.status === '待出库'))))
+      }
+      if (stage === 8) await receive(from, 'old-warehouse-receive:create-onward-atomically', true)
+      if (stage === 9) {
+        await send(from, 'site-reassign:dispatch-six-lines')
+        await receive(to, 'site-reassign:receive-six-lines', false)
+      }
+    } finally { await c.close() }
+  }
+}
 try {
-  for (iteration = 1; iteration <= 5; iteration++) {
+  for (iteration = 1; iteration <= rounds; iteration++) {
     const browser = await chromium.launch(); report.browser = browser.version()
     try {
-      for (const entry of entries) {
+      for (const entry of calibration ? entries.slice(-2) : entries) {
         const { c, page } = await context(browser)
         try {
           await navigation(page, entry, 'cold'); await navigation(page, entry, 'refresh')
@@ -133,11 +197,12 @@ try {
           await action(page, `${entry.key}:spa`, () => page.locator(`[data-action="activate-tab"][data-tab-key="${actualTabKey}"]`).click(), () => ready(page, entry.route))
         } finally { await c.close() }
       }
-      for (const width of [1280, 1024]) for (const entry of [entries[0], entries[11]]) {
+      for (const width of calibration ? [] : [1280, 1024]) for (const entry of [entries[0], entries[13]]) {
         const { c, page } = await context(browser, width)
         try { await navigation(page, { ...entry, key: `${entry.key}:${width}` }, 'cold') } finally { await c.close() }
       }
-      await operations(browser)
+      if (!calibration) await operations(browser)
+      await cuttingChanges(browser)
       console.log(`Mock performance iteration ${iteration}: ${report.samples.length} samples, ${report.failures.length} failures`)
     } finally { await browser.close() }
   }
@@ -146,7 +211,7 @@ finally {
   report.runtimeAssetsAfter = assets()
   if (JSON.stringify(report.runtimeAssets) !== JSON.stringify(report.runtimeAssetsAfter)) report.failures.push({ error: 'Runtime assets changed' })
   for (const name of new Set(report.samples.map(x => x.family))) {
-    const samples = report.samples.filter(x => x.family === name); report.families[name] = { count: samples.length, maxMs: Math.max(...samples.map(x => x.ms)), pass: samples.length >= 5 && samples.every(x => x.pass) }
+    const samples = report.samples.filter(x => x.family === name); report.families[name] = { count: samples.length, maxMs: Math.max(...samples.map(x => x.ms)), pass: samples.length >= rounds && samples.every(x => x.pass) }
   }
   if (Object.values(report.families).some(x => !x.pass) || report.failures.length) process.exitCode = 1
   save()

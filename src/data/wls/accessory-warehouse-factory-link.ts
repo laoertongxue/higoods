@@ -88,7 +88,7 @@ export function buildAccessoryFactoryLinkChange(input: {
           { ...receipt, status: '已取消', version: receipt.version + 1, cancelledAt: input.at, cancellationReason: reason }))
       }
     }
-    puts.push(accessoryRecord('audit', action.changeId, { ...action, commandId: input.commandId, mode: plan.mode, preparationId: preparation.id }))
+    puts.push(accessoryRecord('audit', action.changeId, { ...action, id: action.changeId, commandId: input.commandId, mode: plan.mode, preparationId: preparation.id }))
   }
   return { puts }
 }

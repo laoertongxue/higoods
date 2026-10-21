@@ -395,6 +395,14 @@ export async function exportAccessoryWarehouseBackup(): Promise<AccessoryWarehou
   const all = await exportCuttingRecordBackup()
   // 导出时显式包含固定来源快照，再叠加用户覆盖和删除标记；普通读取仍不落盘。
   const records = new Map([...listAccessoryMockRecordSources(), ...all.records.filter(row => row.id.startsWith(ACCESSORY_RECORD_PREFIX))].map(row => [row.id, row]))
+  // 早期改厂审计遗漏 value.id；仅在显式导出副本中按可核对的原 changeId 补齐。
+  // 不改已保存资料；显式冲突或其他损坏记录仍由原校验阻断。
+  for (const [id, row] of records) {
+    if (row.collection === `${ACCESSORY_RECORD_PREFIX}audit` && object(row.value) && row.value.id === undefined
+      && text(row.value.changeId) && id === `${row.collection}:${row.value.changeId}`) {
+      records.set(id, { ...row, value: { ...row.value, id: row.value.changeId } })
+    }
+  }
   const existingManifest = [...records.values()].map(row => row.value as Json).find(value => value.id === ACCESSORY_LEGACY_MIGRATION_ID)
   const source = await currentPlan()
   if (!existingManifest || !['COMPLETE', 'RESTORED'].includes(existingManifest.phase)) {

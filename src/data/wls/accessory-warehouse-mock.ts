@@ -7,6 +7,7 @@ import { accessoryRecord } from './accessory-warehouse-records.ts'
 import { accessoryReceiptForTransfer, buildAccessoryDispatchChange, buildAccessoryReceiveChange, type AccessoryReceipt } from './accessory-warehouse-commands.ts'
 import { buildAccessorySewingTaskScopes } from './accessory-warehouse-task-scope.ts'
 import { buildAccessorySewingHandover } from './accessory-warehouse-sewing.ts'
+import { buildAccessoryFactoryLinkChange } from './accessory-warehouse-factory-link.ts'
 import { resolveInitialOrderRuntimeTaskIdentity } from '../fcs/process-tasks.ts'
 import { dispatchTaskSheetFingerprint } from '../fcs/dispatch-task-sheet.ts'
 import type { EffectiveTaskAssignment } from '../fcs/effective-task-assignments.ts'
@@ -46,7 +47,8 @@ export function buildAccessoryWorkflowMockRecords(): CuttingStoredRecord[] {
     let preparation: AccessoryPreparation = {
       id: preparationId, productionOrderId: order.productionOrderId, productionOrderNo: order.productionOrderNo,
       styleName: fixture.demand.spuName, styleImageUrl: fixture.demand.imageUrl, techPackVersion: snapshot.sourceTechPackVersionId,
-      cuttingFactoryId: fixture.tasks[0].assignedFactoryId || null, cuttingFactoryName: fixture.tasks[0].assignedFactoryName || null,
+      cuttingFactoryId: 'changeState' in scene ? (scene.site === 'H' ? 'SEA-CUTTING-001' : 'SEA-CUTTING-002') : fixture.tasks[0].assignedFactoryId || null,
+      cuttingFactoryName: 'changeState' in scene ? (scene.site === 'H' ? 'sea cutting' : 'sea cutting2') : fixture.tasks[0].assignedFactoryName || null,
       status: '待配料', version: 0, remark: '', history: [],
       lines: snapshot.bomItems.filter(bom => bom.id !== 'AW-BOM-FABRIC').map((bom, index) => ({
         id: `${preparationId}:${snapshot.sourceTechPackVersionId}:${bom.id}`, materialSku: bom.materialCode!, materialName: bom.name,
@@ -75,6 +77,16 @@ export function buildAccessoryWorkflowMockRecords(): CuttingStoredRecord[] {
     put('transfer', transfer.id, transfer)
     const receipt = accessoryReceiptForTransfer(transfer)
     if (receipt) put('receipt', receipt.id, receipt)
+    if ('changeState' in scene) {
+      if (scene.stage !== '待出库') transfer = dispatch(transfer)
+      if (scene.stage === '待建领料') transfer = receive(transfer, receipt!)
+      if (scene.changeState === '已改厂') apply(buildAccessoryFactoryLinkChange({
+        records: [...records.values()], tasks: fixture.tasks, assignments: [],
+        factories: [{ id: 'SEA-CUTTING-001', name: 'sea cutting' }, { id: 'SEA-CUTTING-002', name: 'sea cutting2' }],
+        commandId: `MOCK:cutting-change:${scene.key}`, at, by: '固定样例计划员',
+      }))
+      continue
+    }
     if (scene.stage === '待出库' || scene.stage === '待定调入方') continue
     transfer = dispatch(transfer)
     if (scene.stage === '待收货') continue

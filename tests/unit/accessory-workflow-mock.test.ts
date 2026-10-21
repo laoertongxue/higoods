@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { buildAccessoryWorkflowMockRecords } from '../../src/data/wls/accessory-warehouse-mock.ts'
 import { mergeAccessoryMockRecords, accessoryRecord } from '../../src/data/wls/accessory-warehouse-records.ts'
 import { ACCESSORY_WAREHOUSE_DEMOS } from '../../src/data/wls/accessory-warehouse-demo.ts'
-import { ACCESSORY_WORKFLOW_SCENES } from '../../src/data/wls/accessory-warehouse-upstream-fixtures.ts'
+import { ACCESSORY_WORKFLOW_SCENES, ACCESSORY_CUTTING_CHANGE_SCENES } from '../../src/data/wls/accessory-warehouse-upstream-fixtures.ts'
 import { buildAccessoryDispatchChange, buildAccessoryReceiveChange, type AccessoryReceipt } from '../../src/data/wls/accessory-warehouse-commands.ts'
 import { listAccessoryWarehouseLocations } from '../../src/data/wls/accessory-warehouse-master.ts'
 import { getAccessoryStockId, type AccessoryStock } from '../../src/data/wls/accessory-warehouse-stock.ts'
@@ -14,11 +14,11 @@ import type { SewingMaterialHandoverEvent } from '../../src/data/fcs/sewing-mate
 const baseline = buildAccessoryWorkflowMockRecords()
 const list = <T>(kind: string) => baseline.filter(row => row.collection === `accessory-warehouse:${kind}`).map(row => row.value as T)
 
-test('AM-01/02 旧三单不变，新14场景来源身份唯一，冻结BOM/图片齐全', () => {
-  assert.equal(ACCESSORY_WAREHOUSE_DEMOS.length, 17)
-  assert.equal(ACCESSORY_WORKFLOW_SCENES.length, 14)
+test('AM-01/02 旧三单不变，26场景来源身份唯一，冻结BOM/图片齐全', () => {
+  assert.equal(ACCESSORY_WAREHOUSE_DEMOS.length, 29)
+  assert.equal(ACCESSORY_WORKFLOW_SCENES.length, 26)
   assert.equal(new Set(baseline.map(row => row.id)).size, baseline.length)
-  assert.equal(list('preparation').length, 14)
+  assert.equal(list('preparation').length, 26)
   for (const fixture of ACCESSORY_WAREHOUSE_DEMOS) {
     assert.equal(fixture.order.demandId, fixture.demand.demandId)
     assert.equal(fixture.order.techPackSnapshot?.snapshotId, fixture.techPack.snapshotId)
@@ -36,10 +36,10 @@ test('AM-01/02 旧三单不变，新14场景来源身份唯一，冻结BOM/图�
 test('AM-03/04/06 库存按固定盘点及来源事件守恒，所有调拨整单、收货库位同仓，后道排除四类', () => {
   const transfers = list<AccessoryTransfer>('transfer'), receipts = list<AccessoryReceipt>('receipt')
   for (const transfer of transfers) {
-    if (transfer.kind === 'GTP_TO_SITE') assert.equal(transfer.lines.length, 6)
+    if (transfer.kind !== 'SITE_TO_POST') assert.equal(transfer.lines.length, 6)
     else assert.deepEqual(transfer.lines.map(row => row.purpose), ['其他', '其他'])
     if (transfer.status === '已收货') {
-      const receipt = receipts.find(row => row.transferId === transfer.id)!
+      const receipt = receipts.find(row => row.transferId === transfer.id && row.status === '已收货')!
       assert.equal(receipt.status, '已收货')
       assert.equal(receipt.lines.length, transfer.lines.length)
       for (const line of transfer.lines) assert.equal(receipt.lines.find(row => row.lineId === line.id)?.qty, line.qty)
@@ -93,4 +93,41 @@ test('AM-03 必须整单、同仓同库位；缺操作人和重复收货仍阻�
   const result = buildAccessoryReceiveChange(input)
   assert.equal(result.receipt.status, '已收货')
   assert.throws(() => buildAccessoryReceiveChange({ ...input, transfer: result.transfer, receipt: result.receipt }), /失效|不能重复/)
+})
+
+test('AC-01～06 两方向三阶段待改/已改 Mock 使用同一上游任务、原调拨和真实库存', () => {
+  assert.equal(ACCESSORY_CUTTING_CHANGE_SCENES.length, 12)
+  for (const scene of ACCESSORY_CUTTING_CHANGE_SCENES) {
+    const fixture = ACCESSORY_WAREHOUSE_DEMOS.find(row => row.key === scene.key)!
+    const prep = list<AccessoryPreparation>('preparation').find(row => row.productionOrderId === fixture.order.productionOrderId)!
+    const transfers = list<AccessoryTransfer>('transfer').filter(row => row.preparationId === prep.id)
+    const transfer = transfers.find(row => row.kind === 'GTP_TO_SITE')!
+    const receipts = list<AccessoryReceipt>('receipt').filter(row => transfers.some(t => t.id === row.transferId))
+    const original = scene.site === 'H' ? 'HILON-2' : 'WH-FITTING-MAHAMERU', target = scene.site === 'H' ? 'WH-FITTING-MAHAMERU' : 'HILON-2'
+    assert.equal(prep.cuttingFactoryId, fixture.tasks[0].assignedFactoryId)
+    assert.ok(prep.lines.every(row => row.preparedQty === row.requiredQty))
+    if (scene.changeState === '待改厂') {
+      assert.equal(transfer.toWarehouse, original); assert.equal(transfers.length, 1)
+      assert.equal(receipts.length, 1)
+      continue
+    }
+    assert.equal(prep.history.at(-1)?.action, '裁剪工厂变更')
+    if (scene.changeStage === '未出 GTP') {
+      assert.equal(transfer.status, '待出库'); assert.equal(transfer.toWarehouse, target)
+      assert.equal(transfers.length, 1)
+      assert.equal(receipts.find(row => row.warehouseCode === original)?.status, '已取消')
+      assert.equal(receipts.find(row => row.warehouseCode === target)?.status, '待收货')
+    } else if (scene.changeStage === '已出库未收货') {
+      assert.equal(transfer.status, '已出库待收货'); assert.equal(transfer.toWarehouse, original)
+      assert.equal(transfers.length, 1); assert.equal(receipts.length, 1)
+      assert.equal(list<any>('change').find(row => row.sourceTransferId === transfer.id)?.status, '等待原仓收货')
+    } else {
+      assert.equal(transfer.status, '已收货'); assert.equal(transfer.toWarehouse, original)
+      const onward = transfers.find(row => row.kind === 'SITE_REASSIGN')!
+      assert.equal(onward.fromWarehouse, original); assert.equal(onward.toWarehouse, target)
+      assert.equal(onward.sourceTransferId, transfer.id); assert.equal(onward.status, '待出库')
+      assert.deepEqual(onward.lines.map(row => [row.materialSku, row.qty, row.fromLocationId]), transfer.lines.map(row => [row.materialSku, row.qty, row.toLocationId]))
+    }
+    assert.equal(list<AccessoryStock>('stock').some(row => row.materialSku.startsWith(`AW-SCENE-${scene.key}-`) && row.warehouseCode === target), false, '改厂不提前增加新仓库存')
+  }
 })

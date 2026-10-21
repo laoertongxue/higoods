@@ -7,12 +7,20 @@ import type { AccessoryPurpose } from './accessory-warehouse-flow.ts'
 
 export type AccessoryUpstreamFixtureKey = 'F01' | 'F02' | 'F03' | `H${string}` | `M${string}` | 'C01' | 'C02'
 export type AccessoryMockStage = '待出库' | '待收货' | '待建领料' | '待领料' | '部分领料' | '已完成' | '配料中' | '待定调入方'
+/** H/M 指原目的仓；07～09 可实际改派，10～12 已改派可继续办理仓储。 */
+export const ACCESSORY_CUTTING_CHANGE_SCENES = (['H', 'M'] as const).flatMap(site =>
+  (['待改厂', '已改厂'] as const).flatMap(changeState =>
+    (['未出 GTP', '已出库未收货', '已收货'] as const).map((changeStage, index) => ({
+      key: `${site}${String(index + (changeState === '待改厂' ? 7 : 10)).padStart(2, '0')}` as AccessoryUpstreamFixtureKey,
+      site, stage: (['待出库', '待收货', '待建领料'] as const)[index], changeStage, changeState,
+    }))))
 export const ACCESSORY_WORKFLOW_SCENES = [
   ...(['H', 'M'] as const).flatMap(site => (['待出库', '待收货', '待建领料', '待领料', '部分领料', '已完成'] as const).map((stage, index) => ({
     key: `${site}${String(index + 1).padStart(2, '0')}` as AccessoryUpstreamFixtureKey, stage, site,
   }))),
   { key: 'C01' as const, stage: '配料中' as const, site: 'M' as const },
   { key: 'C02' as const, stage: '待定调入方' as const, site: null },
+  ...ACCESSORY_CUTTING_CHANGE_SCENES,
 ] as const
 export interface AccessoryFixtureAssetIssue { materialSku: string; materialName: string; reason: string }
 export interface AccessoryUpstreamFixture {
@@ -192,11 +200,20 @@ export function buildAccessoryWarehouseUpstreamFixtures(options: {
     encoded = encoded.replaceAll('AW-DEMO-', `AW-SCENE-${scene.key}-`)
     const fixture = JSON.parse(encoded) as AccessoryUpstreamFixture
     fixture.key = scene.key
-    fixture.demand.spuName = `${scene.site === 'H' ? 'HILON' : scene.site === 'M' ? 'Mahameru' : 'GTP'} 辅料流转 · ${scene.stage}`
+    const change = 'changeState' in scene ? scene : null
+    fixture.demand.spuName = change
+      ? `裁剪改厂 ${change.site === 'H' ? 'HILON → Mahameru' : 'Mahameru → HILON'} · ${change.changeStage} · ${change.changeState}`
+      : `${scene.site === 'H' ? 'HILON' : scene.site === 'M' ? 'Mahameru' : 'GTP'} 辅料流转 · ${scene.stage}`
     fixture.order.demandSnapshot.spuName = fixture.demand.spuName
     fixture.order.sourceDemandSnapshots![0].spuName = fixture.demand.spuName
     fixture.techPack.styleName = fixture.demand.spuName
     fixture.order.techPackSnapshot = structuredClone(fixture.techPack)
+    if (change?.changeState === '已改厂') {
+      const factory = change.site === 'H' ? { id: 'SEA-CUTTING-002', name: 'sea cutting2' } : { id: 'SEA-CUTTING-001', name: 'sea cutting' }
+      Object.assign(fixture.tasks[0], { assignedFactoryId: factory.id, assignedFactoryName: factory.name, dispatchRemark: `${change.changeStage}裁剪改厂` })
+      fixture.tasks[0].auditLogs.push({ id: `${fixture.tasks[0].taskId}:REASSIGN`, action: 'CUTTING_REASSIGN', detail: `${change.changeStage}裁剪改厂`, at: AT, by: '固定样例计划员' })
+      Object.assign(fixture.assignments[0], { factoryId: factory.id, factoryName: factory.name })
+    }
     if (scene.site) {
       Object.assign(fixture.tasks[1], { assignmentStatus: 'ASSIGNED', assignedFactoryId: 'ID-F021', assignedFactoryName: 'CV Micro Sewing Jakarta Pusat',
         dispatchedAt: AT, dispatchedBy: '固定样例', businessAssignedAt: AT, assignmentOperatedAt: AT })
