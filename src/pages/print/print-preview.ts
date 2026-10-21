@@ -31,10 +31,14 @@ async function loadPrintAdapter(documentType: PrintDocumentType, sourceId?: stri
         : outbound.renderPostFinishingOutboundBarcodeTemplate,
     }
   }
-  if (documentType === 'POST_FINISHING_QC_ORDER') {
+  if (documentType === 'POST_FINISHING_QC_ORDER' || documentType === 'PRODUCTION_QC_MASTER') {
     const qc = await import('./templates/post-finishing-qc-print-template.ts')
     return {
       buildPrintDocument(input) {
+        if (input.documentType === 'PRODUCTION_QC_MASTER') {
+          if (input.sourceType !== 'POST_FINISHING_TASK') throw new Error('生产单质检总单来源类型不匹配，请返回后道任务重新打印。')
+          return qc.buildProductionQcMasterPrintDocument(input)
+        }
         if (input.sourceType !== 'POST_FINISHING_QC_ORDER') throw new Error('质检单打印来源类型不匹配，请返回质检清单重新打印。')
         return qc.buildPostFinishingQcOrderPrintDocument(input)
       },
@@ -242,6 +246,12 @@ export async function handleUnifiedPrintPreviewEvent(target: HTMLElement): Promi
   const action = actionNode.dataset.printPreviewAction
   if (action !== 'print' && action !== 'download-pdf') return false
   const input = resolveInput()
+  if (['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER'].includes(input.documentType)) {
+    const qc = await import('./templates/post-finishing-qc-print-template.ts')
+    const button = document.querySelector<HTMLElement>('[data-qc-shipping-print]')
+    if (button) return qc.handleQcShippingPriorityPrint(button)
+    throw new Error('未找到QC打印来源，请重新打开预览。')
+  }
   if (input.documentType === 'PICKUP_SLIP') {
     void preparePickupSlipPrint(actionNode)
     return true

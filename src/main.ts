@@ -1014,8 +1014,9 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     || normalizedPathname === '/fcs/pda/handover/sewing-self-return'
     || normalizedPathname === '/fcs/pda/warehouse/wait-process'
     || normalizedPathname === '/wls/finished-inbound'
+    || normalizedPathname === '/wls/finished/stock/realtime'
     || (normalizedPathname === '/fcs/print/preview'
-      && ['POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') || ''))
+      && ['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') || ''))
   const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
     '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns',
     '/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)
@@ -1029,7 +1030,7 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
   // Direct downstream and print entries read committed wool facts without first
   // visiting a wool page. Load their shared PCS/FCS dependencies before rendering.
-  if (/^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/finished-inbound$|fcs\/print\/preview$)/.test(normalizedPathname)) {
+  if (/^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/(?:finished-inbound|finished\/stock\/realtime)$|fcs\/print\/preview$)/.test(normalizedPathname)) {
     await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
   }
   // Ordinary procurement pages hydrate their own direct sources; they do not load production/cutting records.
@@ -1236,8 +1237,9 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       || normalizedPathname === '/fcs/pda/handover/sewing-self-return'
       || normalizedPathname === '/fcs/pda/warehouse/wait-process'
       || normalizedPathname === '/wls/finished-inbound'
+      || normalizedPathname === '/wls/finished/stock/realtime'
       || (normalizedPathname === '/fcs/print/preview'
-        && ['POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || ''))
+        && ['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || ''))
     // These pages read their preparation and ticket facts from the hydrated FCS
     // sources. PMS keeps its initialization on its original module entries.
     const isolatedPcsList = ['/pcs/products/styles', '/pcs/products/specifications'].includes(normalizedPathname)
@@ -1297,6 +1299,9 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       }
     }
     await preparePageRouteEntry(normalizedPathname)
+    if (['/fcs/craft/post-finishing/qc-orders', '/fcs/craft/post-finishing/qc-workbench', '/fcs/craft/post-finishing/print', '/fcs/print/preview', '/wls/finished/stock/realtime'].includes(normalizedPathname)) {
+      await (await import('./data/fcs/post-finishing-qc-shipping-priority-runtime.ts')).preparePostFinishingQcShippingPriority()
+    }
     if (['/fcs/craft/cutting/replacement-fabric-fei-tickets', '/fcs/craft/cutting/warehouse-management/wait-handover', '/fcs/pda/cutting/simple-cut-piece-handover'].includes(normalizedPathname)) {
       // The same published ordinary-ticket fixtures used by task printing and
       // handover must be independently readable after a direct open or refresh.
@@ -2391,6 +2396,11 @@ root.addEventListener('click', async (event) => {
   }
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (target.closest('[data-qc-shipping-print]')) {
+    event.preventDefault()
+    await (await import('./pages/print/templates/post-finishing-qc-print-template.ts')).handleQcShippingPriorityPrint(target)
+    return
+  }
   const nativeSummary = target.closest<HTMLElement>('summary')
   if (appStore.getState().pathname.startsWith('/pms/') && !appStore.getState().pathname.startsWith('/pms/tmf-')
     && nativeSummary && ![...nativeSummary.attributes].some((attribute) => attribute.name.startsWith('data-') && attribute.name.endsWith('action'))) return

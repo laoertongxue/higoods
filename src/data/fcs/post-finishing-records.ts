@@ -33,6 +33,7 @@ const primaryIds: Record<string, string> = {
   ppicPromises: 'promiseId', ppicMakeups: 'makeupId', ppicAllocations: 'allocationId',
   ppicConfirmations: 'confirmationId', ppicConfigs: 'configId', ppicBases: 'basisId',
   ppicActions: 'actionId', ppicEvaluations: 'evaluationId',
+  destinations: 'sourceId', changes: 'id',
 }
 const recordKey = (scope: string, collection: string, row: any): string => {
   if (row.kind && row.idempotencyKey) return `${row.kind}:${row.idempotencyKey}`
@@ -156,6 +157,7 @@ function visible(value: unknown): any {
 function legacySources(): Map<string, string> {
   const result = new Map<string, string>()
   for (const repo of repositories.values()) {
+    if (!repo.legacyKey) continue // New record-only scopes have no legacy source.
     const raw = globalThis.localStorage?.getItem(repo.legacyKey)
     if (raw) result.set(repo.legacyKey, raw)
   }
@@ -166,6 +168,12 @@ function legacySources(): Map<string, string> {
   return result
 }
 export function getPostFinishingStorageFailure(): string { return failure }
+export async function assertPostFinishingReadVersion(): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (!ready || failure) throw new Error(failure || '后道资料尚未读取完成。')
+  const fresh = await readPcsRecords([namespace])
+  if ((fresh.records.find(row => row.id === revisionId)?.version || 0) !== (stored.get(revisionId)?.version || 0)) throw new Error('读取期间后道资料已变化，请重新查看。')
+}
 export function hasPostFinishingLegacyData(): boolean { return migrationNeeded }
 function validateFlowRecords(records: PcsStoredRecord[], validateRestoredActors = false): void {
   const schema = records.find(row => row.id === `${namespace}/flow/schemaVersion/value` && !row.deleted)

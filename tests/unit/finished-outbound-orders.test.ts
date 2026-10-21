@@ -21,10 +21,11 @@ function filters(patch: Partial<FinishedOutboundFilters> = {}): FinishedOutbound
   return { ...emptyFinishedOutboundFilters(), ...patch }
 }
 
-test('静态演示包含三条参照记录、42条明确演示记录及全部状态', () => {
-  assert.equal(FINISHED_OUTBOUND_SEED.length, 45)
-  assert.equal(new Set(FINISHED_OUTBOUND_SEED.map(row => row.id)).size, 45)
-  assert.equal(FINISHED_OUTBOUND_SEED.filter(row => row.outboundOrderNo.startsWith('DEMO-')).length, 42)
+test('静态演示保留三条参照和42条对齐样本，增加30条可追溯QC需求', () => {
+  assert.equal(FINISHED_OUTBOUND_SEED.length, 75)
+  assert.equal(new Set(FINISHED_OUTBOUND_SEED.map(row => row.id)).size, 75)
+  assert.equal(FINISHED_OUTBOUND_SEED.filter(row => row.outboundOrderNo.startsWith('DEMO-DN-')).length, 42)
+  assert.equal(FINISHED_OUTBOUND_SEED.filter(row => row.outboundOrderNo.startsWith('DEMO-QC-DN-')).length, 30)
   assert.deepEqual([...new Set(FINISHED_OUTBOUND_SEED.map(row => row.status))].sort(), [...OUTBOUND_STATUSES].sort())
   assert.deepEqual(FINISHED_OUTBOUND_SEED.slice(0, 3).map(row => row.outboundOrderNo), ['DN2TENR6HH1Q80476789', 'DN2TENR3X2SXS0475456', 'DN2TENR3DSL5OG475179'])
   assert.equal(FINISHED_OUTBOUND_SEED[0]!.products[0]!.sku, 'FADSS2610168888-sameasphoto-m')

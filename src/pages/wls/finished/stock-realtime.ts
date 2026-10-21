@@ -9,6 +9,7 @@ import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { stockRealtimeSeed } from '../../../data/wls/seed/stock-seed'
+import { readUnifiedQcShippingStockRows, getQcShippingInventoryWarning } from '../../../data/fcs/post-finishing-qc-shipping-priority-runtime.ts'
 import { materialCategoryLabelMap } from '../../../data/wls/shared/warehouse-config'
 import type { StockRealtimeItem, MaterialInventorySummary, MaterialCategory } from '../../../data/wls/types'
 
@@ -100,7 +101,7 @@ function preferenceKey(): string {
 
 const finishedColumns: StandardListColumn<StockRealtimeItem>[] = [
   { key: 'image', title: '商品图片', width: 100, required: true,
-    render: r => `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.productName)}" class="h-12 w-12 rounded-md border border-slate-200 object-cover" onerror="this.style.display='none'">` },
+    render: r => `<button type="button" data-pda-image-preview-url="${escapeHtml(r.image)}" data-pda-image-preview-title="${escapeHtml(`${r.sku} · ${r.productName}`)}" data-skip-page-rerender="true" aria-label="查看 ${escapeHtml(r.sku)} 商品大图" class="relative h-12 w-12 overflow-hidden rounded-md border border-slate-200"><img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.productName)}" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="text-[10px]">图片加载中</span></button>` },
   { key: 'productName', title: '商品名称', width: 180, sortable: true, sortValue: r => r.productName,
     render: r => `<span class="text-slate-700">${escapeHtml(r.productName)}</span>` },
   { key: 'spu', title: '商品SPU', width: 160, sortable: true, sortValue: r => r.spu,
@@ -201,7 +202,7 @@ function ensurePreferencesLoaded(): void {
 /* ---------- Data accessors ---------- */
 
 function getFinishedItems(): StockRealtimeItem[] {
-  return stockRealtimeSeed.filter(item => {
+  return (state.activeVariant === 'finished' ? readUnifiedQcShippingStockRows() : stockRealtimeSeed).filter(item => {
     if (state.activeVariant === 'transit') return item.warehouse_type === 'TRANSIT'
     return item.warehouse_type !== 'TRANSIT' && item.warehouse_type !== 'FABRIC' && item.warehouse_type !== 'ACCESSORY' && item.warehouse_type !== 'YARN' && item.warehouse_type !== 'CONSUMABLE' && item.warehouse_type !== 'PACKAGING'
   })
@@ -211,27 +212,9 @@ function getRawItems(): MaterialInventorySummary[] {
   return RAW_MATERIAL_INVENTORY
 }
 
-function filteredRowCount(): number {
-  const kw = state.keyword.trim().toLowerCase()
-  if (state.activeVariant === 'raw') {
-    return getRawItems().filter(item => {
-      if (state.categoryFilter && item.material_category !== state.categoryFilter) return false
-      if (state.warehouseFilter && item.warehouse_name !== state.warehouseFilter) return false
-      if (!kw) return true
-      return `${item.material_name} ${item.spu_code} ${item.sku_code} ${item.warehouse_name}`.toLowerCase().includes(kw)
-    }).length
-  }
-  return getFinishedItems().filter(item => {
-    if (state.exactSku && item.sku !== state.exactSku) return false
-    if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
-    if (!kw) return true
-    return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
-  }).length
-}
-
 /* ---------- Filters ---------- */
 
-function renderFilters(): string {
+function renderFilters(finishedItems?: StockRealtimeItem[]): string {
   if (state.activeVariant === 'raw') {
     const rawWarehouseOptions = [...new Set(RAW_MATERIAL_INVENTORY.map(i => i.warehouse_name))]
     const categories: Array<{ value: MaterialCategory; label: string }> = [
@@ -245,7 +228,7 @@ function renderFilters(): string {
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
   }
 
-  const warehouses = [...new Set(getFinishedItems().map(i => i.warehouseName))]
+  const warehouses = [...new Set((finishedItems ?? getFinishedItems()).map(i => i.warehouseName))]
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-3"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="商品名称 / SPU / SKU / 仓库名称" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
@@ -258,7 +241,7 @@ function titleForVariant(v: Variant): string {
   return v === 'raw' ? '即时库存查询 — 原料' : v === 'transit' ? '即时库存查询 — 在途' : '即时库存查询 — 成衣'
 }
 
-function filteredRows(): unknown[] {
+function filteredRows(finishedItems?: StockRealtimeItem[]): unknown[] {
   const kw = state.keyword.trim().toLowerCase()
   if (state.activeVariant === 'raw') {
     return getRawItems().filter(item => {
@@ -268,7 +251,7 @@ function filteredRows(): unknown[] {
       return `${item.material_name} ${item.spu_code} ${item.sku_code} ${item.warehouse_name}`.toLowerCase().includes(kw)
     })
   }
-  return getFinishedItems().filter(item => {
+  return (finishedItems ?? getFinishedItems()).filter(item => {
     if (state.exactSku && item.sku !== state.exactSku) return false
     if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
     if (!kw) return true
@@ -280,8 +263,8 @@ function renderWorkspace(): string {
   ensurePreferencesLoaded()
   const variant = state.activeVariant
   const cols = activeColumns()
-  const total = filteredRowCount()
-  const rows = filteredRows()
+  const finishedItems = variant === 'raw' ? [] : getFinishedItems()
+  const rows = filteredRows(finishedItems)
 
   const sorted = sortStandardListRows(rows, state.sort, (row, key) => {
     const col = cols.find(c => c.key === key)
@@ -297,14 +280,15 @@ function renderWorkspace(): string {
         { label: '辅料', value: `${RAW_MATERIAL_INVENTORY.filter(i => i.material_category === 'ACCESSORY').length} 条` },
       ]
     : [
-        { label: '商品总数', value: `${getFinishedItems().length} 条` },
-        { label: '现货充足', value: `${getFinishedItems().filter(i => i.spotStock > 10).length} 条` },
-        { label: '低库存', value: `${getFinishedItems().filter(i => i.spotStock <= 10 && i.spotStock > 0).length} 条` },
+        { label: '商品总数', value: `${finishedItems.length} 条` },
+        { label: '现货充足', value: `${finishedItems.filter(i => i.spotStock > 10).length} 条` },
+        { label: '低库存', value: `${finishedItems.filter(i => i.spotStock <= 10 && i.spotStock > 0).length} 条` },
       ]
 
   return renderStandardListPage({
     title: titleForVariant(variant),
-    filtersHtml: renderFilters(),
+    feedbackHtml: variant === 'finished' && getQcShippingInventoryWarning() ? `<p role="status" class="rounded border border-amber-300 p-3 text-sm">${escapeHtml(getQcShippingInventoryWarning())}</p>` : '',
+    filtersHtml: renderFilters(finishedItems),
     statsHtml: renderStandardListStats(statsItems),
     listTitle: variant === 'raw' ? '原料库存列表' : '商品库存列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,

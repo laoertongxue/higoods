@@ -57,24 +57,24 @@ import type {
 import {
   makeMaterialTransferNo,
   createMaterialTransferDraft,
-} from "../shared/id-generators";
+} from "../shared/id-generators.ts";
 
 import {
   createWarehouseSeed,
   makeProductImage,
-} from "../shared/seed-utils";
+} from "../shared/seed-utils.ts";
 
 import {
   getPreInboundStatus,
-} from "../shared/filters";
+} from "../shared/filters.ts";
 
 import {
   getInboundTypeByRelatedOrderNo,
-} from "../shared/barcode";
+} from "../shared/barcode.ts";
 
 import {
   warehouseTypeCodeMap,
-} from "../shared/warehouse-config";
+} from "../shared/warehouse-config.ts";
 
 // ============================================================================
 // Warehouse system definitions (App.tsx lines 103-120)

@@ -6,20 +6,21 @@ import { renderDialog } from '../components/ui/dialog.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
 import type { StandardListColumn } from '../components/ui/list-table.ts'
 import { resetStandardListEntryTransientStateOnRouteEntry } from '../components/ui/list-table-model.ts'
-import { listPostFinishingFullFlowOutboundOrders, getPostFinishingFullFlowOutboundOrder, listPostFinishingWarehouseReceipts, receivePostFinishingOutboundOrder, type PostFinishingOutboundOrder } from '../data/fcs/post-finishing-full-flow.ts'
+import { listPostFinishingFullFlowOutboundOrders, getPostFinishingFullFlowOutboundOrder, listPostFinishingWarehouseReceipts, receivePostFinishingOutboundOrder, setPostFinishingOutboundDestination, type PostFinishingOutboundOrder } from '../data/fcs/post-finishing-full-flow.ts'
 import { escapeHtml } from '../utils.ts'
+import { listQcShippingWarehouses, readQcShippingDestination } from '../data/fcs/post-finishing-qc-shipping-priority-runtime.ts'
 
 type Row = PostFinishingOutboundOrder
 interface State extends ProcessOrderListControllerState {
   rows: Row[]; keyword: string; actorName: string; selected: Row | null
-  quantities: Record<string, string>; authorizationCode: string; reason: string; feedback: string; busy: boolean
+  warehouseId: string; quantities: Record<string, string>; authorizationCode: string; reason: string; feedback: string; busy: boolean
   image: { url: string; label: string } | null
 }
 const PREFIX = 'wls-finished-inbound', ROOT = '[data-wls-finished-inbound-root]'
 const state: State = {
   currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
   preferencesLoaded: false, showColumnSettings: false, rows: [], keyword: '', actorName: '',
-  selected: null, quantities: {}, authorizationCode: '', reason: '', feedback: '', busy: false, image: null,
+  selected: null, warehouseId: '', quantities: {}, authorizationCode: '', reason: '', feedback: '', busy: false, image: null,
 }
 const action = (name: string) => `data-wls-finished-inbound-action="${name}" data-skip-page-rerender="true"`
 function root(): HTMLElement | null { return typeof document === 'undefined' ? null : document.querySelector(ROOT) }
@@ -49,7 +50,7 @@ const controller = createProcessOrderListController({ state, columns, preference
 function stats(): string { return renderStandardListStats([{ label: '出货单', value: state.rows.length }, { label: '待仓库接收', value: state.rows.filter(r => r.status === '待仓库接收').length }, { label: '已接收入库', value: state.rows.filter(r => r.status === '已接收入库').length }]) }
 function overlays(): string {
   const r = state.selected
-  const dialog = r ? renderDialog({ title: '确认成衣仓实收', description: '逐 SKU 清点后确认；只保存本次实际数量。', width: 'lg', closeAction: { prefix: PREFIX, action: 'close' } }, `<div class="max-h-[calc(100vh-16rem)] space-y-3 overflow-y-auto pr-2" data-skip-page-rerender="true"><strong>${escapeHtml(r.outboundOrderNo)}</strong><p class="text-sm">接收方：成衣仓 · ${escapeHtml(state.actorName || '请先填写收货人')}</p>${r.lines.map(l => `<label class="block rounded border p-3">${sku(l)}<span class="mt-2 block text-xs">应收 ${l.outboundQty} ${escapeHtml(l.sku.qtyUnit || '')}</span><input class="mt-1 w-full rounded border p-2" type="number" min="0" step="1" data-wls-finished-inbound-field="qty" data-sku-id="${escapeHtml(l.sku.skuId)}" value="${escapeHtml(state.quantities[l.sku.skuId] || '')}" aria-label="${escapeHtml(l.sku.skuCode)} 实收数量"></label>`).join('')}<details><summary class="cursor-pointer text-sm">数量有差异：扫描主管授权码并填写原因</summary><input class="mt-2 w-full rounded border p-2" data-wls-finished-inbound-field="authorization" value="${escapeHtml(state.authorizationCode)}" placeholder="原动态授权码"><textarea class="mt-2 w-full rounded border p-2" data-wls-finished-inbound-field="reason" placeholder="实际差异原因">${escapeHtml(state.reason)}</textarea></details><p role="status" data-finished-inbound-dialog-feedback>${escapeHtml(state.feedback)}</p></div>`, `<button class="rounded border px-3 py-2" ${action('close')}>取消</button><button class="rounded bg-blue-600 px-3 py-2 text-white" ${action('save')} ${state.busy ? 'disabled' : ''}>${state.busy ? '正在确认…' : '确认并保存实收'}</button>`) : ''
+  const dialog = r ? renderDialog({ title: '确认成衣仓实收', description: '逐 SKU 清点后确认；先核对实际接收仓；实收逐 SKU 清点后确认。', width: 'lg', closeAction: { prefix: PREFIX, action: 'close' } }, `<div class="max-h-[calc(100vh-16rem)] space-y-3 overflow-y-auto pr-2" data-skip-page-rerender="true"><strong>${escapeHtml(r.outboundOrderNo)}</strong><p class="text-sm">接收方：成衣仓 · ${escapeHtml(state.actorName || '请先填写收货人')}</p><label class="block text-sm">实际接收仓库<select class="mt-1 w-full rounded border p-2" aria-label="实际接收仓库" data-wls-finished-inbound-field="warehouse"><option value="">选择实际接收仓库</option>${listQcShippingWarehouses().map(w => `<option value="${escapeHtml(w.id)}" ${state.warehouseId === w.id ? 'selected' : ''}>${escapeHtml(w.name)}</option>`).join('')}</select></label>${r.lines.map(l => `<label class="block rounded border p-3">${sku(l)}<span class="mt-2 block text-xs">应收 ${l.outboundQty} ${escapeHtml(l.sku.qtyUnit || '')}</span><input class="mt-1 w-full rounded border p-2" type="number" min="0" step="1" data-wls-finished-inbound-field="qty" data-sku-id="${escapeHtml(l.sku.skuId)}" value="${escapeHtml(state.quantities[l.sku.skuId] || '')}" aria-label="${escapeHtml(l.sku.skuCode)} 实收数量"></label>`).join('')}<details><summary class="cursor-pointer text-sm">去向维护填写原因；数量有差异时须扫描主管授权码</summary><input class="mt-2 w-full rounded border p-2" data-wls-finished-inbound-field="authorization" value="${escapeHtml(state.authorizationCode)}" placeholder="原动态授权码"><textarea class="mt-2 w-full rounded border p-2" data-wls-finished-inbound-field="reason" placeholder="实际差异原因">${escapeHtml(state.reason)}</textarea></details><p role="status" data-finished-inbound-dialog-feedback>${escapeHtml(state.feedback)}</p></div>`, `<button class="rounded border px-3 py-2" ${action('close')}>取消</button><button class="rounded border px-3 py-2" ${action('save-destination')} ${state.busy ? 'disabled' : ''}>仅保存供货去向</button><button class="rounded bg-blue-600 px-3 py-2 text-white" ${action('save')} ${state.busy ? 'disabled' : ''}>${state.busy ? '正在确认…' : '确认并保存实收'}</button>`) : ''
   const picture = state.image ? `<div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" ${action('close-image')}><button class="absolute right-4 top-4 rounded bg-white px-3 py-2" ${action('close-image')}>关闭大图</button><div class="relative"><img class="max-h-[85vh] max-w-[90vw] object-contain" src="${escapeHtml(state.image.url)}" alt="${escapeHtml(state.image.label)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败，请核对原图';this.nextElementSibling.hidden=false"><span class="rounded bg-white p-3">图片加载中…</span></div></div>` : ''
   return `<div data-finished-inbound-columns>${controller.renderColumnSettings()}</div>${dialog}${picture}`
 }
@@ -68,8 +69,9 @@ function validate(row: Row | undefined, name: string, values: Record<string, str
 }
 function save(): void {
   if (state.busy || !state.selected) return
+  const targetWarehouseId = state.warehouseId
   const selected = state.selected, name = state.actorName.trim(), values = { ...state.quantities }, code = state.authorizationCode.trim(), reason = state.reason.trim()
-  try { validate(selected, name, values, code, reason) } catch (error) { state.feedback = (error as Error).message; refreshOverlays(); return }
+  try { if (!listQcShippingWarehouses().some(w => w.id === targetWarehouseId)) throw new Error('选择实际接收的成衣仓后再确认。'); validate(selected, name, values, code, reason) } catch (error) { state.feedback = (error as Error).message; refreshOverlays(); return }
   state.busy = true; state.feedback = '正在确认成衣仓实际收货…'; refreshOverlays(); feedback()
   requestAnimationFrame(() => setTimeout(async () => {
     let submitted = false
@@ -77,7 +79,7 @@ function save(): void {
       const current = getPostFinishingFullFlowOutboundOrder(selected.outboundOrderNo)
       const quantities = validate(current, state.actorName, values, code, reason)
       if (name !== state.actorName.trim() || JSON.stringify(current!.lines.map(l => [l.sku.skuId, l.sku.skuCode, l.sku.qtyUnit, l.outboundQty])) !== JSON.stringify(selected.lines.map(l => [l.sku.skuId, l.sku.skuCode, l.sku.qtyUnit, l.outboundQty]))) throw new Error('收货人或原出货数量已变化，请重新打开确认。')
-      const result = await runPostFinishingCommand(() => receivePostFinishingOutboundOrder({ outboundOrderNo: current!.outboundOrderNo, actor: { actorId: `WLS-GARMENT:${name}`, actorName: name, roleName: '成衣仓收货员' }, receivedQuantities: quantities, authorization: code ? { scanValue: code, differenceReason: reason } : undefined }))
+      const result = await runPostFinishingCommand(() => receivePostFinishingOutboundOrder({ outboundOrderNo: current!.outboundOrderNo, targetWarehouseId, actor: { actorId: `WLS-GARMENT:${name}`, actorName: name, roleName: '成衣仓收货员' }, receivedQuantities: quantities, authorization: code ? { scanValue: code, differenceReason: reason } : undefined }))
       submitted = true
       const saved = getPostFinishingFullFlowOutboundOrder(current!.outboundOrderNo)
       const receipts = listPostFinishingWarehouseReceipts().filter(r => r.outboundOrderId === current!.outboundOrderId)
@@ -111,6 +113,7 @@ export function handleWlsFinishedInboundEvent(target: HTMLElement, event?: Event
     const key = field.dataset.wlsFinishedInboundField
     if (key === 'keyword') state.keyword = field.value
     if (key === 'name') state.actorName = field.value
+    if (key === 'warehouse') state.warehouseId = field.value
     if (key === 'qty' && field.dataset.skuId) state.quantities[field.dataset.skuId] = field.value
     if (key === 'authorization') state.authorizationCode = field.value
     if (key === 'reason') state.reason = field.value
@@ -120,10 +123,21 @@ export function handleWlsFinishedInboundEvent(target: HTMLElement, event?: Event
   const node = target.closest<HTMLElement>('[data-wls-finished-inbound-action]'), name = node?.dataset.wlsFinishedInboundAction
   if (!node || !name) return false
   if (state.busy) return true
+  if (name === 'save-destination') {
+    if (!state.selected) return true
+    state.busy = true
+    const selected = state.selected
+    void runPostFinishingCommand(() => setPostFinishingOutboundDestination({ outboundOrderId: selected.outboundOrderId, warehouseId: state.warehouseId, expectedWarehouseId: selected.targetWarehouseId, operator: state.actorName, reason: state.reason })).then(() => {
+      state.selected = getPostFinishingFullFlowOutboundOrder(selected.outboundOrderId) || null
+      state.rows = listPostFinishingFullFlowOutboundOrders()
+      state.feedback = '本出货子单去向已保存，实收数量尚未确认。'
+    }).catch(error => { state.feedback = `未保存：${error instanceof Error ? error.message : String(error)}` }).finally(() => { state.busy = false; refreshOverlays(); feedback() })
+    refreshOverlays(); return true
+  }
   if (name === 'save') { save(); return true }
   if (name === 'image') { state.image = { url: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '' }; refreshOverlays(); return true }
   if (name === 'close-image') { state.image = null; refreshOverlays(); return true }
-  if (name === 'open') { state.selected = state.rows.find(r => r.outboundOrderNo === node.dataset.orderNo) || null; state.quantities = {}; state.authorizationCode = ''; state.reason = ''; state.feedback = ''; refreshOverlays(); feedback(); return true }
+  if (name === 'open') { state.selected = state.rows.find(r => r.outboundOrderNo === node.dataset.orderNo) || null; state.warehouseId = state.selected?.targetWarehouseId || (state.selected && readQcShippingDestination(state.selected.qcTaskId)?.warehouseId) || ''; state.quantities = {}; state.authorizationCode = ''; state.reason = ''; state.feedback = ''; refreshOverlays(); feedback(); return true }
   if (name === 'close') { state.selected = null; refreshOverlays(); return true }
   if (name === 'query' || name === 'reload') { if (name === 'reload') { state.rows = listPostFinishingFullFlowOutboundOrders(); const e = root()?.querySelector('[data-finished-inbound-stats]'); if (e) e.innerHTML = stats() }; state.currentPage = 1; controller.refresh(); return true }
   if (name === 'page-size') { controller.setPageSize(Number((target as HTMLSelectElement).value)); controller.refresh(); return true }

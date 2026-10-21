@@ -13,11 +13,15 @@ import {
   listPostFinishingFullFlowOutboundOrders,
   getPostFinishingFullFlowQcTask,
   getPostFinishingFullFlowRecheckOrder,
+  getPostFinishingQcPrintProductionSource,
 } from '../../../data/fcs/post-finishing-full-flow.ts'
+import { getQcShippingPriorityForQc } from '../../../data/fcs/post-finishing-qc-shipping-priority-runtime.ts'
+import { buildProductionConfirmationSnapshot } from '../../../data/fcs/production-confirmation.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   renderOnlinePostFinishingQcDetail,
   renderOnlinePostFinishingQcMaster,
+  buildSizeMatrix,
 } from '../../print/templates/post-finishing-qc-print-template.ts'
 
 type PrintType = 'SEND_QC' | 'QC_ORDER' | 'QC_DETAIL' | 'POST_ORDER' | 'OUTBOUND' | 'OUTBOUND_BARCODE' | 'OUTBOUND_HANGTAG' | 'SKU_LABEL'
@@ -109,12 +113,12 @@ function outboundDocumentPage(outbound: NonNullable<ReturnType<typeof getPostFin
 }
 
 function qcDetailPage(task: NonNullable<ReturnType<typeof getPostFinishingFullFlowQcTask>>): string {
-  const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === task.productionOrderNo)
-  if (!order) throw new Error('未找到质检单对应的生产单。')
+  const order = getPostFinishingQcPrintProductionSource(task.qcTaskId)
   return renderOnlinePostFinishingQcDetail({
+    priority: getQcShippingPriorityForQc(task),
     documentNo: task.qcTaskNo,
     spuCode: order.styleNo,
-    printedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+    printedAt: new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Jakarta' }),
     productionOrderNo: task.productionOrderNo,
     factoryName: order.managedPostFactoryName,
     buyerName: order.buyerName,
@@ -134,9 +138,12 @@ function qcDetailPage(task: NonNullable<ReturnType<typeof getPostFinishingFullFl
 }
 
 function qcOrderPage(task: NonNullable<ReturnType<typeof getPostFinishingFullFlowQcTask>>): string {
-  const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === task.productionOrderNo)
-  if (!order) throw new Error('未找到质检单对应的生产单。')
+  const order = getPostFinishingQcPrintProductionSource(task.qcTaskId)
+  // 正式生产来源沿用生产确认资料；验收样本保留原有已核对的纸单字段。
+  const snapshot = order.qcPrintMaterials.length ? undefined : buildProductionConfirmationSnapshot(task.productionOrderId)
+  const sizeMatrix = snapshot ? buildSizeMatrix(snapshot) : undefined
   return renderOnlinePostFinishingQcMaster({
+    priority: getQcShippingPriorityForQc(task),
     documentNo: task.qcTaskNo,
     spuCode: order.styleNo,
     styleGrade: order.styleGrade,
@@ -147,15 +154,21 @@ function qcOrderPage(task: NonNullable<ReturnType<typeof getPostFinishingFullFlo
     buyerName: order.buyerName,
     productionOrderType: order.productionOrderType,
     saleType: order.saleType,
-    materials: order.qcPrintMaterials.map((item) => ({
+    materials: snapshot ? snapshot.bomSnapshot.map(item => ({
+      materialName: item.materialName,
+      materialCode: item.materialSku,
+      unitConsumption: item.unitConsumption === null || item.unitConsumption === undefined ? '—' : `${item.unitConsumption} ${item.usageUnit || ''}/件`.trim(),
+      materialUsed: item.plannedUsageQty === null || item.plannedUsageQty === undefined ? '—' : `${item.plannedUsageQty} ${item.usageUnit || ''}`.trim(),
+      imageUrl: item.materialImageUrl || '',
+    })) : order.qcPrintMaterials.map((item) => ({
       materialName: item.materialName,
       materialCode: item.materialCode,
       unitConsumption: item.unitConsumption,
       materialUsed: item.materialUsed,
       imageUrl: item.imageUrl,
     })),
-    sizeHeaders: ['成衣尺寸', 'Panjang punggung tengah(后中长)', 'Lingkar Bahu(肩宽)', 'Lingkar Dada(胸围)', 'Panjang Lengan(袖长)', 'Cuff Tangan(袖口)'],
-    sizeRows: order.qcPrintSizeRows.map((row) => [row.sizeName, row.backLength, row.shoulderWidth, row.bust, row.sleeveLength, row.cuff]),
+    sizeHeaders: sizeMatrix?.headers || ['成衣尺寸', 'Panjang punggung tengah(后中长)', 'Lingkar Bahu(肩宽)', 'Lingkar Dada(胸围)', 'Panjang Lengan(袖长)', 'Cuff Tangan(袖口)'],
+    sizeRows: sizeMatrix?.rows || order.qcPrintSizeRows.map((row) => [row.sizeName, row.backLength, row.shoulderWidth, row.bust, row.sleeveLength, row.cuff]),
   })
 }
 
