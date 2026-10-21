@@ -5,7 +5,15 @@ import type { RuntimeProcessTask } from '../fcs/runtime-process-tasks.ts'
 import type { EffectiveTaskAssignment } from '../fcs/effective-task-assignments.ts'
 import type { AccessoryPurpose } from './accessory-warehouse-flow.ts'
 
-export type AccessoryUpstreamFixtureKey = 'F01' | 'F02' | 'F03'
+export type AccessoryUpstreamFixtureKey = 'F01' | 'F02' | 'F03' | `H${string}` | `M${string}` | 'C01' | 'C02'
+export type AccessoryMockStage = '待出库' | '待收货' | '待建领料' | '待领料' | '部分领料' | '已完成' | '配料中' | '待定调入方'
+export const ACCESSORY_WORKFLOW_SCENES = [
+  ...(['H', 'M'] as const).flatMap(site => (['待出库', '待收货', '待建领料', '待领料', '部分领料', '已完成'] as const).map((stage, index) => ({
+    key: `${site}${String(index + 1).padStart(2, '0')}` as AccessoryUpstreamFixtureKey, stage, site,
+  }))),
+  { key: 'C01' as const, stage: '配料中' as const, site: 'M' as const },
+  { key: 'C02' as const, stage: '待定调入方' as const, site: null },
+] as const
 export interface AccessoryFixtureAssetIssue { materialSku: string; materialName: string; reason: string }
 export interface AccessoryUpstreamFixture {
   key: AccessoryUpstreamFixtureKey
@@ -128,9 +136,10 @@ function buildTask(order: ProductionOrder, process: 'CUT_PANEL' | 'SEW', factory
  */
 export function buildAccessoryWarehouseUpstreamFixtures(options: {
   materialAssets?: Partial<Record<'价格吊牌' | '品牌吊牌' | '吊粒', string>>
+  includeWorkflowScenarios?: boolean
 } = {}): AccessoryUpstreamFixture[] {
   const materials = listAccessoryFixtureMaterials(options.materialAssets)
-  return ([
+  const fixtures: AccessoryUpstreamFixture[] = ([
     { key: 'F01', factory: { id: 'SEA-CUTTING-001', name: 'sea cutting' } },
     { key: 'F02', factory: { id: 'SEA-CUTTING-002', name: 'sea cutting2' } },
     { key: 'F03', factory: null },
@@ -176,4 +185,30 @@ export function buildAccessoryWarehouseUpstreamFixtures(options: {
     return { key, demand, order, techPack, tasks, assignments,
       assetIssues: materials.filter(material => !material.imageUrl).map(material => ({ materialSku: material.sku, materialName: material.name, reason: MISSING_ASSET_REASON })) }
   })
+  if (options.includeWorkflowScenarios) for (const scene of ACCESSORY_WORKFLOW_SCENES) {
+    const original = fixtures[scene.site === 'H' ? 0 : scene.site === 'M' ? 1 : 2]
+    // 稳定的新单/款/BOM/物料身份隔离旧样例，已有用户覆盖不会被新 Mock 改写。
+    let encoded = JSON.stringify(original).replaceAll(original.key, scene.key)
+    encoded = encoded.replaceAll('AW-DEMO-', `AW-SCENE-${scene.key}-`)
+    const fixture = JSON.parse(encoded) as AccessoryUpstreamFixture
+    fixture.key = scene.key
+    fixture.demand.spuName = `${scene.site === 'H' ? 'HILON' : scene.site === 'M' ? 'Mahameru' : 'GTP'} 辅料流转 · ${scene.stage}`
+    fixture.order.demandSnapshot.spuName = fixture.demand.spuName
+    fixture.order.sourceDemandSnapshots![0].spuName = fixture.demand.spuName
+    fixture.techPack.styleName = fixture.demand.spuName
+    fixture.order.techPackSnapshot = structuredClone(fixture.techPack)
+    if (scene.site) {
+      Object.assign(fixture.tasks[1], { assignmentStatus: 'ASSIGNED', assignedFactoryId: 'ID-F021', assignedFactoryName: 'CV Micro Sewing Jakarta Pusat',
+        dispatchedAt: AT, dispatchedBy: '固定样例', businessAssignedAt: AT, assignmentOperatedAt: AT })
+      fixture.order.mainFactoryId = 'ID-F021'
+      fixture.order.mainFactorySnapshot = { ...fixture.order.mainFactorySnapshot, id: 'ID-F021', code: 'ID-FAC-0021', name: 'CV Micro Sewing Jakarta Pusat', tier: 'THIRD_PARTY', type: 'THIRD_SEWING', status: 'ACTIVE', tags: ['车缝'] }
+      fixture.order.mainFactoryStatus = 'CONFIRMED'
+      fixture.order.mainFactorySource = 'SEWING_TASK_ASSIGNMENT'
+      fixture.order.directDispatchSummary.assignedFactoryCount = 2
+      fixture.order.assignmentSummary = { directCount: 2, biddingCount: 0, totalTasks: 2, unassignedCount: 0 }
+      fixture.order.assignmentProgress = { status: 'DONE', directAssignedCount: 2, biddingLaunchedCount: 0, biddingAwardedCount: 0 }
+    }
+    fixtures.push(fixture)
+  }
+  return fixtures
 }

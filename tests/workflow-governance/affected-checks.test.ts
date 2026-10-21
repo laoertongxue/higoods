@@ -569,3 +569,11 @@ test('原型全功能清理只接入明确消费者，旧演示夹具必须逐�
  assert.deepEqual(routeAffectedChecks(['tests/factory-onboarding-future.spec.ts']).unknownPaths,['tests/factory-onboarding-future.spec.ts'])
  const perf=routeAffectedChecks(['scripts/check-prototype-full-function-performance.mjs']);assert.deepEqual(perf.unknownPaths,[]);assert.deepEqual(perf.fastChecks,["node --check 'scripts/check-prototype-full-function-performance.mjs'"])
 })
+
+
+test('辅料静态Mock专项运行实际浏览器契约，性能采集只做语法核验', () => {
+  const route = routeAffectedChecks(['tests/browser-contracts/accessory-workflow-mock.test.ts', 'scripts/check-accessory-workflow-mock-performance.mjs'])
+  assert.deepEqual(route.unknownPaths, [])
+  assert.deepEqual(route.fullChecks, ['node --import tsx --test tests/browser-contracts/accessory-workflow-mock.test.ts'])
+  assert.deepEqual(route.fastChecks, ["node --check 'scripts/check-accessory-workflow-mock-performance.mjs'"])
+})

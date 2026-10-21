@@ -1458,16 +1458,18 @@ function ensureDispatchBoardSeedData(): void {
 
   // 采用原生成器的运行任务身份；已确认裁剪工厂只是演示输入，不新增第二套任务或选厂规则。
   for (const fixture of ACCESSORY_WAREHOUSE_DEMOS) {
-    const source = fixture.tasks.find(task => task.processBusinessCode === 'CUT_PANEL')
-    if (!source?.assignedFactoryId) continue
-    const identity = resolveInitialOrderRuntimeTaskIdentity(fixture.order.productionOrderId, 'CUT_PANEL')
-    if (!identity) throw new Error('辅料演示生产单缺少唯一裁剪任务来源。')
-    seedRuntimeTaskOverride(identity.runtimeTaskId, {
-      assignmentMode: 'DIRECT', assignmentStatus: 'ASSIGNED', assignedFactoryId: source.assignedFactoryId,
-      assignedFactoryName: source.assignedFactoryName, acceptanceStatus: 'ACCEPTED', status: 'NOT_STARTED',
-      dispatchedAt: source.dispatchedAt, businessAssignedAt: source.businessAssignedAt, dispatchedBy: source.dispatchedBy,
-      dispatchRemark: '固定演示输入：裁剪工厂已确认；未执行自动分配规则。',
-    }, [{ id: `${fixture.key}:CUTTING-INPUT`, action: 'MOCK_INPUT', detail: '生产单创建时已确认裁剪工厂的固定演示输入。', at: source.dispatchedAt!, by: '演示来源' }])
+    for (const source of fixture.tasks.filter(task => task.assignedFactoryId)) {
+      const process = source.processBusinessCode || source.processCode
+      const identity = resolveInitialOrderRuntimeTaskIdentity(fixture.order.productionOrderId, process)
+      if (!identity) throw new Error('辅料演示生产单缺少唯一工序任务来源。')
+      seedRuntimeTaskOverride(identity.runtimeTaskId, {
+        assignmentMode: 'DIRECT', assignmentStatus: 'ASSIGNED', assignedFactoryId: source.assignedFactoryId,
+        assignedFactoryName: source.assignedFactoryName, acceptanceStatus: 'ACCEPTED', status: 'NOT_STARTED',
+        dispatchedAt: source.dispatchedAt, businessAssignedAt: source.businessAssignedAt, dispatchedBy: source.dispatchedBy,
+        assignmentOperatedAt: source.assignmentOperatedAt,
+        dispatchRemark: `固定演示输入：${source.processNameZh}工厂已确认；未执行自动分配规则。`,
+      }, [{ id: `${fixture.key}:${process}-INPUT`, action: 'MOCK_INPUT', detail: `${source.processNameZh}工厂已确认的固定演示输入。`, at: source.dispatchedAt!, by: '演示来源' }])
+    }
   }
 
   for (const demo of REPLACEMENT_FABRIC_DEMOS) {

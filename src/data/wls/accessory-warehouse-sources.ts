@@ -1,3 +1,5 @@
+import { ACCESSORY_WAREHOUSE_DEMOS } from './accessory-warehouse-demo.ts'
+import { ensureDispatchTaskSheetAssignments } from '../fcs/dispatch-task-sheet.ts'
 import {
   listMaterialPrepOrderProjections,
   listMaterialPrepProductionIdsForIdentities,
@@ -71,6 +73,7 @@ const exactPurposeNames: Record<string, AccessoryPurpose> = {
   价格吊牌: '价格吊牌', 品牌吊牌: '品牌吊牌', 吊粒: '吊粒', 车缝线: '车缝线', 缝纫线: '车缝线',
 }
 const exactMaterialPurposes: Record<string, AccessoryPurpose> = {
+  ...Object.fromEntries(ACCESSORY_WAREHOUSE_DEMOS.flatMap(fixture => fixture.techPack.bomItems.filter(bom => ['拉链', '纽扣'].includes(bom.name)).map(bom => [bom.materialCode!, '其他' as const]))),
   'AW-DEMO-ZIPPER': '其他',
   'AW-DEMO-BUTTON': '其他',
   'HG-DEMO-ZIPPER-GRY-60': '其他',
@@ -233,6 +236,7 @@ export async function prepareAccessoryWarehouseSources(): Promise<void> {
   try {
     await hydrateProductionContextRecords()
     await ensureAccessoryWarehouseRecords()
+    ensureDispatchTaskSheetAssignments()
     checkedLegacyStorage()
   } catch (error) {
     preparationReadFailure = error instanceof Error ? error.message : String(error)

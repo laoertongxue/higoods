@@ -13,6 +13,20 @@ export interface AccessoryRecordSnapshot { revision: number; records: CuttingSto
 let snapshot: AccessoryRecordSnapshot | null = null
 let readFailure = ''
 let saving = false
+let mockRecords: CuttingStoredRecord[] = []
+let mockReady = false
+
+/** 用户覆盖（含零余额）和删除标记优先；不把固定 Mock 写入业务库。 */
+export function listAccessoryMockRecordSources(): CuttingStoredRecord[] { return structuredClone(mockRecords) }
+
+export function mergeAccessoryMockRecords(base: readonly CuttingStoredRecord[], saved: readonly CuttingStoredRecord[]): CuttingStoredRecord[] {
+  const rows = new Map(base.map(row => [row.id, row]))
+  for (const row of saved) {
+    if (row.collection === `${ACCESSORY_RECORD_PREFIX}tombstone`) rows.delete(row.id)
+    else rows.set(row.id, row)
+  }
+  return [...rows.values()]
+}
 
 function resultOf<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -47,7 +61,15 @@ export async function readAccessoryRecordSnapshot(): Promise<AccessoryRecordSnap
 }
 export async function ensureAccessoryWarehouseRecords(): Promise<void> {
   if (saving) throw new Error('上一笔辅料操作尚未保存，请等待完成。')
-  try { snapshot = await readAccessoryRecordSnapshot(); readFailure = '' }
+  try {
+    const read = await readAccessoryRecordSnapshot()
+    if (!mockReady) {
+      const { buildAccessoryWorkflowMockRecords } = await import('./accessory-warehouse-mock.ts')
+      mockRecords = buildAccessoryWorkflowMockRecords()
+      mockReady = true
+    }
+    snapshot = read; readFailure = ''
+  }
   catch (error) {
     snapshot = null
     readFailure = `用户辅料资料无法读取，未使用空数据覆盖。${error instanceof Error ? error.message : String(error)}`
@@ -58,7 +80,7 @@ export function accessoryWarehouseReadError(): string { return readFailure }
 export function listAccessoryRecords<T>(kind: AccessoryRecordKind): T[] {
   if (readFailure) throw new Error(readFailure)
   if (!snapshot) throw new Error('辅料资料尚未读取，请重新打开页面。')
-  return snapshot.records.filter(row => row.collection === `${ACCESSORY_RECORD_PREFIX}${kind}`).map(row => structuredClone(row.value) as T)
+  return mergeAccessoryMockRecords(mockRecords, snapshot.records).filter(row => row.collection === `${ACCESSORY_RECORD_PREFIX}${kind}`).map(row => structuredClone(row.value) as T)
 }
 export function findAccessoryRecord<T>(kind: AccessoryRecordKind, id: string): T | undefined {
   return listAccessoryRecords<T & { id: string }>(kind).find(row => row.id === id)
@@ -86,6 +108,12 @@ export async function saveAccessoryWarehouseAction<T>(input: {
   }
   if (input.change.deletes?.some(id => !id.startsWith(ACCESSORY_RECORD_PREFIX))) throw new Error('不能删除本范围以外的记录。')
   const change = structuredClone(input.change)
+  // 静态记录删除也保存标记，刷新不会复活；再次明确写入同 ID 可覆盖标记。
+  const staticIds = new Set(mockRecords.map(row => row.id))
+  for (const id of change.deletes || []) if (staticIds.has(id) && !change.puts.some(row => row.id === id)) {
+    change.puts.push({ id, collection: `${ACCESSORY_RECORD_PREFIX}tombstone`, value: { id, deleted: true } })
+  }
+  change.deletes = change.deletes?.filter(id => !staticIds.has(id))
   const result = structuredClone(input.result)
   saving = true
   try {

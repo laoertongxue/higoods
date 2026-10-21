@@ -117,6 +117,14 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (path === 'tests/browser-contracts/accessory-workflow-mock.test.ts') {
+      add(fullChecks, 'node --import tsx --test tests/browser-contracts/accessory-workflow-mock.test.ts')
+      continue
+    }
+    if (path === 'scripts/check-accessory-workflow-mock-performance.mjs') {
+      add(fastChecks, `node --check ${shellQuote(path)}`)
+      continue
+    }
     if ((PROTOTYPE_FULL_FUNCTION_BROWSER_PATHS as readonly string[]).includes(path)
       || (PROTOTYPE_RETIRED_ROLE_DRIVER_PATHS as readonly string[]).includes(path)
       || path === 'scripts/check-prototype-full-function-browser-contracts.ts') {

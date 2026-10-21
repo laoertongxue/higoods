@@ -15,7 +15,7 @@ import {
   type AccessoryPickup, type AccessoryPreparation, type AccessoryTransfer,
 } from './accessory-warehouse-flow.ts'
 import { getAccessorySewingTaskScopes, type AccessorySewingTaskScope } from './accessory-warehouse-task-scope.ts'
-import { prepareAccessoryWarehouseSources, listAccessoryPreparations, listAccessoryWarehouseSourceIssues } from './accessory-warehouse-sources.ts'
+import { prepareAccessoryWarehouseSources, listAccessoryPreparations, listAccessoryPreparationProductionIdentities, listAccessoryWarehouseSourceIssues } from './accessory-warehouse-sources.ts'
 import { accessoryRecord, findAccessoryRecord, listAccessoryRecords, saveAccessoryWarehouseAction, ensureAccessoryWarehouseRecords } from './accessory-warehouse-records.ts'
 import { dispatchAccessoryPickupStock, getAccessoryStockAvailable, getAccessoryStockId, type AccessoryStock } from './accessory-warehouse-stock.ts'
 import { listAccessoryStockSources } from './accessory-warehouse-stock-sources.ts'
@@ -32,7 +32,12 @@ const round = (value: number) => Math.round(value * 1_000_000) / 1_000_000
 function requireValue(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
 const stored = <T>(value: T, id: string): Stored<T> => ({ ...structuredClone(value), id })
 const preparationForOrder = (id: string) => listAccessoryPreparations().find(row => row.productionOrderId === id)
-const owned = (assignmentId: string) => Boolean(preparationForOrder(getEffectiveTaskAssignment(assignmentId)?.productionOrderId || '') || listAccessoryRecords<Stored<SewingMaterialHandoverContext>>('sewing-context').some(row => row.assignmentId === assignmentId))
+const owned = (assignmentId: string) => {
+  const productionOrderId = getEffectiveTaskAssignment(assignmentId)?.productionOrderId || ''
+  // 只判断当前任务归属，复用既有单生产单只读投影；实际动作仍完整核对配料和库存。
+  return listAccessoryPreparationProductionIdentities(new Set([productionOrderId])).has(productionOrderId)
+    || listAccessoryRecords<Stored<SewingMaterialHandoverContext>>('sewing-context').some(row => row.assignmentId === assignmentId)
+}
 const versions = () => listAccessoryRecords<Stored<SewingPickupSlipVersion>>('sewing-slip').map(({ id: _id, ...row }) => row)
 const results = () => listAccessoryRecords<Stored<SewingPickupHandoverResult>>('sewing-result').map(({ id: _id, ...row }) => row)
 const contexts = () => listAccessoryRecords<Stored<SewingMaterialHandoverContext>>('sewing-context').map(({ id: _id, ...row }) => row)

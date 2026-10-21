@@ -1,3 +1,4 @@
+import { ACCESSORY_WAREHOUSE_DEMOS } from './accessory-warehouse-demo.ts'
 import { ACCESSORY_GTP_WAREHOUSE, type AccessoryPreparation } from './accessory-warehouse-flow.ts'
 import { getAccessoryStockAvailable, getAccessoryStockId, type AccessoryStock } from './accessory-warehouse-stock.ts'
 import { listAccessoryWarehouseLocations } from './accessory-warehouse-master.ts'
@@ -90,7 +91,8 @@ const materialMetadata = new Map<string, AccessoryStockMaterialMetadata>([
 
 /** 与固定库存 SKU 目录同源的只读识别资料；未知 SKU 返回 null，不借无关图补位。 */
 export function getAccessoryStockMaterialMetadata(materialSku: string): AccessoryStockMaterialMetadata | null {
-  const metadata = materialMetadata.get(materialSku)
+  const bom = ACCESSORY_WAREHOUSE_DEMOS.flatMap(fixture => fixture.techPack.bomItems).find(row => row.materialCode === materialSku)
+  const metadata = materialMetadata.get(materialSku) || (bom ? { materialName: bom.name, imageUrl: bom.materialImageUrl || '', color: bom.colorLabel || '', spec: bom.spec } : null)
   return metadata ? { ...metadata } : null
 }
 
