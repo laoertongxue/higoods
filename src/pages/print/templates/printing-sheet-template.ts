@@ -5,7 +5,7 @@ import { buildPrintQrPayload, createPrintDocumentId, getPrintGeneratedAt, type P
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { localProductFixtureImageUrl } from '../../../data/pcs-product-archive-fixtures.ts'
-import { printingDownstreamNames } from '../../../data/fcs/fabric-washing-views.ts'
+import { printingDownstreamNames } from '../../../data/fcs/factory-qc-views.ts'
 
 const INFO_TEMPLATE = 'PRINTING_INFO_SHEET_V3'
 const CONFIRMATION_TEMPLATE = 'PRINTING_CONFIRMATION_V3'
@@ -45,7 +45,7 @@ function buildSheet(input:PrintDocumentBuildInput,type:SheetType):PrintDocument 
     templateCode:template,paperType:'A4',orientation:'portrait',printTitle:title,printSubtitle:'',relatedObjectIds:orders.map(o=>o.workOrderId),
     headerFields:fields([['Printing order',order.printOrderNo],['Printing order time',order.orderedAt],['SPU',order.product.spu||'—'],['Requirement / Need',quantity.join(' / ')],['Fabric',order.plannedInput.materialName],[designRevision?'设计改款任务号':confirmation?'需求单号':'Purchase Order (PO)',sourceRef||'—'],[confirmation?'面料 SKU':'Fabric SKU',printingMaterialCode(order.output.sku,true)]]),
     imageBlocks:sheetImages(order,type),qrCodes:[{title:'QR',value:qrPayload(order,type),description:'扫码查看印花加工单',sizeMm:confirmation?25:26}],barcodes:[],
-    sections:confirmation?[{sectionId:'source',title:'印花来源',fields:fields([['印花来源',order.salesType||'—'],['工艺名称',order.requirement.craftName],[designRevision?'计划接收方':'收货人',designRevision?printingDownstreamNames(order).join('、')||'—':order.handover.receiverName||'—']])}]:[{sectionId:'usage',title:'原料使用',fields:fields([['The quantity of raw materials used',`${number(order.actualInput.usedQty)} ${order.plannedInput.qtyUnit}`],['The roll of raw materials used',order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty>0&&!order.actualInput.usedRollCount)?'—':String(order.actualInput.usedRollCount)]])}],
+    sections:confirmation?[{sectionId:'source',title:'印花来源',fields:fields([['印花来源',order.salesType||'—'],['工艺名称',order.requirement.craftName],[designRevision?'计划接收方':'收货人',designRevision?printingDownstreamNames(order.workOrderId, order.receivingTargetName).join('、')||'—':order.handover.receiverName||'—']])}]:[{sectionId:'usage',title:'原料使用',fields:fields([['The quantity of raw materials used',`${number(order.actualInput.usedQty)} ${order.plannedInput.qtyUnit}`],['The roll of raw materials used',order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty>0&&!order.actualInput.usedRollCount)?'—':String(order.actualInput.usedRollCount)]])}],
     tables:[],signatureBlocks:[],differenceBlocks:[],footerFields:[],printMeta:{generatedAt,generatedBy:'Web 打印操作员',printNotice:'按线上印花纸单打印；签字格留给现场签认。',returnHref:`/fcs/craft/printing/work-orders/${encodeURIComponent(order.workOrderId)}`},
   }
 }
@@ -70,7 +70,7 @@ function confirmation(order:Order):string {
     <tr>${cell('SPU')}${cell(val(order.product.spu))}${cell('Requirement / Need')}${cell(yards)}${cell(meters)}</tr>
     <tr>${cell('Fabric')}${cell(val(order.plannedInput.materialName))}${cell(designRevision?'设计改款任务号':'需求单号')}${cell(`${designRevision?'设计改款任务号':'需求单号'}：${val(designRevision?demand.get('设计改款任务'):demand.get('需求单'))}`,2)}</tr>
     <tr>${cell('面料 SKU')}${cell(val(printingMaterialCode(order.output.sku,true)),4)}</tr>
-    <tr><td colspan="5" class="pp-source"><div>${['印花来源',val(order.salesType),'工艺名称',val(order.requirement.craftName),designRevision?'计划接收方':'收货人',val(designRevision?printingDownstreamNames(order).join('、'):order.handover.receiverName)].map(x=>`<span>${x}</span>`).join('')}</div></td></tr>
+    <tr><td colspan="5" class="pp-source"><div>${['印花来源',val(order.salesType),'工艺名称',val(order.requirement.craftName),designRevision?'计划接收方':'收货人',val(designRevision?printingDownstreamNames(order.workOrderId, order.receivingTargetName).join('、'):order.handover.receiverName)].map(x=>`<span>${x}</span>`).join('')}</div></td></tr>
     <tr>${cell('Urgent')}${cell('')}${cell('Printing accuracy')}${cell('—',2)}</tr>
     <tr>${cell(designRevision?'目标花型由 SKU 确定':'Edit confirmation',1,2,'pp-section')}${cell(designRevision?val(order.requirement.frontPattern.patternNo):'',1,2)}${cell(designRevision?'目标 SKU':'Confirmation time')}${cell(designRevision?val(order.output.sku):time('ARTWORK','START'),2)}</tr>
     <tr>${cell(designRevision?'花型编号':'Completion time')}${cell(designRevision?val(order.requirement.frontPattern.patternNo):time('ARTWORK','FINISH'),2)}</tr>

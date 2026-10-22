@@ -1,4 +1,6 @@
 import type { ProcessOutputRoll, ProcessDispatchDocument } from './process-output-types.ts'
+import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
+import { registerFactoryProcessSnapshot } from './factory-process-storage.ts'
 import { addWaterOutputDemoOrders } from './water-soluble-output-demos.ts'
 import {getPdaSession} from './store-domain-pda.ts'
 import {getDyeFactoryReceiptProjection} from './factory-receiving-warehouse.ts'
@@ -159,7 +161,7 @@ const WATER_EXECUTION_STORAGE_KEY = 'higoods.formal-water-execution.v1'
 let waterMutationDepth = 0
 
 function restoreFormalWaterExecution(generated: Map<string, WaterSolubleWorkOrder>): void {
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(WATER_EXECUTION_STORAGE_KEY)
+  const raw = getDesignRevisionFcsStorage().getItem(WATER_EXECUTION_STORAGE_KEY)
   if (!raw) return
   try {
     const saved = JSON.parse(raw)
@@ -198,25 +200,25 @@ function validateWaterOutputSnapshot(order: WaterSolubleWorkOrder): void {
 }
 
 function persistFormalWaterExecution(): void {
-  if (typeof localStorage === 'undefined') return
   const orders = [...(orderStore?.values() ?? [])].filter(order => order.actionLogs.length > 1)
-  localStorage.setItem(WATER_EXECUTION_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
+  getDesignRevisionFcsStorage().setItem(WATER_EXECUTION_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
 }
 
 export function captureWaterSolubleOrderMutation(order: WaterSolubleWorkOrder): { order: WaterSolubleWorkOrder; persistedRaw: string | null } {
-  return { order: cloneOrder(order), persistedRaw: typeof localStorage === 'undefined' ? null : localStorage.getItem(WATER_EXECUTION_STORAGE_KEY) }
+  return { order: cloneOrder(order), persistedRaw: getDesignRevisionFcsStorage().getItem(WATER_EXECUTION_STORAGE_KEY) }
 }
 
 function restoreWaterExecutionBytes(raw: string | null): void {
-  if (typeof localStorage === 'undefined' || localStorage.getItem(WATER_EXECUTION_STORAGE_KEY) === raw) return
-  if (raw === null) localStorage.removeItem(WATER_EXECUTION_STORAGE_KEY)
-  else localStorage.setItem(WATER_EXECUTION_STORAGE_KEY, raw)
+  const storage = getDesignRevisionFcsStorage()
+  if (storage.getItem(WATER_EXECUTION_STORAGE_KEY) === raw) return
+  if (raw === null) storage.removeItem(WATER_EXECUTION_STORAGE_KEY)
+  else storage.setItem(WATER_EXECUTION_STORAGE_KEY, raw)
 }
 
 function runWaterSolubleMutation(action: () => WaterSolubleActionResult): WaterSolubleActionResult {
   if (waterMutationDepth) return action()
   const before = new Map([...ensureStore()].map(([key, value]) => [key, cloneOrder(value)]))
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(WATER_EXECUTION_STORAGE_KEY)
+  const raw = getDesignRevisionFcsStorage().getItem(WATER_EXECUTION_STORAGE_KEY)
   const receiving=captureFactoryReceivingData()
   waterMutationDepth++
   try {
@@ -978,3 +980,13 @@ export function mutateWaterSolubleOutput<T>(action: (orders: WaterSolubleWorkOrd
   if (!result.ok) throw new Error(result.message)
   return value!
 }
+
+registerDesignRevisionFcsCacheHooks('water', {
+  capture() { return { orders: orderStore ? [...orderStore].map(([key, order]) => [key, cloneOrder(order)] as const) : null, mutationDepth: waterMutationDepth } },
+  restore(value: { orders: Array<[string, WaterSolubleWorkOrder]> | null; mutationDepth: number }) {
+    orderStore = value.orders ? new Map(value.orders.map(([key, order]) => [key, cloneOrder(order)])) : null
+    waterMutationDepth = value.mutationDepth
+  },
+  hydrate() { orderStore = null },
+})
+registerFactoryProcessSnapshot(WATER_EXECUTION_STORAGE_KEY, () => JSON.stringify({ version: 1, orders: [...ensureStore().values()].filter(order => order.actionLogs.length > 1) }))

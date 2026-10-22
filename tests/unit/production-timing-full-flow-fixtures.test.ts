@@ -51,15 +51,16 @@ const document = (fixture: Fixture, id: string | null) => {
   return result
 }
 
-test('FLOW-MOCK-001: all 20 scenarios retain source facts with documented COPY-211 cutting correction', () => {
+test('FLOW-MOCK-001: all 20 scenarios retain source facts with documented COPY-211 correction and authorized old washing retirement', () => {
   const original = structuredClone(fixtures)
   for (const fixture of original) {
     delete (fixture.order as Partial<Fixture['order']>).fullFlow
     for (const id of Object.keys(fixture.branch.docs)) if (id.includes('/full-flow/')) delete fixture.branch.docs[id]
   }
   assert.equal(createHash('sha256').update(JSON.stringify(original)).digest('hex'),
-    '52efd59c379d758bab6262cd2d23e42fb4801c67b76f785cf63d8a6ed9d13c9f',
-    'purchase, allocation, receipts, warehouse and clocks are preserved; COPY-211 corrects cutting scope and POST-FOLD-007 renames its sewing label')
+    '0d7fc1203514a86a52b468665b53a9ace0c8aecc08849810b76e63bf4046b79c',
+    'purchase, allocation, receipts, warehouse and clocks are preserved; COPY-211 corrects cutting scope and POST-FOLD-007 renames its sewing label; QC V2 deletes 85 old washing documents and their process references without replacing them with handfeel orders')
+  assert.ok(fixtures.every(fixture => !Object.values(fixture.branch.docs).some(doc => ['水洗加工单', '洗水加工单', '定型机手感单'].includes(doc.type))), '删除旧资料不能凭空生成定型机手感实物事实')
   assert.equal(fixtures.length, 20)
   assert.equal(new Set(fixtures.map(fixture => fixture.order.key)).size, 20)
 })

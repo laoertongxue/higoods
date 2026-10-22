@@ -30,11 +30,12 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       }
     }
 
-    if (/Printing|FabricWashing|WlsInbound|Dyeing|FactoryPending|PdaExec|PdaHandover|ProductionOrderDetail|WaitProcess|WaitHandover/.test(exportName)) {
-      await import('../data/fcs/fabric-washing.ts')
-      try { await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingRecords() } catch(error) { return '<div class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 刷新后重试。</div>' }
+    const executionTaskId = exportName === 'renderPdaExecDetailPage' && typeof args[0] === 'string' ? args[0] : ''
+    const printingExecution = /^(?:TASK-PRINT-|TASKGEN-)/.test(executionTaskId) && Boolean((await import('../data/fcs/printing-task-domain.ts')).getPrintWorkOrderByTaskId(executionTaskId))
+    const factoryExecution = printingExecution || /Pda(?:WorkOrder)?ExecDetail/.test(exportName) && args.some(value => typeof value === 'string' && /^TASK-(?:PRINT|DYE|WATER)-/.test(value))
+    if (factoryExecution || /FactoryQc|StenterHandfeel|Printing|WlsInbound|Dyeing|WaterSoluble|FactoryPending|PdaHandover|PdaWarehouse|ProductionOrderDetail|TechPack|WaitProcess|WaitHandover/.test(exportName)) {
+      try { await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords() } catch(error) { return '<div class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 原记录未被覆盖，恢复存储权限后重新读取。</div>' }
     }
-    const printingExecution=exportName==='renderPdaExecDetailPage'&&typeof args[0]==='string'&&Boolean((await import('../data/fcs/printing-task-domain.ts')).getPrintWorkOrderByTaskId(args[0]))
     const postFinishingScope = !printingExecution&&(exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName))
     const ppicReturnReadScope = exportName === 'renderProgressBoardPage'
     if (postFinishingScope || ppicReturnReadScope) await import('../data/fcs/ppic-daily-return-records.ts')
@@ -700,5 +701,7 @@ export const renderPdaCuttingSimpleCutPieceHandoverPage = createAsyncRenderer(()
 
 export const renderPcsSampleLabelPage = createAsyncRenderer(() => import('../pages/pcs-sample-label'), 'renderPcsSampleLabelPage')
 
-export const renderFabricWashingListPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/washing/work-orders.ts'), 'renderFabricWashingListPage')
-export const renderFabricWashingDetailPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/washing/work-orders.ts'), 'renderFabricWashingDetailPage')
+export const renderFactoryQcListPage = createAsyncRenderer(() => import('../pages/process-factory/shared/factory-qc.ts'), 'renderFactoryQcListPage')
+export const renderFactoryQcDetailPage = createAsyncRenderer(() => import('../pages/process-factory/shared/factory-qc.ts'), 'renderFactoryQcDetailPage')
+export const renderStenterHandfeelListPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/stenter-handfeel/work-orders.ts'), 'renderStenterHandfeelListPage')
+export const renderStenterHandfeelDetailPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/stenter-handfeel/work-orders.ts'), 'renderStenterHandfeelDetailPage')

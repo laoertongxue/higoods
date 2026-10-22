@@ -199,14 +199,16 @@ test('affected financial and dye-report entries retain preparation after PCS whe
     reloadForDynamicModuleLoadError: (error: unknown) => { throw error },
     Image: class { src = ''; decode() { return Promise.resolve() } },
     startPmsInitialization: () => { events.push('PMS') },
-    loadModule: async () => ({ ensurePcsRecordState: async () => { events.push('PCS') } }),
+    loadModule: async (path: string) => path.includes('/factory-qc.ts')
+      ? { ensureFactoryQcRecords: async () => { events.push('QC source records') } }
+      : { ensurePcsRecordState: async () => { events.push('PCS') } },
     preparePageRouteEntry: async () => { events.push('FCS') },
     resolvePage: async (path: string) => { events.push('page');return path },
   }
   for (const path of ['/fcs/settlement/adjustments', '/fcs/settlement/statements', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports']) {
     events.length = 0
     assert.equal(await execute(dependencies, path), path)
-    assert.deepEqual(events, path.endsWith('/reports') ? ['PCS', 'FCS', 'page'] : ['FCS', 'page'], path)
+    assert.deepEqual(events, path.endsWith('/reports') ? ['QC source records', 'PCS', 'FCS', 'page'] : ['FCS', 'page'], path)
   }
 })
 
@@ -282,7 +284,9 @@ test('four affected pages expose actual malformed-source reason and existing rel
     Image: class { src = ''; decode() { return Promise.resolve() } }, startPmsInitialization() {},
     normalizePathname: (path: string) => path.split(/[?#]/)[0],
     escapeHtml: (value: string) => value.replaceAll('<', '&lt;'),
-    loadModule: async () => ({ ensurePcsRecordState: async () => {}, getPcsCollectionFailure: () => '' }),
+    loadModule: async (path: string) => path.includes('/factory-qc.ts')
+      ? { ensureFactoryQcRecords: async () => {} }
+      : { ensurePcsRecordState: async () => {}, getPcsCollectionFailure: () => '' },
     preparePageRouteEntry: async () => { throw Error(reason) },
     resolvePage: async () => { throw Error('normal renderer must stay blocked') },
   }

@@ -4,6 +4,7 @@ import {
   recordPrintingProductionStage, completePrintingWorkOrder, updatePrintingRollBarcode,
   createPrintingDispatch, scanPrintingDispatchRoll, confirmPrintingDispatch, receivePrintingHandover,
   markPrintingRollBarcodesPrinted,
+  markPrintingFactoryDemoInitialized,
 } from './printing-task-domain.ts'
 import { getFactoryReceivingSource, registerFactoryReceivingSource, getDefaultFactoryReceiptPosition, listFactoryReceipts, prepareFactoryReceipt, savePreparedFactoryReceipt, listFactoryMaterialUses, recordFactoryMaterialUsage } from './factory-receiving.ts'
 import { ensureHandoverOrderForStartedTask, getHandoverOrderById, getPdaHandoverRecordsByHead, createFactoryHandoverRecord, writeBackHandoverRecord } from './pda-handover-events.ts'
@@ -27,6 +28,7 @@ export function buildPrintingFactoryDemoOrders(templates: PrintWorkOrder[]): Pri
       handoverOrderId:undefined, handoverOrderNo:undefined, createdAt:'2026-09-14 08:00:00', updatedAt:'2026-09-14 08:00:00', plannedFinishAt:'2026-09-21 18:00:00',
       acceptanceStatus:'ACCEPTED', acceptedAt:'2026-09-14 08:05:00', acceptedBy:`${factory.name} 跟单员`,
       remark:`原型测试：${factory.name} / ${scenario}；按现有款式与物料资料模拟，可继续操作。`,
+      factoryDemoInitialized: false, manuallyCompletedAt: undefined, manuallyCompletedBy: undefined,
     })
     const view = order.businessView!
     view.plannedInput.plannedQty=qty; view.plannedInput.pendingPrintQty=qty; view.output.plannedQty=qty
@@ -34,6 +36,13 @@ export function buildPrintingFactoryDemoOrders(templates: PrintWorkOrder[]): Pri
     view.actualInput={actualSku:view.plannedInput.sku,receivedQty:0,receivedRollCount:0,usedQty:0,usedRollCount:0,receiverName:'尚未接收',receipts:[]}
     view.handover={handedOverQty:0,receivedQty:0,diffQty:0,objectionQty:0,receiverName:'面料中央仓(GKP)'}
     view.dispatchDocuments=[];view.operationLogs=[];view.documentHistory=[];view.remark=order.remark!
+    // These are new fixed identities. A template supplies material/requirements,
+    // never another order's physical completion or manual-close facts. Saved
+    // records are restored over these fresh objects before scenario setup.
+    view.productionBatches=[]; view.productionActions=[]; view.barcodes=[]
+    view.output.completedQty=0; view.output.completedRollCount=0
+    view.productionStartedAt=undefined; view.productionCompletedAt=undefined; view.completedAt=undefined
+    view.transferCompletedQty=0
     view.historicalInputQuantityUnknown=false;view.historicalRollQuantitiesUnknown=false
     view.printerNo=index%2===0?'原型转印机01':'原型数码机01'
     return order
@@ -64,10 +73,11 @@ export function initializePrintingFactoryDemoProgress(orders: PrintWorkOrder[]):
       // Seed fixed demo facts independently of the factory currently logged into PDA.
       savePreparedFactoryReceipt(prepareFactoryReceipt(receipt))
     }
-    if (order.factoryDemoInitialized) {
+    if (order.factoryDemoInitialized || view.productionCompletedAt && view.productionBatches?.length) {
       const start=view.operationLogs?.find(log=>log.action==='领料开工'&&log.remark.includes(`确认号 ${id}-START`))
       if(start && view.actualInput.usedQty===qty && !listFactoryMaterialUses().some(use=>use.printingOrderId===id))recordFactoryMaterialUsage({id:`${id}-START`,printingOrderId:id,factoryId:order.printFactoryId,operatorName:start.operatorName,at:start.operatedAt,qty,unit:view.plannedInput.qtyUnit,materialSku:m.sku,legacyAvailableQty:0})
       restoreDemoHandoverRecord(order)
+      markPrintingFactoryDemoInitialized(id)
       continue
     }
     if (stage >= 2) {
@@ -101,6 +111,7 @@ export function initializePrintingFactoryDemoProgress(orders: PrintWorkOrder[]):
       }
     }
     order.factoryDemoInitialized=true
+    markPrintingFactoryDemoInitialized(id)
   }
 }
 

@@ -17,6 +17,7 @@ import {
 } from '../shared/web-status-action-dialog.ts'
 import { handleDyeWorkOrderListEvent } from './work-orders.ts'
 import { handleDyeWorkOrderReceiptDetailEvent } from './work-order-detail.ts'
+import { handleDyeRecipientEvent } from './recipient-dialog.ts'
 
 function showDyeingToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -155,6 +156,7 @@ async function executeConfirmedDyeWaterAction(
 }
 
 export async function handleCraftDyeingEvent(target: HTMLElement): Promise<boolean> {
+  if (await handleDyeRecipientEvent(target, showDyeingToast, refreshCurrentDyeingPage)) return true
   if (await handleDyeWorkOrderListEvent(target)) return true
   if (await handleDyeWorkOrderReceiptDetailEvent(target)) return true
   const dialogHandled = await handlePersistedProcessWebStatusActionDialogEvent(target, {

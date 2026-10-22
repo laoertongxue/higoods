@@ -1,4 +1,4 @@
-import { renderWashingWarehouseSection } from './washing-stock.ts'
+import { renderStenterWarehouseSection } from './stenter-handfeel-stock.ts'
 // @page-pattern: list
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
@@ -149,7 +149,7 @@ function refreshWorkspace(): void {
 export function renderRawInboundList(): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   ensurePreferencesLoaded()
-  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true">${renderWashingWarehouseSection()}<div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true">${renderStenterWarehouseSection()}<div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
 }
 
 export function handleRawInboundListEvent(target: HTMLElement, event?: Event): boolean {

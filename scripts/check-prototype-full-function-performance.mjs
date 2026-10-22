@@ -322,7 +322,7 @@ const entries = [
   { key: 'pda-handover', name: 'PDA静态交接明细', route: '/fcs/pda/handover/HOH-MOCK-IRON-PACK-404?demoRole=VIEWER', selector: '[data-handout-record-id]', pda: true, viewport: { width: 390, height: 844 } },
   { key: 'onboarding', name: '入驻申请', route: '/fcs/pda/auth/onboarding', selector: '[data-pda-onboarding-file="identityFile"]', viewport: { width: 390, height: 844 }, actions: onboardingActions },
   { key: 'cutting-daily', name: '裁床日报', route: '/fcs/craft/cutting/statistics/daily-production?includeDemoData=0', selector: '[data-testid="cutting-daily-production-report-page"]' },
-  { key: 'washing', name: '洗水加工单', route: '/fcs/craft/dyeing/washing/work-orders', selector: '[data-washing-list-root]', check: page => expect(page.locator('[data-fabric-washing-action="storage"]')).toHaveCount(0) },
+  { key: 'stenter-handfeel', name: '定型机手感单', route: '/fcs/craft/dyeing/stenter-handfeel/work-orders', selector: '[data-stenter-list-root]', check: page => expect(page.locator('[data-stenter-handfeel-action="storage"]')).toHaveCount(0) },
   { key: 'post-audit', name: '后道审计', route: '/fcs/craft/post-finishing/audit-records', selector: '[data-standard-list-page]', heading: '差异与操作日志', check: page => expect(page.locator('[data-post-finishing-action="storage-export"], [data-post-finishing-field="storage-import"]')).toHaveCount(0) },
   { key: 'replacement-fabric', name: '换片布菲票', route: '/fcs/craft/cutting/replacement-fabric-fei-tickets', selector: '[data-hpb-page]', check: page => expect(page.locator('[data-hpb-action="data-tools"]')).toHaveCount(0) },
   { key: 'wls-lace', name: 'WLS辅料收货', route: '/wls/accessory-receipts', selector: '[data-wls-lace-receipts-root]', actions: async page => { await laceActions(page); await tmfCategory(page) } },

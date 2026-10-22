@@ -40,6 +40,7 @@ import {
 import { getPdaRuntimeContext } from '../../pda-runtime.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 
 type Overlay =
   | { type: 'detail' | 'supervisor' | 'handover' | 'completion'; orderId: string }
@@ -55,6 +56,7 @@ const state = {
   completionDraft: { orderId: '', completedQty: '', reason: '' },
 }
 let overlaySequence = 0
+const pendingFactoryWaterActions = new Set<string>()
 
 function setOverlay(overlay: NonNullable<Overlay>): void {
   state.overlay = overlay
@@ -245,7 +247,7 @@ function renderManagementList(): string {
   const sum = (get: (order: WaterSolubleWorkOrder) => number) => { const units = new Map<string, number>(); rows.forEach(order => units.set(order.qtyUnit, (units.get(order.qtyUnit) || 0) + get(order))); return [...units].map(([unit, value]) => `${value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`).join(' / ') || '0' }
   const sorted = sortStandardListRows(rows, management.sort, (row, key) => managementColumns.find(c => c.key === key)?.sortValue?.(row))
   state.pageSize = preferences.pageSize; const totalPages = Math.max(1, Math.ceil(rows.length / state.pageSize)); state.page = Math.min(state.page, totalPages); const from = (state.page - 1) * state.pageSize
-  return `<section data-factory-water-soluble-list-region>${withSkipPageRerender(renderStandardListPage({ title: '水溶加工单', primaryActionsHtml: '<div class="flex items-center gap-3 text-sm"><span class="text-xs text-muted-foreground">管理查看（只读）</span><a class="text-blue-600" href="/fcs/craft/dyeing/water-soluble-pending-handover">待交出列表</a><a class="text-blue-600" href="/fcs/craft/dyeing/water-soluble-handover-documents">交出单据</a></div>', filtersHtml: filters, statsHtml: renderProcessOrderStats([{ label: '加工单数', value: rows.length }, { label: '计划投入', value: sum(order => order.plannedQty) }, { label: '已接收', value: sum(order => getWaterSolubleReceivedMaterialQty(order.waterOrderId)) }, { label: '完成数量', value: sum(order => order.completedQty) }, { label: '已交出', value: sum(order => order.handoverQty || 0) }, { label: '下游待接收', value: sum(order => Math.max(0, (order.handoverQty || 0) - (order.receivedQty || 0))) }]), listTitle: `共 ${rows.length} 条`, listActionsHtml: managementButton('列设置','columns','settings-2'), tableHtml: renderStandardListTable({ columns: managementColumns, rows: sorted.slice(from, from + state.pageSize), preferences, sort: management.sort, eventPrefix: managementPrefix, emptyText: '暂无符合条件的水溶加工单' }), paginationHtml: '<div data-testid="factory-water-soluble-pagination">' + renderTablePagination({ total: rows.length, from: rows.length ? from + 1 : 0, to: Math.min(from + state.pageSize, rows.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: managementPrefix, fieldPrefix: managementPrefix, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }) + '</div>', overlaysHtml: management.settings ? renderStandardListColumnSettings({ title: '水溶加工单列设置', columns: managementColumns, preferences, eventPrefix: managementPrefix, maxFrozenWidth: 520 }) : '' }))}</section>`
+  return `<section data-factory-water-soluble-list-region>${renderStandardListPage({ title: '水溶加工单', primaryActionsHtml: '<div class="flex items-center gap-3 text-sm"><span class="text-xs text-muted-foreground">管理查看（只读）</span><a class="text-blue-600" href="/fcs/craft/dyeing/water-soluble-pending-handover">待交出列表</a><a class="text-blue-600" href="/fcs/craft/dyeing/water-soluble-handover-documents">交出单据</a></div>', filtersHtml: filters, statsHtml: renderProcessOrderStats([{ label: '加工单数', value: rows.length }, { label: '计划投入', value: sum(order => order.plannedQty) }, { label: '已接收', value: sum(order => getWaterSolubleReceivedMaterialQty(order.waterOrderId)) }, { label: '完成数量', value: sum(order => order.completedQty) }, { label: '已交出', value: sum(order => order.handoverQty || 0) }, { label: '下游待接收', value: sum(order => Math.max(0, (order.handoverQty || 0) - (order.receivedQty || 0))) }]), listTitle: `共 ${rows.length} 条`, listActionsHtml: managementButton('列设置','columns','settings-2'), tableHtml: renderStandardListTable({ columns: managementColumns, rows: sorted.slice(from, from + state.pageSize), preferences, sort: management.sort, eventPrefix: managementPrefix, skipPageRerender: true, emptyText: '暂无符合条件的水溶加工单' }), paginationHtml: '<div data-testid="factory-water-soluble-pagination">' + renderTablePagination({ total: rows.length, from: rows.length ? from + 1 : 0, to: Math.min(from + state.pageSize, rows.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: managementPrefix, fieldPrefix: managementPrefix, skipPageRerender: true, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }) + '</div>', overlaysHtml: management.settings ? renderStandardListColumnSettings({ title: '水溶加工单列设置', columns: managementColumns, preferences, eventPrefix: managementPrefix, maxFrozenWidth: 520, skipPageRerender: true }) : '' })}</section>`
 }
 function handleManagementList(target: HTMLElement): boolean {
   if (getPdaRuntimeContext()) return false
@@ -386,7 +388,25 @@ function hasCurrentOverlay(type: NonNullable<Overlay>['type'], orderId: string):
   return state.overlay?.type === type && state.overlay.orderId === orderId
 }
 
-export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): boolean {
+async function persistFactoryWaterAction<T>(node: HTMLElement, orderId: string, recipe: () => T): Promise<T | undefined> {
+  if (pendingFactoryWaterActions.has(orderId)) return undefined
+  pendingFactoryWaterActions.add(orderId)
+  const scope = node.closest<HTMLElement>('[data-factory-water-soluble-overlay], [data-testid="factory-water-soluble-card"]')
+  const controls = [...(scope?.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('button, input, select, textarea') ?? [])]
+  if (node instanceof HTMLButtonElement && !controls.includes(node)) controls.push(node)
+  const disabled = controls.map(control => control.disabled), oldText = node.textContent
+  controls.forEach(control => { control.disabled = true })
+  if (node instanceof HTMLButtonElement) node.textContent = '处理中…'
+  try { return await runDesignRevisionFcsCommand(orderId, recipe) }
+  catch (error) { rejectAction(error instanceof Error ? error.message : '本次未保存，请保留输入后重试。'); return undefined }
+  finally {
+    pendingFactoryWaterActions.delete(orderId)
+    controls.forEach((control, index) => { if (control.isConnected) control.disabled = disabled[index] })
+    if (node.isConnected) node.textContent = oldText
+  }
+}
+
+export async function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): Promise<boolean> {
   if (handleManagementList(target)) return true
   const field = target.closest<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-factory-water-soluble-field]')
   if (field) {
@@ -406,6 +426,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
   }
   const node = target.closest<HTMLElement>('[data-factory-water-soluble-action]')
   if (!node) return false
+  if (pendingFactoryWaterActions.size) return true
   const action = node.dataset.factoryWaterSolubleAction || ''; const orderId = node.dataset.orderId || state.overlay?.orderId || ''
   if (action === 'open-detail' || action === 'open-supervisor' || action === 'open-handover') {
     const expected = action === 'open-supervisor' ? ['PRODUCTION_PAUSED'] as WaterSolubleWorkOrder['status'][] : action === 'open-handover' ? ['WAIT_HANDOVER'] as WaterSolubleWorkOrder['status'][] : undefined
@@ -414,7 +435,8 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     if (!access.order) { rejectAction(access.message); return true }
     if (action === 'open-handover') {
       try {
-        const ensured = ensureHandoverOrderForStartedTask(access.order.taskId)
+        const ensured = await persistFactoryWaterAction(node, orderId, () => ensureHandoverOrderForStartedTask(access.order!.taskId))
+        if (!ensured) return true
         appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
       } catch (error) {
         rejectAction(error instanceof Error ? error.message : '交出单创建失败，请重试。')
@@ -472,7 +494,8 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     }
     const actor = getPdaSession()
     if (!actor) { rejectAction('当前登录已失效，请重新登录。'); return true }
-    const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, taskId: access.order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor })
+    const result = await persistFactoryWaterAction(node, orderId, () => executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, taskId: access.order!.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor }))
+    if (!result) return true
     if (result.ok) clearCompletionDraft()
     run(result)
     return true
@@ -497,22 +520,28 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
   const currentOrder = getWaterSolubleWorkOrderById(orderId)
   if (action === 'receive-input') {
     const card = node.closest('[data-testid="factory-water-soluble-card"]')
-    run(executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: currentOrder?.taskId || '', expectedStatus: currentOrder?.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: currentOrder?.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(card?.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: card?.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: card?.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: actor! }))
+    const result = await persistFactoryWaterAction(node, orderId, () => executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: currentOrder?.taskId || '', expectedStatus: currentOrder?.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: currentOrder?.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(card?.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: card?.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: card?.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: actor! }))
+    if (result) run(result)
   }
-  else if (action === 'start') run(executeWaterSolublePdaAction({ action: 'START', orderId, taskId: currentOrder?.taskId || '', expectedStatus: currentOrder!.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: currentOrder!.status==='WAIT_HANDOVER'?'HANDOVER':currentOrder!.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: actor! }))
+  else if (action === 'start') {
+    const result = await persistFactoryWaterAction(node, orderId, () => executeWaterSolublePdaAction({ action: 'START', orderId, taskId: currentOrder?.taskId || '', expectedStatus: currentOrder!.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: currentOrder!.status==='WAIT_HANDOVER'?'HANDOVER':currentOrder!.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: actor! }))
+    if (result) run(result)
+  }
   else if (action === 'confirm-supervisor-decision') {
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined
     if (!decision || !Object.hasOwn(SUPERVISOR_DECISION_LABEL, decision)) { rejectAction('请选择有效的主管处理方式。'); return true }
     if (!hasCurrentOverlay('supervisor-confirm', orderId) || state.overlay?.type !== 'supervisor-confirm' || state.overlay.decision !== decision) { rejectAction('当前主管确认已失效，请重新选择处理方式。'); return true }
     if (!state.overlayToken || node.dataset.overlayToken !== state.overlayToken) { rejectAction('当前主管确认令牌已失效，请重新选择处理方式。'); return true }
-    run(executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: actor! }))
+    const result = await persistFactoryWaterAction(node, orderId, () => executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: actor! }))
+    if (result) run(result)
   }
   else if (action === 'confirm-handover') {
     if (!hasCurrentOverlay('handover', orderId)) { rejectAction('当前交出确认已失效，请重新打开加工单。'); return true }
     if (!state.overlayToken || node.dataset.overlayToken !== state.overlayToken) { rejectAction('当前交出确认令牌已失效，请重新打开加工单。'); return true }
     if (!actor) { rejectAction('当前登录已失效，请重新登录。'); return true }
     try {
-      const ensured = ensureHandoverOrderForStartedTask(currentOrder?.taskId || '')
+      const ensured = await persistFactoryWaterAction(node, orderId, () => ensureHandoverOrderForStartedTask(currentOrder?.taskId || ''))
+      if (!ensured) return true
       clearOverlay()
       refreshOverlay()
       appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
@@ -527,7 +556,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
 }
 
 export function isCraftDyeingWaterSolubleOverlayOpen(): boolean { return state.overlay !== null }
-export function closeCraftDyeingWaterSolubleOverlay(): void { clearOverlay(); clearCompletionDraft(); refreshOverlay() }
+export function closeCraftDyeingWaterSolubleOverlay(): void { if (pendingFactoryWaterActions.size) return; clearOverlay(); clearCompletionDraft(); refreshOverlay() }
 
 let managementDragInstalled = false
 function installManagementColumnDrag(): void {

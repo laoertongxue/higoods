@@ -19,9 +19,8 @@ function createAsyncRenderer<TArgs extends unknown[]>(
   let modulePromise: Promise<Record<string, unknown>> | null = null
 
   return async (...args: TArgs): Promise<string> => {
-    if (/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(exportName)) {
-      await import('../data/fcs/fabric-washing.ts')
-      try { await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingRecords() } catch(error) { return '<p class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 刷新后重试。</p>' }
+    if (/FactoryQc|StenterHandfeel|Printing|Dyeing|WaterSoluble|ProductionOrderDetail|TechPack|Snapshot|WaitProcess|WaitHandover/.test(exportName)) {
+      try { await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords() } catch(error) { return '<p class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 原记录未被覆盖，恢复存储权限后重新读取。</p>' }
     }
     // Production details read their bound PCS technical version and material specification.
     // Load that scope before importing the page: its context reads PCS records at import time.

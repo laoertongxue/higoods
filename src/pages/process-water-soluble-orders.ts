@@ -24,10 +24,12 @@ import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-sto
 import { productionOrders } from '../data/fcs/production-orders.ts'
 import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
+import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 
 type Overlay = { type: 'detail' | 'assign'; orderId: string } | null
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 const state = { keyword: '', receiptStatus: '', processingStatus: '', handoverStatus: '', factoryId: '', exception: '', currentPage: 1, sort: null as ProcessOrderListControllerState['sort'], preferences: { order: [], visibleKeys: [], frozenKeys: ['waterOrderNo'], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false, overlay: null as Overlay }
+let assigning = false
 
 function withSkipPageRerender(html: string): string {
   return html
@@ -261,7 +263,7 @@ function refreshList(): void { listController.refresh() }
 function refreshOverlay(): void { const node = document.querySelector<HTMLElement>('[data-water-soluble-overlay]'); if (node) node.innerHTML = renderOverlay() }
 function showToast(message: string, ok: boolean): void { const root = document.querySelector<HTMLElement>('[data-toast-container]'); if (root) root.insertAdjacentHTML('afterbegin', renderToast({ title: ok ? '操作成功' : '无法操作', description: message, variant: ok ? 'success' : 'danger' })) }
 
-export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boolean {
+export async function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): Promise<boolean> {
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-water-soluble-field]')
   if (field) {
     const name = field.dataset.waterSolubleField
@@ -280,6 +282,7 @@ export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boole
   }
   const actionNode = target.closest<HTMLElement>('[data-water-soluble-action]')
   if (!actionNode) return false
+  if (assigning) return true
   const action = actionNode.dataset.waterSolubleAction || ''
   if (action === 'open-column-settings' || action === 'close-column-settings') {
     state.showColumnSettings = action === 'open-column-settings'
@@ -295,7 +298,22 @@ export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boole
   if (action === 'open-handover') { const handoverOrderId = actionNode.dataset.handoverOrderId || ''; if (!handoverOrderId) return false; appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(handoverOrderId)}`); return true }
   if (action === 'open-detail' || action === 'open-assign') { state.overlay = { type: action === 'open-detail' ? 'detail' : 'assign', orderId: actionNode.dataset.orderId || '' }; refreshOverlay(); return true }
   if (action === 'close-overlay') { state.overlay = null; refreshOverlay(); return true }
-  if (action === 'confirm-assign') { const factoryId = document.querySelector<HTMLSelectElement>('[data-water-soluble-field="assignFactoryId"]')?.value || ''; const result = assignWaterSolubleFactory(actionNode.dataset.orderId || '', factoryId); showToast(result.message, result.ok); if (result.ok) { state.overlay = null; refreshOverlay(); refreshList() } return true }
+  if (action === 'confirm-assign') {
+    const field = document.querySelector<HTMLSelectElement>('[data-water-soluble-field="assignFactoryId"]'), factoryId = field?.value || '', orderId = actionNode.dataset.orderId || ''
+    const button = actionNode as HTMLButtonElement, oldText = button.textContent, wasDisabled = button.disabled, fieldDisabled = field?.disabled
+    assigning = true; button.disabled = true; button.textContent = '保存中…'; if (field) field.disabled = true
+    try {
+      const result = await runDesignRevisionFcsCommand(orderId, () => assignWaterSolubleFactory(orderId, factoryId))
+      showToast(result.message, result.ok)
+      if (result.ok) { state.overlay = null; refreshOverlay(); refreshList() }
+    } catch (error) { showToast(error instanceof Error ? error.message : '分配未保存，请保留选择后重试。', false) }
+    finally {
+      assigning = false
+      if (button.isConnected) { button.disabled = wasDisabled; button.textContent = oldText }
+      if (field?.isConnected) field.disabled = fieldDisabled ?? false
+    }
+    return true
+  }
   if (action === 'prev-page') listController.stepPage(-1)
   else if (action === 'next-page') listController.stepPage(1)
   else if (action === 'sort-column') listController.cycleSort(actionNode.dataset.columnKey || '')
@@ -304,4 +322,4 @@ export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boole
 }
 
 export function isProcessWaterSolubleOrdersOverlayOpen(): boolean { return state.overlay !== null || state.showColumnSettings }
-export function closeProcessWaterSolubleOrdersOverlay(): void { state.overlay = null; state.showColumnSettings = false; refreshOverlay(); listController.refresh({ table: false, pagination: false, overlays: true }) }
+export function closeProcessWaterSolubleOrdersOverlay(): void { if (assigning) return; state.overlay = null; state.showColumnSettings = false; refreshOverlay(); listController.refresh({ table: false, pagination: false, overlays: true }) }

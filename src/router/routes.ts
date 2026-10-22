@@ -357,8 +357,8 @@ export async function resolvePage(pathname: string): Promise<string> {
   // Reuse the original renderers after the main entry has prepared PCS/FCS.
   // Matching a bounded craft page does not require the broad FCS route table.
   if (/^\/fcs\/(?:settlement\/(?:adjustments|statements)|quality\/deduction-analysis|craft\/dyeing\/reports)$/.test(normalizedPathname)) {
-    // Keep the original wrappers: dyeing reports still restore washing records
-    // and show the same recovery message if that restoration fails.
+    // Keep the original wrappers so dyeing reports read their committed source
+    // records and report a storage failure without replacing them with demos.
     const pages = await import('./route-renderers-fcs')
     if (normalizedPathname === '/fcs/settlement/adjustments') return pages.renderAdjustmentsPage()
     if (normalizedPathname === '/fcs/settlement/statements') return pages.renderStatementsPage()
@@ -376,16 +376,20 @@ export async function resolvePage(pathname: string): Promise<string> {
 
   // These physical workflow entries use the same existing renderers and storage
   // guards without importing the unrelated FCS/PDA route table on first visit.
-  const washingEntry=/^\/fcs\/(craft\/dyeing\/washing\/work-orders|pda\/washing)(?:\/([^/]+))?$/.exec(normalizedPathname)
-  if(washingEntry){
-    const pages=await import('./route-renderers')
-    const pda=washingEntry[1]==='pda/washing'
-    return washingEntry[2]?pages.renderFabricWashingDetailPage(decodeURIComponent(washingEntry[2]),pda):pages.renderFabricWashingListPage(pda)
+  const qcEntry = /^\/fcs\/craft\/(printing|dyeing)\/qc-orders(?:\/([^/]+))?$/.exec(normalizedPathname)
+  if (qcEntry) {
+    const pages = await import('./route-renderers')
+    return qcEntry[2] ? pages.renderFactoryQcDetailPage(decodeURIComponent(qcEntry[2])) : pages.renderFactoryQcListPage(qcEntry[1] === 'printing' ? 'PRINTING' : 'DYEING')
+  }
+  const stenterEntry = /^\/fcs\/(craft\/dyeing\/stenter-handfeel\/work-orders|pda\/stenter-handfeel)(?:\/([^/]+))?$/.exec(normalizedPathname)
+  if (stenterEntry) {
+    const pages = await import('./route-renderers'), pda = stenterEntry[1] === 'pda/stenter-handfeel'
+    return stenterEntry[2] ? pages.renderStenterHandfeelDetailPage(decodeURIComponent(stenterEntry[2]), pda) : pages.renderStenterHandfeelListPage(pda)
   }
   if (normalizedPathname === '/fcs/craft/dyeing/pending-receipts' || normalizedPathname === '/fcs/craft/printing/pending-receipts') {
+    await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords()
     const pages = await import('../pages/process-factory/dyeing/pending-receipts.ts')
-    const { withWashingRecords } = await import('../data/fcs/fabric-washing-repository.ts')
-    return withWashingRecords(() => normalizedPathname.includes('/printing/') ? pages.renderPrintingPendingReceiptsPage() : pages.renderFactoryPendingReceiptsPage())
+    return normalizedPathname.includes('/printing/') ? pages.renderPrintingPendingReceiptsPage() : pages.renderFactoryPendingReceiptsPage()
   }
   const processWarehouse=/^\/fcs\/craft\/(dyeing|printing)\/wait-(process|handover)-warehouse$/.exec(normalizedPathname)
   if(processWarehouse){

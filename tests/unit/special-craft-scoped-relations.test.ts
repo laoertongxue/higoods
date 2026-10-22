@@ -39,7 +39,7 @@ test('已知生产路线只初始化实际工序，缺路线仍完整恢复而�
     const reader=()=>[]
     const read=new Function('dependencies',`with(dependencies){${javascript};return buildDocumentRefs}`)({
       listGeneratedCutOrderSourceRecords:()=>[],listSpecialCraftTaskOrders:()=>[],
-      getProductionOrderProcessEntries:()=>route,removePredeterminedWashing:(entries:unknown)=>entries,
+      getProductionOrderProcessEntries:()=>route,removeRetiredProcessRouteEntries:(entries:unknown)=>entries,
       listWoolWorkOrders:()=>[],listCurrentLaceFormalRouteSnapshots:()=>[],
       readRelationSources:(suppliedReader:unknown,codes:unknown)=>{assert.equal(suppliedReader,reader);observed=codes;throw stopped},
     })

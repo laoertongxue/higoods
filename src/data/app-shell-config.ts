@@ -438,7 +438,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       icon: 'Smartphone',
       items: [
         { key: 'pda-task-receive', title: '接单', icon: 'ClipboardList', href: '/fcs/pda/task-receive' },
-        { key: 'pda-washing', title: '洗水执行', icon: 'Droplets', href: '/fcs/pda/washing' },
+        { key: 'pda-stenter-handfeel', title: '定型机手感执行', icon: 'Droplets', href: '/fcs/pda/stenter-handfeel' },
         { key: 'pda-exec', title: '执行', icon: 'Play', href: '/fcs/pda/exec' },
         { key: 'pda-handover', title: '交接', icon: 'ArrowLeftRight', href: '/fcs/pda/handover' },
         { key: 'pda-warehouse', title: '仓管', icon: 'Warehouse', href: '/fcs/pda/warehouse' },
@@ -537,6 +537,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pfos-printing-pending-receipts', title: '待接收', icon: 'ScanLine', href: '/fcs/craft/printing/pending-receipts' },
             { key: 'pfos-printing-work-orders', title: '印花加工单', icon: 'ClipboardList', href: '/fcs/craft/printing/work-orders' },
+            { key: 'pfos-printing-qc-orders', title: '印花 QC 单', icon: 'ClipboardCheck', href: '/fcs/craft/printing/qc-orders' },
             { key: 'pfos-printing-wait-process-warehouse', title: '印花待加工仓', icon: 'Warehouse', href: '/fcs/craft/printing/wait-process-warehouse' },
             { key: 'pfos-printing-wait-handover-warehouse', title: '印花待交出仓', icon: 'PackageCheck', href: '/fcs/craft/printing/wait-handover-warehouse' },
             { key: 'pfos-printing-pending-handover', title: '印花待交出列表', icon: 'ListChecks', href: '/fcs/craft/printing/pending-handover' },
@@ -557,8 +558,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'Droplet',
           children: [
             { key: 'pfos-dyeing-pending-receipts', title: '待接收', icon: 'ScanLine', href: '/fcs/craft/dyeing/pending-receipts' },
-            { key: 'pfos-washing-work-orders', title: '洗水加工单', icon: 'Droplets', href: '/fcs/craft/dyeing/washing/work-orders' },
+            { key: 'pfos-stenter-handfeel-work-orders', title: '定型机手感单', icon: 'Droplets', href: '/fcs/craft/dyeing/stenter-handfeel/work-orders' },
             { key: 'pfos-dyeing-work-orders', title: '染色加工单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/work-orders' },
+            { key: 'pfos-dyeing-qc-orders', title: '染厂 QC 单', icon: 'ClipboardCheck', href: '/fcs/craft/dyeing/qc-orders' },
             { key: 'pfos-dyeing-water-soluble-orders', title: '水溶加工单', icon: 'Waves', href: '/fcs/craft/dyeing/water-soluble-orders' },
             { key: 'pfos-water-pending-handover', title: '水溶待交出列表', icon: 'ListTodo', href: '/fcs/craft/dyeing/water-soluble-pending-handover' },
             { key: 'pfos-water-handover-documents', title: '水溶交出单据', icon: 'Files', href: '/fcs/craft/dyeing/water-soluble-handover-documents' },
