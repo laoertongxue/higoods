@@ -756,27 +756,28 @@ function renderPostFinishingOutboundLine(order: PostFinishingOutboundOrder, line
       <div class="mt-1 break-all font-mono text-[11px]">${escapeHtml(line.sku.skuCode)}</div>
       <div class="mt-1 text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div>
     </div>
-    <div class="shrink-0 text-right text-xs"><div class="font-semibold">${line.outboundQty} ${escapeHtml(line.sku.qtyUnit)}</div><div class="mt-1 text-[10px] text-muted-foreground">交出数量</div></div>
+    <div class="shrink-0 text-right text-xs"><div class="font-semibold">${line.outboundQty} ${escapeHtml(line.sku.qtyUnit)}</div><div class="mt-1 text-[10px] text-muted-foreground">本单数量</div></div>
   </div>`
 }
 
-function renderPostFinishingOutboundCard(order: PostFinishingOutboundOrder): string {
+function renderPostFinishingOutboundCard(order: PostFinishingOutboundOrder, handoverId?:string): string {
   const statusClass = order.status === '已接收入库'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-amber-200 bg-amber-50 text-amber-800'
   return `<article class="overflow-hidden rounded-xl border bg-card shadow-sm" data-pda-post-outbound-card="${escapeHtml(order.outboundOrderNo)}">
     <div class="p-3">
       <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(order.outboundOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.recheckOrderNo || order.qcTaskNo)}</div></div>
+        <div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(order.outboundOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.postTaskNo || order.qcTaskNo)}</div></div>
         <span class="shrink-0 rounded-full border px-2 py-1 text-[10px] ${statusClass}">${escapeHtml(order.status)}</span>
       </div>
       <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
         <div><div class="text-[10px] text-muted-foreground">SKU</div><div class="mt-1 font-semibold">${order.lines.length} 个</div></div>
-        <div><div class="text-[10px] text-muted-foreground">已交出</div><div class="mt-1 font-semibold">${order.lines.reduce((sum, line) => sum + line.outboundQty, 0)} 件</div></div>
+        <div><div class="text-[10px] text-muted-foreground">已交出</div><div class="mt-1 font-semibold">${order.status==='待出货'?0:order.lines.reduce((sum, line) => sum + line.outboundQty, 0)} 件</div></div>
         <div><div class="text-[10px] text-muted-foreground">成衣仓确认</div><div class="mt-1 font-semibold">${order.lines.reduce((sum, line) => sum + (line.receivedQty || 0), 0)} 件</div></div>
       </div>
-      <div class="mt-2 text-[11px] text-muted-foreground">${escapeHtml(order.createdAt)} · ${escapeHtml(order.receivedBy?.actorName || '后道交出')}</div>
+      <div class="mt-2 text-[11px] text-muted-foreground">${escapeHtml(order.dispatchedAt || '尚未实际发出')} · ${escapeHtml(order.dispatchedBy?.actorName || '待发出')}</div>
     </div>
+    ${handoverId?`<a class="mx-3 mb-3 flex min-h-11 items-center justify-center rounded border border-blue-200 px-3 text-sm font-medium text-blue-700" data-nav="/fcs/pda/handover/${encodeURIComponent(handoverId)}" data-post-outbound-receipt-entry>${order.status==='待仓库接收'?'成衣仓逐SKU核对实收':'查看原出货与实收记录'}</a>`:''}
     <details data-pda-post-outbound-details>
       <summary class="cursor-pointer list-none border-t px-3 py-2.5 text-xs font-medium text-blue-700"><span class="flex items-center justify-between"><span>查看出货 SKU 明细</span><i data-lucide="chevron-down" class="h-4 w-4"></i></span></summary>
       <div>${order.lines.map((line) => renderPostFinishingOutboundLine(order, line)).join('')}</div>
@@ -1080,6 +1081,7 @@ export function renderPdaHandoverPage(): string {
         || listPostFinishingWaitHandoverWarehouseRecords().some((record) => record.outboundOrderId === order.outboundOrderId && record.status === '已交出')
       ))
     : []
+  const postOutboundHeadIds=new Map((isPostFinishingFactory?handoutHeads:[]).filter(head=>head.processBusinessCode==='POST_FINISHING').map(head=>[head.sourceDocId,head.handoverId]))
   const tabConfig = getTabConfig(isPostFinishingFactory, simpleReceiptHeads.length > 0)
 
   const tabCounts: Record<HandoverTab, number> = {
@@ -1154,11 +1156,11 @@ export function renderPdaHandoverPage(): string {
             ? `
               <section class="rounded-xl border border-blue-100 bg-blue-50/60 p-3" data-pda-post-shipped-note>
                 <div class="text-sm font-semibold text-blue-950">已交出记录</div>
-                <p class="mt-1 text-xs leading-5 text-blue-700">与 Web“后道出货单”共用同一组单据；此处只查看，不再发起交出。</p>
+                <p class="mt-1 text-xs leading-5 text-blue-700">与 Web“后道出货单”共用同一组单据；已发出的本单可由成衣仓实际接收人核对实收。</p>
               </section>
               ${shippedOrders.length === 0
                 ? renderEmptyState('暂无已生成的后道出货单')
-                : shippedOrders.map(renderPostFinishingOutboundCard).join('')}
+                : shippedOrders.map(order=>renderPostFinishingOutboundCard(order,postOutboundHeadIds.get(order.outboundOrderId))).join('')}
             `
             : ''
         }

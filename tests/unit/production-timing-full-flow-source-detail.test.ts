@@ -11,7 +11,7 @@ const nativePaths = {
   工厂烫包执行单: '/fcs/sewing-outsourcing/tasks/',
   后道质检单: '/fcs/craft/post-finishing/qc-orders/',
   后道加工单: '/fcs/craft/post-finishing/work-orders/',
-  后道复检单: '/fcs/craft/post-finishing/recheck-orders/',
+  后道复检单: '/fcs/production/records/',
   后道交货单: '/fcs/craft/post-finishing/outbound-orders/',
 }
 
@@ -63,7 +63,7 @@ test('post-finishing QC and recheck retain their own task results, batches, and 
     const branch = getTimingBranch(order)!
     for (const document of Object.values(branch.docs).filter(document => ['后道质检单', '后道复检单'].includes(document.type))) {
       const html = resolveTimingSourceDetail(timingDocumentHref(document.id))!
-      assert.ok(html.includes(document.type === '后道质检单' ? '本批次后道质检结果' : '处理后交出复核（复检）'))
+      assert.ok(html.includes(document.type === '后道质检单' ? '本批次后道质检结果' : '历史数量复核（只读）'))
       assert.ok(document.batchId && html.includes(document.batchId), `No batch attribution: ${document.id}`)
       assert.ok(document.taskId && html.includes(document.taskId), `No sewing task attribution: ${document.id}`)
       for (const name of Object.keys(document.quantities ?? {})) assert.ok(html.includes(name), `Lost inspection quantity: ${document.id}: ${name}`)
@@ -81,7 +81,7 @@ test('post delivery shows actual outgoing and finished-goods receipt separately'
   for (const document of documents) {
     const html = resolveTimingSourceDetail(timingDocumentHref(document.id))!
     assert.ok(html.includes('实际交出') && html.includes('下游实收'))
-    assert.ok(html.includes('后道实际交出计至成衣仓实际接收'))
+    assert.ok(html.includes('实际发出和成衣仓实收分别记录'))
     assert.ok(html.includes('本单据时效') || !document.clock && !document.handoverClock)
     const unknownStandards = [document.clock, document.handoverClock].filter(clock => clock && clock.sla == null && clock.days == null)
     if (unknownStandards.length) assert.ok(html.includes('时效要求未确认'))
@@ -160,10 +160,11 @@ test('native post work detail keeps one project set, one clock and classified qu
  assert.doesNotMatch(html,/下一道加工|剪线|钉扣/)
 })
 
-test('post recheck describes SKU quantity and barcode verification rather than a second quality inspection',()=>{
+test('retired recheck retains readonly historical SKU facts without a current execution prerequisite',()=>{
  const order=getTimingCaseByScene('live'),doc=Object.values(getTimingBranch(order)!.docs).find(d=>d.type==='后道复检单')!
  const html=resolveTimingSourceDetail(timingDocumentHref(doc.id))!
- assert.ok(html.includes('本单只复核SKU数量与条码')&&html.includes('复核完成才生成后道交货单'))
+ assert.ok(html.includes('历史数量复核（只读）')&&html.includes('当前加工完成后直接准备出货并确认实际发出'))
+ assert.doesNotMatch(html,/复核完成才生成|data-post-finishing-action|data-pf-action/)
  assert.doesNotMatch(html,/本批次后道复检结果|已记录检验结论|检验负责人/)
 })
 

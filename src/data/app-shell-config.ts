@@ -362,6 +362,19 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           ],
         },
         {
+          key: 'fcs-quality-management',
+          title: '质检管理',
+          icon: 'ClipboardCheck',
+          children: [
+            { key: 'quality-basic-standards', title: '基本质检标准', icon: 'ClipboardList', href: '/fcs/quality-management/basic-standards' },
+            { key: 'quality-additional-standards', title: '附加质检标准', icon: 'ListPlus', href: '/fcs/quality-management/additional-standards' },
+            { key: 'quality-inspection-rules', title: '质检规则', icon: 'Settings', href: '/fcs/quality-management/inspection-rules' },
+            { key: 'quality-records', title: '质检记录汇总', icon: 'ClipboardCheck', href: '/fcs/quality-management/records' },
+            { key: 'quality-audits', title: '稽查记录', icon: 'SearchCheck', href: '/fcs/quality-management/audits' },
+            { key: 'quality-statistics', title: '质检统计分析', icon: 'BarChart3', href: '/fcs/quality-management/statistics' },
+          ],
+        },
+        {
           key: 'fcs-platform-quality',
           title: '质量与扣款',
           icon: 'ClipboardCheck',
@@ -631,7 +644,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-post-finishing-qc-execute', title: '执行质检', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-workbench' },
             { key: 'pfos-post-finishing-qc-orders', title: '质检清单', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-orders' },
             { key: 'pfos-post-finishing-work-orders', title: '后道加工单', icon: 'ClipboardList', href: '/fcs/craft/post-finishing/work-orders' },
-            { key: 'pfos-post-finishing-recheck-orders', title: '复检单', icon: 'RefreshCw', href: '/fcs/craft/post-finishing/recheck-orders' },
             { key: 'pfos-post-finishing-wait-process-warehouse', title: '后道待加工仓', icon: 'Warehouse', href: '/fcs/craft/post-finishing/wait-process-warehouse' },
             { key: 'pfos-post-finishing-wait-handover-warehouse', title: '后道待交出仓', icon: 'PackageCheck', href: '/fcs/craft/post-finishing/wait-handover-warehouse' },
             { key: 'pfos-post-finishing-outbound-orders', title: '后道出货单', icon: 'Truck', href: '/fcs/craft/post-finishing/outbound-orders' },
@@ -742,6 +754,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '成衣库存查询',
           icon: 'Archive',
           children: [
+            { key: 'wls-finished-inventory-quality', title: '库存质检', icon: 'ClipboardCheck', href: '/wls/finished/inventory-quality' },
             { key: 'wls-finished-stock-realtime', title: '即时库存查询', icon: 'Archive', href: '/wls/finished/stock/realtime' },
             { key: 'wls-finished-stock-flow', title: '库存流水查询', icon: 'History', href: '/wls/finished/stock/flow' },
             { key: 'wls-finished-stock-location', title: '仓位库存查询', icon: 'MapPin', href: '/wls/finished/stock/location' },

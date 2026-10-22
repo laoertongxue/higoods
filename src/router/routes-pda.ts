@@ -24,7 +24,6 @@ import {
   renderPdaPostFinishingReturnConfirmationPage,
   renderPdaPostFinishingExecutionPage,
   renderPdaPostFinishingSkuAdjustmentPage,
-  renderPdaPostFinishingRecheckPage,
   renderPdaTransferBagDetailPage,
   renderPdaCuttingExecutionUnitPage,
   renderPdaCuttingHandoverPage,
@@ -78,7 +77,6 @@ export const routes: RouteRegistry = {
     '/fcs/pda/post-finishing/return-confirm': () => renderPdaPostFinishingReturnConfirmationPage(),
     '/fcs/pda/post-finishing/execute': () => renderPdaPostFinishingExecutionPage(),
     '/fcs/pda/post-finishing/sku-adjustment': () => renderPdaPostFinishingSkuAdjustmentPage(),
-    '/fcs/pda/post-finishing/recheck': () => renderPdaPostFinishingRecheckPage(),
     '/fcs/pda/transfer-bag-detail': () => renderPdaTransferBagDetailPage(),
     '/fcs/pda/warehouse': () => renderPdaWarehousePage(),
     '/fcs/pda/warehouse/wait-process': () => {

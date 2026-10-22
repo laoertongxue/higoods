@@ -7,6 +7,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
   let modulePromise: Promise<Record<string, unknown>> | null = null
 
   return async (...args: TArgs): Promise<string> => {
+    const shippedReadOnly=exportName==='renderPdaHandoverPage' && typeof location!=='undefined'
+      && location.pathname==='/fcs/pda/handover' && new URLSearchParams(location.search).get('tab')==='shipped'
+    const postReceiptReadOnly=exportName==='renderPdaHandoverDetailPage' && typeof location!=='undefined'
+      && location.pathname.startsWith('/fcs/pda/handover/HOH-POST-')
     if (exportName.startsWith('renderPcs') || exportName.startsWith('renderFcsMaterialProcessPlan') || exportName === 'renderTechPackPage') {
       const { ensurePcsRecordState } = await import('../data/pcs-record-runtime.ts')
       const common = ['higood-pcs-config-workspace-store-v1']
@@ -32,12 +36,16 @@ function createAsyncRenderer<TArgs extends unknown[]>(
 
     if (/Printing|FabricWashing|WlsInbound|Dyeing|FactoryPending|PdaExec|PdaHandover|ProductionOrderDetail|WaitProcess|WaitHandover/.test(exportName)) {
       await import('../data/fcs/fabric-washing.ts')
-      try { await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingRecords() } catch(error) { return '<div class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 刷新后重试。</div>' }
+      try { await (async()=>{const records=await import('../data/fcs/fabric-washing-repository.ts');if(shippedReadOnly||postReceiptReadOnly)await records.ensureWashingViewRecords(true);else await records.ensureWashingRecords()})() } catch(error) { return '<div class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 刷新后重试。</div>' }
     }
+    const actualPath = typeof location === 'undefined' ? '' : location.pathname
+    const actualDocumentType = typeof location === 'undefined' ? '' : new URLSearchParams(location.search).get('documentType') || ''
+    const finishingPrint = exportName==='renderPrintPreviewPage' && actualPath==='/fcs/print/preview'
+      && ['PRODUCTION_QC_MASTER','POST_FINISHING_QC_ORDER','POST_FINISHING_OUTBOUND_ORDER','POST_FINISHING_OUTBOUND_BARCODE'].includes(actualDocumentType)
     const printingExecution=exportName==='renderPdaExecDetailPage'&&typeof args[0]==='string'&&Boolean((await import('../data/fcs/printing-task-domain.ts')).getPrintWorkOrderByTaskId(args[0]))
     const postFinishingScope = !printingExecution&&(exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName))
     const ppicReturnReadScope = exportName === 'renderProgressBoardPage'
-    if (postFinishingScope || ppicReturnReadScope) await import('../data/fcs/ppic-daily-return-records.ts')
+    if ((postFinishingScope && !finishingPrint) || ppicReturnReadScope) await import('../data/fcs/ppic-daily-return-records.ts')
     if (!modulePromise) {
       modulePromise = importModule().catch((error) => {
         modulePromise = null
@@ -60,10 +68,19 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()
     }
-    if (['renderSewingOutsourcingTasksPage', 'renderSewingMaterialHandoverPage', 'renderPdaHandoverPage', 'renderPrintPreviewPage'].includes(exportName)) {
-      await (await import('../data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+    if (!finishingPrint && ['renderSewingOutsourcingTasksPage', 'renderSewingMaterialHandoverPage', 'renderPdaHandoverPage', 'renderPrintPreviewPage'].includes(exportName)) {
+      await (await import('../data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing(shippedReadOnly?{readOnly:true}:undefined)
     }
-    if (postFinishingScope) await (await import('../data/wls/accessory-warehouse-post-finishing.ts')).prepareAccessoryPostFinishing()
+    if (postFinishingScope) {
+      if (finishingPrint) {
+        // QC outputs consume their original QC and production sources, not
+        // accessory warehouse preparation. Keep the same finishing read gate.
+        const records=await import('../data/fcs/post-finishing-records.ts')
+        await records.ensurePreparedPostFinishingRecordState()
+        const failure=records.getPostFinishingStorageFailure()
+        if(failure)throw new Error(failure)
+      } else await (await import('../data/wls/accessory-warehouse-post-finishing.ts')).prepareAccessoryPostFinishing({readOnly:true})
+    }
     const renderer = module[exportName]
 
     if (typeof renderer !== 'function') {
@@ -493,10 +510,6 @@ export const renderPdaPostFinishingSkuAdjustmentPage = createAsyncRenderer(
 export const renderPdaPostFinishingReturnConfirmationPage = createAsyncRenderer(
   () => import('../pages/pda-post-finishing-flow'),
   'renderPdaPostFinishingReturnConfirmationPage',
-)
-export const renderPdaPostFinishingRecheckPage = createAsyncRenderer(
-  () => import('../pages/pda-post-finishing-flow'),
-  'renderPdaPostFinishingRecheckPage',
 )
 export const renderPdaTransferBagDetailPage = createAsyncRenderer(
   () => import('../pages/pda-transfer-bag-detail'),

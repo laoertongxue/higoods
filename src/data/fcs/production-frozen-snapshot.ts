@@ -150,6 +150,7 @@ export function cloneProductionOrderTechPackSnapshot(
   if (!snapshot) return null
   return {
     ...snapshot,
+    garmentDifficultyGradeSourcePresent: snapshot.garmentDifficultyGradeSourcePresent ?? Boolean(snapshot.garmentDifficultyGrade),
     garmentDifficultyGrade: snapshot.garmentDifficultyGrade || 'B',
     bomItems: cloneBomItems(snapshot.bomItems),
     patternFiles: clonePatternFiles(snapshot.patternFiles),

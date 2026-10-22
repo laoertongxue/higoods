@@ -51,6 +51,7 @@ export function readWashingState(): WashingState {
   if(!projection||projecting)return state
   projecting=true;try{return projection(state)}finally{projecting=false}
 }
+const bridgeVersions = (rows: Iterable<PcsStoredRecord>) => JSON.stringify([...rows].filter(row=>row.collection===WASHING_BRIDGE_COLLECTION).map(row=>[row.id,row.version]).sort())
 export async function ensureWashingRecords(force = false): Promise<void> {
   if (loaded && !force) return
   if (saving) throw new Error('上一笔洗水动作尚未保存，请等待完成。')
@@ -58,7 +59,6 @@ export async function ensureWashingRecords(force = false): Promise<void> {
     await (await import('../pcs-record-runtime.ts')).ensurePcsRecordState(PCS_FCS_COLLECTIONS)
     await (await import('./production-context-records.ts')).hydrateProductionContextRecords()
     const saved = await readPcsRecords([WASHING_COLLECTION, WASHING_BRIDGE_COLLECTION])
-    const bridgeVersions = (rows: Iterable<PcsStoredRecord>) => JSON.stringify([...rows].filter(row=>row.collection===WASHING_BRIDGE_COLLECTION).map(row=>[row.id,row.version]).sort())
     const processChanged = bridgeVersions(records.values()) !== bridgeVersions(saved.records)
     records = new Map(saved.records.map(row => [row.id, row]))
     migrationReceipts=saved.migrations
@@ -72,16 +72,30 @@ export async function ensureWashingRecords(force = false): Promise<void> {
   }
 }
 /** Route/history readers need the washing facts, not initialization of production writers. */
-export async function ensureWashingViewRecords():Promise<void> {
+export async function ensureWashingViewRecords(includeBridge=false):Promise<void> {
   if(saving)throw new Error('上一笔洗水动作尚未保存，请等待完成。')
   try{
-    const saved=await readPcsRecords([WASHING_COLLECTION])
+    // Shared read-only handover pages need the actual process ledger too, but
+    // do not consume independent pre-production sample payloads. Real commands
+    // still call ensureWashingRecords and restore the complete writer source.
+    if(includeBridge){
+      await (await import('../pcs-record-runtime.ts')).ensurePcsRecordState(PCS_FCS_COLLECTIONS)
+      await (await import('./production-context-records.ts')).hydratePostFinishingProductionContextRecords()
+    }
+    const saved=await readPcsRecords(includeBridge?[WASHING_COLLECTION,WASHING_BRIDGE_COLLECTION]:[WASHING_COLLECTION])
     if(saving)throw new Error('上一笔洗水动作尚未保存，请等待完成。')
-    const next=new Map([...records].filter(([,row])=>row.collection!==WASHING_COLLECTION))
-    for(const row of saved.records)if(row.collection===WASHING_COLLECTION)next.set(row.id,row)
-    records=next
-    for(const file of saved.files)blobs.set(file.id,file.blob)
+    const processChanged=includeBridge && bridgeVersions(records.values())!==bridgeVersions(saved.records)
+    if(includeBridge){
+      records=new Map(saved.records.map(row=>[row.id,row]));migrationReceipts=saved.migrations;overlayEpoch++
+      blobs=new Map(saved.files.map(file=>[file.id,file.blob]))
+    }else{
+      const next=new Map([...records].filter(([,row])=>row.collection!==WASHING_COLLECTION))
+      for(const row of saved.records)if(row.collection===WASHING_COLLECTION)next.set(row.id,row)
+      records=next
+      for(const file of saved.files)blobs.set(file.id,file.blob)
+    }
     loaded=false;readFailure=''
+    if(processChanged)hydrateDesignRevisionFcsCaches()
   }catch(error){
     readFailure='洗水用户资料无法读取，未按空数据覆盖。'+(error instanceof Error?error.message:String(error))
     throw new Error(readFailure)

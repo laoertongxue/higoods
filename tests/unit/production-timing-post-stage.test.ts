@@ -15,7 +15,8 @@ for (const c of listTimingCases()) test(`POST-FOLD ${c.key}: post work is nested
   const start = html.indexOf('id="branch-post"')
   const end = html.indexOf('<strong>成衣仓入库</strong>', start)
   const branch = html.slice(start, end)
-  for (const label of ['后道质检', '后道加工', '后道复检', '后道交货']) assert.ok(branch.includes(`<strong>${label}</strong>`), label)
+  assert.ok(!branch.includes('<strong>后道复检</strong>'),'当前后道展开不再包含复检节点')
+  for (const label of ['后道质检', '后道加工', '后道交货']) assert.ok(branch.includes(`<strong>${label}</strong>`), label)
 })
 
 test('POST-TIME: completed and active work show actual times and longest own clock without inventing an SLA', () => {

@@ -1,42 +1,17 @@
 import { test, expect, type Page } from '@playwright/test'
 import * as flow from '../src/data/fcs/post-finishing-full-flow.ts'
 import { mkdirSync } from 'node:fs'
+import { createLegacyPostFinishingFixture, partitionLegacyPostFinishingMigrationFixture } from './helpers/post-finishing-legacy-fixture.ts'
 
 const namespace = 'higood-fcs-post-finishing-records'
 const oldKey = 'higood-fcs-post-finishing-full-flow-v1'
 const evidence = `${process.env.POST_FINISHING_EVIDENCE_ROOT || 'docs/product-design/post-finishing-partial-flow-20261019/evidence'}/migration`
 
-// A schema-2 input fixture, generated from public source/return/QC commands.
-// Only its old-format representation is supplied to the explicit migration UI.
-function legacyFixture(historyQty = 400) {
-  flow.resetPostFinishingFullFlow()
-  const source = flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]
-  const before = source.skus[0].plannedQty
-  source.skus[0].plannedQty = 1000
-  const actor = flow.POST_FINISHING_ACCEPTANCE_ACTORS
-  const delivery = flow.registerPostFinishingFactoryReturn({ productionOrderNo: source.productionOrderNo, executionTaskId: source.executionTaskId,
-    returnIndex: 1, triggerSource: '车缝正常交出', idempotencyKey: 'OLD-SOURCE', quantities: source.skus.map((sku,i) => ({ skuId: sku.skuId, registeredQty: i ? 0 : 1000 })),
-    deliveryPersonName: '迁移夹具送货人', deliveryPersonPhone: '', evidenceImageUrls: [source.skus[0].imageUrl], actor: actor.factoryCourier })
-  flow.confirmPostFinishingFactoryReturn({ deliveryId: delivery.deliveryId, firstCounts: delivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })), actor: actor.returnConfirmer })
-  const qc = flow.sendPostFinishingFactoryReturnToQc({ deliveryId: delivery.deliveryId, actor: actor.sender })
-  flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actor.qcA })
-  const completed = flow.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, actor: actor.qcA, processItems: ['开扣眼','装扣子','熨烫','包装'], results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })) })
-  const task = flow.getPostFinishingFullFlowPostTask(completed.postTaskId!)!
-  for (const processItem of flow.POST_FINISHING_PROCESS_ITEMS) flow.appendPostFinishingProcessCompletion({ postTaskId: task.postTaskId, processItem, actor: actor.postOperator, responsible: actor.postOperator,
-    quantities: [{ skuId: source.skus[0].skuId, quantity: historyQty }], operationId: `OLD-${processItem}` })
-  const recheck = flow.submitPostFinishingForRecheck({ postTaskId: task.postTaskId, quantities: [{ skuId: source.skus[0].skuId, quantity: historyQty }], actor: actor.postOperator, operationId: 'OLD-RC' })
-  recheck.recheckOrderNo = `${task.postTaskNo}-FJ`
-  delete recheck.operationId; delete recheck.operationIntent; delete recheck.sequence
-  const oldTask: any = { ...task, processItems: ['烫包'], executionModel: undefined, status: '后道完成', recheckOrderId: recheck.recheckOrderId, recheckOrderNo: recheck.recheckOrderNo,
-    results: task.lines.map((line,i) => ({ ...line, processedQty: i ? 0 : historyQty, unprocessedQty: i ? 0 : 1000-historyQty, unprocessedReason: i ? undefined : '历史本次未处理' })) }
-  const snapshot = { schemaVersion: 2, deliveries: [flow.getPostFinishingFactoryReturn(delivery.deliveryId)], qcTasks: [flow.getPostFinishingFullFlowQcTask(qc.qcTaskId)], postTasks: [oldTask],
-    recheckOrders: [recheck], outboundOrders: [], warehouseReceipts: [], waitProcessWarehouseRecords: flow.listPostFinishingWaitProcessWarehouseRecords(), waitProcessWarehouseMovements: flow.listPostFinishingWaitProcessWarehouseMovements(),
-    waitHandoverWarehouseRecords: [], waitHandoverWarehouseMovements: [], returnConfirmationVersions: flow.listPostFinishingReturnConfirmationVersions(), defects: [], materialTransferOrders: [], materialStocks: [] }
-  source.skus[0].plannedQty = before
-  return { snapshot, taskId: task.postTaskId, skuId: source.skus[0].skuId, recheckNo: recheck.recheckOrderNo }
-}
+// Historical schema2 is explicitly encoded after public current source/QC/item commands.
+// Retired recheck commands are never called by the fixture.
+const legacyFixture = createLegacyPostFinishingFixture
 
-async function openLegacy(page: Page, fixture: ReturnType<typeof legacyFixture>) {
+async function openLegacy(page: Page, fixture: Awaited<ReturnType<typeof legacyFixture>>) {
   await page.goto('/fcs/craft/post-finishing/work-orders')
   await expect(page.locator('main h1')).toHaveText('后道加工单')
   await page.evaluate(({ key, raw }) => localStorage.setItem(key, raw), { key: oldKey, raw: JSON.stringify(fixture.snapshot) })
@@ -51,7 +26,7 @@ async function migrate(page: Page) {
 }
 
 test('A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history', async ({ page }) => {
-  const fixture = legacyFixture()
+  const fixture = await legacyFixture()
   await openLegacy(page, fixture)
   expect(await page.evaluate(key => localStorage.getItem(key), oldKey)).toBe(JSON.stringify(fixture.snapshot))
   const before = await page.evaluate(async ns => (await (await import('/src/data/pcs-record-db.ts')).readPcsRecords([ns])).records.length, namespace)
@@ -85,14 +60,18 @@ test('A20/A21/A30: explicit old-source conversion and supervised carryover prese
   const result = await page.evaluate(async id => {
     const f = await import('/src/data/fcs/post-finishing-full-flow.ts')
     const v = await import('/src/data/fcs/post-finishing-current-read-model.ts')
-    return { progress: f.getPostFinishingProcessProgress(id), rechecks: f.listPostFinishingFullFlowRecheckOrders(), order: v.getPostFinishingWorkOrderById(id), parent: f.getPostFinishingFullFlowPostTask(id) }
+    return { progress: f.getPostFinishingProcessProgress(id), rechecks: f.listPostFinishingFullFlowRecheckOrders(), outbounds: f.listPostFinishingFullFlowOutboundOrders(), order: v.getPostFinishingWorkOrderById(id), parent: f.getPostFinishingFullFlowPostTask(id) }
   }, fixture.taskId)
   expect(result.progress.totalCompletedQty).toBe(500)
-  expect(result.progress.availableForRecheckQty).toBe(100)
+  expect(result.progress.availableForOutboundQty).toBe(100)
   expect(result.progress.processes.find(p => p.processItem === '包装')?.expectedQty).toBe(600)
   expect(result.order?.postProjectLines.find(row => row.projectName === '包装')?.plannedQty).toBe(600)
-  expect(result.rechecks).toHaveLength(1)
-  expect(result.rechecks[0].recheckOrderNo).toBe(fixture.recheckNo)
+  expect(result.rechecks).toHaveLength(0)
+  expect(result.outbounds).toHaveLength(1)
+  expect(result.outbounds[0].status).toBe('待出货')
+  expect(result.outbounds[0].retiredRecheckId).toBe(fixture.oldRecheckId)
+  expect(result.outbounds[0].retiredRecheck!.recheckOrderNo).toBe(fixture.recheckNo)
+  expect(result.outbounds[0].lines.reduce((sum,line)=>sum+line.outboundQty,0)).toBe(400)
   expect(result.progress.records).toHaveLength(0)
   expect(result.parent?.legacyCarryover?.confirmedBy.actorId).toBe('PF-USER-POST-MGR')
   expect(result.parent?.results).toEqual(originalParent?.results)
@@ -133,7 +112,7 @@ test('A20/A21/A30: explicit old-source conversion and supervised carryover prese
 })
 
 test('A20: schema2 IndexedDB marker upgrade writes no static seeds or invented completion records', async ({ page }) => {
-  const fixture = legacyFixture()
+  const fixture = await legacyFixture()
   await page.goto('/fcs/craft/post-finishing/work-orders')
   await page.evaluate(async ({ snapshot, ns }) => {
     const db = await import('/src/data/pcs-record-db.ts')
@@ -155,11 +134,11 @@ test('A20: schema2 IndexedDB marker upgrade writes no static seeds or invented c
   expect(records.filter(row => row.id !== `${namespace}/revision`)).toHaveLength(4)
   expect(records.filter(row => row.collection === 'flow/deliveries')).toHaveLength(1)
   expect(records.filter(row => row.collection === 'flow/qcTasks')).toHaveLength(1)
-  expect(records.find(row => row.collection === 'flow/schemaVersion')?.value).toBe(3)
+  expect(records.find(row => row.collection === 'flow/schemaVersion')?.value).toBe(4)
 })
 
 test('A30: H600 plus the remaining N400 completes only Q1000 and releases exactly 400 new supply', async ({ page }) => {
-  const fixture = legacyFixture(600)
+  const fixture = await legacyFixture(600)
   await openLegacy(page, fixture)
   await migrate(page)
   const result = await page.evaluate(async ({ id, skuId }) => {
@@ -171,7 +150,7 @@ test('A30: H600 plus the remaining N400 completes only Q1000 and releases exactl
       baselines:['装扣子','包装'].map(processItem=>({processItem:processItem as '装扣子'|'包装',quantities:task.lines.map(line=>({skuId:line.sku.skuId,quantity:line.sku.skuId===skuId?400:0}))})),
       actor:Object.values(f.POST_FINISHING_ACCEPTANCE_ACTORS).find(actor=>actor.roleName==='后道主管')!, reason:'验收核对历史600与剩余400分离，不重复累计历史' }))
     const progress=f.getPostFinishingProcessProgress(id)
-    return { expected:progress.totalExpectedQty, completed:progress.totalCompletedQty, reserved:progress.totalReservedQty, available:progress.availableForRecheckQty,
+    return { expected:progress.totalExpectedQty, completed:progress.totalCompletedQty, reserved:progress.totalReservedQty, available:progress.availableForOutboundQty,
       remaining:progress.processes.find(row=>row.processItem==='包装')?.expectedQty, invented:progress.records.length }
   }, {id:fixture.taskId,skuId:fixture.skuId})
   expect(result).toEqual({expected:1000,completed:1000,reserved:600,available:400,remaining:400,invented:0})
@@ -180,7 +159,7 @@ test('A30: H600 plus the remaining N400 completes only Q1000 and releases exactl
 })
 
 test('A22: complete restore retains records, while future/duplicate/orphan/overquantity backup leaves database unchanged', async ({ page }) => {
-  const fixture = legacyFixture()
+  const fixture = await legacyFixture()
   await openLegacy(page, fixture)
   await migrate(page)
   const result = await page.evaluate(async ns => {
@@ -202,24 +181,31 @@ test('A22: complete restore retains records, while future/duplicate/orphan/overq
   expect(result.errors).toHaveLength(3)
   expect(result.errors.every(error => !error.includes('UNEXPECTED_SUCCESS'))).toBe(true)
   expect(result.unchanged).toBe(true)
-  // Regression: retry through the very same file input after a format failure.
-  // Successful hydration must replace the page rather than preserve stale input.
+  // Backup restore remains an existing external-tool action. Normal business
+  // pages have retired their maintenance inputs; do not recreate them for tests.
   const retryContext = await page.context().browser()!.newContext()
   try {
     const retry = await retryContext.newPage()
     await retry.goto(`${new URL(page.url()).origin}/fcs/craft/post-finishing/audit-records`)
     await expect(retry.locator('main h1')).toHaveText('差异与操作日志')
-    const input = retry.locator('[data-post-finishing-field="storage-import"]')
-    await expect(input).toHaveCount(1)
-    const originalInput = await input.elementHandle()
-    await input.setInputFiles({ name: 'invalid-format.json', mimeType: 'application/json', buffer: Buffer.from('{}') })
-    await expect(retry.locator('[data-post-finishing-action-error]')).toContainText('后道备份格式或版本无效')
-    expect(await input.evaluate(node => (node as HTMLInputElement).files?.[0]?.name)).toBe('invalid-format.json')
-    expect(await originalInput!.evaluate(node => node.isConnected)).toBe(true)
-    await input.setInputFiles({ name: 'verified-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(result.backup)) })
+    await expect(retry.locator('[data-post-finishing-field="storage-import"]')).toHaveCount(0)
+    const restoredByTool = await retry.evaluate(async backup => {
+      const records = await import('/src/data/fcs/post-finishing-records.ts')
+      const db = await import('/src/data/pcs-record-db.ts')
+      const initial = JSON.stringify((await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records)
+      const invalid = new File(['{}'], 'invalid-format.json', {type:'application/json'})
+      let error = ''
+      try { await records.importPostFinishingBackup(invalid) } catch (cause) {error=String(cause)}
+      const failedUnchanged = initial === JSON.stringify((await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records)
+      const inputPreserved = await invalid.text() === '{}'
+      await records.importPostFinishingBackup(new File([JSON.stringify(backup)],'verified-backup.json',{type:'application/json'}))
+      return {error,failedUnchanged,inputPreserved,boundary:'公开外部工具File导入；非已退役的业务维护表单'}
+    }, result.backup)
+    expect(restoredByTool.error).toContain('后道备份格式或版本无效')
+    expect(restoredByTool.failedUnchanged && restoredByTool.inputPreserved).toBe(true)
+    await retry.reload()
     await expect(retry.locator('[data-post-finishing-action-error]')).toHaveCount(0)
     await expect(retry.locator('[data-post-finishing-storage-notice]')).toHaveCount(0)
-    await expect.poll(() => originalInput!.evaluate(node => node.isConnected)).toBe(false)
     const taskNo = fixture.snapshot.postTasks[0].postTaskNo
     await retry.goto(`${new URL(page.url()).origin}/fcs/craft/post-finishing/work-orders`)
     await expect(retry.locator('main h1')).toHaveText('后道加工单')
@@ -231,32 +217,38 @@ test('A22: complete restore retains records, while future/duplicate/orphan/overq
     }, fixture.taskId)
     expect(restored).toEqual({ no: taskNo, expected: 1000 })
     mkdirSync(evidence, { recursive: true })
-    await retry.screenshot({ path: `${evidence}/backup-ui-failure-retry-restored.png`, fullPage: true })
+    await retry.screenshot({ path: `${evidence}/backup-external-tool-failure-retry-restored.png`, fullPage: true })
   } finally { await retryContext.close() }
 
   // Old HEAD upsertOutboundFromRecheck used record.lines.map, preserving zero
   // lines. Build the positive facts through public commands, then encode that
   // explicit schema-2 representation; omitted historical WH/receipt is unknown,
   // not permission to invent a current warehouse fact or historical person.
-  const old = legacyFixture()
+  const old = await legacyFixture()
   const actor = flow.POST_FINISHING_ACCEPTANCE_ACTORS
-  const active = flow.getPostFinishingFullFlowRecheckOrder(old.snapshot.recheckOrders[0].recheckOrderId)!
-  flow.claimPostFinishingRecheckOrder({ recheckOrderNo: active.recheckOrderNo, actor: actor.recheckerA })
-  for (const line of active.lines) flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: active.recheckOrderId, skuId: line.sku.skuId, scannedBarcode: line.sku.barcode, actor: actor.recheckerA })
-  const completed = flow.completePostFinishingRecheckOrderFullFlow({ recheckOrderId: active.recheckOrderId, actor: actor.recheckerA,
-    results: active.lines.map(line => ({ skuId: line.sku.skuId, handoverQty: line.expectedQty })) })
-  const generated = flow.getPostFinishingFullFlowOutboundOrder(completed.outboundOrderId!)!
+  // Public direct-outbound dispatch/receipt establish positive current facts.
+  // The following completed RC is only their explicit old-schema representation,
+  // preserving old zero rows and absent downstream history; no retired action runs.
+  const generated = flow.getPostFinishingFullFlowOutboundOrder(old.activeOutboundId)!
+  flow.dispatchPostFinishingOutboundOrder({ outboundOrderId: generated.outboundOrderId, actor: actor.postOperator })
   flow.receivePostFinishingOutboundOrder({ outboundOrderNo: generated.outboundOrderNo, actor: actor.warehouseReceiver,
     receivedQuantities: generated.lines.map(line => ({ skuId: line.sku.skuId, receivedQty: line.outboundQty })) })
-  const historical: any = structuredClone(completed)
-  delete historical.operationId; delete historical.operationIntent; delete historical.sequence
-  historical.lines = old.snapshot.postTasks[0].lines.map(line => ({ ...structuredClone(completed.lines.find(source => source.sku.skuId === line.sku.skuId) || { sku: line.sku, expectedQty: 0, barcodeStatus: '未扫描', barcodeEvents: [] }),
-    handoverQty: completed.lines.find(source => source.sku.skuId === line.sku.skuId)?.expectedQty || 0 }))
+  const historical: any = structuredClone(old.snapshot.recheckOrders[0])
+  historical.status = '复检完成'
+  historical.claimedBy = structuredClone(actor.recheckerA)
+  historical.claimedAt = historical.createdAt
+  historical.completedAt = generated.createdAt
+  historical.outboundOrderId = generated.outboundOrderId; historical.outboundOrderNo = generated.outboundOrderNo
+  historical.lines = old.snapshot.postTasks[0].lines.map((line:any) => ({ sku: structuredClone(line.sku),
+    expectedQty: line.sku.skuId === old.skuId ? 400 : 0, handoverQty: line.sku.skuId === old.skuId ? 400 : 0,
+    barcodeStatus: line.sku.skuId === old.skuId ? '正确' : '未扫描', barcodeEvents: [] }))
   const oldOutbound = flow.getPostFinishingFullFlowOutboundOrder(generated.outboundOrderId)!
+  delete oldOutbound.executionModel; delete oldOutbound.operationId; delete oldOutbound.operationIntent; delete oldOutbound.sequence
+  oldOutbound.recheckOrderId = historical.recheckOrderId; oldOutbound.recheckOrderNo = historical.recheckOrderNo
   oldOutbound.lines = historical.lines.map((line: any) => ({ sku: line.sku, outboundQty: line.handoverQty, receivedQty: line.handoverQty }))
   old.snapshot.recheckOrders = [historical]
   old.snapshot.postTasks[0].recheckOrderNo = historical.recheckOrderNo
-  ;(old.snapshot as any).outboundOrders = [oldOutbound]
+  old.snapshot.outboundOrders = [oldOutbound]
   const oldContext = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin })
   try {
     const historicalPage = await oldContext.newPage()
@@ -274,6 +266,9 @@ test('A22: complete restore retains records, while future/duplicate/orphan/overq
         waiting: f.listPostFinishingWaitHandoverWarehouseRecords(), receipts: f.listPostFinishingWarehouseReceipts(),
         unchanged: before === JSON.stringify((await db.readPcsRecords([ns])).records) }
     }, namespace)
+    expect(preserved.rechecks).toHaveLength(1)
+    expect(preserved.rechecks[0].status).toBe('复检完成')
+    expect(preserved.rechecks[0].recheckOrderNo).toBe(historical.recheckOrderNo)
     expect(preserved.outbounds).toHaveLength(1)
     expect(preserved.outbounds[0].lines).toHaveLength(5)
     expect(preserved.outbounds[0].lines.filter(line => line.outboundQty === 0)).toHaveLength(4)
@@ -286,17 +281,12 @@ test('A22: complete restore retains records, while future/duplicate/orphan/overq
   } finally { await oldContext.close() }
 })
 
-test('A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved', async ({ page }) => {
-  const fixture = legacyFixture()
-  fixture.snapshot.schemaVersion = 1
-  fixture.snapshot.recheckOrders[0].lines[0].expectedQty = 100
-  for (let i=0;i<150;i++) {
-    const record = structuredClone(fixture.snapshot.recheckOrders[0])
-    record.recheckOrderId=`OLD-RC-MIGRATION-${i}`
-    record.recheckOrderNo=`OLD-RC-MIGRATION-${i}`
-    record.lines[0].expectedQty=1
-    fixture.snapshot.recheckOrders.push(record)
-  }
+test('A20/A21/A22: interrupted independent schema1 groups resume with archive Blob, common records and legacy sources preserved', async ({ page }) => {
+  const fixture = partitionLegacyPostFinishingMigrationFixture(await legacyFixture())
+  expect(fixture.snapshot.recheckOrders).toHaveLength(151)
+  expect(fixture.snapshot.postTasks.reduce((sum:number,task:any)=>sum+task.lines.reduce((qty:number,line:any)=>qty+line.expectedQty,0),0)).toBe(1000)
+  expect(fixture.snapshot.postTasks.reduce((sum:number,task:any)=>sum+task.results.reduce((qty:number,line:any)=>qty+line.processedQty,0),0)).toBe(400)
+  expect(fixture.snapshot.recheckOrders.reduce((sum:number,rc:any)=>sum+rc.lines.reduce((qty:number,line:any)=>qty+line.expectedQty,0),0)).toBe(250)
   const archiveKey = 'higood-fcs-post-finishing-outbound-orders-v1:archive'
   const inline = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='
   await openLegacy(page, fixture)
@@ -322,7 +312,14 @@ test('A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, com
     const final = await db.readPcsRecords([ns])
     const backup = JSON.parse(await (await r.exportPostFinishingBackup()).text())
     await r.importPostFinishingBackup(new File([JSON.stringify(backup)], 'archive-with-blob.json'))
-    return { error, partialCount: partial.records.length, oldPreserved, oldWriteRejected,
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    const parents=flow.listPostFinishingFullFlowPostTasks(),outbounds=flow.listPostFinishingFullFlowOutboundOrders()
+    const totals={expected:parents.reduce((sum,task)=>sum+task.lines.reduce((qty,line)=>qty+line.expectedQty,0),0),
+      historical:parents.reduce((sum,task)=>sum+(task.results||[]).reduce((qty,line)=>qty+(line.processedQty||0),0),0),
+      pending:outbounds.reduce((sum,order)=>sum+order.lines.reduce((qty,line)=>qty+line.outboundQty,0),0),outbounds:outbounds.length,
+      rechecks:flow.listPostFinishingFullFlowRecheckOrders().length,uniqueSources:new Set(outbounds.map(order=>order.retiredRecheckId)).size,
+      allWaiting:outbounds.every(order=>order.status==='待出货')}
+    return { error, partialCount: partial.records.length, oldPreserved, oldWriteRejected, totals,
       common: (await db.readPcsRecords(['pcs-common'])).records[0]?.value,
       idsUnique: new Set(final.records.map(row => row.id)).size===final.records.length,
       archives: final.records.filter(row => row.collection==='archive').map(row=>row.value), fileCount: final.files.length,
@@ -337,7 +334,10 @@ test('A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, com
   expect(result.idsUnique && result.noInline && result.sourcesRemoved).toBe(true)
   expect(result.fileCount).toBe(1)
   expect(result.bytes[0]).toBeGreaterThan(0)
+  expect(result.totals).toEqual({expected:1000,historical:400,pending:250,outbounds:151,rechecks:0,uniqueSources:151,allWaiting:true})
   mkdirSync(evidence, { recursive: true })
+  const {writeFileSync}=await import('node:fs')
+  writeFileSync(`${evidence}/interrupted-independent-groups.json`,JSON.stringify(result,null,2))
 })
 
 for (const entry of [
@@ -392,7 +392,7 @@ for (const entry of [
   mkdirSync(evidence, { recursive: true })
   await newTab.screenshot({ path: `${evidence}/${entry.file}-blocked.png`, fullPage: true })
   const versionChanges = await page.evaluate(() => (window as any).__pfVersionChangeEvents)
-  expect(versionChanges).toEqual([{ oldVersion: 1, newVersion: 2 }])
+  expect(versionChanges).toEqual([{ oldVersion: 1, newVersion: 4 }])
   await page.evaluate(() => {
     ;(window as any).__pfOldUpgradeConnection.close()
     delete (window as any).__pfOldUpgradeConnection
@@ -413,7 +413,7 @@ for (const entry of [
     db.close()
     return result
   }, namespace)
-  expect(recovered.version).toBe(2)
+  expect(recovered.version).toBe(4)
   expect(recovered.stores).toEqual(expect.arrayContaining(['records', 'files', 'operations', 'meta']))
   expect(recovered.common).toEqual({ quantity: 7 })
   expect(recovered.postRows).toBe(0)

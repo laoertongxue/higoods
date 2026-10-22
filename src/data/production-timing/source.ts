@@ -98,7 +98,7 @@ export function timingDocumentHref(id:string):string{
  if(d.type==='生产单')path='/fcs/production/orders'
  else if(['车缝执行单','承包裁剪执行单','工厂烫包执行单'].includes(d.type))path='/fcs/sewing-outsourcing/tasks'
  else if(d.type==='后道质检单')path='/fcs/craft/post-finishing/qc-orders'
- else if(d.type==='后道复检单')path='/fcs/craft/post-finishing/recheck-orders'
+ else if(d.type==='后道复检单')path='/fcs/production/records' // 旧数量复核仅保留只读来源页
  else if(d.type==='后道交货单')path='/fcs/craft/post-finishing/outbound-orders'
  else if(d.type==='后道实收记录')path='/fcs/craft/post-finishing/factory-returns'
  else if(d.type==='商品采购单')path='/pms/product-purchase-orders'
@@ -136,7 +136,7 @@ export function getTimingDiagramBranch(order:TimingCase):TimingBranch|null{
 /** Current garment position labels are shared by the monitoring graph and native document pages. */
 export function timingPostPositionLabel(position: string, processingStatus?:string): string {
   if(position==='processing'&&processingStatus==='待后道')return '待后道加工'
-  return ({ qc: '待质检／质检中', processing: '后道加工中', recheck: '待复检／复检中', delivery: '已交出待入仓', warehouse: '成衣仓已入库', unknown: '后道位置待核实' } as Record<string, string>)[position] ?? '后道位置待核实'
+  return ({ qc: '待质检／质检中', processing: '后道加工中', recheck: '历史数量复核记录', delivery: '已交出待入仓', warehouse: '成衣仓已入库', unknown: '后道位置待核实' } as Record<string, string>)[position] ?? '后道位置待核实'
 }
 
 /** No actual start is expected for an explicitly recorded future work state. */

@@ -1,5 +1,17 @@
 import { expect, test, type Page } from '@playwright/test'
 
+// Resolve the page's loaded Vite instance for diagnostic source assertions.
+// This helper exists only in isolated browser contexts, not in product code.
+test.beforeEach(async({page})=>{
+  await page.addInitScript(()=>{
+    performance.setResourceTimingBufferSize(5000)
+    ;(window as any).__postActualModuleUrl=(path:string)=>{
+      const matches=performance.getEntriesByType('resource').filter(entry=>new URL(entry.name).pathname===path)
+      return matches.find(entry=>new URL(entry.name).searchParams.has('t'))?.name||matches[0]?.name||path
+    }
+  })
+})
+
 const POST_FACTORY_OPERATOR = {
   userId: 'ID-F002_operator',
   loginId: 'ID-F002_operator',
@@ -29,14 +41,16 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(overflow).toBeLessThanOrEqual(1)
 }
 
-test('后道工厂执行页只保留后道加工和后道复检', async ({ page }) => {
+test('后道工厂执行页保留加工与出货，复检入口退役且不新建PDA质检端', async ({ page }) => {
   await setSession(page, 'ROLE_OPERATOR')
   for (const viewport of [{ width: 390, height: 844 }, { width: 480, height: 800 }]) {
     await page.setViewportSize(viewport)
     await page.goto('/fcs/pda/exec')
     await expect(page.getByRole('heading', { name: '后道现场执行' })).toBeVisible()
     await expect(page.getByRole('button', { name: '后道加工' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '后道复检' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '后道复检' })).toHaveCount(0)
+    await expect(page.locator('a[href*="recheck"], [data-nav*="recheck"]')).toHaveCount(0)
+    await expect(page.locator('body')).toContainText('登记加工并核对出货；质检在原质检工作台进行')
     await expect(page.locator('[data-pda-general-task-list]')).toHaveCount(0)
     await expect(page.locator('[data-testid="pda-exec-tabs"]')).toHaveCount(0)
     await expect(page.locator('[data-pda-exec-field="searchKeyword"]')).toHaveCount(0)
@@ -46,7 +60,7 @@ test('后道工厂执行页只保留后道加工和后道复检', async ({ page 
   }
 })
 
-test('后道回货入口归入交接待接收，仓管不再承担回货或成衣仓收货', async ({ page }) => {
+test('回货入口归入交接待接收，仓管主页无旧回货或专用成衣仓收货入口', async ({ page }) => {
   await setSession(page, 'ROLE_OPERATOR')
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/fcs/pda/warehouse')
@@ -89,7 +103,7 @@ test('后道专用回货确认展示当前与已确认批次 SKU 明细', async 
   await setSession(page, 'ROLE_OPERATOR')
   await page.setViewportSize({ width: 390, height: 844 })
   const deliveryNos = await page.evaluate(async () => {
-    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    const flow = await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-full-flow.ts'))
     const rows = flow.listPostFinishingFactoryReturns()
     return [rows.find((row) => !row.confirmedAt)!, rows.find((row) => row.confirmedAt)!].map((row) => row.deliveryOrderNo)
   })
@@ -163,8 +177,8 @@ test('已有 001 入库历史不被覆盖并自动补齐新增待入库测试单
   await expect(page.getByRole('heading', { name: '后道辅料待入库' })).toBeVisible()
   await expect(page.locator('[data-pda-material-transfer-card]')).toHaveCount(5)
   await page.evaluate(async () => {
-    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
-    const records = await import('/src/data/fcs/post-finishing-records.ts')
+    const flow = await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-full-flow.ts'))
+    const records = await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-records.ts'))
     await records.ensurePostFinishingRecordState()
     await records.runPostFinishingCommand(() => flow.receivePostFinishingMaterialTransfer({
       transferOrderNo: 'DB-PF-202608-001', actor: { actorId: 'PF-USER-WH', actorName: '孙仓库收货员', roleName: '仓库收货人员' },
@@ -177,8 +191,8 @@ test('已有 001 入库历史不被覆盖并自动补齐新增待入库测试单
   await expect(page.locator('[data-pda-material-transfer-card="DB-PF-202608-002"]')).toBeVisible()
   await expect(page.locator('[data-pda-material-transfer-card="DB-PF-202608-005"]')).toBeVisible()
   const migrated = await page.evaluate(async () => {
-    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
-    const db = await import('/src/data/pcs-record-db.ts')
+    const flow = await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-full-flow.ts'))
+    const db = await import((window as any).__postActualModuleUrl('/src/data/pcs-record-db.ts'))
     const rows = (await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records
     const saved = rows.filter(row => row.collection === 'flow/materialTransferOrders' && !row.deleted).map(row => row.value as any)
     if (saved.length !== 1 || saved[0].transferOrderNo !== 'DB-PF-202608-001' || saved[0].status !== '已入库') throw new Error('只保存本次修改的001覆盖，不应整批复制静态种子')
@@ -207,16 +221,15 @@ test('后道交接已交出直接展示 Web 后道出货单及 SKU 明细', asyn
   }
 })
 
-test('后道加工和后道复检操作页均可返回执行工作台', async ({ page }) => {
-  await setSession(page, 'ROLE_OPERATOR')
-  for (const route of ['/fcs/pda/post-finishing/execute', '/fcs/pda/post-finishing/recheck']) {
-    await page.goto(route)
-    const back = page.getByTestId('pda-post-back')
-    await expect(back).toBeVisible()
-    await expect(back).toHaveText(/返回/)
-    await back.click()
-    await expect(page).toHaveURL(/\/fcs\/pda\/exec$/)
-  }
+test('后道加工操作页可返回工作台，旧复检地址无当前执行动作',async({page})=>{
+  await setSession(page,'ROLE_OPERATOR')
+  await page.goto('/fcs/pda/post-finishing/execute')
+  const back=page.getByTestId('pda-post-back')
+  await expect(back).toBeVisible();await expect(back).toHaveText(/返回/);await back.click()
+  await expect(page).toHaveURL(/\/fcs\/pda\/exec$/)
+  await page.goto('/fcs/pda/post-finishing/recheck')
+  await expect(page.locator('[data-recheck-result-line], [data-recheck-scan], [data-pda-post-action="complete-recheck"], [data-pda-post-field="recheckScan"]')).toHaveCount(0)
+  await expect(page.getByRole('heading',{name:'页面未找到',exact:true})).toBeVisible()
 })
 
 test('车缝自助回货由管理员开启，锁定与退出状态完整闭环', async ({ page }) => {
@@ -240,4 +253,102 @@ test('车缝自助回货由管理员开启，锁定与退出状态完整闭环',
   await expect(page).toHaveURL(/\/fcs\/pda\/handover\?tab=pickup/)
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem('higoods-pda-sewing-self-return-mode'))).toBeNull()
   await expect(page.getByTestId('pda-pickup-entry-grid')).toBeVisible()
+})
+
+async function openOriginalWarehouseReceipt(page:Page) {
+  await setSession(page,'ROLE_OPERATOR')
+  await page.goto('/fcs/pda/handover?tab=shipped')
+  await expect(page.getByText('已交出记录',{exact:true})).toBeVisible()
+  const source=await page.evaluate(async()=>{
+    const flow=await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-full-flow.ts'))
+    const links=await import((window as any).__postActualModuleUrl('/src/data/fcs/pda-handover-events.ts'))
+    const outbound=flow.listPostFinishingFullFlowOutboundOrders().find((row:any)=>row.status==='待仓库接收')
+    if(!outbound)throw new Error('缺少已实际发出、尚未实收的静态隔离场景')
+    const head=links.getPdaPostFinishingHandoutHeads().find((row:any)=>row.sourceDocId===outbound.outboundOrderId)
+    if(!head)throw new Error('原后道出货单缺少通用PDA来源映射')
+    const runtime=await import((window as any).__postActualModuleUrl('/src/pages/pda-runtime.ts'))
+    return {outbound,head,actualOperator:runtime.getPdaRuntimeContext(),beforeReceipts:flow.listPostFinishingWarehouseReceipts().filter((row:any)=>row.outboundOrderId===outbound.outboundOrderId),beforeGeneric:links.getPdaHandoverRecordsByHead(head.handoverId)}
+  })
+  const card=page.locator(`[data-pda-post-outbound-card="${source.outbound.outboundOrderNo}"]`)
+  await card.locator('[data-post-outbound-receipt-entry]').click()
+  await expect(page.locator('[data-post-original-outbound]')).toContainText(source.outbound.outboundOrderNo)
+  await expect(page.locator('[data-post-receipt-sku]')).toHaveCount(source.outbound.lines.length)
+  return source
+}
+
+async function readOriginalWarehouseReceipt(page:Page,id:string,headId:string) {
+  return page.evaluate(async({id,headId})=>{
+    const flow=await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-full-flow.ts'))
+    const links=await import((window as any).__postActualModuleUrl('/src/data/fcs/pda-handover-events.ts'))
+    const db=await import((window as any).__postActualModuleUrl('/src/data/pcs-record-db.ts'))
+    const raw=(await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records.filter((row:any)=>row.collection==='flow/warehouseReceipts'&&row.value.outboundOrderId===id)
+    return {raw,outbound:flow.getPostFinishingFullFlowOutboundOrder(id),receipts:flow.listPostFinishingWarehouseReceipts().filter((row:any)=>row.outboundOrderId===id),generic:links.getPdaHandoverRecordsByHead(headId)}
+  },{id,headId})
+}
+
+test('原通用PDA逐SKU实收与真实登录责任人同库保存，刷新只入仓一次',async({page},testInfo)=>{
+  await page.setViewportSize({width:390,height:844})
+  const source=await openOriginalWarehouseReceipt(page)
+  await expect(page.locator('[data-post-receipt-sku]').first()).toHaveValue('')
+  await expect(page.locator('[data-post-receipt-line] img')).toHaveCount(source.outbound.lines.length)
+  await expect.poll(()=>page.locator('[data-post-receipt-line] img').evaluateAll(nodes=>nodes.every(node=>(node as HTMLImageElement).complete&&(node as HTMLImageElement).naturalWidth>0))).toBe(true)
+  // The source dispatch is a declared static scenario. Only this receipt is executed through UI.
+  await page.getByRole('button',{name:'确认本单成衣仓实际接收',exact:true}).click()
+  await expect(page.locator('[data-post-receipt-error]')).toContainText('实际接收人')
+  await page.locator('[data-post-receipt-responsibility]').check()
+  for(const line of source.outbound.lines)await page.locator(`[data-post-receipt-sku="${line.sku.skuId}"]`).fill(String(line.outboundQty))
+  await expect(page.locator('[data-post-receipt-authorization-block]')).toBeHidden()
+  page.once('dialog',async dialog=>{expect(dialog.message()).toContain('成衣仓接收责任');expect(dialog.message()).toContain(source.outbound.outboundOrderNo);await dialog.accept()})
+  await page.getByRole('button',{name:'确认本单成衣仓实际接收',exact:true}).click()
+  await expect(page.locator('[data-post-original-outbound] [role="status"]')).toContainText('成衣仓实收已保存')
+  const saved=await readOriginalWarehouseReceipt(page,source.outbound.outboundOrderId,source.head.handoverId)
+  expect(saved.outbound.status).toBe('已接收入库');expect(saved.receipts).toHaveLength(1);expect(saved.raw).toHaveLength(1)
+  expect(saved.outbound.receivedBy.actorId).toBe(source.actualOperator.userId)
+  expect(saved.outbound.receivedBy.actorName).toBe(source.actualOperator.userName)
+  expect(saved.generic).toEqual(source.beforeGeneric)
+  expect(saved.outbound.dispatchedAt).toBe(source.outbound.dispatchedAt)
+  for(const line of saved.outbound.lines)expect(line.receivedQty).toBe(line.outboundQty)
+  await page.reload();await testInfo.attach('receipt-raw-after-cold-route',{body:JSON.stringify(await readOriginalWarehouseReceipt(page,source.outbound.outboundOrderId,source.head.handoverId),null,2),contentType:'application/json'});await expect(page.locator('[data-post-original-outbound]')).toContainText('成衣仓实收已保存')
+  await expect(page.getByRole('button',{name:'确认本单成衣仓实际接收'})).toHaveCount(0)
+  expect(await readOriginalWarehouseReceipt(page,source.outbound.outboundOrderId,source.head.handoverId)).toEqual(saved)
+  await expectNoHorizontalOverflow(page)
+  await testInfo.attach('pda-original-outbound-real-receipt-once',{body:JSON.stringify({fixture:'已发出静态来源，实收通过真实PDA页面',source,saved},null,2),contentType:'application/json'})
+})
+
+test('原PDA仓实收逐SKU差异不抵消，保留原动态授权并在保存失败后保留输入重试',async({page},testInfo)=>{
+  await page.setViewportSize({width:400,height:806})
+  const source=await openOriginalWarehouseReceipt(page)
+  await page.locator('[data-post-receipt-responsibility]').check()
+  const expected=source.outbound.lines.map((line:any,index:number)=>({skuId:line.sku.skuId,receivedQty:line.outboundQty+(index===0?-1:index===1?1:0)}))
+  for(const line of expected)await page.locator(`[data-post-receipt-sku="${line.skuId}"]`).fill(String(line.receivedQty))
+  expect(expected.reduce((sum:number,line:any)=>sum+line.receivedQty,0)).toBe(source.outbound.lines.reduce((sum:number,line:any)=>sum+line.outboundQty,0))
+  await expect(page.locator('[data-post-receipt-authorization-block]')).toBeVisible()
+  await page.getByRole('button',{name:'确认本单成衣仓实际接收',exact:true}).click()
+  await expect(page.locator('[data-post-receipt-error]')).toContainText('有效动态授权码')
+  await page.locator('[data-post-receipt-reason]').fill('隔离专项首SKU少1件、第二SKU多1件，整单相等仍分别保存差异')
+  const code=await page.evaluate(async()=>{const auth=await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-authorization.ts'));return auth.getPostFinishingAuthorizationDisplay('AUTH-WH-001').scanPayload})
+  await page.locator('[data-post-receipt-authorization]').fill(code)
+  await page.evaluate(()=>{
+    const scope=window as any;scope.__originalReceiptPut=IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put=function(value:any,...args:any[]){if(value.collection==='flow/warehouseReceipts')throw new DOMException('隔离仓实收保存空间不足','QuotaExceededError');return scope.__originalReceiptPut.call(this,value,...args)}
+  })
+  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'确认本单成衣仓实际接收'}).click()
+  await expect(page.locator('[data-post-receipt-error]')).toContainText('空间不足')
+  const failed=await readOriginalWarehouseReceipt(page,source.outbound.outboundOrderId,source.head.handoverId)
+  expect(failed.outbound).toEqual(source.outbound);expect(failed.receipts).toEqual(source.beforeReceipts);expect(failed.generic).toEqual(source.beforeGeneric)
+  for(const line of expected)await expect(page.locator(`[data-post-receipt-sku="${line.skuId}"]`)).toHaveValue(String(line.receivedQty))
+  await expect(page.locator('[data-post-receipt-reason]')).toHaveValue('隔离专项首SKU少1件、第二SKU多1件，整单相等仍分别保存差异')
+  await page.evaluate(()=>{IDBObjectStore.prototype.put=(window as any).__originalReceiptPut;delete (window as any).__originalReceiptPut})
+  // Fetch a current authorization after fault handling; an expired code is never silently reused.
+  const fresh=await page.evaluate(async()=>{const auth=await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-authorization.ts'));return auth.getPostFinishingAuthorizationDisplay('AUTH-WH-001').scanPayload})
+  await page.locator('[data-post-receipt-authorization]').fill(fresh)
+  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'确认本单成衣仓实际接收'}).click()
+  await expect(page.locator('[data-post-original-outbound] [role="status"]')).toContainText('成衣仓实收已保存')
+  const saved=await readOriginalWarehouseReceipt(page,source.outbound.outboundOrderId,source.head.handoverId)
+  expect(saved.receipts).toHaveLength(1);expect(saved.outbound.warehouseAuthorizedBy.authorizerName).toBeTruthy()
+  expect(saved.outbound.warehouseDifferenceReason).toContain('少1件')
+  for(const line of saved.outbound.lines)expect(line.receivedQty).toBe(expected.find((row:any)=>row.skuId===line.sku.skuId)!.receivedQty)
+  await page.reload();await expect(page.locator('[data-post-original-outbound] [role="status"]')).toContainText('成衣仓实收已保存');expect(await readOriginalWarehouseReceipt(page,source.outbound.outboundOrderId,source.head.handoverId)).toEqual(saved)
+  await expectNoHorizontalOverflow(page)
+  await testInfo.attach('pda-original-receipt-authorized-atomic-retry',{body:JSON.stringify({source,expected,failed,saved},null,2),contentType:'application/json'})
 })

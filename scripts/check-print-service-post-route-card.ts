@@ -27,13 +27,13 @@ const document = buildPrintDocument({
   sourceId: task.postTaskId,
 })
 assert.equal(document.printTitle, '后道加工单流转卡')
-assert.ok(document.printSubtitle.includes('QC → 后道加工 → 处理后交出复核 → 成衣仓交接'), '打印流程必须使用当前全流程口径')
+assert.ok(document.printSubtitle.includes('QC → 后道加工 → 后道出货单 → 实际发出 → 成衣仓接收'), '打印流程必须使用当前全流程口径')
 assert.ok(document.qrCodes[0]?.sizeMm >= 26 && document.qrCodes[0]?.sizeMm <= 32, '二维码尺寸必须为 26mm 至 32mm')
 assert.equal(document.differenceBlocks[0]?.minRows, 3, '差异记录区必须保留空白手写行')
 const routeRows = document.tables.find((table) => table.tableId === 'route-nodes')?.rows || []
-assert.deepEqual(routeRows.map((row) => row[0]), ['扫码收货', '质检', '后道处理', '处理后交出复核', '交出'])
+assert.deepEqual(routeRows.map((row) => row[0]), ['扫码收货', '质检', '后道处理', '交出'])
 assert.ok(document.sections.some((section) => section.title === '后道处理区' && section.fields.some((field) => field.label === '本批后道项目')), '打印必须展示单头本批后道项目')
-assert.ok(document.sections.some((section) => section.title === '处理后交出复核区'), '打印必须保留数量与条码交出复核')
+assert.ok(!document.sections.some((section) => section.sectionId.startsWith('recheck')), '当前加工流转卡不再生成独立复检执行区')
 
 const html = renderPrintDocument(document)
 for (const forbidden of ['实际工序', '阶段任务', '实际工序单', '车缝+后道', 'HiGood 顶部导航', '商品中心系统']) {

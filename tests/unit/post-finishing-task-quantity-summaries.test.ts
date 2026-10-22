@@ -3,13 +3,14 @@ import test from 'node:test'
 import { writeFileSync } from 'node:fs'
 import * as flow from '../../src/data/fcs/post-finishing-full-flow.ts'
 import { mapPostFinishingRepositoryValues } from '../../src/data/fcs/post-finishing-records.ts'
-import { getPostFinishingAuthorizationDisplay } from '../../src/data/fcs/post-finishing-authorization.ts'
+import { ensureQualityManagementRecords } from '../../src/data/fcs/quality-management-records.ts'
 
 const actors = flow.POST_FINISHING_ACCEPTANCE_ACTORS
 const items = ['开扣眼', '装扣子', '熨烫', '包装'] as const
 const now = Date.parse('2026-10-20T08:00:00+08:00')
 const sourcePlans = flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.map(source => source.skus.map(sku => sku.plannedQty))
 const observations: Array<Record<string, unknown>> = []
+test.before(async()=>{await ensureQualityManagementRecords()})
 test.beforeEach(() => flow.resetPostFinishingFullFlow())
 test.afterEach(() => flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.forEach((source, i) => source.skus.forEach((sku, j) => { sku.plannedQty = sourcePlans[i][j] })))
 test.after(() => {
@@ -28,7 +29,10 @@ function createQc(processItems: flow.PostFinishingProcessItem[], quantities = [1
   })
   flow.confirmPostFinishingFactoryReturn({ deliveryId: delivery.deliveryId, firstCounts: delivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })), actor: actors.returnConfirmer, nowMs: now + 1000 })
   const qc = flow.sendPostFinishingFactoryReturnToQc({ deliveryId: delivery.deliveryId, actor: actors.sender, nowMs: now + 2000 })
-  flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actors.qcA, nowMs: now + 3000 })
+  const claimed=flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actors.qcA, nowMs: now + 3000 })
+  assert.ok(claimed.inspection?.snapshot.items.length)
+  flow.submitPostFinishingQcRound({qcTaskId:qc.qcTaskId,actor:actors.qcA,operationId:`SUMMARY-QC-${sourceIndex}-${returnIndex}`,lines:qc.lines.map(line=>({skuId:line.sku.skuId,passedQty:line.expectedQty,defectQty:0,returnQty:0,issues:[]})),nowMs:now+3500})
+  flow.attachPostFinishingQcSignedPaper({qcTaskId:qc.qcTaskId,actor:actors.qcA,name:'隔离双签测试文件.png',url:'/test-only-signed-paper.png',nowMs:now+3600})
   flow.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, processItems, results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })), actor: actors.qcA, nowMs: now + 4000 })
   return { source, delivery, task: flow.listPostFinishingFullFlowPostTasks().find(row => row.qcTaskId === qc.qcTaskId) }
 }
@@ -44,22 +48,10 @@ function append(task: flow.PostFinishingPostTask, processItem: flow.PostFinishin
 }
 
 function submit(task: flow.PostFinishingPostTask, quantities: Array<{ skuId: string; quantity: number }>, operationId: string) {
-  return flow.submitPostFinishingForRecheck({ postTaskId: task.postTaskId, quantities, actor: actors.postOperator, operationId, nowMs: now + 20000 })
+  return flow.submitPostFinishingForOutbound({ postTaskId: task.postTaskId, quantities, actor: actors.postOperator, operationId, nowMs: now + 20000 })
 }
 
-function completeRecheck(record: flow.PostFinishingRecheckOrder, actual?: number[]) {
-  flow.claimPostFinishingRecheckOrder({ recheckOrderNo: record.recheckOrderNo, actor: actors.recheckerA })
-  for (const line of record.lines.filter(line => line.expectedQty > 0)) flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: record.recheckOrderId, skuId: line.sku.skuId, scannedBarcode: line.sku.barcode, actor: actors.recheckerA, nowMs: now + 30000 })
-  const authorizationTime = now + 300000
-  flow.completePostFinishingRecheckOrderFullFlow({
-    recheckOrderId: record.recheckOrderId, actor: actors.recheckerA,
-    results: record.lines.map((line, index) => ({ skuId: line.sku.skuId, handoverQty: actual?.[index] ?? line.expectedQty })), nowMs: actual ? authorizationTime : now + 40000,
-    authorization: actual ? { scanValue: getPostFinishingAuthorizationDisplay('AUTH-POST-001', authorizationTime).scanPayload, differenceReason: '摘要契约：首SKU本次实际未交出', nowMs: authorizationTime } : undefined,
-  })
-  const outbound = flow.listPostFinishingFullFlowOutboundOrders().find(row => row.recheckOrderId === record.recheckOrderId)
-  assert.ok(outbound)
-  return outbound
-}
+function dispatchOutbound(record: flow.PostFinishingOutboundOrder) { return flow.dispatchPostFinishingOutboundOrder({outboundOrderId:record.outboundOrderId,actor:actors.postOperator,nowMs:now+40000}) }
 
 function receive(outbound: flow.PostFinishingOutboundOrder) {
   flow.receivePostFinishingOutboundOrder({ outboundOrderNo: outbound.outboundOrderNo, actor: actors.warehouseReceiver, receivedQuantities: outbound.lines.map(line => ({ skuId: line.sku.skuId, receivedQty: line.outboundQty })), nowMs: now + 50000 })
@@ -70,7 +62,7 @@ function compareSummaries(stage: string) {
     const full = flow.getPostFinishingProcessProgress(task)
     return { postTaskId: task.postTaskId, productionOrderNo: task.productionOrderNo, qcTaskId: task.qcTaskId,
       status: task.status, completedAt: task.completedAt, totalExpectedQty: full.totalExpectedQty,
-      totalCompletedQty: full.totalCompletedQty, availableForRecheckQty: full.availableForRecheckQty }
+      totalCompletedQty: full.totalCompletedQty, availableForOutboundQty: full.availableForOutboundQty }
   })
   const actual = flow.listPostFinishingTaskQuantitySummaries()
   assert.deepEqual(actual, expected, `${stage}：摘要必须与完整公开getter逐字段相同`)
@@ -129,7 +121,7 @@ function compareChildSummaries(stage: string) {
   return actual
 }
 
-test('PFN-009/022/028/043/048/071：D1分项、主管订正及100/100/800多次复检的摘要逐阶段等于完整进度', () => {
+test('PFN-009/022/028/043/048/071：D1分项、主管订正及100/100/800多次直接出货的摘要逐阶段等于完整进度', () => {
   const { task, source } = createTask([...items])
   const skuId = source.skus[0].skuId
   compareSummaries('D1-before-processing')
@@ -138,17 +130,17 @@ test('PFN-009/022/028/043/048/071：D1分项、主管订正及100/100/800多次�
   const original = flow.getPostFinishingProcessProgress(task.postTaskId).records.find(row => row.processItem === '开扣眼')!
   flow.correctPostFinishingProcessCompletion({ recordId: original.recordId, quantities: [{ skuId, quantity: 550 }], actor: actors.postSupervisor, operationId: 'SUMMARY-CORRECT-HOLE', reason: '隔离契约：复核首项原登记', nowMs: now + 15000 })
   assert.equal(compareSummaries('D1-after-signed-correction')[0].totalCompletedQty, 100)
-  const first = completeRecheck(submit(task, [{ skuId, quantity: 100 }], 'SUMMARY-RC-1'))
+  const first = dispatchOutbound(submit(task, [{ skuId, quantity: 100 }], 'SUMMARY-RC-1'))
   receive(first)
-  assert.equal(compareSummaries('D1-first-100-received')[0].availableForRecheckQty, 0)
+  assert.equal(compareSummaries('D1-first-100-received')[0].availableForOutboundQty, 0)
   append(task, '包装', [{ skuId, quantity: 100 }], 'SUMMARY-PACK-SECOND')
-  const second = completeRecheck(submit(task, [{ skuId, quantity: 100 }], 'SUMMARY-RC-2'))
+  const second = dispatchOutbound(submit(task, [{ skuId, quantity: 100 }], 'SUMMARY-RC-2'))
   ;[450, 700, 800, 800].forEach((quantity, index) => append(task, items[index], [{ skuId, quantity }], `SUMMARY-FINISH-${index}`))
-  assert.equal(compareSummaries('D1-all-1000-before-third')[0].availableForRecheckQty, 800)
-  const third = completeRecheck(submit(task, [{ skuId, quantity: 800 }], 'SUMMARY-RC-3'))
+  assert.equal(compareSummaries('D1-all-1000-before-third')[0].availableForOutboundQty, 800)
+  const third = dispatchOutbound(submit(task, [{ skuId, quantity: 800 }], 'SUMMARY-RC-3'))
   receive(third); receive(second)
   const final = compareSummaries('D1-all-three-received')[0]
-  assert.equal(final.totalExpectedQty, 1000); assert.equal(final.totalCompletedQty, 1000); assert.equal(final.availableForRecheckQty, 0)
+  assert.equal(final.totalExpectedQty, 1000); assert.equal(final.totalCompletedQty, 1000); assert.equal(final.availableForOutboundQty, 0)
 })
 
 test('PFN-002/016/048/056：两项及四种单项、多来源子集、空Set与primitive返回隔离保持', () => {
@@ -172,17 +164,15 @@ test('PFN-002/016/048/056：两项及四种单项、多来源子集、空Set与p
   compareSummaries('summary-return-mutation-does-not-change-authority')
 })
 
-test('PFN-011/038/040/048：多SKU部分实际0的授权出货不改变加工供给或原占用摘要', () => {
-  const { task, source } = createTask(['装扣子'], [10, 10, 0, 0, 0])
-  const quantities = source.skus.slice(0, 2).map(sku => ({ skuId: sku.skuId, quantity: 10 }))
-  append(task, '装扣子', quantities, 'SUMMARY-MULTI-SKU')
-  assert.equal(compareSummaries('multi-sku-before-reservation')[0].totalCompletedQty, 20)
-  const record = submit(task, quantities, 'SUMMARY-MULTI-RC')
-  const outbound = completeRecheck(record, record.lines.map(line => line.sku.skuId === source.skus[0].skuId ? 0 : line.expectedQty))
-  assert.deepEqual(outbound.lines.map(line => line.outboundQty), [10])
-  assert.equal(flow.getPostFinishingProcessProgress(task.postTaskId).totalReservedQty, 20)
-  const summary = compareSummaries('multi-sku-after-authorized-partial-zero')[0]
-  assert.equal(summary.totalCompletedQty, 20); assert.equal(summary.availableForRecheckQty, 0)
+test('PFN-011/038/040/048：多SKU本次选择0不占用，实际出货摘要不改变加工供给', () => {
+  const {task,source}=createTask(['装扣子'],[10,10,0,0,0])
+  append(task,'装扣子',source.skus.slice(0,2).map(sku=>({skuId:sku.skuId,quantity:10})),'SUMMARY-MULTI-SKU')
+  assert.equal(compareSummaries('multi-sku-before-allocation')[0].totalCompletedQty,20)
+  const record=submit(task,[{skuId:source.skus[0].skuId,quantity:0},{skuId:source.skus[1].skuId,quantity:10}],'SUMMARY-MULTI-OUT')
+  const outbound=dispatchOutbound(record);assert.deepEqual(outbound.lines.map(line=>line.outboundQty),[10])
+  assert.equal(flow.getPostFinishingProcessProgress(task.postTaskId).totalReservedQty,10)
+  const summary=compareSummaries('multi-sku-after-explicit-partial-zero')[0]
+  assert.equal(summary.totalCompletedQty,20);assert.equal(summary.availableForOutboundQty,10)
 })
 
 test('PFN-048/058/059：明确旧表示unknown和H400/N600主管承接，以及公开demo摘要保持完整getter口径', () => {
@@ -200,7 +190,7 @@ test('PFN-048/058/059：明确旧表示unknown和H400/N600主管承接，以及�
   })
   assert.equal(compareSummaries('legacy-H400-N600-C200-100')[0].totalCompletedQty, 500)
   submit(task, [{ skuId: source.skus[0].skuId, quantity: 400 }], 'SUMMARY-CARRYOVER-NEW-RC')
-  assert.equal(compareSummaries('legacy-carryover-after-explicit-new-400-reservation')[0].availableForRecheckQty, 100)
+  assert.equal(compareSummaries('legacy-carryover-after-explicit-new-400-reservation')[0].availableForOutboundQty, 100)
   append(task, '包装', [{ skuId: source.skus[0].skuId, quantity: 100 }], 'SUMMARY-CARRYOVER-PACK')
   assert.equal(compareSummaries('legacy-carryover-new-increment')[0].totalCompletedQty, 600)
   flow.loadPostFinishingDemoData()
@@ -213,12 +203,12 @@ test('PFN-048/058/059：明确旧表示unknown和H400/N600主管承接，以及�
   compareSummaries('declared-old-marker-demo-unknown')
 })
 
-test('PFN-033/039/044/046/057：复检/出货/待交出两过滤交集等于完整后过滤，且不暴露可变源引用', () => {
+test('PFN-033/039/044/046/057：历史复检/当前出货/待交出两过滤交集等于完整后过滤，且不暴露可变源引用', () => {
   const fixtures = [createTask(['包装'], [10, 0, 0, 0, 0], 0, 1), createTask(['包装'], [20, 0, 0, 0, 0], 0, 2), createTask(['包装'], [30, 0, 0, 0, 0], 1, 1)]
   for (const [index, fixture] of fixtures.entries()) {
     const quantities = [{ skuId: fixture.source.skus[0].skuId, quantity: [10, 20, 30][index] }]
     append(fixture.task, '包装', quantities, `SUMMARY-FILTER-APPEND-${index}`)
-    completeRecheck(submit(fixture.task, quantities, `SUMMARY-FILTER-RC-${index}`))
+    dispatchOutbound(submit(fixture.task, quantities, `SUMMARY-FILTER-RC-${index}`))
   }
   createQc([], [40, 0, 0, 0, 0], 2, 1)
   const sourceFilters = [undefined, new Set<string>(), new Set([fixtures[0].task.productionOrderNo]), new Set([fixtures[2].task.productionOrderNo]), new Set(['UNKNOWN']), new Set(fixtures.map(row => row.task.productionOrderNo))]
@@ -230,45 +220,34 @@ test('PFN-033/039/044/046/057：复检/出货/待交出两过滤交集等于完�
     counts.push(all.length)
     for (const nos of sourceFilters) for (const ids of postFilters) assert.deepEqual(read(nos, ids), all.filter(row => (!nos || nos.has(row.productionOrderNo)) && (!ids || Boolean(row.postTaskId && ids.has(row.postTaskId)))))
     const detached = read(undefined, new Set([fixtures[0].task.postTaskId]))
-    assert.equal(detached.length, 1)
-    detached[0].lines[0].sku.barcode = 'UNSAVED-CLONE-MUTATION'
+    assert.equal(detached.length, read===flow.listPostFinishingFullFlowRecheckOrders?0:1)
+    if(detached.length)detached[0].lines[0].sku.barcode = 'UNSAVED-CLONE-MUTATION'
     detached.pop()
     assert.deepEqual(read(), all, '过滤结果数组、行和SKU必须保持独立')
   }
-  assert.deepEqual(counts, [3, 4, 3], 'QC直达出货无postTaskId，应由任务ID过滤排除')
+  assert.deepEqual(counts, [0, 4, 4], 'QC直达出货无postTaskId，应由任务ID过滤排除')
   compareSummaries('filtered-child-collections')
   observations.push({ stage: 'child-filter-cross-product', counts, combinationsPerReader: sourceFilters.length * postFilters.length, deepReturnIsolation: true })
 })
 
-test('PFN-033/038/039/044/048：子单primitive摘要接口保持完整getter的实际集合与数量', () => {
-  assert.equal(typeof (flow as unknown as Record<string, unknown>).listPostFinishingTaskChildQuantitySummaries, 'function', '必须提供子单primitive数量摘要，不能让任务目录深复制完整SKU树')
-  const { task, source } = createTask(['包装'])
-  const skuId = source.skus[0].skuId
-  append(task, '包装', [{ skuId, quantity: 1000 }], 'CHILD-SUMMARY-READY-1000')
-  const first = submit(task, [{ skuId, quantity: 100 }], 'CHILD-SUMMARY-RC-100-FIRST')
-  receive(completeRecheck(first))
-  const second = submit(task, [{ skuId, quantity: 100 }], 'CHILD-SUMMARY-RC-100-SECOND')
-  flow.claimPostFinishingRecheckOrder({ recheckOrderNo: second.recheckOrderNo, actor: actors.recheckerA })
-  const third = submit(task, [{ skuId, quantity: 800 }], 'CHILD-SUMMARY-RC-800-THIRD')
-  const mixed = compareChildSummaries('D1-three-children-completed-in-progress-pending')
-  assert.deepEqual(mixed.rechecks.map(row => row.totalExpectedQty), [100, 100, 800])
-  assert.equal(new Set(mixed.rechecks.map(row => row.status)).size, 3, '必须用真实完成、领取中、待领取三种状态，不能以同状态重复记录证明')
-  assert.equal(mixed.rechecks.find(row => row.recheckOrderId === first.recheckOrderId)!.totalHandoverQty, 100)
-  assert.equal(mixed.rechecks.find(row => row.recheckOrderId === third.recheckOrderId)!.totalHandoverQty, 0)
-  assert.equal(mixed.waitHandovers[0].totalAvailableQty, 0, '首100已仓收后该来源待交出量归零')
-
-  const partial = createTask(['装扣子'], [10, 10, 0, 0, 0], 1)
-  const quantities = partial.source.skus.slice(0, 2).map(sku => ({ skuId: sku.skuId, quantity: 10 }))
-  append(partial.task, '装扣子', quantities, 'CHILD-SUMMARY-PARTIAL-ZERO-PROCESS')
-  const partialRecheck = submit(partial.task, quantities, 'CHILD-SUMMARY-PARTIAL-ZERO-RC')
-  const partialOutbound = completeRecheck(partialRecheck, partialRecheck.lines.map(line => line.sku.skuId === partial.source.skus[0].skuId ? 0 : line.expectedQty))
-  assert.deepEqual(partialOutbound.lines.map(line => line.outboundQty), [10])
-  const direct = createQc([], [40, 0, 0, 0, 0], 2)
-  assert.equal(direct.task, undefined, 'QC直达不创建加工父单')
-  const all = compareChildSummaries('mixed-states-partial-zero-and-QC-direct')
-  const partialSummary = all.rechecks.find(row => row.recheckOrderId === partialRecheck.recheckOrderId)!
-  assert.equal(partialSummary.totalExpectedQty, 20)
-  assert.equal(partialSummary.totalHandoverQty, 10, '已授权SKU实际0不能被期望20覆盖')
-  assert.ok(all.outbounds.some(row => row.deliveryId === direct.delivery.deliveryId), '无postTaskId的QC直达出货也必须保留在生产任务摘要')
-  assert.deepEqual([all.rechecks.length, all.outbounds.length, all.waitHandovers.length], [4, 3, 2])
+test('PFN-033/038/039/044/048：三张独立出货状态的primitive摘要及数量完整、无新复检', () => {
+  const {task,source}=createTask(['包装']),skuId=source.skus[0].skuId
+  append(task,'包装',[{skuId,quantity:1000}],'CHILD-SUMMARY-READY-1000')
+  const first=submit(task,[{skuId,quantity:100}],'CHILD-SUMMARY-OUT-100-FIRST');receive(dispatchOutbound(first))
+  const second=submit(task,[{skuId,quantity:100}],'CHILD-SUMMARY-OUT-100-SECOND');dispatchOutbound(second)
+  const third=submit(task,[{skuId,quantity:800}],'CHILD-SUMMARY-OUT-800-THIRD')
+  const mixed=compareChildSummaries('D1-three-outbounds-received-dispatched-ready')
+  assert.deepEqual(flow.listPostFinishingFullFlowOutboundOrders().map(row=>row.lines.reduce((sum,line)=>sum+line.outboundQty,0)),[100,100,800])
+  assert.equal(new Set(mixed.outbounds.map(row=>row.status)).size,3,'已实收、待仓收、待出货三种真实状态')
+  assert.equal(mixed.rechecks.length,0);assert.equal(mixed.waitHandovers[0].totalAvailableQty,0)
+  assert.equal(flow.getPostFinishingFullFlowOutboundOrder(first.outboundOrderId)?.status,'已接收入库')
+  assert.equal(flow.getPostFinishingFullFlowOutboundOrder(third.outboundOrderId)?.status,'待出货')
+  const partial=createTask(['装扣子'],[10,10,0,0,0],1)
+  append(partial.task,'装扣子',partial.source.skus.slice(0,2).map(sku=>({skuId:sku.skuId,quantity:10})),'CHILD-SUMMARY-PARTIAL-PROCESS')
+  const partialOutbound=submit(partial.task,[{skuId:partial.source.skus[0].skuId,quantity:0},{skuId:partial.source.skus[1].skuId,quantity:10}],'CHILD-SUMMARY-PARTIAL-OUT')
+  dispatchOutbound(partialOutbound);assert.deepEqual(partialOutbound.lines.map(line=>line.outboundQty),[10])
+  const direct=createQc([],[40,0,0,0,0],2);assert.equal(direct.task,undefined)
+  const all=compareChildSummaries('mixed-states-partial-zero-and-QC-direct')
+  assert.ok(all.outbounds.some(row=>row.deliveryId===direct.delivery.deliveryId),'无需加工出货仍保留且无postTaskId')
+  assert.deepEqual([all.rechecks.length,all.outbounds.length,all.waitHandovers.length],[0,5,5])
 })

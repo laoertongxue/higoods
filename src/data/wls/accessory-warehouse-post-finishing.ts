@@ -2,7 +2,7 @@ import {
   installAccessoryPostFinishingReadBridge, readLegacyPostFinishingMaterialState, resolvePostFinishingResponsibility,
   type PostFinishingActor, type PostFinishingMaterialTransferOrder, type PostFinishingMaterialStock,
 } from '../fcs/post-finishing-full-flow.ts'
-import { ensurePostFinishingRecordState, getPostFinishingStorageFailure } from '../fcs/post-finishing-records.ts'
+import { ensurePreparedPostFinishingRecordState, getPostFinishingStorageFailure } from '../fcs/post-finishing-records.ts'
 import { readPcsRecords, type PcsStoredFile } from '../pcs-record-db.ts'
 import { prepareAccessoryWarehouseSources, listAccessoryPreparations, listAccessoryPreparationProductionIdentities } from './accessory-warehouse-sources.ts'
 import { accessoryRecord, ensureAccessoryWarehouseRecords, listAccessoryRecords, saveAccessoryWarehouseAction } from './accessory-warehouse-records.ts'
@@ -148,10 +148,10 @@ async function readSources(): Promise<void> {
   sourceRows.forEach(row => collectExistingFiles(row.value))
   sourceFiles = read.files.filter(file => fileIds.has(file.id))
 }
-export async function prepareAccessoryPostFinishing(): Promise<void> {
+export async function prepareAccessoryPostFinishing(options:{readOnly?:boolean}={}): Promise<void> {
   prepared = false
-  await prepareAccessoryWarehouseSources()
-  await ensurePostFinishingRecordState()
+  await prepareAccessoryWarehouseSources({postFinishingReadOnly:options.readOnly})
+  await ensurePreparedPostFinishingRecordState()
   requireValue(!getPostFinishingStorageFailure(), getPostFinishingStorageFailure())
   await readSources()
   prepared = true

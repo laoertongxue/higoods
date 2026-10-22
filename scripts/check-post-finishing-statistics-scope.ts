@@ -1,3 +1,4 @@
+import { ensureQualityManagementRecords } from '../src/data/fcs/quality-management-records.ts'
 import assert from 'node:assert/strict'
 import * as flow from '../src/data/fcs/post-finishing-full-flow.ts'
 import { getPostFinishingExecutionStatistics as statistics } from '../src/data/fcs/process-statistics-domain.ts'
@@ -28,6 +29,8 @@ function create(values: number[], at: number, direct = false) {
   flow.confirmPostFinishingFactoryReturn({ deliveryId: delivery.deliveryId, firstCounts: delivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })), actor: actors.returnConfirmer, nowMs: at + 1000 })
   const qc = flow.sendPostFinishingFactoryReturnToQc({ deliveryId: delivery.deliveryId, actor: actors.sender, nowMs: at + 2000 })
   flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actors.qcA, nowMs: at + 3000 })
+  flow.submitPostFinishingQcRound({qcTaskId:qc.qcTaskId,actor:actors.qcA,operationId:`STAT-QC-${qc.qcTaskId}`,lines:qc.lines.map(line=>({skuId:line.sku.skuId,passedQty:line.expectedQty,defectQty:0,returnQty:0})),nowMs:at+3500})
+  flow.attachPostFinishingQcSignedPaper({qcTaskId:qc.qcTaskId,actor:actors.qcA,url:'/fixtures/isolated-stat-paper.png',name:'统计专项纸单',nowMs:at+3600})
   flow.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, actor: actors.qcA, processItems: direct ? [] : ['包装'],
     results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })), nowMs: at + 4000 })
   return { delivery, qc, task: flow.listPostFinishingFullFlowPostTasks().find(task => task.qcTaskId === qc.qcTaskId),
@@ -38,18 +41,16 @@ function append(task: flow.PostFinishingPostTask, values: number[], key: string,
     responsible: actors.postOperator, actor: actors.postOperator, operationId: key, nowMs: at })
 }
 function child(task: flow.PostFinishingPostTask, values: number[], key: string, at: number, actual = values) {
-  const recheck = flow.submitPostFinishingForRecheck({ postTaskId: task.postTaskId, quantities: skuQuantities(values).filter(row => row.quantity), actor: actors.postOperator, operationId: key, nowMs: at })
-  flow.claimPostFinishingRecheckOrder({ recheckOrderNo: recheck.recheckOrderNo, actor: actors.recheckerA, nowMs: at + 1000 })
-  for (const line of recheck.lines) if (line.expectedQty) flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: recheck.recheckOrderId, skuId: line.sku.skuId, scannedBarcode: line.sku.barcode, actor: actors.recheckerA, nowMs: at + 2000 })
-  const gate = JSON.stringify(actual) !== JSON.stringify(values) ? authority(at + 3000) : { nowMs: at + 3000 }
-  const result = flow.completePostFinishingRecheckOrderFullFlow({ recheckOrderId: recheck.recheckOrderId, actor: actors.recheckerA,
-    results: recheck.lines.map(line => ({ skuId: line.sku.skuId, handoverQty: actual[source.skus.findIndex(sku => sku.skuId === line.sku.skuId)] || 0 })), ...gate })
-  return flow.getPostFinishingFullFlowOutboundOrder(result.outboundOrderId!)!
+  const outbound=flow.submitPostFinishingForOutbound({postTaskId:task.postTaskId,quantities:skuQuantities(actual).filter(row=>row.quantity),actor:actors.postOperator,operationId:key,nowMs:at})
+  flow.dispatchPostFinishingOutboundOrder({outboundOrderId:outbound.outboundOrderId,actor:actors.postOperator,nowMs:at+1000})
+  return flow.getPostFinishingFullFlowOutboundOrder(outbound.outboundOrderId)!
+
 }
 function receive(outbound: flow.PostFinishingOutboundOrder, at: number, actual?: number[]) {
   const amounts = outbound.lines.map(line => actual ? actual[source.skus.findIndex(sku => sku.skuId === line.sku.skuId)] || 0 : line.outboundQty)
   const different = outbound.lines.some((line, index) => line.outboundQty !== amounts[index])
   const gate = different ? authority(at) : { nowMs: at }
+  if (flow.getPostFinishingFullFlowOutboundOrder(outbound.outboundOrderId)?.status==='待出货') flow.dispatchPostFinishingOutboundOrder({outboundOrderId:outbound.outboundOrderId,actor:actors.postOperator,nowMs:at-1000})
   flow.receivePostFinishingOutboundOrder({ outboundOrderNo: outbound.outboundOrderNo, actor: actors.warehouseReceiver,
     receivedQuantities: outbound.lines.map((line, index) => ({ skuId: line.sku.skuId, receivedQty: amounts[index] })), ...gate })
 }
@@ -59,6 +60,7 @@ function pick(value: ReturnType<typeof statistics>) {
     'waitWritebackHandoverCount', 'writtenBackHandoverCount', 'waitHandoverTaskCount', 'handedOverTaskCount',
     'sewingFactoryPostDoneTaskCount', 'diffGarmentQty', 'differenceRecordCount', 'lessReceiveGarmentQty', 'moreReceiveGarmentQty'].map(key => [key, value[key as keyof typeof value]]))
 }
+await ensureQualityManagementRecords()
 try {
   flow.resetPostFinishingFullFlow()
   // Source plan adjustment is isolated test input, restored below. Every
@@ -79,7 +81,8 @@ try {
   assert.equal(filterA.qcPassGarmentQty, 100)
   assert.equal(filterA.postDoneGarmentQty, 80)
   assert.equal(filterA.waitPostGarmentQty, 20, '正常在制也保留Q-F，不只统计待后道状态')
-  assert.equal(filterA.waitRecheckGarmentQty, 30)
+  assert.equal(filterA.waitRecheckGarmentQty,0)
+  assert.equal(filterA.waitOutboundGarmentQty,30)
   assert.equal(filterA.handedOverGarmentQty, 50)
   assert.equal(filterA.receivedGarmentQty, 30)
   assert.equal(filterA.waitHandoverGarmentQty, 20)
@@ -116,16 +119,17 @@ try {
   const directRoot = statistics({ workOrderId: root.postTaskId, timeRange: 'TODAY' })
   assert.equal(directRoot.sewingFactoryPostDoneTaskCount, 1)
   assert.equal(directRoot.postOrderCount, 3, 'QC直达不生成加工单')
-  assert.equal(directRoot.handedOverGarmentQty, 120)
-  assert.equal(directRoot.waitHandoverGarmentQty, 60)
+  assert.equal(directRoot.handedOverGarmentQty,80)
+  assert.equal(directRoot.waitOutboundOrderCount,1,'直达QC仍待实际发出')
+  assert.equal(directRoot.waitHandoverGarmentQty,20)
   assert.equal(directRoot.diffGarmentQty, 0, '未接收的40件不能伪造为少收差异')
   receive(direct.outbound!, now + 40000)
   const recheckDiff = create([20], now + 50000).task!
   append(recheckDiff, [20], 'STAT-RDIFF-PACK', now + 55000)
   receive(child(recheckDiff, [20], 'STAT-RDIFF-CHILD', now + 56000, [19]), now + 180000)
   const recheckDifference = statistics({ workOrderId: recheckDiff.postTaskId })
-  assert.equal(recheckDifference.handedOverTaskCount, 0, '授权少复核仍有差异，不能宣布全部链完整')
-  assert.equal(recheckDifference.diffGarmentQty, 0, '复检差异不混为成衣仓差异')
+  assert.equal(recheckDifference.handedOverTaskCount, 0, '准备少于完成量时余量仍存在，不能宣布全部链完整')
+  assert.equal(recheckDifference.diffGarmentQty, 0, '尚未准备出货的余量不混为成衣仓差异')
   const warehouseDiff = create([10, 10], now + 240000).task!
   append(warehouseDiff, [10, 10], 'STAT-WDIFF-PACK', now + 245000)
   receive(child(warehouseDiff, [10, 10], 'STAT-WDIFF-CHILD', now + 246000), now + 300000, [9, 11])
@@ -146,7 +150,7 @@ try {
   }
   console.log(JSON.stringify({ passed: true, boundary: 'isolated Node memory / public commands only; no persistence or browser claim',
     scenarios: ['root ID/No/productionNo', 'actual post ID/No and sibling isolation', 'Q-F in-progress remainder', 'same outbound time cohort',
-      'QC direct and pending not a shortage', 'recheck authorized short not closed', 'per-SKU warehouse +/- not cancelled', 'factory/unknown scope'],
+      'QC direct and pending not a shortage', 'prepared quantity below available does not close chain', 'per-SKU warehouse +/- not cancelled', 'factory/unknown scope'],
     scopedA: pick(filterA), rootBeforeExtraScenarios: pick(byRoot), todayA: pick(today), warehouseDifference: pick(warehouseDifference) }, null, 2))
 } finally {
   source.skus.forEach((sku, index) => { sku.plannedQty = originalPlans[index] })

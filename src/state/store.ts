@@ -199,6 +199,7 @@ function pruneRemovedPfosTabs(allTabs: AllSystemTabs): AllSystemTabs {
   if (!pfosTabs) return allTabs
 
   const nextTabs = pfosTabs.tabs.filter((tab) =>
+    !/^\/fcs\/(?:craft\/post-finishing\/recheck-orders|pda\/post-finishing\/recheck)(?:\/|$)/.test(normalizePathname(tab.href)) &&
     !isRemovedCuttingGroupTab(tab) &&
     !(/^\/fcs\/process-factory\/special-craft\/[^/]+\/work-orders$/.test(normalizePathname(tab.href)) &&
       !findMenuItemByPath(tab.href)),

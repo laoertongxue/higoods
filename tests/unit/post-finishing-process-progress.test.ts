@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as flow from '../../src/data/fcs/post-finishing-full-flow.ts'
+import { ensureQualityManagementRecords } from '../../src/data/fcs/quality-management-records.ts'
 
 // PFN-001—022: use the public return → confirmation → QC commands, rather than
 // manufacturing internal processing state. These contracts run in Node memory;
@@ -9,6 +10,7 @@ const actors = flow.POST_FINISHING_ACCEPTANCE_ACTORS
 const chain = ['开扣眼', '装扣子', '熨烫', '包装'] as const
 const fixedTime = Date.parse('2026-10-19T08:00:00+08:00')
 const originalPlans = flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.map(source => source.skus.map(sku => sku.plannedQty))
+test.before(async () => { await ensureQualityManagementRecords() })
 test.afterEach(() => flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.forEach((source, sourceIndex) => source.skus.forEach((sku, skuIndex) => {
   sku.plannedQty = originalPlans[sourceIndex][skuIndex]
 })))
@@ -39,7 +41,10 @@ function createTask(items: string[], quantities = [100, 0, 0, 0, 0], orderIndex 
     nowMs: fixedTime + 1000,
   })
   const qc = flow.sendPostFinishingFactoryReturnToQc({ deliveryId: delivery.deliveryId, actor: actors.sender, nowMs: fixedTime + 2000 })
-  flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actors.qcA, nowMs: fixedTime + 3000 })
+  const claimed = flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actors.qcA, nowMs: fixedTime + 3000 })
+  assert.ok(claimed.inspection?.snapshot.items.length, '领取已固定有效标准')
+  flow.submitPostFinishingQcRound({ qcTaskId:qc.qcTaskId,actor:actors.qcA,operationId:'PROCESS-PROGRESS-QC-ROUND',lines:qc.lines.map(line=>({skuId:line.sku.skuId,passedQty:line.expectedQty,defectQty:0,returnQty:0,issues:[]})),nowMs:fixedTime+3500 })
+  flow.attachPostFinishingQcSignedPaper({ qcTaskId:qc.qcTaskId,actor:actors.qcA,name:'隔离双签测试文件.png',url:'/test-only-signed-paper.png',nowMs:fixedTime+3600 })
   beforeCompleteQc?.()
   const completed = flow.completePostFinishingQcTask({
     qcTaskId: qc.qcTaskId,
@@ -89,7 +94,7 @@ test('PFN-009/015/016/021/022：D1四项形成500/300/200/100进度，最后适�
   assert.equal(view.totalExpectedQty, 1000)
   assert.equal(view.totalCompletedQty, 100)
   assert.equal(view.totalReservedQty, 0)
-  assert.equal(view.availableForRecheckQty, 100)
+  assert.equal(view.availableForOutboundQty, 100)
   assert.equal(flow.getPostFinishingFullFlowPostTask(task.postTaskId)?.status, '后道中')
   assert.equal(view.records.length, 4)
   assert.equal(flow.listPostFinishingFullFlowRecheckOrders().length, 0, '加工保存不自动建复检')
@@ -101,13 +106,13 @@ test('PFN-002/013/016：仅装扣子与包装，包装受装扣子上限约束�
   append(fixture.task.postTaskId, '装扣子', [{ skuId, quantity: 30 }], 'BUTTON-30')
   assert.throws(() => append(fixture.task.postTaskId, '包装', [{ skuId, quantity: 31 }], 'PACK-31'))
   append(fixture.task.postTaskId, '包装', [{ skuId, quantity: 10 }], 'PACK-10')
-  assert.equal(progress(fixture.task.postTaskId).availableForRecheckQty, 10)
+  assert.equal(progress(fixture.task.postTaskId).availableForOutboundQty, 10)
   for (const item of chain) {
     fixture = createTask([item])
     skuId = fixture.source.skus[0].skuId
     append(fixture.task.postTaskId, item, [{ skuId, quantity: 100 }], `SINGLE-${item}`)
     assert.equal(progress(fixture.task.postTaskId).totalCompletedQty, 100)
-    assert.equal(progress(fixture.task.postTaskId).availableForRecheckQty, 100)
+    assert.equal(progress(fixture.task.postTaskId).availableForOutboundQty, 100)
     assert.equal(flow.getPostFinishingFullFlowPostTask(fixture.task.postTaskId)?.status, '后道完成')
   }
 })
@@ -168,7 +173,7 @@ test('PFN-004/052：已有执行事实后不能通过重复QC或旧整单命令�
   assert.deepEqual(progress(task.postTaskId), before)
 })
 
-test('PFN-071：主管订正保留原责任与有符号差量，绝对订正可为0且不破坏后序或复检占用', () => {
+test('PFN-071：主管订正保留原责任与有符号差量，绝对订正可为0且不破坏后序或出货占用', () => {
   const { task, source } = createTask(['开扣眼', '装扣子'])
   const skuId = source.skus[0].skuId
   append(task.postTaskId, '开扣眼', [{ skuId, quantity: 50 }], 'ORIGINAL-HOLE')
@@ -206,7 +211,7 @@ test('PFN-071：主管订正保留原责任与有符号差量，绝对订正可�
   assert.equal(view.records.at(-1).quantities[0].quantity, -30)
   correct(button.recordId, 25, 'BUTTON-TO-25')
   assert.equal(progress(task.postTaskId).totalCompletedQty, 25)
-  ;(flow as any).submitPostFinishingForRecheck({ postTaskId: task.postTaskId, quantities: [{ skuId, quantity: 25 }], actor: actors.postOperator, operationId: 'CORRECT-RESERVATION', nowMs: fixedTime + 30000 })
+  ;(flow as any).submitPostFinishingForOutbound({ postTaskId: task.postTaskId, quantities: [{ skuId, quantity: 25 }], actor: actors.postOperator, operationId: 'CORRECT-RESERVATION', nowMs: fixedTime + 30000 })
   const reserved = progress(task.postTaskId)
   assert.throws(() => correct(button.recordId, 24, 'BREAK-RESERVATION'))
   assert.deepEqual(progress(task.postTaskId), reserved)
@@ -224,14 +229,14 @@ test('PFN-017/020/068/071：回货、QC、复检及仓收角色不能冒充加�
   append(task.postTaskId, '装扣子', quantities, 'AUTHORIZED-POST')
   const before = progress(task.postTaskId)
   for (const actor of forbidden) {
-    assert.throws(() => (flow as any).submitPostFinishingForRecheck({ postTaskId: task.postTaskId, quantities, actor, operationId: `BAD-HANDOVER-${actor.actorId}` }))
+    assert.throws(() => (flow as any).submitPostFinishingForOutbound({ postTaskId: task.postTaskId, quantities, actor, operationId: `BAD-HANDOVER-${actor.actorId}` }))
     assert.throws(() => (flow as any).correctPostFinishingProcessCompletion({ recordId: before.records[0].recordId, quantities, actor, reason: '角色边界验收', operationId: `BAD-CORRECTION-${actor.actorId}` }))
   }
   assert.equal(flow.listPostFinishingFullFlowRecheckOrders().length, 0)
   assert.deepEqual(progress(task.postTaskId), before)
 })
 
-test('PFN-053/054/068：辅料未变时，归属读取故障不阻断普通QC、加工登记和交复检', () => {
+test('PFN-053/054/068：辅料未变时，归属读取故障不阻断普通QC、加工登记和分配出货', () => {
   let ownershipUnavailable = false
   let ownershipReads = 0
   let installedReads = 0
@@ -263,7 +268,7 @@ test('PFN-053/054/068：辅料未变时，归属读取故障不阻断普通QC、
     assert.ok(fixture)
     const skuId = fixture.source.skus[0].skuId
     assert.doesNotThrow(() => append(fixture!.task.postTaskId, '装扣子', [{ skuId, quantity: 25 }], 'MATERIAL-UNCHANGED-APPEND'))
-    assert.doesNotThrow(() => flow.submitPostFinishingForRecheck({
+    assert.doesNotThrow(() => flow.submitPostFinishingForOutbound({
       postTaskId: fixture!.task.postTaskId,
       quantities: [{ skuId, quantity: 25 }],
       actor: actors.postOperator,
@@ -274,7 +279,7 @@ test('PFN-053/054/068：辅料未变时，归属读取故障不阻断普通QC、
     assert.equal(JSON.stringify(flow.readLegacyPostFinishingMaterialState()), materialBytes)
     assert.equal(progress(fixture.task.postTaskId).totalCompletedQty, 25)
     assert.equal(progress(fixture.task.postTaskId).totalReservedQty, 25)
-    assert.equal(flow.listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === fixture!.task.postTaskId).length, 1)
+    assert.equal(flow.listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === fixture!.task.postTaskId).length, 1)
   } finally {
     ownershipUnavailable = false
     flow.installAccessoryPostFinishingReadBridge(bridge)

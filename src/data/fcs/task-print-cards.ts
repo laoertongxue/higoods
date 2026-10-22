@@ -1,4 +1,4 @@
-import { getPostFinishingProcessProgress, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders } from './post-finishing-full-flow.ts'
+import { getPostFinishingProcessProgress, getPostFinishingQcInspectionSummary, listPostFinishingFactoryReturns, listPostFinishingFullFlowQcTasks, listPostFinishingFullFlowPostTasks, listPostFinishingFullFlowOutboundOrders } from './post-finishing-full-flow.ts'
 import { postFinishingPrintProgressFields } from './post-finishing-print-progress.ts'
 import {
   getDyeWorkOrderById,
@@ -1279,63 +1279,29 @@ function mapPostFinishingActionRecord(record: PostFinishingActionRecord): TaskRo
 }
 
 function buildPostFinishingTaskRouteRows(task: PostFinishingTaskView): TaskRouteCardRecordRow[] {
-  return ensureRouteRecordNodes([
-    {
-      rowId: `${task.postTaskId}-receive`,
-      node: '上游交出 / 收货',
-      startedAt: task.createdAt,
-      finishedAt: task.receivedQty > 0 ? task.updatedAt : '—',
-      completedQty: formatQtyText(task.receivedQty, task.qtyUnit),
-      exceptionQty: '—',
-      station: task.sourceFactoryNames.join('、') || '待上游交出',
-      operator: '系统汇总',
-      remark: task.sourceTaskNos.join('、') || '等待上游交出记录',
-    },
-    {
-      rowId: `${task.postTaskId}-qc`,
-      node: '质检',
-      startedAt: task.qcInProgressQty > 0 || task.qcDoneQty > 0 ? task.updatedAt : '—',
-      finishedAt: task.qcDoneQty > 0 ? task.updatedAt : '—',
-      completedQty: formatQtyText(task.qcDoneQty, task.qtyUnit),
-      exceptionQty: formatQtyText(Math.max(task.receivedQty - task.qcDoneQty - task.waitQcQty - task.qcInProgressQty, 0), task.qtyUnit),
-      station: task.managedPostFactoryName,
-      operator: '质检员',
-      remark: `质检单 ${task.qcOrderCount} 张，未质检 ${formatQtyText(Math.max(task.waitQcQty + task.qcInProgressQty, 0), task.qtyUnit)}`,
-    },
-    {
-      rowId: `${task.postTaskId}-post`,
-      node: '后道',
-      startedAt: task.postDoingQty > 0 || task.postDoneQty > 0 ? task.updatedAt : '—',
-      finishedAt: task.postDoneQty > 0 ? task.updatedAt : '—',
-      completedQty: formatQtyText(task.postDoneQty, task.qtyUnit),
-      exceptionQty: '—',
-      station: task.managedPostFactoryName,
-      operator: '后道工',
-      remark: task.postOrderCount > 0 ? `后道加工单 ${task.postOrderCount} 张` : '质检未勾选实际工序时可直接进入复检',
-    },
-    {
-      rowId: `${task.postTaskId}-recheck`,
-      node: '复检',
-      startedAt: task.waitRecheckQty > 0 || task.recheckDoneQty > 0 ? task.updatedAt : '—',
-      finishedAt: task.recheckDoneQty > 0 ? task.updatedAt : '—',
-      completedQty: formatQtyText(task.recheckDoneQty, task.qtyUnit),
-      exceptionQty: '—',
-      station: task.managedPostFactoryName,
-      operator: '复检员',
-      remark: `复检单 ${task.recheckOrderCount} 张`,
-    },
-    {
-      rowId: `${task.postTaskId}-handover`,
-      node: '交出',
-      startedAt: task.waitHandoverQty > 0 ? task.updatedAt : '—',
-      finishedAt: task.currentStatus === '已完成' ? task.updatedAt : '—',
-      completedQty: formatQtyText(Math.max(task.recheckDoneQty - task.waitHandoverQty, 0), task.qtyUnit),
-      exceptionQty: '—',
-      station: task.managedPostFactoryName,
-      operator: '仓管员',
-      remark: `待交出 ${formatQtyText(task.waitHandoverQty, task.qtyUnit)}`,
-    },
-  ], ['上游交出 / 收货', '质检', '后道', '复检', '交出'])
+  const scope = new Set([task.productionOrderNo])
+  const returns = listPostFinishingFactoryReturns().filter(row=>row.productionOrderNo===task.productionOrderNo)
+  const qcs = listPostFinishingFullFlowQcTasks(scope)
+  const posts = listPostFinishingFullFlowPostTasks(scope)
+  const outbounds = listPostFinishingFullFlowOutboundOrders(scope)
+  const rows: TaskRouteCardRecordRow[] = [
+    ...returns.map(row=>({rowId:row.deliveryId,node:`回货实收 ${row.deliveryOrderNo}`,startedAt:row.registeredAt,finishedAt:row.confirmedAt || '—',
+      completedQty:formatQtyText(row.lines.reduce((n,line)=>n+(line.confirmedQty ?? 0),0),'件'),exceptionQty:'—',station:row.managedPostFactoryName,
+      operator:row.confirmedBy?.actorName || '待点收',remark:row.status})),
+    ...qcs.map(row=>{const actual=getPostFinishingQcInspectionSummary(row);return {rowId:row.qcTaskId,node:`质检 ${row.qcTaskNo}`,startedAt:row.claimedAt || '—',finishedAt:row.completedAt || '—',
+      completedQty:actual?formatQtyText(actual.inspectedQty,'件'):row.status==='质检完成'?'历史实检未记录':'尚未检查',
+      exceptionQty:actual?formatQtyText(actual.defectQty+actual.returnQty,'件'):'—',station:task.managedPostFactoryName,operator:row.claimedBy?.actorName || '待领取',
+      remark:actual?`${row.status}；实检合格${actual.passedQty}，未检${actual.uninspectedQty}${row.status==='质检完成'?`，正常放行${actual.releasedQty}`:''}`:row.status}}),
+    ...posts.flatMap(row=>{const progress=getPostFinishingProcessProgress(row);return progress.records.length?progress.records.map(record=>({rowId:record.recordId,node:`${record.processItem}${record.correctionOf?'订正':'登记'}`,startedAt:record.recordedAt,finishedAt:record.recordedAt,
+      completedQty:formatQtyText(record.quantities.reduce((n,line)=>n+line.quantity,0),'件'),exceptionQty:'—',station:task.managedPostFactoryName,operator:record.responsible.actorName,remark:record.reason || `加工单 ${row.postTaskNo}`})):
+      [{rowId:row.postTaskId,node:`后道加工 ${row.postTaskNo}`,startedAt:row.startedAt || '—',finishedAt:row.completedAt || '—',completedQty:formatQtyText(progress.totalCompletedQty,'件'),exceptionQty:'—',station:task.managedPostFactoryName,operator:'责任未记录',remark:row.executionModel?'尚无分项登记':'历史合并记录，未补造逐项责任'}]}),
+    ...outbounds.flatMap(row=>[
+      {rowId:`${row.outboundOrderId}-prepared`,node:`准备出货 ${row.outboundOrderNo}`,startedAt:row.createdAt,finishedAt:row.createdAt,completedQty:formatQtyText(row.lines.reduce((n,line)=>n+line.outboundQty,0),'件'),exceptionQty:'—',station:task.managedPostFactoryName,operator:'未记录',remark:row.status},
+      {rowId:`${row.outboundOrderId}-dispatched`,node:`实际发出 ${row.outboundOrderNo}`,startedAt:row.dispatchedAt || '—',finishedAt:row.dispatchedAt || '—',completedQty:formatQtyText(row.status==='待出货'?0:row.lines.reduce((n,line)=>n+line.outboundQty,0),'件'),exceptionQty:'—',station:task.managedPostFactoryName,operator:row.dispatchedBy?.actorName || (row.status==='待出货'?'未发出':'历史人员未记录'),remark:row.status},
+      {rowId:`${row.outboundOrderId}-received`,node:`仓库实收 ${row.outboundOrderNo}`,startedAt:row.receivedAt || '—',finishedAt:row.receivedAt || '—',completedQty:formatQtyText(row.lines.reduce((n,line)=>n+(line.receivedQty ?? 0),0),'件'),exceptionQty:'—',station:'成衣仓',operator:row.receivedBy?.actorName || '未接收',remark:row.status},
+    ]),
+  ]
+  return rows.length ? rows : [{rowId:`${task.postTaskId}-empty`,node:'等待上游回货',startedAt:'—',finishedAt:'—',completedQty:'0 件',exceptionQty:'—',station:task.managedPostFactoryName,operator:'—',remark:'尚无实际回货、检查或出货记录'}]
 }
 
 function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBuildResult {
@@ -1359,10 +1325,10 @@ function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBui
       statusLabel: task.currentStatus,
       plannedQty: task.plannedGarmentQty,
       qtyUnit: task.qtyUnit,
-      dueAt: task.updatedAt,
+      dueAt: '',
       qrValue: buildTaskQrValue(task.postTaskId),
       image: resolvePrintImage({ productionOrderId: task.productionOrderNo, processName: '后道', craftName: '后道' }),
-      summaryRemark: '生产单级后道生产任务流转卡，质检单、后道加工单、复检单均归属该任务。',
+      summaryRemark: '生产单级后道生产任务流转卡，质检单、后道加工单和出货单归属该任务。',
       titleOverride: '后道生产任务流转卡',
       summaryRowsOverride: [
         { label: '后道生产任务编号', value: task.postTaskNo },
@@ -1378,7 +1344,7 @@ function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBui
         { label: '技术包版本', value: task.techPackVersionLabel },
         { label: '上游来源', value: task.sourceFactoryNames.join('、') || '待上游交出' },
         { label: '上游任务', value: task.sourceTaskNos.join('、') || '—' },
-        { label: '子单据', value: `质检单 ${task.qcOrderCount} 张 / 后道加工单 ${task.postOrderCount} 张 / 复检单 ${task.recheckOrderCount} 张` },
+        { label: '子单据', value: `质检单 ${task.qcOrderCount} 张 / 后道加工单 ${task.postOrderCount} 张` },
       ],
       routeRecords: buildPostFinishingTaskRouteRows(task),
     },
@@ -1390,17 +1356,19 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
   if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道加工单：${sourceId}` }
   const actionRecords = [order.receiveAction, order.qcAction].filter(Boolean) as PostFinishingActionRecord[]
   const progress = getPostFinishingProcessProgress(order.postOrderId)
-  const rechecks = listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === order.postOrderId)
   const outbounds = listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === order.postOrderId)
   const additionalRows: TaskRouteCardRecordRow[] = [
     ...progress.records.map(row => ({ rowId: row.recordId, node: `${row.processItem}${row.correctionOf ? '订正' : '登记'}`, startedAt: row.recordedAt, finishedAt: row.recordedAt,
       completedQty: formatQtyText(row.quantities.reduce((sum, line) => sum + line.quantity, 0), '件'), exceptionQty: '—', station: order.currentFactoryName,
       operator: row.responsible.actorName, remark: `录入：${row.recordedBy.actorName}${row.reason ? `；${row.reason}` : ''}` })),
-    ...rechecks.map(row => ({ rowId: row.recheckOrderId, node: `复检 ${row.recheckOrderNo}`, startedAt: row.claimedAt || '—', finishedAt: row.completedAt || '—',
-      completedQty: formatQtyText(row.lines.reduce((sum, line) => sum + (line.handoverQty || 0), 0), '件'), exceptionQty: '—', station: order.currentFactoryName,
-      operator: row.claimedBy?.actorName || '未领取', remark: row.status })),
-    ...outbounds.map(row => ({ rowId: row.outboundOrderId, node: `出货 ${row.outboundOrderNo}`, startedAt: row.createdAt, finishedAt: row.receivedAt || '—',
-      completedQty: formatQtyText(row.lines.reduce((sum, line) => sum + line.outboundQty, 0), '件'), exceptionQty: '—', station: '成衣仓', operator: row.receivedBy?.actorName || '待接收', remark: row.status })),
+    ...outbounds.flatMap(row => [
+      { rowId: `${row.outboundOrderId}-prepared`, node: `准备出货 ${row.outboundOrderNo}`, startedAt: row.createdAt, finishedAt: row.createdAt,
+        completedQty: formatQtyText(row.lines.reduce((sum, line) => sum + line.outboundQty, 0), '件'), exceptionQty: '—', station: order.currentFactoryName, operator: '未记录', remark: row.status },
+      { rowId: `${row.outboundOrderId}-dispatched`, node: `实际发出 ${row.outboundOrderNo}`, startedAt: row.dispatchedAt || '—', finishedAt: row.dispatchedAt || '—',
+        completedQty: formatQtyText(row.status === '待出货' ? 0 : row.lines.reduce((sum, line) => sum + line.outboundQty, 0), '件'), exceptionQty: '—', station: order.currentFactoryName, operator: row.dispatchedBy?.actorName || '未发出', remark: row.status },
+      { rowId: `${row.outboundOrderId}-received`, node: `仓库实收 ${row.outboundOrderNo}`, startedAt: row.receivedAt || '—', finishedAt: row.receivedAt || '—',
+        completedQty: formatQtyText(row.lines.reduce((sum, line) => sum + (line.receivedQty ?? 0), 0), '件'), exceptionQty: '—', station: '成衣仓', operator: row.receivedBy?.actorName || '待接收', remark: row.status },
+    ]),
   ]
 
   return {
@@ -1420,10 +1388,10 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
       statusLabel: order.currentStatus,
       plannedQty: order.plannedGarmentQty,
       qtyUnit: order.plannedGarmentQtyUnit,
-      dueAt: order.updatedAt,
+      dueAt: '',
       qrValue: buildTaskQrValue(order.sourceTaskId || order.postOrderId),
       image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderNo, processName: '后道', craftName: '后道' }),
-      summaryRemark: '按扫码收货、质检、实际工序、复检节点生成后道加工单流转卡',
+      summaryRemark: '按扫码收货、质检、实际工序、准备出货、实际发出和仓库实收生成流转卡',
       titleOverride: '后道加工单流转卡',
       summaryRowsOverride: [
         ...postFinishingPrintProgressFields(order.postOrderId),
@@ -1439,10 +1407,9 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
       ],
       supplementalItems: [
         { label: '任务模式', value: order.routeMode },
-        { label: '当前流程', value: order.isPostDoneBySewingFactory ? '扫码收货 -> 质检 -> 复检 -> 交出' : '扫码收货 -> 质检 -> 实际工序 -> 复检 -> 交出' },
+        { label: '当前流程', value: order.isPostDoneBySewingFactory ? '扫码收货 -> 质检 -> 准备出货 -> 实际发出 -> 仓库实收' : '扫码收货 -> 质检 -> 实际工序 -> 准备出货 -> 实际发出 -> 仓库实收' },
         { label: '扫码收货节点', value: `${order.receiveAction.status} / ${formatQtyText(order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit)}` },
         { label: '质检节点', value: `${order.qcAction.status} / ${formatQtyText(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit)}` },
-        { label: '复检节点', value: `${order.recheckAction.status} / ${formatQtyText(order.recheckAction.acceptedGarmentQty, order.recheckAction.qtyUnit)}` },
         { label: '待加工仓记录', value: order.waitProcessWarehouseRecordId },
         { label: '待交出仓来源出货', value: outbounds.map(row => row.outboundOrderNo).join('、') || '暂无待交出仓记录' },
       ],

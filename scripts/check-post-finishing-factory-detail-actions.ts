@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import {
   loadPostFinishingDemoData,
   listPostFinishingFullFlowOutboundOrders,
@@ -10,69 +10,43 @@ import {
   listPostFinishingWaitProcessWarehouseRecords,
 } from '../src/data/fcs/post-finishing-full-flow.ts'
 
+// 继承2026-10-22已确认的“QC→可选逐项加工→直接出货”；
+// 原复检要求由正式需求替代，历史只读/显式迁移另有原生契约。
 loadPostFinishingDemoData()
-
 const postTasks = listPostFinishingFullFlowPostTasks()
 const qcTasks = listPostFinishingFullFlowQcTasks()
 const recheckOrders = listPostFinishingFullFlowRecheckOrders()
 const outboundOrders = listPostFinishingFullFlowOutboundOrders()
-const allowedProjects = new Set(['开扣眼', '装扣子', '烫包'])
-
-assert.ok(postTasks.length > 0, '当前全流程必须包含后道加工单记录')
-assert.ok(postTasks.every((task) => task.lines.length > 0), '每张后道加工单必须包含 SKU 数量明细')
-assert.ok(postTasks.every((task) => task.lines.every((line) => Boolean(line.sku.imageUrl))), '每个后道加工 SKU 必须带款式图片')
-assert.ok(postTasks.every((task) => task.processItems.length > 0), '只有 QC 确认了后道项目的批次才生成后道加工单')
-assert.ok(postTasks.every((task) => task.processItems.every((project) => allowedProjects.has(project))), '本批后道项目只能是开扣眼、装扣子、烫包')
-assert.ok(qcTasks.length > 0, '必须存在当前质检记录')
-assert.ok(recheckOrders.length > 0, '有后道加工的批次必须存在处理后交出复核记录')
-assert.ok(listPostFinishingWaitProcessWarehouseRecords().length > 0, '必须存在当前后道待加工仓记录')
-assert.ok(listPostFinishingWaitHandoverWarehouseRecords().length > 0, '处理后复核完成的批次必须存在当前待交出仓记录')
-
-const directOutbounds = outboundOrders.filter((order) => order.sourceType === '质检直达')
-assert.ok(directOutbounds.length > 0, 'QC 最终项目为空时必须生成面向成衣仓的待接收交接事实')
-for (const outbound of directOutbounds) {
-  assert.ok(!postTasks.some((task) => task.deliveryId === outbound.deliveryId), `${outbound.outboundOrderNo} 不得并行生成后道加工单`)
-  assert.ok(!recheckOrders.some((order) => order.deliveryId === outbound.deliveryId), `${outbound.outboundOrderNo} 不得进入处理后交出复核`)
+const allowedProjects = new Set(['开扣眼', '装扣子', '熨烫', '包装'])
+assert(postTasks.length > 0, '必须有后道加工演示记录')
+assert(postTasks.every(task => task.lines.length > 0 && task.lines.every(line => Boolean(line.sku.imageUrl))), '每张加工单有真实对应图片及SKU明细')
+assert(postTasks.every(task => task.processItems.length > 0 && task.processItems.every(project => allowedProjects.has(project))), '加工项目保持已确认的逐项加工口径')
+assert(qcTasks.length > 0, '必须存在当前质检记录')
+assert.equal(recheckOrders.length, 0, '当前演示流程不能再生成复检；旧用户历史不由本检查删除')
+assert(listPostFinishingWaitProcessWarehouseRecords().length > 0, '保留后道待加工仓')
+assert(listPostFinishingWaitHandoverWarehouseRecords().length > 0, '实际出货仍有待交出仓事实')
+for (const sourceType of ['质检直达', '后道加工后'] as const) {
+  assert(outboundOrders.some(order => order.sourceType === sourceType), `${sourceType}必须有直接后道出货单`)
 }
-
-const detailSource = readFileSync(new URL('../src/pages/process-factory/post-finishing/work-order-detail.ts', import.meta.url), 'utf8')
-const workOrdersSource = readFileSync(new URL('../src/pages/process-factory/post-finishing/work-orders.ts', import.meta.url), 'utf8')
-const qcOrdersSource = readFileSync(new URL('../src/pages/process-factory/post-finishing/qc-orders.ts', import.meta.url), 'utf8')
-const qcWorkbenchSource = readFileSync(new URL('../src/pages/process-factory/post-finishing/qc-workbench.ts', import.meta.url), 'utf8')
-const recheckOrdersSource = readFileSync(new URL('../src/pages/process-factory/post-finishing/recheck-orders.ts', import.meta.url), 'utf8')
-const pdaSource = readFileSync(new URL('../src/pages/pda-post-finishing-flow.ts', import.meta.url), 'utf8')
-const printSource = readFileSync(new URL('../src/pages/print/templates/post-finishing-route-card-template.ts', import.meta.url), 'utf8')
-
-for (const text of ['SKU 明细', '本批后道项目', '已处理数量', '未处理数量']) {
-  assert.ok((detailSource + workOrdersSource).includes(text), `Web 后道加工单缺少 ${text}`)
+for (const order of outboundOrders) {
+  assert(!order.recheckOrderId, '新流程出货不依赖复检单')
+  if (order.sourceType === '质检直达') assert(!postTasks.some(task => task.deliveryId === order.deliveryId), '无加工的QC不得并行生成加工单')
+  if (order.status === '待出货') assert(!order.dispatchedAt && !order.receivedAt, '准备单不能冒充实际发出或仓库接收')
 }
-assert.ok(!detailSource.includes('实际工序'), '当前后道加工单详情不得恢复旧“实际工序”口径')
-for (const text of ['完整质检单号', '领取质检单', '一单一质检员']) {
-  assert.ok((qcOrdersSource + qcWorkbenchSource).includes(text), `Web 统一质检页缺少 ${text}`)
-}
-for (const text of ['开始后道', '完整后道加工单号', '核对无误，开始后道', '完成后道并生成处理后交出复核单']) {
-  assert.ok((detailSource + workOrdersSource).includes(text), `Web 后道加工单缺少 ${text}`)
-}
-for (const text of ['领取复检单', '完整复检单号', '实际交出数量', 'SKU 条码是否正确', '确认数量条码并生成后道出货单']) {
-  assert.ok(recheckOrdersSource.includes(text), `Web 处理后交出复核缺少 ${text}`)
-}
-for (const field of ['data-recheck-result-field="passedQty"', 'data-recheck-result-field="defectQty"', 'data-recheck-result-field="returnQty"']) {
-  assert.ok(!recheckOrdersSource.includes(field), `处理后交出复核不得保留第二质量字段 ${field}`)
-}
-for (const text of ['核对无误，开始后道', '本批数量归类', '完成并生成处理后交出复核单', '条码错误，已阻断出货']) {
-  assert.ok(pdaSource.includes(text), `后道 PDA 缺少当前动作 ${text}`)
-}
-assert.ok(!pdaSource.includes('>开始质检<') && !pdaSource.includes('>完成质检<'), 'PDA 不得保留质检执行动作')
-assert.ok(pdaSource.includes('本批后道项目（质检已确认）：') && pdaSource.includes('task.processItems.map(escapeHtml)'), 'PDA 必须只读展示当前加工单的本批后道项目')
-for (const text of ['阶段任务', '实际工序单', '车缝+后道', 'PDA 执行（优先）', 'Web 应急', 'Web应急']) {
-  assert.ok(!(detailSource + workOrdersSource + pdaSource + printSource).includes(text), `Web/PDA/打印不得展示 ${text}`)
-}
-assert.ok(printSource.includes('后道加工单流转卡'), '打印标题必须使用后道加工单口径')
-
-console.log(JSON.stringify({
-  后道加工单记录: postTasks.length,
-  质检记录: qcTasks.length,
-  处理后交出复核记录: recheckOrders.length,
-  QC直达成衣仓交接记录: directOutbounds.length,
-  Web质检_Web后道_Web处理后复核_PDA兼容_打印后道项目动作: '通过',
-}, null, 2))
+const read = (path: string) => readFileSync(new URL('../' + path, import.meta.url), 'utf8')
+const detail = read('src/pages/process-factory/post-finishing/work-order-detail.ts')
+const list = read('src/pages/process-factory/post-finishing/work-orders.ts')
+const qc = read('src/pages/process-factory/post-finishing/qc-orders.ts') + read('src/pages/process-factory/post-finishing/qc-workbench.ts')
+const outbound = read('src/pages/process-factory/post-finishing/outbound-orders.ts')
+const pda = read('src/pages/pda-post-finishing-flow.ts')
+const print = read('src/pages/print/templates/post-finishing-route-card-template.ts')
+assert(!existsSync(new URL('../src/pages/process-factory/post-finishing/recheck-orders.ts', import.meta.url)), '退役复检执行页面须实际删除')
+for (const text of ['SKU 明细', '后道加工单', '准备出货']) assert((detail + list).includes(text), `后道原Web缺少${text}`)
+for (const text of ['full-flow-claim-qc', 'full-flow-submit-qc-round', '处理本轮稽查']) assert(qc.includes(text), `原QC入口缺少${text}`)
+for (const text of ['data-post-process', 'data-post-outbound-form', '实际加工顺序', '实际发出仍需另行确认']) assert(pda.includes(text), `PDA缺少${text}`)
+assert(outbound.includes('data-post-outbound-dispatch'), '后道出货页须有实际发出动作')
+for (const retired of ['领取复检单', '完成后道并生成处理后交出复核单', 'data-recheck-result-field', 'full-flow-supervisor-release-recheck']) assert(!(detail + list + pda + qc + outbound).includes(retired), `当前页面仍残留${retired}`)
+assert(!pda.includes('>开始质检<') && !pda.includes('>完成质检<'), 'PDA不能恢复质检执行入口')
+assert(pda.includes('task.processItems.map(escapeHtml)'), 'PDA只读当前单加工顺序')
+assert(print.includes('后道加工单流转卡'), '保留原加工单流转卡')
+console.log(JSON.stringify({加工单:postTasks.length,质检单:qcTasks.length,当前复检单:recheckOrders.length,直接出货单:outboundOrders.length,Web_PDA_直接出货_打印:'通过'}, null, 2))

@@ -706,7 +706,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
         responsible: POST_FINISHING_ACCEPTANCE_ACTORS.postSupervisor, actor: POST_FINISHING_ACCEPTANCE_ACTORS.postSupervisor,
         operationId: `REMAINING:${parent.postTaskId}:${processItem}`, nowMs: nextTime(),
       })
-      assert.equal(getPostFinishingProcessProgress(parent.postTaskId).availableForRecheckQty, 2, '新增完工量可再次交复检，原数量不能重复交')
+      assert.equal(getPostFinishingProcessProgress(parent.postTaskId).availableForOutboundQty, 2, '新增完工量可再次交复检，原数量不能重复交')
       const second = submitPostFinishingForRecheck({ postTaskId: parent.postTaskId, quantities: [{ skuId: parent.lines[0].sku.skuId, quantity: 2 }],
         actor: POST_FINISHING_ACCEPTANCE_ACTORS.postSupervisor, operationId: `HANDOVER:${parent.postTaskId}:2`, nowMs: nextTime() })
       assert.equal(second.recheckOrderNo, `${parent.postTaskNo}-FJ-002`, '同加工单第二张复检独立编号')

@@ -177,8 +177,6 @@ import {
   renderLaceWorkOrdersPage,
   renderPostFinishingQcOrdersPage,
   renderPostFinishingQcWorkbenchPage,
-  renderPostFinishingRecheckOrdersPage,
-  renderPostFinishingRecheckOrderDetailPage,
   renderPostFinishingStatisticsPage,
   renderPostFinishingOutboundOrdersPage,
   renderPostFinishingOutboundOrderDetailPage,
@@ -240,6 +238,12 @@ const specialCraftMenuExactRoutes = buildSpecialCraftMenuExactRoutes()
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/quality-management/basic-standards': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
+    '/fcs/quality-management/additional-standards': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
+    '/fcs/quality-management/inspection-rules': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
+    '/fcs/quality-management/records': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
+    '/fcs/quality-management/audits': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
+    '/fcs/quality-management/statistics': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
     '/fcs/craft/dyeing/washing/work-orders': () => renderFabricWashingListPage(false),
     ...specialCraftMenuExactRoutes,
     '/fcs/history/retired-process-records': () => renderRetiredProcessHistoryPage(),
@@ -452,7 +456,6 @@ export const routes: RouteRegistry = {
     '/fcs/craft/post-finishing/work-orders': () => renderPostFinishingWorkOrdersPage(),
     '/fcs/craft/post-finishing/qc-orders': () => renderPostFinishingQcOrdersPage(),
     '/fcs/craft/post-finishing/qc-workbench': () => renderPostFinishingQcWorkbenchPage(),
-    '/fcs/craft/post-finishing/recheck-orders': () => renderPostFinishingRecheckOrdersPage(),
     '/fcs/craft/post-finishing/wait-process-warehouse': () => renderPostFinishingWaitProcessWarehousePage(),
     '/fcs/craft/post-finishing/wait-handover-warehouse': () => renderPostFinishingWaitHandoverWarehousePage(),
     '/fcs/craft/post-finishing/outbound-orders': () => renderPostFinishingOutboundOrdersPage(),
@@ -657,10 +660,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/craft\/post-finishing\/outbound-orders\/([^/]+)$/,
       render: (match) => renderPostFinishingOutboundOrderDetailPage(decodeURIComponent(match[1])),
-    },
-    {
-      pattern: /^\/fcs\/craft\/post-finishing\/recheck-orders\/([^/]+)$/,
-      render: (match) => renderPostFinishingRecheckOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/post-finishing\/work-orders\/([^/]+)$/,

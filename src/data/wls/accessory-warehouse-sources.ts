@@ -7,7 +7,7 @@ import {
   type MaterialPrepOrderProjection,
 } from '../fcs/cutting/production-material-prep.ts'
 import { getBrowserLocalStorage, type BrowserStorageLike } from '../browser-storage.ts'
-import { hydrateProductionContextRecords } from '../fcs/production-context-records.ts'
+import { hydrateProductionContextRecords, hydratePostFinishingProductionContextRecords } from '../fcs/production-context-records.ts'
 import { productionOrders, type ProductionOrder } from '../fcs/production-orders.ts'
 import { listRuntimeProcessTasks, type RuntimeProcessTask } from '../fcs/runtime-process-tasks.ts'
 import { listEffectiveTaskAssignments, type EffectiveTaskAssignment } from '../fcs/effective-task-assignments.ts'
@@ -228,10 +228,11 @@ function checkedLegacyStorage(): BrowserStorageLike | null {
   }
   return storage
 }
-export async function prepareAccessoryWarehouseSources(): Promise<void> {
+export async function prepareAccessoryWarehouseSources(options:{postFinishingReadOnly?:boolean}={}): Promise<void> {
   preparationReadFailure = ''
   try {
-    await hydrateProductionContextRecords()
+    if(options.postFinishingReadOnly)await hydratePostFinishingProductionContextRecords()
+    else await hydrateProductionContextRecords()
     await ensureAccessoryWarehouseRecords()
     checkedLegacyStorage()
   } catch (error) {

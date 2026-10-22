@@ -1,0 +1,4848 @@
+{
+  "date": "2026-10-22",
+  "phase": "源码阅读/设计；未实施、未运行产品验证",
+  "workspace": "/Users/laoer/.codex/worktrees/e103/higoods",
+  "head": "fc3283f6286e943e66d2b0c7f91cab88571b85ae",
+  "summary": {
+    "uniqueFullFiles": 166,
+    "uniqueFullLines": 64323,
+    "fullSourceFiles": 136,
+    "fullSourceLines": 58632,
+    "partialFiles": 11,
+    "partialReadLines": 3281,
+    "ledgerValidated": true
+  },
+  "method": "先CodeGraph结构定位，随后逐段读取当前完整源文件；截断已补读。通用跨工序聚合文件仅声明完整相关函数/分支范围，未读其余业务不计全文。哈希核对只验证版本，不替代阅读。",
+  "files": [
+    {
+      "path": "architecture.md",
+      "lineCount": 168,
+      "sha256": "d6145fecdb2836f9c9cdae2f2d662d3cff033256206f6d377f6601ef0a11e8d9",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              168
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          168
+        ]
+      ]
+    },
+    {
+      "path": "docs/product-design/质检管理完整业务需求方案-2026-10-21.md",
+      "lineCount": 560,
+      "sha256": "9ed1a3a739984bcff952bb69e5f74aafbd47ed1d57feabc11a4282c1ee83d23c",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              560
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        },
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              280
+            ],
+            [
+              281,
+              560
+            ]
+          ],
+          "scope": "已确认业务基线"
+        },
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              560
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          560
+        ]
+      ]
+    },
+    {
+      "path": "package.json",
+      "lineCount": 363,
+      "sha256": "bdf08051198c3b897f814344b082a6cf4ab63d6931e320aa5f67c48b3cdbef67",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              190
+            ],
+            [
+              191,
+              363
+            ]
+          ],
+          "scope": "准确现存命令及构建/测试依赖"
+        },
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              363
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          363
+        ]
+      ]
+    },
+    {
+      "path": "playwright.config.ts",
+      "lineCount": 43,
+      "sha256": "18a41ebd0df06a1ec3e8b211d192922dba715888922e1fb66eb785d223939473",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              43
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          43
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-post-finishing-cross-terminal-ui.ts",
+      "lineCount": 118,
+      "sha256": "e53ba98bfd7c30ede793d497d6c169a15ceacd7d703d556dcdc67ef4bdcddb5e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              118
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          118
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-post-finishing-full-flow-surface.ts",
+      "lineCount": 305,
+      "sha256": "25199061a981d06546161b9a0ddb6c370ed599f6f06977ce2b7364dcbac8a555",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              305
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          305
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-post-finishing-management-list-alignment.ts",
+      "lineCount": 145,
+      "sha256": "03190da9e5275e304a44705eda07b6b2cd3bab9752da812867c4ff5c56917c54",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              145
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          145
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-post-finishing-qc-print-templates.ts",
+      "lineCount": 26,
+      "sha256": "9d712aa08ea9fb4e8b2abde329514dc9e9b3e885e984084deb85a73633c58804",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              26
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          26
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-post-finishing-statistics-scope.ts",
+      "lineCount": 154,
+      "sha256": "b3308d55127144ef03975fa883808f8048df1e2bcb6bdbaffbbfc252596c16e7",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              154
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          154
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-post-finishing-web-pda-fallback.ts",
+      "lineCount": 151,
+      "sha256": "0e8a297b688baba0ae09feb8a19e4dff21f2f037f0aaa0423043cb01ade1df94",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              151
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          151
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-post-route-qc-recheck.ts",
+      "lineCount": 163,
+      "sha256": "0737c2c99e4b590e75b2497a06ad3e50f7e1c467969b37b6938e196d3ea2a767",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              163
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          163
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-print-service-post-route-card.ts",
+      "lineCount": 48,
+      "sha256": "f3e40164716b484c5eea40455ba128353a34ac88b1b585ad43aab80574889a20",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              48
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          48
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-sewing-outsourcing-full-flow-data.ts",
+      "lineCount": 596,
+      "sha256": "054624cd6021ca38d252d874f6649b9757603ded5c095195f5d2507bfeaf0c81",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              300
+            ],
+            [
+              301,
+              596
+            ]
+          ],
+          "scope": "全流程样衣消费者及其他非范围契约"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          596
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-sewing-outsourcing-sample-approval.ts",
+      "lineCount": 298,
+      "sha256": "750911fb4e428ec2510af377f6c51a91a01aed0121f7e7adabf613255aa6441f",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              160
+            ],
+            [
+              161,
+              298
+            ]
+          ],
+          "scope": "现存样衣业务契约和非本期交接保留边界"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          298
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-sewing-outsourcing-sample-pages.ts",
+      "lineCount": 73,
+      "sha256": "6252b6a053cfd2b29863b9efdde3b70fe599c835aad46b81fead1efabea68cca",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              73
+            ]
+          ],
+          "scope": "现存原页面静态契约"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          73
+        ]
+      ]
+    },
+    {
+      "path": "scripts/check-sewing-outsourcing-workbench.ts",
+      "lineCount": 98,
+      "sha256": "c2d82cb04cc9711da786942fec8ab08ba50c5a12849fedb0cd0b23fdf19147a5",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              98
+            ]
+          ],
+          "scope": "工作台直接契约"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          98
+        ]
+      ]
+    },
+    {
+      "path": "scripts/verification/post-finishing-qc-performance.js",
+      "lineCount": 140,
+      "sha256": "6288984f8011b6a007ed2beafb51e736040e34bd1be45fa2fe061c0f77e2cf63",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              140
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          140
+        ]
+      ]
+    },
+    {
+      "path": "src/components/real-barcode.ts",
+      "lineCount": 43,
+      "sha256": "73c3ac790427c5a8cd1ba759c49bec8f8c89fa36eeacf9fa03a7efbfcdabf5eb",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              43
+            ]
+          ],
+          "scope": "当前工作树源码全文，分段输出已覆盖。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          43
+        ]
+      ]
+    },
+    {
+      "path": "src/components/real-qr-placeholder.ts",
+      "lineCount": 27,
+      "sha256": "e35a4545751bc8ce209bd615bb4f5b1b675307378a13b0ef8234fe34e5c589dc",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              27
+            ]
+          ],
+          "scope": "当前工作树源码全文，分段输出已覆盖。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          27
+        ]
+      ]
+    },
+    {
+      "path": "src/components/real-qr.ts",
+      "lineCount": 85,
+      "sha256": "70157ca58a5dfa4072383dc50f1dc437ea5d3db8d7909c444f5e4c8cd6c1356e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              85
+            ]
+          ],
+          "scope": "当前工作树源码全文，分段输出已覆盖。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          85
+        ]
+      ]
+    },
+    {
+      "path": "src/components/shell.ts",
+      "lineCount": 407,
+      "sha256": "ae4d9f68d80e9c3f71e40b75e76028f6d08b2de74f61de2f5057a42cfc4c3839",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              407
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          407
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/dialog.ts",
+      "lineCount": 173,
+      "sha256": "25bf63263ce6aae80179d361e37e4a31dc7a917f17ba0be990ec4d23a54c0265",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              173
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          173
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/drawer.ts",
+      "lineCount": 154,
+      "sha256": "fd3fdd10398cb0410256a1988222e1879664baae9abd7f976023898f86b002eb",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              154
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          154
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/list-export.ts",
+      "lineCount": 43,
+      "sha256": "19249bd97df0414e8eeebdee7831b23a44bee5450f71cf22b84e053016608296",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              43
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          43
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/list-page.ts",
+      "lineCount": 93,
+      "sha256": "9b488de14af659d5bddcc456e81e1ae5f5175294de5e00a6a54eed5b1c04bfd6",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              93
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          93
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/list-table-model.ts",
+      "lineCount": 218,
+      "sha256": "d9ca459c30c8bf436b7ef602a67c0f8c2f5b01651c93176184ffb5ee4532f4de",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              218
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          218
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/list-table.ts",
+      "lineCount": 570,
+      "sha256": "6f7540ae3fdda902bb03ee69e57b8b264abdbdca0a409bfcef9f58e1350c48fc",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              570
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          570
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/pagination.ts",
+      "lineCount": 309,
+      "sha256": "bfa5fa64884318189f58e235889544a0a165259f9d87b3c3a21cf0bbd6eb5be5",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              309
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          309
+        ]
+      ]
+    },
+    {
+      "path": "src/components/ui/pda-image-preview.ts",
+      "lineCount": 58,
+      "sha256": "f02d057a9a73562a7a2449f1c92a24896f982210336422049dff33118324d230",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              58
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          58
+        ]
+      ]
+    },
+    {
+      "path": "src/data/app-shell-config.ts",
+      "lineCount": 1027,
+      "sha256": "c42f51bddc9485695bb79fa799c32c16f001f55091f037606185985dec045a3b",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              1027
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          1027
+        ]
+      ]
+    },
+    {
+      "path": "src/data/app-shell-types.ts",
+      "lineCount": 46,
+      "sha256": "44b9114b4cfd6c826d7044762655a95a37ca145f1af39fadc7b9b12fb978e580",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              46
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          46
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/cutting/cutting-record-repository.ts",
+      "lineCount": 258,
+      "sha256": "cc28cbbaa514d47109e84b7edd07474ec4f31b4cf3bef92115a0fd206a70ec96",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              258
+            ]
+          ],
+          "scope": "真实同库事务及附件、版本冲突、备份读取边界"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          258
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/design-revision-pcs-command.ts",
+      "lineCount": 17,
+      "sha256": "34fb77e0df3384b69e21c3b299588cf6ab8509a9625feb61bb816620b53fde46",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              17
+            ]
+          ],
+          "scope": "最后必要保存依赖全文阅读；非财务领域实现扩展。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          17
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/design-revision-pcs-storage.ts",
+      "lineCount": 302,
+      "sha256": "8caaeab38434ddad6b5fc637653663ba1fa2bf0124d562dd5258b218be171508",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              302
+            ]
+          ],
+          "scope": "最后必要保存依赖全文阅读；非财务领域实现扩展。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          302
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/effective-task-assignments.ts",
+      "lineCount": 423,
+      "sha256": "35909ef629f50a4e052b4f2116cba5a5c187de0242235c4fb159497db5761482",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              90
+            ],
+            [
+              91,
+              423
+            ]
+          ],
+          "scope": "有效车缝分配、样衣初始化关系"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          423
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/fcs-route-links.ts",
+      "lineCount": 310,
+      "sha256": "1d180b4b5f31cf17e2d475aa38f05f79eae1a5652b494f82aa28e8873a66c3be",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              310
+            ]
+          ],
+          "scope": "当前工作树源码全文，分段输出已覆盖。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          310
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/indonesia-factories.ts",
+      "lineCount": 979,
+      "sha256": "559fd29d0d5a3e9be969de90d47c1342ebcecce9d1682d6507ef4ea94c1a0ee8",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              490
+            ],
+            [
+              491,
+              979
+            ]
+          ],
+          "scope": "工厂时区当前事实和读取接口"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          979
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/pda-handover-events.ts",
+      "lineCount": 5550,
+      "sha256": "6c5654af5d71c02058f54193536846362202ce58c74eb5af82403aaeca3ec2a3",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1,
+              140
+            ],
+            [
+              1053,
+              1123
+            ],
+            [
+              2458,
+              2621
+            ],
+            [
+              3598,
+              3709
+            ],
+            [
+              3779,
+              3801
+            ],
+            [
+              3817,
+              3829
+            ],
+            [
+              3987,
+              4055
+            ],
+            [
+              4145,
+              4160
+            ],
+            [
+              4629,
+              4683
+            ],
+            [
+              4700,
+              4866
+            ],
+            [
+              4906,
+              4944
+            ],
+            [
+              4982,
+              5088
+            ],
+            [
+              5527,
+              5550
+            ]
+          ],
+          "scope": "最后必要后道保存/接收完整函数与直接命令边界；聚合其余工序/迁移实现不在本旁路全文范围。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          1,
+          140
+        ],
+        [
+          1053,
+          1123
+        ],
+        [
+          2458,
+          2621
+        ],
+        [
+          3598,
+          3709
+        ],
+        [
+          3779,
+          3801
+        ],
+        [
+          3817,
+          3829
+        ],
+        [
+          3987,
+          4055
+        ],
+        [
+          4145,
+          4160
+        ],
+        [
+          4629,
+          4683
+        ],
+        [
+          4700,
+          4866
+        ],
+        [
+          4906,
+          4944
+        ],
+        [
+          4982,
+          5088
+        ],
+        [
+          5527,
+          5550
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/pda-handover-handout-registry.ts",
+      "lineCount": 119,
+      "sha256": "aaa9f68dfe428b00726e30b824f3067d335bc222fb8f8903b69255777fb6908c",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              119
+            ]
+          ],
+          "scope": "最后必要保存依赖全文阅读；非财务领域实现扩展。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          119
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-authorization.ts",
+      "lineCount": 264,
+      "sha256": "5c48e7acc529722d8bd2d29cf1a5435f9470da100b117764a74ccfcfafcbd8c8",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              264
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          264
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-current-read-model.ts",
+      "lineCount": 1023,
+      "sha256": "0ef56ca434673f2e38f10721f1e9d4127c88a0aa27e9b60da041ce5c7336426c",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              1023
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          1023
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-document-numbering.ts",
+      "lineCount": 92,
+      "sha256": "b7d0f47e5f87d374a7d0c2693dbff914a11dc84adf55ffb31f751d265da4b41a",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              92
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          92
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-full-flow.ts",
+      "lineCount": 4354,
+      "sha256": "4c11c0993e8717bb86cebfd3e1a79050ed83dce727b3194e483992f519ab258d",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              4354
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        },
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              3705,
+              3797
+            ]
+          ],
+          "scope": "最后必要后道保存/接收完整函数与直接命令边界；聚合其余工序/迁移实现不在本旁路全文范围。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          4354
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-operation-log.ts",
+      "lineCount": 136,
+      "sha256": "cb366feb3bfc619ba6324a8aaaef00b959037e0f3caec9cc40e8ac89117c46d8",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              136
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          136
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-print-progress.ts",
+      "lineCount": 14,
+      "sha256": "614b1c64919cba47ae799b2c395e0032a21f27f0e62ebd3e25e1c9f43dd38758",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              14
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          14
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-production-source-fixtures.ts",
+      "lineCount": 48,
+      "sha256": "e789f2d9e0c311c579a3bbfe10422e9a471a8f5a08fb058a5ebb4b36ffb22d8d",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              48
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          48
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-qc-reference.ts",
+      "lineCount": 125,
+      "sha256": "5df21bde7abc2698b4c00e4864062ede578646f16360a2577ead011874d8543f",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              125
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          125
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-records.ts",
+      "lineCount": 455,
+      "sha256": "a7ab65d5a841691ea4727b5725be575248e0cddd61afd592da87ddb0455fb393",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              455
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        },
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1,
+              129
+            ],
+            [
+              245,
+              292
+            ]
+          ],
+          "scope": "最后必要后道保存/接收完整函数与直接命令边界；聚合其余工序/迁移实现不在本旁路全文范围。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          455
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-return-source-adapter.ts",
+      "lineCount": 392,
+      "sha256": "a3cf1c36713a4c9af072074689804ecb6f0a108080ee79fc81e76b99ad9319c2",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              392
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          392
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/post-finishing-return-source-fact-bridge.ts",
+      "lineCount": 32,
+      "sha256": "3bee0b7733aef9e57baca7df3cf793741fa36b8475351aebf71009a2e8b5fd4d",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              32
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          32
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/print-service.ts",
+      "lineCount": 301,
+      "sha256": "d5391097926b177c13b76a912a9e83f99e029d43da77a831223354e0b82d3a78",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              301
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          301
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/print-template-registry.ts",
+      "lineCount": 502,
+      "sha256": "b1470020f277d82014db2fe906d35d2131368aa378bd1e5afdc23424bc07de9d",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              502
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          502
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/production-context-actions.ts",
+      "lineCount": 146,
+      "sha256": "47131d4d0519c987da6bce1686a76ce910d0c44a7a274ee9b37ff32ea790521e",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              146
+            ]
+          ],
+          "scope": "源事实捕获、回滚和稳定UI保存动作"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          146
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/production-context-records.ts",
+      "lineCount": 487,
+      "sha256": "37551f6a1dd47f2b54504c622602799d15639376ed7af2d7290829bf8d083c85",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              31
+            ],
+            [
+              32,
+              245
+            ],
+            [
+              246,
+              487
+            ]
+          ],
+          "scope": "分记录编解码、附件Blob、显式迁移和同库保存"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          487
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/production-frozen-snapshot.ts",
+      "lineCount": 185,
+      "sha256": "b41d5cf2553b8119c97964635706a9c747b4b4dccc27c574d4542782014d5ba9",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              185
+            ]
+          ],
+          "scope": "快照隔离和缺失难度默认值"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          185
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/production-order-tech-pack-runtime.ts",
+      "lineCount": 212,
+      "sha256": "f0a3f4731497988c658e5273c6e496333811485b61a106f8a49e31d9c96bea95",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              212
+            ]
+          ],
+          "scope": "生产单绑定技术资料只读接口"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          212
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/production-orders.ts",
+      "lineCount": 1819,
+      "sha256": "64e512c30daa135e1f23fb48eca0681cbf5b1163838532ca4a3d274f9ab0f64b",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              500
+            ],
+            [
+              501,
+              1000
+            ],
+            [
+              1001,
+              1450
+            ],
+            [
+              1451,
+              1819
+            ]
+          ],
+          "scope": "生产单绑定快照、静态订单与开工事实"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          1819
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/production-tech-pack-snapshot-types.ts",
+      "lineCount": 163,
+      "sha256": "e46cb888323098a45ecdecb2d04e71bab3e41adfaad8d6f2c8c1b966bd54f265",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              163
+            ]
+          ],
+          "scope": "订单正式技术包快照类型"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          163
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/quality-chain-adapter.ts",
+      "lineCount": 321,
+      "sha256": "8f22baa38a999ae08d69a4699184f05cb1ba3e72215146f61a476524265aedba",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              321
+            ]
+          ],
+          "scope": "最后必要保存依赖全文阅读；非财务领域实现扩展。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          321
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/runtime-process-tasks.ts",
+      "lineCount": 3574,
+      "sha256": "e9a8cbe00e1c64282f786a7120144995e11b28a5d27f037f4214f62e31ebafd5",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              600
+            ],
+            [
+              601,
+              1200
+            ],
+            [
+              1201,
+              1800
+            ],
+            [
+              1801,
+              2400
+            ],
+            [
+              2401,
+              3000
+            ],
+            [
+              3001,
+              3574
+            ]
+          ],
+          "scope": "实际执行任务与开工动作、静态来源、可执行投影"
+        },
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              425,
+              489
+            ]
+          ],
+          "scope": "最后必要后道保存/接收完整函数与直接命令边界；聚合其余工序/迁移实现不在本旁路全文范围。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          3574
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/sewing-delivery-sla.ts",
+      "lineCount": 651,
+      "sha256": "681c480f89795805dd8457690cd1dc327778c55554f054bce7f6e3e729c60f9c",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              330
+            ],
+            [
+              331,
+              651
+            ]
+          ],
+          "scope": "业务墙上时间、样衣时效当前引用"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          651
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/sewing-outsourcing-demo.ts",
+      "lineCount": 177,
+      "sha256": "aa828e8a88fe487ed2c2e7d34bcae4fb604a6cc431e5df4f634a0dd5ec5d1d52",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              177
+            ]
+          ],
+          "scope": "样衣静态演示直接消费者"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          177
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/sewing-outsourcing-workbench.ts",
+      "lineCount": 694,
+      "sha256": "eabd6cfec5b625e8992550fc10f2d248c812a5b78125e45609493bc309fbedf1",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              350
+            ],
+            [
+              351,
+              681
+            ],
+            [
+              682,
+              694
+            ]
+          ],
+          "scope": "样衣工作台直接消费者及静态演示"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          694
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/sewing-return-calendar.ts",
+      "lineCount": 28,
+      "sha256": "07df791faa260f780c712845fdc68ff11d9590f9820b9c8dd644e9e03517a18c",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              28
+            ]
+          ],
+          "scope": "现有Jakarta时间格式来源"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          28
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/sewing-sample-approval-suggestion.ts",
+      "lineCount": 596,
+      "sha256": "65ebe930a207ddc9a39ff72cbfa43880b3bbf0c7241b4e8bc400bccb98d0ef57",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              596
+            ]
+          ],
+          "scope": "样衣业务事实、状态、时效、引用与反馈"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          596
+        ]
+      ]
+    },
+    {
+      "path": "src/data/fcs/task-print-cards.ts",
+      "lineCount": 1653,
+      "sha256": "4ee8f92d4dac0df031d51c2cd1cf6c2d0ec69d7dcc743e5e76f56e90b05caeb1",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1267,
+              1455
+            ],
+            [
+              1533,
+              1585
+            ]
+          ],
+          "scope": "完整后道 action、总任务流转卡、加工流转卡生成函数，以及 buildTaskRouteCardBySource 完整分发。非后道构造函数未全文读。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          1267,
+          1455
+        ],
+        [
+          1533,
+          1585
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-channel-wms-projection.ts",
+      "lineCount": 21,
+      "sha256": "a215f7cb5c176ba097450aad0161c555e94ccead08d7f1804f12a0844ce36fce",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              21
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          21
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-config-dimensions.ts",
+      "lineCount": 562,
+      "sha256": "a4bfb13f6d80b5d20302378194f8282fda08bb3c814af2ea10fd3039f35ba6f0",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              280
+            ],
+            [
+              281,
+              562
+            ]
+          ],
+          "scope": "当前商品定位及配置身份"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          562
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-material-archive-repository.ts",
+      "lineCount": 2067,
+      "sha256": "c38fb919c2ad13f9f356f00653c329aca72c7e464ad29f610a6e3ceebc8259d5",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              450
+            ],
+            [
+              451,
+              950
+            ],
+            [
+              951,
+              1185
+            ],
+            [
+              1180,
+              1215
+            ],
+            [
+              1213,
+              1400
+            ],
+            [
+              1401,
+              1527
+            ],
+            [
+              1524,
+              1530
+            ],
+            [
+              1529,
+              1700
+            ],
+            [
+              1701,
+              1885
+            ],
+            [
+              1886,
+              2067
+            ]
+          ],
+          "scope": "正式SKU根SPU映射和读取/写入边界"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          2067
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-material-archive-types.ts",
+      "lineCount": 334,
+      "sha256": "c60d8e375fc294b05a084fdd5fa0c16c5670e4417d90e4123563d7506db08a5f",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              334
+            ]
+          ],
+          "scope": "根SPU与SKU的精确身份字段"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          334
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-record-db.ts",
+      "lineCount": 399,
+      "sha256": "fc51e5671584feded9e212224a64e4fcb500cc4f30d52df50c65d55a2e65dd31",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              399
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        },
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1,
+              58
+            ]
+          ],
+          "scope": "最后必要后道保存/接收完整函数与直接命令边界；聚合其余工序/迁移实现不在本旁路全文范围。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          399
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-style-archive-repository.ts",
+      "lineCount": 569,
+      "sha256": "cbb37114648efbcb576274f915c8a9d02f0178064c8444c6ed3fafb32fce5128",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              285
+            ],
+            [
+              286,
+              569
+            ]
+          ],
+          "scope": "正式款式定位与ID/款号读取"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          569
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-style-archive-types.ts",
+      "lineCount": 116,
+      "sha256": "9c1a5e16cbb1daaba39b4cd6388f4e008597b654206fcb643f95f5d2103fcbb2",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              116
+            ]
+          ],
+          "scope": "款式定位和分类的正式字段"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          116
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-style-product-information.ts",
+      "lineCount": 80,
+      "sha256": "71186d9a229582c2523d5da267ec2b4e4bc9356f767f3ddbbaab76decc09dc9a",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              80
+            ]
+          ],
+          "scope": "正式定位配置引用与仅限演示的名称推测"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          80
+        ]
+      ]
+    },
+    {
+      "path": "src/data/pcs-technical-data-version-types.ts",
+      "lineCount": 695,
+      "sha256": "4a8d92aab43b15ffa8a9796a3692b77022eee85ee807d7f4eae10e55fcfbf3a6",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              350
+            ],
+            [
+              351,
+              695
+            ]
+          ],
+          "scope": "正式技术包、BOM、质量自由资料和难度类型"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          695
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/finished-outbound-orders.ts",
+      "lineCount": 324,
+      "sha256": "a3e755e89e62243b8cfa6d89d280caf96744ac9c782cb2616541f3f4d9900741",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              324
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          324
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/seed/finished-seed.ts",
+      "lineCount": 1586,
+      "sha256": "20d340fbfda6fb39ce1d7d10d99a436ea8f9a472646ec8e1c378ecbbd5172ac0",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              1586
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          1586
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/seed/raw-seed.ts",
+      "lineCount": 642,
+      "sha256": "993c93a6e330402292d940ee272ad82ff936f6585936656d66f9bb2bd750feb3",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              642
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          642
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/seed/shared-seed.ts",
+      "lineCount": 1620,
+      "sha256": "aa5e5f850deb089f6bac55ca701d905fbc188e5a244c035cfe2278d7218a5e83",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              1620
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          1620
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/seed/stock-seed.ts",
+      "lineCount": 462,
+      "sha256": "b5b1e66648627cbca963016194631feced3f2cf22af7f52f9a3a63266270a908",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              462
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          462
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/shared/barcode.ts",
+      "lineCount": 106,
+      "sha256": "113d67e070c7b7f4d568ec12499b53bff29f3fa796523b491f376fc388081434",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              106
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          106
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/shared/filters.ts",
+      "lineCount": 212,
+      "sha256": "5eafb5a7a374f83b6bbd309069f2c22b8648e2e3beecfd9b0aa571c02d508861",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              212
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          212
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/shared/format.ts",
+      "lineCount": 246,
+      "sha256": "0a822c1ceaeb76f4c47659865232beeb5417188f472cf481aa517ba9a7e66821",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              246
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          246
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/shared/seed-utils.ts",
+      "lineCount": 377,
+      "sha256": "944b66a542675189426012d7c80bf08f3c34e632c7f979364a4395bc10f67592",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              377
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          377
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/shared/stock.ts",
+      "lineCount": 237,
+      "sha256": "af27f86a2c68a5d72d5909cb22ef0d5b27629cb0e0ccb9a7d4c6c773cea68158",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              237
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          237
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/shared/warehouse-config.ts",
+      "lineCount": 429,
+      "sha256": "5fa12c5bdee47ba9a8443edb2363e42285d48dd93a4513fa9712c75c53f15db0",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              429
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          429
+        ]
+      ]
+    },
+    {
+      "path": "src/data/wls/types.ts",
+      "lineCount": 2360,
+      "sha256": "394f54766cca8d72908a548824e10d5f7ddd1ba71a239a3cd7e05058058cefcf",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              2360
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          2360
+        ]
+      ]
+    },
+    {
+      "path": "src/main-handlers/fcs-handlers.ts",
+      "lineCount": 1002,
+      "sha256": "e5ca341863a81b0c3ecb211c134905c00221762b76a843773eb90c91b026f93c",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              1002
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          1002
+        ]
+      ]
+    },
+    {
+      "path": "src/main-handlers/pda-handlers.ts",
+      "lineCount": 105,
+      "sha256": "321b2900974fc06c64b4a0a864b4376e6c9cf0436457cd12da722daaad87f14f",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              105
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          105
+        ]
+      ]
+    },
+    {
+      "path": "src/main-handlers/wls-page-handlers.ts",
+      "lineCount": 172,
+      "sha256": "e90329ec0c9028415e9226ec1765144426db97874e1887052bee8b8c93cd2ada",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              172
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          172
+        ]
+      ]
+    },
+    {
+      "path": "src/main.ts",
+      "lineCount": 2808,
+      "sha256": "9b0c2799b70d6cb1e29e3a5a77b895dc691640d4bf442fdb0fe452e382ec387d",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              2808
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          2808
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-exec-detail.ts",
+      "lineCount": 6416,
+      "sha256": "0dd1152ff761af28a62869e5d5ed3f30887f79a61fcb883aeb9e92f5a706afd3",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              2877,
+              2986
+            ],
+            [
+              3188,
+              3325
+            ],
+            [
+              4154,
+              4190
+            ],
+            [
+              4317,
+              4342
+            ],
+            [
+              6090,
+              6130
+            ]
+          ],
+          "scope": "完整后道任务页函数；通用渲染入口中全部 POST_FINISHING 与无任务回退分支，以及通用动作提取/back/post-task-open-order 边界。其他工序主体未全文读，不声明该 6416 行聚合文件全文。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          2877,
+          2986
+        ],
+        [
+          3188,
+          3325
+        ],
+        [
+          4154,
+          4190
+        ],
+        [
+          4317,
+          4342
+        ],
+        [
+          6090,
+          6130
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-exec.ts",
+      "lineCount": 2135,
+      "sha256": "9836ef1f90bd9dd86e7647a0185e7b90b858ea72dd36c9a59b5515e49153a27e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1821,
+              1919
+            ]
+          ],
+          "scope": "完整 renderPdaExecPage；仅后道工厂执行入口及其前置/返回边界，其他工序页面与处理不在本次范围。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          1821,
+          1919
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-handover-detail.ts",
+      "lineCount": 3411,
+      "sha256": "bc730f37afad09eec51548e9ee76b93aa1ae528eab98257bbd4157d0ebab8d81",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              760,
+              780
+            ],
+            [
+              2680,
+              3075
+            ]
+          ],
+          "scope": "后道交出身份判断完整两函数；submit-new-handout-record 与 submit-receiver-writeback 全分支、打开/取消回写及后道排除通用内部仓同步边界。其他工序页未全文读。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          760,
+          780
+        ],
+        [
+          2680,
+          3075
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-handover.ts",
+      "lineCount": 1483,
+      "sha256": "9a926f4e55bcb8f2c7a0547e70b4e9facaee5f05e3bea1018d1b9c2cd574688f",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              747,
+              786
+            ],
+            [
+              1014,
+              1174
+            ]
+          ],
+          "scope": "后道出货卡片/行完整函数；完整 renderPdaHandoverPage 及后道所有出货筛选和渲染分支。不扩展辅料操作。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          747,
+          786
+        ],
+        [
+          1014,
+          1174
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-post-finishing-exec-detail.ts",
+      "lineCount": 256,
+      "sha256": "ad3c5c5815199c3441771c0854b84d0f7dcfde1b5784d0b379513c52bc15633a",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              256
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          256
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-post-finishing-flow.ts",
+      "lineCount": 761,
+      "sha256": "3f3c7882c4b20e7a72b11fcbc32f71296da87b023e248095c843150014278c71",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              761
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          761
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-quality.ts",
+      "lineCount": 1184,
+      "sha256": "9531048374db89c0819c620cdc0517217900b27d6df690a288fc829d9a63d11d",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              562,
+              635
+            ],
+            [
+              986,
+              1052
+            ]
+          ],
+          "scope": "完整后道Web-only主页面函数及现有其他加工单QC动作的完整分支；其他结算争议/扣款展示不在本次范围。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          562,
+          635
+        ],
+        [
+          986,
+          1052
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-warehouse-inbound-records.ts",
+      "lineCount": 423,
+      "sha256": "2af6e55e7fe70652f44fe550ee595c0a597ef4feefddd029bc2ce2673e2dc770",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              423
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          423
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-warehouse-outbound-records.ts",
+      "lineCount": 428,
+      "sha256": "c916d260a32d6e8ce2378636c1f324eb6fcd2795434decbc404bebd2bd523ee8",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1,
+              140
+            ],
+            [
+              226,
+              323
+            ]
+          ],
+          "scope": "后道读取与详情/列表完整函数及工厂入口分流；其他工序展示不在范围。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          1,
+          140
+        ],
+        [
+          226,
+          323
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/pda-warehouse-wait-handover.ts",
+      "lineCount": 596,
+      "sha256": "c257675887668311237aa0379c6ef50665ced305cec477ac0e932b8b5a6fc287",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              123,
+              140
+            ],
+            [
+              277,
+              465
+            ]
+          ],
+          "scope": "后道专用行模型、读取、状态、详情、页面全函数及工厂分流边界；通用其他仓库分支不声明已读。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          123,
+          140
+        ],
+        [
+          277,
+          465
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/print/print-preview.ts",
+      "lineCount": 486,
+      "sha256": "f6655018132848b45b56fbfae9f37141f2500e06772b36e0bf88e556fd5f4a19",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              486
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          486
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/print/templates/post-finishing-outbound-template.ts",
+      "lineCount": 179,
+      "sha256": "a29e2b0841a7cdb2ef27dfc1b2ca27ac4a4cb32cf7cc93aa100663295d18b50f",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              179
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          179
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/print/templates/post-finishing-qc-print-template.ts",
+      "lineCount": 401,
+      "sha256": "48838ce66660a6768f4fb5d629ef7a6a58009c59707efd1fecb9bfd532f2f5d7",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              401
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          401
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/print/templates/post-finishing-route-card-template.ts",
+      "lineCount": 440,
+      "sha256": "aa4ce2d1d2581aa7a56145ed46d29eb357c526584237fa5643df6eb294f3e21d",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              440
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          440
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/print/templates/task-route-card-template.ts",
+      "lineCount": 382,
+      "sha256": "09ab2a7c48e257515529c43516612c54146843fa6a7638dc761acae55ee9e42d",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              382
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          382
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/audit-records.ts",
+      "lineCount": 366,
+      "sha256": "41f67abb2b8d6e71e4083af062d7644ee2690273f6ae2c839e1f34ef86808056",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              366
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          366
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/authorization-code.ts",
+      "lineCount": 51,
+      "sha256": "a9b96ade22f5e2e3f4d7e830de23b5d324ae1bc2bd83ed7f0ddc245294582a0f",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              51
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          51
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/events.ts",
+      "lineCount": 108,
+      "sha256": "da9f9b842aeaf0851c6b26a9d865b2b887ad18939e8c2e3f38ef473859741315",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              108
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          108
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/full-flow-print.ts",
+      "lineCount": 232,
+      "sha256": "810d534f66d2c9341f24505d45251ad155725e93f1f1e49773acbf4ed9b95c5f",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              232
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          232
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/material-transfers.ts",
+      "lineCount": 106,
+      "sha256": "948f754f788ac0a5333ca61e8f4cf3e30b5dde917519290e2902f96f4091573d",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              106
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          106
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/outbound-orders.ts",
+      "lineCount": 170,
+      "sha256": "89aa904f086c1fe69800ba970f5a9a9faf48c9b53c26db87761297b979b63cfe",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              170
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          170
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/qc-orders.ts",
+      "lineCount": 198,
+      "sha256": "a11806f7becfb1e001d37dcda7acd4f96cc08d2507dad2267cf27738369ec988",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              198
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          198
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/qc-workbench.ts",
+      "lineCount": 236,
+      "sha256": "92a128c6a8414b01e72f644853d10bb13637272e11eab4979e2bbb7398f97fc5",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              236
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          236
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/recheck-orders.ts",
+      "lineCount": 316,
+      "sha256": "56efa77edfa917fa011dde4f7ebcc35b0c1fa25eccdd1836a4014f8ef312562e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              316
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          316
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/shared.ts",
+      "lineCount": 261,
+      "sha256": "49c72a0069db84fd462c3058274f2096ca51b62610affc030a60023e6f3584b9",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              261
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          261
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/statistics.ts",
+      "lineCount": 94,
+      "sha256": "538f61ac413091f5f450998ba4539a8473bdef3ac7a8a446e581dd9061e6b16e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              94
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          94
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/storage-notice.ts",
+      "lineCount": 47,
+      "sha256": "8284055ae5222fb157563f55c8de75f313124593a648e4c8f08634431d3105e3",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              47
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          47
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/tasks.ts",
+      "lineCount": 335,
+      "sha256": "f7cf1251d1c04d4847e91526193a4e98bf2726a812e5adc14abaef4297f45fa0",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              335
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          335
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/warehouse.ts",
+      "lineCount": 622,
+      "sha256": "305ef178a3db14299bbd123a46509a27e1d2cb047f1b7f42628cf0cd8c5f81f3",
+      "readers": [
+        {
+          "reader": "主代理",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              622
+            ]
+          ],
+          "scope": "全文逐行；截断处已单独补读"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          622
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/work-order-detail.ts",
+      "lineCount": 316,
+      "sha256": "ca87317bedd7e4482f07afd9f91edbbb1566f86ec4b40651e9d5f6b2c0758dff",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              316
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          316
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/process-factory/post-finishing/work-orders.ts",
+      "lineCount": 206,
+      "sha256": "2b1f2dcbd2246cdc823ce2110a3f3c9b193e940f1d2a217190b3f94f400c6fe5",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              206
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          206
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/production-fulfillment/full-flow-diagrams.ts",
+      "lineCount": 106,
+      "sha256": "bb2dce8f27db03f448bde51e537d7845d5e264cbe66e4c55d03f000d35924d3e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              106
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          106
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/progress-handover-order.ts",
+      "lineCount": 556,
+      "sha256": "0f641be2e97228705b3e0700d3f041c9d99d8c0aee7e06ffff51f8624f42a92e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1,
+              195
+            ]
+          ],
+          "scope": "完整旧后道路由取数、复检链接、状态及卡片函数；其他工序时间线未全文读。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          1,
+          195
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/qc-records.ts",
+      "lineCount": 7,
+      "sha256": "515b5c80004d564b86f8cfa4a535e7fde3e760ea53d2900d35966d59387c622e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              7
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          7
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/qc-records/detail-domain.ts",
+      "lineCount": 1712,
+      "sha256": "630c100e05ba3d14e7f7f8a494dd065afa34bcf8e7562cd6e21c15b1715a9b0e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "partial",
+          "readRanges": [
+            [
+              1,
+              82
+            ],
+            [
+              556,
+              655
+            ],
+            [
+              1706,
+              1712
+            ]
+          ],
+          "scope": "旧复检场景/方法标签及当前事实详情两完整函数，导出边界；金融扣费/争议旧分支不纳入新质检中心。"
+        }
+      ],
+      "coverage": "partial",
+      "readRanges": [
+        [
+          1,
+          82
+        ],
+        [
+          556,
+          655
+        ],
+        [
+          1706,
+          1712
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/qc-records/fact-view.ts",
+      "lineCount": 332,
+      "sha256": "ff502563558ae6d1296b774bba80b15641241c81ae664ec58128983bef14d127",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              332
+            ]
+          ],
+          "scope": "当前工作树源码全文，分段输出已覆盖。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          332
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/qc-records/list-domain.ts",
+      "lineCount": 174,
+      "sha256": "b191ae144c17f7a91de5604607fab2cf897edbacd354b7104d95693844471f35",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              174
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          174
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/sewing-outsourcing/sample-approval-suggestions.ts",
+      "lineCount": 594,
+      "sha256": "1893cc787c06dcba17516ceaa157076832fc82c559244cc38f42c5924e0851ba",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              311
+            ],
+            [
+              305,
+              344
+            ],
+            [
+              343,
+              594
+            ]
+          ],
+          "scope": "原样衣页面、上传、领取、反馈和事件"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          594
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished-online/order-scan-ship.ts",
+      "lineCount": 187,
+      "sha256": "92ff2a65735590f0a9b48710006d9382dccc0fd796d5e0930b968beec1408caa",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              187
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          187
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished-online/routes.ts",
+      "lineCount": 33,
+      "sha256": "f1b4e83b1598cb51edc8e652a35599d5b7bbf10ce4ba1a657757dd2352dbccd2",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              33
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          33
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished-online/scan-pick.ts",
+      "lineCount": 180,
+      "sha256": "4586158e41d0988874d5c8477ebd330e5973607386bd5c0d0c52069eafb112c6",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              180
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          180
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished-online/seed.ts",
+      "lineCount": 345,
+      "sha256": "ba9b03163c68dbfa8044bb9f3fac32a1f3f50f66d37baf7601d886584877a6ce",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              345
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          345
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/basic-warehouse.ts",
+      "lineCount": 233,
+      "sha256": "0267cd52314a1448f526f3edbd4d9db9361b9e2241e4a2412b0e6a8be823ecbb",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              233
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          233
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/basic-zone-location.ts",
+      "lineCount": 293,
+      "sha256": "0653f9ce8ab29db56a455b454768721601231b4c6e4d451c23cfe5c2c67794d4",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              293
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          293
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/outbound-orders.ts",
+      "lineCount": 286,
+      "sha256": "de89845ee772e5bfa0039a389cf8bd56606a194c72306246e73c4a76ca3fc619",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              286
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          286
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/pre-inbound.ts",
+      "lineCount": 356,
+      "sha256": "f31fd300302bf899565e105fb9b0b3ee65378112b7b3757bd577034c6cf4fb01",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              356
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          356
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/pre-outbound.ts",
+      "lineCount": 435,
+      "sha256": "cc30409e9de13b64a162030e717e61ac5e912f056f42dbbe4f9a025c0f55c106",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              435
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          435
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/putaway.ts",
+      "lineCount": 341,
+      "sha256": "6377209736051df743df2157a1f931382ae889a3c9cd62b0ca8e33a9b0a59223",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              341
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          341
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/return-inbound.ts",
+      "lineCount": 315,
+      "sha256": "4cd959061ef0e6928d5ad5205691d5cd655dfdcbf8470f1086dffbda23c246c1",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              315
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          315
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/return-quality.ts",
+      "lineCount": 228,
+      "sha256": "f7054f0b5f60351b81ed6db32b2377da3153fb3806e44c80b76ed3b0e1e29d23",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              228
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          228
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/ship-scan.ts",
+      "lineCount": 274,
+      "sha256": "0285feaf760273eab751dfb275ddccaad24f62416bb6e4d7acce7494176fac79",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              274
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          274
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/stock-flow.ts",
+      "lineCount": 330,
+      "sha256": "bcf974fc4829d9fd617d436bc410a46719065419da4894d0f2004cf687b5555f",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              330
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          330
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/stock-location.ts",
+      "lineCount": 237,
+      "sha256": "9fb6172d6ca39e07ffbed5bf74a3bfd82fb1b56d6e938814894c6c2b12605e4e",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              237
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          237
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/stock-realtime.ts",
+      "lineCount": 425,
+      "sha256": "1e4f3b4243938d2b48c01bbc433672f9599df1fdbb10b05fca56eaf80710089e",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              425
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          425
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/stock-transfer.ts",
+      "lineCount": 313,
+      "sha256": "bda577d7fbcf28e0563ba87e1d84f26bb5785e0319d10bac06dc0d9b4fe650a2",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              313
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          313
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/finished/wave-manage.ts",
+      "lineCount": 242,
+      "sha256": "dd0fff59b1a46b54f1dae10ed2d9b682fcf6ca2b0870e102a9c7123bfa2786b5",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              242
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          242
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/garment-inventory/page.ts",
+      "lineCount": 376,
+      "sha256": "7e4b1e601322340e2860cef81797af6b08f9bad8e89054ca6b46d26276d0602a",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              376
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          376
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/garment-inventory/routes.ts",
+      "lineCount": 8,
+      "sha256": "b690c303db4b896841f84b907355bfa6fb1a879ec495a56e16cdac7b36e4b136",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              8
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          8
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/garment-inventory/seed.ts",
+      "lineCount": 132,
+      "sha256": "e4b70b94139b78a4c35d41c23afa522f774d494da06c5af74b435d773db85966",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              132
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          132
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/stock-online/garment-transfer.ts",
+      "lineCount": 285,
+      "sha256": "7cff0fde3a0aa3c473b93617c578d3bf349c32d43cc73b948e1e474f4546fa3c",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              285
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          285
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/stock-online/routes.ts",
+      "lineCount": 24,
+      "sha256": "0a6475d8812dc4f8e79a7963779e8741b725ede856f1f9f4a03a0318ed922608",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              24
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          24
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/stock-online/seed.ts",
+      "lineCount": 291,
+      "sha256": "3baa7741644bfa44b16062c84698ae4a34d5414ca7bb27d5a5e2fbd1064bfb6e",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              291
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          291
+        ]
+      ]
+    },
+    {
+      "path": "src/pages/wls/stock-online/warehouse-stock.ts",
+      "lineCount": 284,
+      "sha256": "ef460d691148fb3b9bdbbe007d93eeb2af0d4caa3fa7f0a939dc6a8ca2cdde57",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              284
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          284
+        ]
+      ]
+    },
+    {
+      "path": "src/router/path-match.ts",
+      "lineCount": 18,
+      "sha256": "6a9216c4df1459f48db41b94d67773f8a9f517cb9af568a814371057971bdea0",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              18
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          18
+        ]
+      ]
+    },
+    {
+      "path": "src/router/route-renderers-fcs.ts",
+      "lineCount": 786,
+      "sha256": "f02414a2039632938c4f9197418a055f58d410159167ab55c1c81cb9a75a1a8b",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              786
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          786
+        ]
+      ]
+    },
+    {
+      "path": "src/router/route-renderers.ts",
+      "lineCount": 704,
+      "sha256": "a39efbf1bab3f6750759b6d0e9911f6a3a6cfc854614ad60a02433ee981b7a1d",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              704
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          704
+        ]
+      ]
+    },
+    {
+      "path": "src/router/route-types.ts",
+      "lineCount": 8,
+      "sha256": "b6deea8ecbbbb6eb1feb53041f7e57030a10e6e2673ce70fa0e9360a3cbd133e",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              8
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          8
+        ]
+      ]
+    },
+    {
+      "path": "src/router/route-utils.ts",
+      "lineCount": 62,
+      "sha256": "fb3e6ded214433a0dd5b2f5b5dd8cc2badd98902965abbc1fad11e68767812c5",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              62
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          62
+        ]
+      ]
+    },
+    {
+      "path": "src/router/routes-fcs.ts",
+      "lineCount": 670,
+      "sha256": "c5ca9fb74d5930a84043d8bb7a397f777fb07a83657b0112a6ba69fb9d6fdd79",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              670
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          670
+        ]
+      ]
+    },
+    {
+      "path": "src/router/routes-pda.ts",
+      "lineCount": 150,
+      "sha256": "fcefa2977dd3f65a5707509443e04c7033a2ae9d7e0679682fb8343976c39dff",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              150
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          150
+        ]
+      ]
+    },
+    {
+      "path": "src/router/routes-wls.ts",
+      "lineCount": 211,
+      "sha256": "b3d5b39d36b4db0273d9792e3a3a304244ebb6d9c70453fbdcd228a9bd93da2d",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              211
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          211
+        ]
+      ]
+    },
+    {
+      "path": "src/router/routes.ts",
+      "lineCount": 487,
+      "sha256": "0f4cc01d276476c3ab9222ee5f7a01f62913cd803bdcf048032aa0245e51fe72",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              487
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          487
+        ]
+      ]
+    },
+    {
+      "path": "src/state/store.ts",
+      "lineCount": 895,
+      "sha256": "eb9530ad74a0674340d8d00bb1f7975e3c8facc178b4f95de404f039680c4355",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              895
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          895
+        ]
+      ]
+    },
+    {
+      "path": "tests/bootstrap/cutting-bootstrap.ts",
+      "lineCount": 19,
+      "sha256": "9b24f0f8de650484c947093f9173421bc6b055bc3ccaf1fe554381b4e514225b",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              19
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          19
+        ]
+      ]
+    },
+    {
+      "path": "tests/browser-contracts/pcs-record-db.test.ts",
+      "lineCount": 121,
+      "sha256": "d7ad49774e5a1b987d98f1094498cbb8b56f029bad1cab46395dae8640a120c4",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              121
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          121
+        ]
+      ]
+    },
+    {
+      "path": "tests/fcs-downstream-read-order-tech-pack-snapshot.spec.ts",
+      "lineCount": 71,
+      "sha256": "906abed9c743336808b019a6bdee6b7f8178a720a7223e6d1b463ce96f1df4e7",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              71
+            ]
+          ],
+          "scope": "下游绑定快照Node脚本"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          71
+        ]
+      ]
+    },
+    {
+      "path": "tests/pcs-r1-channel-rules.test.ts",
+      "lineCount": 455,
+      "sha256": "6f572a603a1869bc8f3a974d94b64934722687dfb13a22d1120b8f3c61ccdd46",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              455
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          455
+        ]
+      ]
+    },
+    {
+      "path": "tests/pcs-r1-storage-codec.test.ts",
+      "lineCount": 139,
+      "sha256": "2237b9f89377c156133a073a0cdc252a5ec10ced0701c4f0b8ccba894193cc7c",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              139
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          139
+        ]
+      ]
+    },
+    {
+      "path": "tests/pcs-r1-storage-read-scope.test.ts",
+      "lineCount": 76,
+      "sha256": "2dcd3271c16bafe9fd46b48eddc0a00efb1e0b229fd8d0fad1d563d95720cd05",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              76
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          76
+        ]
+      ]
+    },
+    {
+      "path": "tests/post-finishing-consumers.spec.ts",
+      "lineCount": 373,
+      "sha256": "d8a08d81f04ce0aa67ded01b2d528ebfa7e8a5acc23d6db30656b4c1badbcbff",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              373
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          373
+        ]
+      ]
+    },
+    {
+      "path": "tests/post-finishing-main-integration.spec.ts",
+      "lineCount": 351,
+      "sha256": "2f4a6a3aedbc9deed2777b186b99827c7847a20e356c48983426d06aec32e51f",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              351
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          351
+        ]
+      ]
+    },
+    {
+      "path": "tests/post-finishing-pda-role-boundary.spec.ts",
+      "lineCount": 243,
+      "sha256": "3fbf065238662b99180b01be88fb47b3ca5f0de18dd044dd3cce9e4f8d778c1a",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              243
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          243
+        ]
+      ]
+    },
+    {
+      "path": "tests/print-service-post-route-card.spec.ts",
+      "lineCount": 85,
+      "sha256": "47502c75fe62855da74a3988e6a34d1e9282dfa1a9a9b17fb2b45ad219a16504",
+      "readers": [
+        {
+          "reader": "跨端消费者旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              85
+            ]
+          ],
+          "scope": "实际工作树当前源码全文，含空行；分段输出截断处已补读。"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          85
+        ]
+      ]
+    },
+    {
+      "path": "tests/unit/finished-outbound-orders.test.ts",
+      "lineCount": 154,
+      "sha256": "26b17b84b12891dc37ff74b5bbb4b2ce0744f0013fbf8f96cca24068f5fe9345",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              154
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          154
+        ]
+      ]
+    },
+    {
+      "path": "tests/unit/production-order-tech-pack-runtime.test.ts",
+      "lineCount": 98,
+      "sha256": "6271dff61deeeb2ad5ae71c48d30d51560010e2667380120cb9b803b132b8224",
+      "readers": [
+        {
+          "reader": "产前版及正式来源旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              98
+            ]
+          ],
+          "scope": "绑定快照及子集读取直接单测"
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          98
+        ]
+      ]
+    },
+    {
+      "path": "tests/unit/wls-menu-navigation.test.ts",
+      "lineCount": 57,
+      "sha256": "deb2872b4316d79282f54afaf15f34e4ca1d93df7cbf6ff24e6ae99a3a2948b9",
+      "readers": [
+        {
+          "reader": "库存域旁路",
+          "coverage": "full",
+          "readRanges": [
+            [
+              1,
+              57
+            ]
+          ],
+          "scope": "Current source full-file read; multi-range outputs supplemented when truncated; CodeGraph used for structural location."
+        }
+      ],
+      "coverage": "full",
+      "readRanges": [
+        [
+          1,
+          57
+        ]
+      ]
+    }
+  ]
+}

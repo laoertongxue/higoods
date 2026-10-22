@@ -234,7 +234,7 @@ function executionDetails(match: SourceMatch): string {
   const execution = order.fullFlow?.execution.find(item => item.taskId === (task?.id ?? d.taskId))
   const records = documents(branch, execution?.steps.map(step => step.documentId) ?? [d.id])
   return section('本合同具体执行工作', table(['对应车缝任务', '承担工厂', '合同范围', '本单执行范围', '实际加工地点', '当前状态'], [[e(task?.id ?? value(d.taskId)), e(task?.factory ?? '工厂关联待核实'), e(scope), e(d.executionScope ?? d.type.replace(/执行单$/, '')), e(value(d.processingLocation)), badge(d.status)]]), '任务分配与具体执行分别展示；合同累计回货节点仍从业务分配日期起算。承包裁剪、车缝及工厂烫包分别记录实际完成事实。')
-    + section('同一合同内执行单据', table(['单据', '执行对象 / 范围', '状态', '数量', '执行负责人', '接收确认责任'], documentRows(records)), '车缝＋烫包、裁剪＋车缝＋烫包合同中的工厂烫包只计作承担工厂的执行工作；后道继续记录实际收货、质检、适用加工、复检及交货。')
+    + section('同一合同内执行单据', table(['单据', '执行对象 / 范围', '状态', '数量', '执行负责人', '接收确认责任'], documentRows(records)), '车缝＋烫包、裁剪＋车缝＋烫包合同中的工厂烫包只计作承担工厂的执行工作；后道记录实际收货、质检、适用加工、出货准备、实际发出与仓库实收。')
     + workDetails(match)
     + contractDetails(match)
 }
@@ -251,19 +251,19 @@ function postDetails(match: SourceMatch): string {
   const context = section('后道任务与批次归属', table(['对应车缝任务', '本批次', '批次数量', '当前数量位置', '合同范围', '实际加工地点'], batches.length ? batches.map(batch => [e(batch.taskId), e(batch.id), e(quantity(batch.qty, '件')), e(timingPostPositionLabel(batch.position,branch?.docs[batch.processingDocumentId!]?.status)), e(scope), e(value(d.processingLocation))]) : [[e(task?.id ?? value(d.taskId)), e(value(d.batchId)), e(quantity(d.quantity, d.unit)), '当前数量位置待核实', e(scope), e(value(d.processingLocation))]]), '各批仅计入一个当前位置。')
   const projectSummary=d.type==='后道加工单' && d.processItems?section('本批后道加工单',`<div class="rounded border border-blue-100 bg-blue-50 p-3"><strong>本单后道项目：</strong>${e(d.processItems.join('、'))}<p class="mt-2 text-sm">来源：${e(value(d.sourceType))}</p></div>`):''
   const stage = d.type==='后道复检单'
-    ? section('处理后交出复核（复检）',table(['复核对象 / 范围','SKU数量复核','条码 / 数量核对记录','执行负责人','交出确认责任'],[[e(d.object),Object.entries(d.quantities??{数量:d.quantity}).map(([name,qty])=>`${e(name)}：${e(quantity(qty,d.unit))}`).join('<br>'),e(value(d.qc)),e(d.executor),e(d.receiver)]]),'本单只复核SKU数量与条码，不再进行质量检验；复核完成才生成后道交货单。')
+    ? section('历史数量复核（只读）',table(['复核对象 / 范围','SKU数量复核','条码 / 数量核对记录','执行负责人','交出确认责任'],[[e(d.object),Object.entries(d.quantities??{数量:d.quantity}).map(([name,qty])=>`${e(name)}：${e(quantity(qty,d.unit))}`).join('<br>'),e(value(d.qc)),e(d.executor),e(d.receiver)]]),'本单保留历史 SKU 数量和条码核对记录。当前加工完成后直接准备出货并确认实际发出。')
     : d.type==='后道质检单'
     ? section('本批次后道质检结果',table(['检验对象 / 范围','实际检验数量与结果','已记录检验结论','检验负责人','结果接手确认'],[[e(d.object),Object.entries(d.quantities??{数量:d.quantity}).map(([name,qty])=>`${e(name)}：${e(quantity(qty,d.unit))}`).join('<br>'),e(value(d.qc)),e(d.executor),e(d.receiver)]]),'检验结果沿用本单实际记录；未取得检验结果不视为通过，未确认时效要求不自行判定超时。')
     : d.type==='后道交货单'?handoverDetails(d):/加工单/.test(d.type)?workDetails(match):handoverDetails(d)
   const chain = batches.map(batch => {
-    let steps: { title: string; id?: string | null; location?: string }[] = [{ title: '后道实际收货', id: batch.receiveDocumentId }, { title: '后道质检', id: batch.qcDocumentId }, { title: '后道加工单', id: batch.processingDocumentId, location: '后道厂' }, { title: '后道复检', id: batch.recheckDocumentId }, { title: '后道交货', id: batch.outboundDocumentId }, { title: '成衣仓接收', id: batch.inboundDocumentId }]
+    let steps: { title: string; id?: string | null; location?: string }[] = [{ title: '后道实际收货', id: batch.receiveDocumentId }, { title: '后道质检', id: batch.qcDocumentId }, { title: '后道加工单', id: batch.processingDocumentId, location: '后道厂' }, { title: '后道交货', id: batch.outboundDocumentId }, { title: '成衣仓接收', id: batch.inboundDocumentId }]
     const qc=documents(branch,[batch.qcDocumentId])[0],direct=!!qc?.clock?.end&&!batch.processingDocumentId&&batch.position!=='unknown'
-    if(direct)steps=steps.filter(step=>!['后道加工单','后道复检'].includes(step.title))
+    if(direct)steps=steps.filter(step=>step.title!=='后道加工单')
     return section(`本批次后道单据链 · ${batch.id}`, table(['工作', '原始单据', '当前状态', '本项数量', '已记录实际时间', '执行 / 接收责任', '加工地点'], steps.map(step => {
       const record = documents(branch, [step.id])[0]
       const waitingWarehouse = !record && step.title === '成衣仓接收' && batch.position === 'delivery'
       return [e(step.title), record?link(record):batch.position==='unknown'?'单据资料待核实':'—', record ? badge(record.status) : (batch.position==='unknown'?'对应单据资料待核实':waitingWarehouse?'成衣仓尚未接收，入库单尚未生成':'前置尚未完成，单据尚未生成'), waitingWarehouse?`待接收 ${e(quantity(batch.qty,'件'))}`:e(quantity(record?.quantity, record?.unit ?? '件')), record ? Object.entries(record.times).map(([name, at]) => `${e(name)}：${e(at || (timingClockHasNotStartedFact(record)?'尚未发生':value(at)))}`).join('<br>') : batch.position==='unknown'?'实际时间待核实':'尚未发生', record ? e(`${record.executor} → ${record.receiver}`) : '责任待核实', e(value(record?.processingLocation ?? step.location))]
-    })), direct?'本批无需我方加工，不生成加工单和处理后交出复核单，质检直接生成面向成衣仓的交接单；后道实际交出计至成衣仓实际接收。':'每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。')
+    })), direct?'本批无需我方加工，质检正常放行后准备出货；实际发出和成衣仓实收分别记录。':'后道加工按原加工单记录，完成量可分批准备出货；每张出货单的实际发出和成衣仓实收分别记录。')
   }).join('')
   return context + projectSummary + stage + chain
 }

@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { ownsFinishedInventoryStock } from '../../../data/wls/finished-inventory-quality.ts'
 import type { AppState } from '../../../state/store'
 import { escapeHtml, localDateTimeText } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
@@ -271,6 +272,7 @@ export function handleStockTransferEvent(target: HTMLElement, event?: Event): bo
   }
   if (action === 'run-confirm') {
     const row = TRANSFER_SEED.find((item: StockTransferRecord) => item.id === state.confirmId)
+    if (row && ownsFinishedInventoryStock(row.sourceWarehouse, row.sku)) { showListFeedback('该仓库SKU已使用统一成衣库存，本旧移货记录来源不一致，不能改变当前库存。', 'warning'); return true }
     if (row && row.status === '待执行') {
       row.status = '移货中'
       showListFeedback(`移货单 ${row.transferNo} 已开始执行，共 ${row.quantity} 件`)
@@ -300,6 +302,7 @@ export function handleStockTransferEvent(target: HTMLElement, event?: Event): bo
       showListFeedback('源库位、目标库位、SKU 和数量都必须填写，且数量要大于 0', 'warning')
       return true
     }
+    if (ownsFinishedInventoryStock('中央总仓-成衣仓', sku)) { showListFeedback('该SKU已切换统一库存，旧移货来源不可继续写入，请从当前库存业务核对库位。', 'warning'); return true }
     const seq = TRANSFER_SEED.length + 1
     TRANSFER_SEED.unshift({ id: `ST-${String(seq).padStart(5, '0')}`, transferNo: `YH-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(seq).padStart(3, '0')}`, sourceWarehouse: '中央总仓-成衣仓', sourceZone: '', sourceLocation, targetWarehouse: '中央总仓-成衣仓', targetZone: '', targetLocation, spu: '', sku, quantity, createdTime: localDateTimeText(), status: '待执行' })
     state.creating = false

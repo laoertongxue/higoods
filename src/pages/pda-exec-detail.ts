@@ -2964,10 +2964,10 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       </article>
 
       <article class="rounded-lg border bg-card">
-        <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">后道与复检入口</h2></header>
+        <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">后道加工与出货</h2></header>
         <div class="space-y-3 p-4">
           <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">后道加工单</th><th class="px-3 py-2">后道项目</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${postRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无后道加工单</td></tr>'}</tbody></table></div>
-          <div class="grid grid-cols-2 gap-2"><a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/pda/post-finishing/execute">扫描后道加工单</a><a class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/recheck">扫描复检单</a></div>
+          <div class="grid grid-cols-2 gap-2"><a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/pda/post-finishing/execute">扫描后道加工单</a></div>
         </div>
       </article>
     </div>

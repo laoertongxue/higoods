@@ -574,7 +574,7 @@ function renderFactSkuCard(item: QcFactSkuResult): string {
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderPcFieldGrid(
           [
-            { label: '质检数量', value: `${item.inspectedQty} ${escapeHtml(item.qtyUnit)}` },
+            { label: '质检数量', value: item.inspectionKnown===false?'历史未记录':`${item.inspectedQty} ${escapeHtml(item.qtyUnit)}` },
             { label: '合格数量', value: `${item.qualifiedQty} ${escapeHtml(item.qtyUnit)}` },
             { label: '返工数量', value: `${item.reworkQty} ${escapeHtml(item.qtyUnit)}` },
             { label: '返工接收对象', value: escapeHtml(item.reworkReceiveFactoryName) },
@@ -630,8 +630,9 @@ function renderFactDetailPage(fact: QcFactDetail): string {
         '直接核对质检数量、合格数量、返工数量、瑕疵数量和返工接收对象。',
         renderPcFieldGrid(
           [
-            { label: '质检数量', value: String(fact.inspectedQty) },
-            { label: '合格数量', value: String(fact.qualifiedQty) },
+            { label: '质检数量', value: fact.inspectionKnown===false?'历史未记录':String(fact.inspectedQty) },
+            { label: fact.inspectionKnown===false?'历史合格数量':'实检合格数量', value: String(fact.qualifiedQty) },
+            ...(fact.uninspectedReleaseQty===undefined?[]:[{label:'未抽随批放行',value:String(fact.uninspectedReleaseQty)},{label:'正常放行',value:String(fact.releasedQty ?? 0)}]),
             { label: '返工数量', value: String(fact.reworkQty) },
             { label: '瑕疵数量', value: String(fact.defectQty) },
             { label: '返工接收对象', value: escapeHtml(fact.reworkReceivers) },

@@ -27,30 +27,26 @@ for (const outbound of outbounds) {
     assert.ok(!postTasks.some((task) => task.deliveryId === outbound.deliveryId), `${outbound.outboundOrderNo} QC 空项目不得生成后道加工单`)
     assert.ok(!rechecks.some((order) => order.deliveryId === outbound.deliveryId), `${outbound.outboundOrderNo} QC 空项目不得生成处理后交出复核单`)
   } else {
-    assert.ok(outbound.postTaskId && outbound.recheckOrderId, `${outbound.outboundOrderNo} 后道加工后出货必须追溯加工单与处理后复核单`)
+    assert.ok(outbound.postTaskId && !outbound.recheckOrderId, `${outbound.outboundOrderNo} 后道加工后追溯原加工单，不创建复检单`)
   }
 }
 
 // PFN-039/040/050: use a current pending demo task, execute its actual chain,
 // then produce two independent children through public commands.
-const parent = postTasks.find(task => task.executionModel === 'ITEMS_V1' && !rechecks.some(row => row.postTaskId === task.postTaskId))
-assert(parent, '演示保留一个尚未交复检的加工单供多次出货核验')
+const parent = postTasks.find(task => task.executionModel === 'ITEMS_V1' && flow.getPostFinishingProcessProgress(task).totalExpectedQty > 4)
+assert(parent, '演示保留一个可以分次准备出货的加工单供多次出货核验')
 for (const processItem of parent.processItems) {
   const item = flow.getPostFinishingProcessProgress(parent.postTaskId).processes.find(row => row.processItem === processItem)!
   if (item.availableQty > 0) flow.appendPostFinishingProcessCompletion({ postTaskId: parent.postTaskId, processItem,
     quantities: item.lines.map(line => ({ skuId: line.sku.skuId, quantity: line.availableQty })),
     actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.postOperator, responsible: flow.POST_FINISHING_ACCEPTANCE_ACTORS.postOperator, operationId: `PRINT-READY-${processItem}` })
 }
-const available = flow.getPostFinishingProcessProgress(parent.postTaskId).lines.find(line => line.availableForRecheckQty >= 4)!
+const available = flow.getPostFinishingProcessProgress(parent.postTaskId).lines.find(line => line.availableForOutboundQty >= 4)!
 assert(available)
 const printedChildren = [1, 3].map((quantity, index) => {
-  const child = flow.submitPostFinishingForRecheck({ postTaskId: parent.postTaskId, quantities: [{ skuId: available.sku.skuId, quantity }],
+  const outbound = flow.submitPostFinishingForOutbound({ postTaskId: parent.postTaskId, quantities: [{ skuId: available.sku.skuId, quantity }],
     actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.postOperator, operationId: `PRINT-CHILD-${index}` })
-  flow.claimPostFinishingRecheckOrder({ recheckOrderNo: child.recheckOrderNo, actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA })
-  flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: child.recheckOrderId, skuId: available.sku.skuId, scannedBarcode: available.sku.barcode, actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA })
-  const done = flow.completePostFinishingRecheckOrderFullFlow({ recheckOrderId: child.recheckOrderId,
-    results: [{ skuId: available.sku.skuId, handoverQty: quantity }], actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA })
-  const outbound = flow.getPostFinishingFullFlowOutboundOrder(done.outboundOrderId!)!
+  assert.equal(outbound.status, '待出货')
   const document = buildPrintDocument({ documentType: 'POST_FINISHING_OUTBOUND_ORDER', sourceType: 'POST_FINISHING_OUTBOUND_ORDER', sourceId: outbound.outboundOrderId })
   const labels = buildPrintDocument({ documentType: 'POST_FINISHING_OUTBOUND_BARCODE', sourceType: 'POST_FINISHING_OUTBOUND_ORDER', sourceId: outbound.outboundOrderId })
   assert.equal(document.headerFields.find(field => field.label === '出货单号')?.value, outbound.outboundOrderNo, '整单打印保留本张出货身份')

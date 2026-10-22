@@ -1,4 +1,3 @@
-import { runPostFinishingCommand } from '../../../data/fcs/post-finishing-records.ts'
 // @page-pattern: list
 
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -12,9 +11,9 @@ import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from '../../../data/fcs/pos
 import {
   POST_FINISHING_SEWING_TASK_TYPE_LABEL,
   getCurrentPostFinishingActor,
+  getPostFinishingQcInspectionSummary,
   getPostFinishingFactoryReturn,
   listPostFinishingFullFlowQcTasks,
-  releasePostFinishingQcTask,
   type PostFinishingFactoryReturnDelivery,
   type PostFinishingQcTask,
 } from '../../../data/fcs/post-finishing-full-flow.ts'
@@ -56,13 +55,9 @@ function totalExpected(task: PostFinishingQcTask): number {
   return task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
 }
 
-function totalPassed(task: PostFinishingQcTask): number {
-  return (task.results || []).reduce((sum, line) => sum + line.passedQty, 0)
-}
+function totalPassed(task: PostFinishingQcTask): number { return getPostFinishingQcInspectionSummary(task)?.passedQty || 0 }
 
-function totalDefect(task: PostFinishingQcTask): number {
-  return (task.results || []).reduce((sum, line) => sum + line.defectQty + line.returnQty, 0)
-}
+function totalDefect(task: PostFinishingQcTask): number { const result=getPostFinishingQcInspectionSummary(task);return result?result.defectQty+result.returnQty:0 }
 
 function selectOptions(values: string[], selected: string): string {
   return `<option value="">全部</option>${values.map(value => `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}`
@@ -78,34 +73,37 @@ const columns: StandardListColumn<QcOrderRow>[] = [
     return `<div class="break-all font-mono font-semibold">${linked ? renderProductionObjectCodeButton({ objectType: 'QC_ORDER', objectId: row.task.qcTaskNo, relatedProductionOrderNo: row.task.productionOrderNo }) : escapeHtml(row.task.qcTaskNo)}</div><div class="mt-1 text-xs text-muted-foreground">第 ${row.task.returnIndex} 次回货${linked ? '' : ' · 生产主线关联待补'}</div>`
   } },
   { key: 'documents', title: '单号', width: 190, required: true, render: (row) => {
+    if(row.task.sourceKind==='WAREHOUSE_STOCK')return `<div>来源：成衣仓库存</div><div>原仓：${escapeHtml(row.task.sourceWarehouseName||'待核对')}</div><div class="font-mono text-xs">申请 ${escapeHtml(row.task.inventoryApplicationId||'待核对')}</div>`
     return `<div>后道：<span class="font-mono">${escapeHtml(row.delivery?.sewingTaskNo || '—')}</span></div><div class="mt-1">生产：${row.productionLinked ? renderProductionObjectCodeButton({ objectType: 'PRODUCTION_ORDER', objectId: row.task.productionOrderNo }) : escapeHtml(row.task.productionOrderNo)}</div>${row.mockSource ? '<div class="mt-1 text-xs text-muted-foreground">后道验收 Mock 来源；生产主线已关联</div>' : ''}<div class="mt-1 break-all text-xs text-muted-foreground">回货：${escapeHtml(row.task.deliveryOrderNo)}</div>`
   } },
-  { key: 'factory', title: '来源工厂', width: 110, required: true, render: (row) => escapeHtml(row.delivery?.sewingFactoryName || '—') },
+  { key: 'factory', title: '来源工厂', width: 110, required: true, render: (row) => escapeHtml(row.task.sourceKind==='WAREHOUSE_STOCK'?row.task.sourceWarehouseName||'库存送检':row.delivery?.sewingFactoryName || '—') },
   { key: 'responsibility', title: '后道责任 / 完成去向', width: 190, required: true, render: (row) => {
     const destination = row.task.status === '质检完成'
       ? (row.task.postTaskNo
           ? `生成加工单 ${row.task.postTaskNo}`
           : row.task.outboundOrderNo
-            ? `成衣仓待接收 ${row.task.outboundOrderNo}`
-            : '本次无合格数量，不生成交接单')
-      : '按实际项目加工；无项目则交成衣仓'
+            ? `待出货 ${row.task.outboundOrderNo}`
+            : '本次无正常放行量，不生成出货单')
+      : '按实际项目加工；无项目则准备出货'
     return `<div class="text-xs font-medium ${row.task.responsibility.responsibilityMode === 'POST_FACTORY' ? 'text-blue-700' : 'text-slate-700'}">${escapeHtml(`${row.task.responsibility.taskTypeLabel} · ${row.task.responsibility.responsibilityLabel}`)}</div><div class="mt-1 text-[11px] text-muted-foreground">${row.task.status === '质检完成' ? row.task.frozenProcessItems?.length ? escapeHtml(row.task.frozenProcessItems.join(' → ')) : '不涉及后道加工' : '由质检员按实物确认加工项目'}</div><div class="mt-1 text-[11px] text-blue-700">${escapeHtml(destination)}</div>`
   } },
   { key: 'station', title: '质检员', width: 100, required: true, render: (row) => escapeHtml(row.task.claimedBy?.actorName || '待领取') },
   { key: 'sku', title: 'SKU 明细', width: 220, required: true, render: renderSkuLines },
-  { key: 'expected', title: '质检数量', width: 80, required: true, align: 'center', render: (row) => `${totalExpected(row.task)} 件` },
-  { key: 'passed', title: '合格数量', width: 80, required: true, align: 'center', render: (row) => `${totalPassed(row.task)} 件` },
+  { key: 'expected', title: '本批实收', width: 80, required: true, align: 'center', render: (row) => `${totalExpected(row.task)} 件` },
+  {key:'inspected',title:'实际检查',width:100,required:true,align:'center',render:row=>{const summary=getPostFinishingQcInspectionSummary(row.task);return summary?`${summary.inspectedQty} 件`:row.task.results?.length?'历史实检未记录':'0 件'}},
+  { key: 'passed', title: '实检合格', width: 80, required: true, align: 'center', render: (row) => getPostFinishingQcInspectionSummary(row.task)?`${totalPassed(row.task)} 件`:row.task.results?.length?'历史数量':'0 件' },
   { key: 'defect', title: '不合格数量', width: 90, required: true, align: 'center', render: (row) => `${totalDefect(row.task)} 件` },
-  { key: 'result', title: '质检结果', width: 95, required: true, render: (row) => row.task.status === '待送检' ? '待送检出库' : row.task.status !== '质检完成' ? '未出结果' : totalDefect(row.task) > 0 ? '部分不合格' : '全数合格' },
+  {key:'uninspected',title:'未抽随批放行',width:100,required:true,align:'center',render:row=>{const summary=getPostFinishingQcInspectionSummary(row.task);return row.task.status!=='质检完成'?'尚未放行':summary?`${summary.uninspectedQty} 件`:'历史未记录'}},
+  {key:'released',title:'正常放行',width:90,required:true,align:'center',render:row=>row.task.status==='质检完成'?`${row.task.results?.reduce((n,line)=>n+(line.releasedQty??line.passedQty),0)||0} 件`:'尚未放行'},
+  { key: 'result', title: '质检结果', width: 95, required: true, render: (row) => row.task.status === '待送检' ? '待送检出库' : row.task.status !== '质检完成' ? '未出结果' : !getPostFinishingQcInspectionSummary(row.task)?'历史结果':totalDefect(row.task) > 0 ? '检查发现问题' : getPostFinishingQcInspectionSummary(row.task)!.fullInspection?'全检无问题':'抽检无问题' },
   { key: 'status', title: '状态', width: 90, required: true, render: (row) => renderPostStatusBadge(row.task.status) },
   { key: 'actions', title: '操作', width: 200, required: true, actionColumn: true, render: (row) => {
     const actor = getCurrentPostFinishingActor()
-    const isSupervisor = actor.roleName === 'QC主管'
     const canOperate = row.task.claimedBy?.actorId === actor.actorId
     if (row.task.status === '待送检') {
-      return `<a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(row.task.deliveryId)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">去待加工仓送检</a>`
+      return `<a href="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(row.task.deliveryId)}" data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(row.task.deliveryId)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">去待加工仓送检</a>`
     }
-    return `<div class="grid grid-cols-2 gap-x-3 gap-y-2">${row.task.status === '质检中' && canOperate ? `<a data-nav="/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">完成质检</a>` : ''}<a data-nav="/fcs/craft/post-finishing/qc-workbench?view=detail&taskNo=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看质检单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检详情单</a>${isSupervisor && row.task.status === '质检中' ? `<button type="button" class="whitespace-nowrap text-xs text-amber-700 hover:underline" data-post-finishing-action="full-flow-supervisor-release-qc" data-task-id="${escapeHtml(row.task.qcTaskId)}">主管释放</button>` : ''}</div>`
+    return `<div class="grid grid-cols-2 gap-x-3 gap-y-2">${row.task.status === '质检中' && canOperate ? `<a href="/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(row.task.qcTaskNo)}" data-nav="/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">完成质检</a>` : ''}<a href="/fcs/craft/post-finishing/qc-workbench?view=detail&taskNo=${encodeURIComponent(row.task.qcTaskNo)}" data-nav="/fcs/craft/post-finishing/qc-workbench?view=detail&taskNo=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看质检单</a><a href="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(row.task.qcTaskNo)}" data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检单</a><a href="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(row.task.qcTaskNo)}" data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检详情单</a></div>`
   } },
 ]
 
@@ -132,12 +130,12 @@ export function renderPostFinishingQcOrdersPage(): string {
       mockSource: Boolean(source && POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.some(item => item.productionOrderId === source.productionOrderId)
         && productionDemands.some(item => item.demandId === source.demandId)) }
   }).filter((row) => {
-    const sourceLabel = row.delivery ? POST_FINISHING_SEWING_TASK_TYPE_LABEL[row.delivery.sewingTaskType] : ''
+    const sourceLabel = row.task.sourceKind==='WAREHOUSE_STOCK'?'成衣仓库存':row.delivery ? POST_FINISHING_SEWING_TASK_TYPE_LABEL[row.delivery.sewingTaskType] : ''
     const searchable = [row.task.qcTaskNo, row.task.deliveryOrderNo, row.task.productionOrderNo, row.task.claimedBy?.actorName, ...row.task.lines.map((line) => line.sku.skuCode)].filter(Boolean).join(' ').toLowerCase()
     return (!keyword || searchable.includes(keyword))
       && (!status || row.task.status === status)
       && (!source || sourceLabel === source)
-      && (!factory || row.delivery?.sewingFactoryName === factory)
+      && (!factory || (row.task.sourceKind==='WAREHOUSE_STOCK'?row.task.sourceWarehouseName:row.delivery?.sewingFactoryName) === factory)
       && (!owner || row.task.claimedBy?.actorName.toLowerCase().includes(owner))
   })
   const counts = records.reduce<Record<string, number>>((result, { task }) => {
@@ -147,13 +145,13 @@ export function renderPostFinishingQcOrdersPage(): string {
   const pageSize = Math.max(10, Math.min(50, Number(current.get('pageSize') || 20)))
   const slice = paginateStandardListRows(records, Number(current.get('page') || 1), pageSize)
   const preferences: StandardListColumnPreferences = { order: columns.map((column) => column.key), visibleKeys: columns.map((column) => column.key), frozenKeys: ['qcOrder'], pageSize }
-  const sources = [...new Set(allRecords.map((task) => getPostFinishingFactoryReturn(task.deliveryId)).filter(Boolean).map((delivery) => POST_FINISHING_SEWING_TASK_TYPE_LABEL[delivery!.sewingTaskType]))]
-  const factories = [...new Set(allRecords.map((task) => getPostFinishingFactoryReturn(task.deliveryId)?.sewingFactoryName).filter((value): value is string => Boolean(value)))]
+  const sources = [...new Set(allRecords.map(task=>task.sourceKind==='WAREHOUSE_STOCK'?'成衣仓库存':getPostFinishingFactoryReturn(task.deliveryId)?.sewingTaskType).filter(Boolean).map(source=>source==='成衣仓库存'?source:POST_FINISHING_SEWING_TASK_TYPE_LABEL[source!]))]
+  const factories = [...new Set(allRecords.map((task) => task.sourceKind==='WAREHOUSE_STOCK'?task.sourceWarehouseName:getPostFinishingFactoryReturn(task.deliveryId)?.sewingFactoryName).filter((value): value is string => Boolean(value)))]
   return renderStandardListPage({
     title: '质检清单',
-    primaryActionsHtml: `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions()}<a data-nav="/fcs/craft/post-finishing/qc-workbench" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white">执行质检</a></div>`,
-    feedbackHtml: `${renderMessage()}<div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-900"><strong>返工扣款边界：</strong>本页只记录返工数量、原因和接收工厂；返工扣款由后续财务事实承接，对账单确认后才影响本期应付。</div>`,
-    filtersHtml: `<form action="/fcs/craft/post-finishing/qc-orders" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3 xl:grid-cols-6"><label class="text-xs text-muted-foreground md:col-span-2">关键词<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="质检单/后道加工单/生产单/质检员/SKU"/></label><label class="text-xs text-muted-foreground">当前状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['待送检','待质检','质检中','质检完成'], status)}</select></label><label class="text-xs text-muted-foreground">后道来源<select name="source" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(sources, source)}</select></label><label class="text-xs text-muted-foreground">工厂<select name="factory" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(factories, factory)}</select></label>${isSupervisor ? `<label class="text-xs text-muted-foreground">质检员<input name="owner" value="${escapeHtml(current.get('owner') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"/></label>` : ''}<div class="flex items-end justify-end gap-2 md:col-span-3 xl:col-span-6"><a data-nav="/fcs/craft/post-finishing/qc-orders" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
+    primaryActionsHtml: `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions()}<a href="/fcs/craft/post-finishing/qc-workbench" data-nav="/fcs/craft/post-finishing/qc-workbench" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white">执行质检</a></div>`,
+    feedbackHtml: renderMessage(),
+    filtersHtml: `<form action="/fcs/craft/post-finishing/qc-orders" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3 xl:grid-cols-6"><label class="text-xs text-muted-foreground md:col-span-2">关键词<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="质检单/后道加工单/生产单/质检员/SKU"/></label><label class="text-xs text-muted-foreground">当前状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['待送检','待质检','质检中','质检完成'], status)}</select></label><label class="text-xs text-muted-foreground">后道来源<select name="source" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(sources, source)}</select></label><label class="text-xs text-muted-foreground">工厂<select name="factory" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(factories, factory)}</select></label>${isSupervisor ? `<label class="text-xs text-muted-foreground">质检员<input name="owner" value="${escapeHtml(current.get('owner') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"/></label>` : ''}<div class="flex items-end justify-end gap-2 md:col-span-3 xl:col-span-6"><a href="/fcs/craft/post-finishing/qc-orders" data-nav="/fcs/craft/post-finishing/qc-orders" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
     statsHtml: renderStandardListStats([
       { label: '待送检', value: counts['待送检'] || 0 },
       { label: '待质检', value: counts['待质检'] || 0 },
@@ -176,23 +174,5 @@ export async function handlePostFinishingQcOrdersEvent(target: HTMLElement, even
     navigate({ page: '1', pageSize: pageSize.value })
     return true
   }
-  const actionNode = target.closest<HTMLElement>('[data-post-finishing-action]')
-  if (actionNode?.dataset.postFinishingAction !== 'full-flow-supervisor-release-qc') return false
-  if (getCurrentPostFinishingActor().roleName !== 'QC主管') return false
-  if (!window.confirm('确认释放这张质检单？释放后原质检员不能继续提交，单据回到待质检。')) return true
-  try {
-    const task = await runPostFinishingCommand(() => releasePostFinishingQcTask({
-      qcTaskId: actionNode?.dataset.taskId || '',
-      actor: getCurrentPostFinishingActor(),
-      reason: '主管释放异常占用',
-      supervisor: true,
-    }))
-    message = `${task.qcTaskNo} 已由主管释放并回到待质检。`
-    messageTone = 'success'
-  } catch (error) {
-    message = error instanceof Error ? error.message : '质检单操作失败。'
-    messageTone = 'error'
-  }
-  refresh()
-  return true
+  return false
 }

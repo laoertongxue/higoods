@@ -32,12 +32,23 @@ function open(): Promise<IDBDatabase> {
   opening = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('当前浏览器无法使用 IndexedDB，PCS 用户数据无法读取或保存。')); return }
     let request: IDBOpenDBRequest
-    try { request = indexedDB.open(DATABASE, 2) } catch (error) { reject(failure(error)); return }
+    try { request = indexedDB.open(DATABASE, 4) } catch (error) { reject(failure(error)); return }
     let blocked = false
     request.onblocked = () => { blocked = true; reject(new Error('PCS 数据库升级被其他标签页阻止，请关闭旧页面后重试。')) }
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = event => {
       const db = request.result
       for (const name of stores) if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: 'id' })
+      const records = request.transaction!.objectStore('records')
+      // A new empty library can index subsequent writes without rebuilding a
+      // populated archive. Legacy libraries use the bounded readonly header
+      // projection below; existing v4 indexes remain usable. Both paths read
+      // the same original records, with no additional persisted facts.
+      for(const field of ['status','qcTaskNo','productionOrderId','productionOrderNo']){
+        const old='lookup:'+field
+        if(records.indexNames.contains(old))records.deleteIndex(old)
+      }
+      if(event.oldVersion===0 && !records.indexNames.contains('lookup:qualityHeader'))records.createIndex('lookup:qualityHeader',
+        ['collection','value.status','value.qcTaskNo','value.productionOrderId','value.productionOrderNo'])
       const operations = request.transaction!.objectStore('operations')
       if (!operations.indexNames.contains('createdAt')) operations.createIndex('createdAt', 'createdAt')
     }
@@ -98,13 +109,26 @@ export function pcsFileReferences(value: unknown, knownIds: Set<string> = new Se
       if (first === 112 && item.startsWith('pcs-file:')) references.add(item.slice(9))
       else if (recognizeBareIds && knownIds.has(item)) references.add(item)
     } else if (item && typeof item === 'object' && !visited.has(item)) {
+      // Only ordinary JSON arrays are reference-free leaves. Custom iterators
+      // still pass through the original traversal, including byte validation.
+      if (Array.isArray(item) && item.length === 0 && Object.getPrototypeOf(item) === Array.prototype
+        && !Object.hasOwn(item, Symbol.iterator) && !Object.hasOwn(item, 'fileId')) {
+        let plainEmpty = true
+        for (const key in item) if (Object.hasOwn(item, key)) { plainEmpty = false; break }
+        if (plainEmpty) return
+      }
       visited.add(item)
       if (item instanceof Blob) { if (validateFileBytes) throw new Error('请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。'); return }
       const record = item as Record<string, unknown>
       const staticFile = record.fileStorage === 'static' && typeof record.dataUrl === 'string' && record.dataUrl.startsWith('/')
       if (!staticFile && Object.hasOwn(record, 'fileId') && typeof record.fileId === 'string' && record.fileId) references.add(record.fileId)
       if (Array.isArray(item)) {
-        for (const child of item) if (typeof child === 'string' || (child && typeof child === 'object')) walk(child)
+        for (const child of item) {
+          if (typeof child === 'string') {
+            const first = child.charCodeAt(0)
+            if (recognizeBareIds || first === 112 || (validateFileBytes && (first === 100 || first === 68))) walk(child)
+          } else if (child && typeof child === 'object') walk(child)
+        }
         return
       }
       // Avoid allocating an entries array and repeating static metadata checks
@@ -129,39 +153,148 @@ function checkFiles(files: PcsStoredFile[]) {
     ids.add(file.id)
   }
 }
-export async function readPcsRecords(collections?: readonly string[]): Promise<{ records: PcsStoredRecord[]; files: PcsStoredFile[]; migrations: PcsMigrationReceipt[]; referenceFreeValues?: WeakSet<object> }> {
+export interface PcsRecordNativeLookup {
+ ids(prefix:string):Promise<string[]>
+ idsByField(field:'status'|'qcTaskNo'|'productionOrderId'|'productionOrderNo',collection:string,value:string):Promise<string[]>
+ records(ids:readonly string[]):Promise<PcsStoredRecord[]>
+}
+export interface PcsRecordReadSelection {
+ /** A complete encoded-record prefix; only this range is chosen by native keys. */
+ excludedPrefix?:string
+ retain(row:PcsStoredRecord):boolean
+ additionalIds(retained:readonly PcsStoredRecord[],lookup:PcsRecordNativeLookup):readonly string[]|Promise<readonly string[]>
+}
+export async function readPcsRecords(collections?: readonly string[], selection?:PcsRecordReadSelection): Promise<{ records: PcsStoredRecord[]; files: PcsStoredFile[]; migrations: PcsMigrationReceipt[]; referenceFreeValues?: WeakSet<object> }> {
   return transaction('readonly', async tx => {
     const recordStore = tx.objectStore('records'), fileStore = tx.objectStore('files')
     // IDs are namespaced by the registered collection. The existing primary-key
     // range reads only that namespace, without a schema upgrade or full scan.
     const selected = collections?.length ? [...new Set(collections)] : undefined
-    const rows = selected
-      ? Promise.all(selected.map(key => result(recordStore.getAll(IDBKeyRange.bound(`${key}/`, `${key}0`, false, true))))).then(groups => groups.flat())
-      : result(recordStore.getAll())
-    const [records, metadata] = await Promise.all([rows as Promise<PcsStoredRecord[]>, result(tx.objectStore('meta').getAll())])
+    const records:PcsStoredRecord[]=[]
     const references = new Set<string>()
     const referenceFreeValues = new WeakSet<object>()
-    if (selected) for (const row of records) if (!row.deleted) {
-      try {
-        const ids = pcsFileReferences(row.value)
-        for (const id of ids) references.add(id)
-        // This exact, read-only object tree has already passed byte/reference
-        // validation. Hydration may reuse it when there are no file references;
-        // no persisted marker or unchecked tree is trusted.
-        if (!ids.size && row.value && typeof row.value === 'object') {
-          referenceFreeValues.add(row.value)
-          const data = (row.value as { data?: unknown }).data
-          if (data && typeof data === 'object') referenceFreeValues.add(data)
-        }
+    const metadataRequest=result(tx.objectStore('meta').getAll())
+    const append=(batch:PcsStoredRecord[],applySelection=true)=>{
+      const retained=selection && applySelection ? batch.filter(row=>selection.retain(row)) : batch
+      records.push(...retained)
+      if(selected)for(const row of retained)if(!row.deleted){
+        try{
+          const ids=pcsFileReferences(row.value)
+          for(const id of ids)references.add(id)
+          if(!ids.size && row.value && typeof row.value==='object'){
+            referenceFreeValues.add(row.value)
+            const data=(row.value as {data?:unknown}).data
+            if(data && typeof data==='object')referenceFreeValues.add(data)
+          }
+        }catch{ /* Collection hydration retains its original validation boundary. */ }
       }
-      catch { /* Record validation remains scoped to its collection during hydration. */ }
     }
+    const ranges=selected?.flatMap(key=>{
+      const excluded=selection?.excludedPrefix
+      if(!excluded)return [IDBKeyRange.bound(key+'/',key+'0',false,true)]
+      if(!excluded.startsWith(key+'/') || !excluded.endsWith('/'))throw Error('原记录读取范围不一致。')
+      return [IDBKeyRange.bound(key+'/',excluded,false,true),IDBKeyRange.bound(excluded.slice(0,-1)+'0',key+'0',false,true)]
+    })
+    const firstReads=ranges?.map(range=>result(recordStore.getAll(range,1024)) as Promise<PcsStoredRecord[]>)
+    firstReads?.forEach(read=>read.catch(()=>undefined))
+    if(ranges)for(const [index,range] of ranges.entries()){
+      let pending:Promise<PcsStoredRecord[]>|undefined=firstReads![index]
+      while(pending){
+        const batch:PcsStoredRecord[]=await pending
+        pending=batch.length===1024 ? result(recordStore.getAll(IDBKeyRange.bound(batch[batch.length-1].id,range.upper,true,range.upperOpen),1024)) : undefined
+        pending?.catch(()=>undefined)
+        append(batch)
+      }
+    }else append(await result(recordStore.getAll()))
+    if(selection){
+      const retainedIds=new Set(records.map(row=>row.id))
+      const headerReads=new Map<string,Promise<Array<{id:string;key:IDBValidKey[]}>>>()
+      const headers=(collection:string)=>{
+        let reading=headerReads.get(collection)
+        if(!reading){
+          if(!recordStore.indexNames.contains('lookup:qualityHeader')){
+            reading=(async()=>{
+              const prefix=selection.excludedPrefix
+              if(!prefix || !prefix.endsWith('/'))throw Error('原记录读取范围不完整。')
+              const upper=prefix.slice(0,-1)+'0',rows:Array<{id:string;key:IDBValidKey[]}>=[]
+              let pending:Promise<PcsStoredRecord[]>|undefined=result(recordStore.getAll(IDBKeyRange.bound(prefix,upper,false,true),256))
+              while(pending){
+                const batch:PcsStoredRecord[]=await pending
+                pending=batch.length===256?result(recordStore.getAll(IDBKeyRange.bound(batch[batch.length-1].id,upper,true,true),256)):undefined
+                pending?.catch(()=>undefined)
+                for(const row of batch){
+                  if(row.collection!==collection)continue
+                  const value=row.value as Record<string,IDBValidKey>|null
+                  const key=[row.collection,value?.status,value?.qcTaskNo,value?.productionOrderId,value?.productionOrderNo]
+                  // Native compound indexes omit incomplete/invalid keys. Match
+                  // that behavior; the caller separately retains missing facts.
+                  try{indexedDB.cmp(key as IDBValidKey[],key as IDBValidKey[])}catch{continue}
+                  rows.push({id:row.id,key:key as IDBValidKey[]})
+                }
+              }
+              return rows
+            })()
+          }else{
+          reading=new Promise<Array<{id:string;key:IDBValidKey[]}>>((resolve,reject)=>{
+            const rows:Array<{id:string;key:IDBValidKey[]}>=[]
+            const request=recordStore.index('lookup:qualityHeader').openKeyCursor(IDBKeyRange.bound([collection],[collection,[]]))
+            request.onerror=()=>reject(request.error)
+            request.onsuccess=()=>{
+              const cursor=request.result
+              if(!cursor){resolve(rows);return}
+              if(typeof cursor.primaryKey!=='string' || !Array.isArray(cursor.key)){reject(Error('原记录索引身份不完整。'));return}
+              rows.push({id:cursor.primaryKey,key:cursor.key});cursor.continue()
+            }
+          })
+          }
+          headerReads.set(collection,reading)
+        }
+        return reading
+      }
+      const fieldPosition={status:1,qcTaskNo:2,productionOrderId:3,productionOrderNo:4} as const
+      const lookup:PcsRecordNativeLookup={
+        ids:async prefix=>{
+          if(!prefix.endsWith('/'))throw Error('原记录索引范围不完整。')
+          return await result(recordStore.getAllKeys(IDBKeyRange.bound(prefix,prefix.slice(0,-1)+'0',false,true))) as string[]
+        },
+        idsByField:async(field,collection,value)=>(await headers(collection)).filter(row=>row.key[fieldPosition[field]]===value).map(row=>row.id),
+        records:async ids=>(await Promise.all([...new Set(ids)].map(id=>result(recordStore.get(id)) as Promise<PcsStoredRecord|undefined>))).filter((row):row is PcsStoredRecord=>!!row),
+      }
+      const ids=[...new Set(await selection.additionalIds(records,lookup))].filter(id=>!retainedIds.has(id))
+      const additional=await Promise.all(ids.map(id=>result(recordStore.get(id)) as Promise<PcsStoredRecord|undefined>))
+      append(additional.filter((row):row is PcsStoredRecord=>!!row).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0),false)
+    }
+    const metadata=await metadataRequest
     const files: PcsStoredFile[] = selected
       ? (await Promise.all([...references].map(id => result(fileStore.get(id)) as Promise<PcsStoredFile | undefined>))).filter((file): file is PcsStoredFile => file !== undefined)
       : await result(fileStore.getAll())
     return { records, files, migrations: metadata.filter(item => item.kind === 'legacy-verified').map(item => item.value), referenceFreeValues }
   })
 }
+/** Narrow readonly projections for quality lists: native values remain detached,
+ * and only the requested fields survive. No attachment scan, seed copy or write. */
+export async function readPcsRecordProjection<T>(selectors:ReadonlyArray<{prefix:string}|{id:string}>, project:(row:PcsStoredRecord)=>T|null):Promise<T[]> {
+  return transaction('readonly',async tx=>{
+    const store=tx.objectStore('records'), values:T[]=[]
+    const apply=(row:PcsStoredRecord)=>{const value=project(row);if(value!==null)values.push(value)}
+    // Keep the complete consistent transaction, but release each native batch
+    // after its projection. A list must not retain thousands of frozen trees.
+    // Selector order remains significant: metadata precedes dependent rows.
+    for(const selector of selectors){
+      if('id' in selector){const row=await result(store.get(selector.id));if(row)apply(row);continue}
+      let lower=selector.prefix,openLower=false
+      const upper=selector.prefix+'\uffff'
+      while(true){
+        const rows=await result(store.getAll(IDBKeyRange.bound(lower,upper,openLower,false),256)) as PcsStoredRecord[]
+        for(const row of rows)apply(row)
+        if(rows.length<256)break
+        lower=rows[rows.length-1].id;openLower=true
+      }
+    }
+    return values
+  })
+}
+
 /** Saving a few references must not deserialize every unrelated business record. */
 export async function readPcsFiles(ids: readonly string[]): Promise<PcsStoredFile[]> {
   if (!ids.length) return []

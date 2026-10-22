@@ -41,8 +41,12 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
       { label: '接收仓', value: '成衣仓' },
       { label: '生产单号', value: order.productionOrderNo },
       { label: '任务单号', value: order.postTaskNo || order.qcTaskNo },
-      { label: '来源对象', value: order.recheckOrderNo || order.qcTaskNo },
-      { label: '创建时间', value: order.createdAt },
+      { label: '来源对象', value: order.postTaskNo || order.qcTaskNo },
+      { label: '准备时间', value: order.createdAt },
+      { label: '实际发出时间', value: order.dispatchedAt || '未发出' },
+      { label: '实际发出人', value: order.dispatchedBy?.actorName || '未发出' },
+      { label: '仓库实收时间', value: order.receivedAt || '未接收' },
+      { label: '仓库实收人', value: order.receivedBy?.actorName || '未接收' },
     ],
     imageBlocks: [],
     qrCodes: [],
@@ -51,7 +55,7 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
     tables: [{
       tableId: 'post-finishing-outbound-lines',
       title: '出货明细',
-      headers: ['序号', '图片 / 名称', '类型', 'SKU', '颜色', '尺码', '计划数量', '已入库数量', '单位'],
+      headers: ['序号', '图片 / 名称', '类型', 'SKU', '颜色', '尺码', '本单出货数量', '已实际发出', '仓库实收数量', '单位'],
       rows: order.lines.map((line, index) => [
         String(index + 1),
         `${line.sku.imageUrl || ''}\n${line.sku.spuName}`,
@@ -60,7 +64,8 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
         line.sku.colorName,
         line.sku.sizeName,
         String(line.outboundQty),
-        String(line.receivedQty || 0),
+        order.status === '待出货' ? '0' : String(line.outboundQty),
+        String(line.receivedQty ?? 0),
         line.sku.qtyUnit,
       ]),
     }],
@@ -73,7 +78,7 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
       printNotice: '',
       returnHref: `/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(order.outboundOrderId)}`,
     },
-    relatedObjectIds: [order.recheckOrderId || '', order.qcTaskId, order.postTaskId || ''].filter(Boolean),
+    relatedObjectIds: [order.qcTaskId, order.postTaskId || ''].filter(Boolean),
   }
 }
 
@@ -130,7 +135,7 @@ export function buildPostFinishingOutboundBarcodePrintDocument(input: PrintDocum
     labelLayout: '单张标签',
     printMode: '普通打印',
     labelItems,
-    relatedObjectIds: [order.recheckOrderId || order.qcTaskId],
+    relatedObjectIds: [order.qcTaskId],
     totalCopies: labelItems.length,
   }
 }
@@ -138,7 +143,7 @@ export function buildPostFinishingOutboundBarcodePrintDocument(input: PrintDocum
 function renderImageCell(value: string): string {
   const [imageUrl, ...nameParts] = value.split('\n')
   const name = nameParts.join('\n')
-  return `<div class="outbound-print-product">${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(name)}" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><span class="hidden">图片加载失败</span>` : '<span>无图</span>'}<b>${escapeHtml(name)}</b></div>`
+  return `<div class="outbound-print-product">${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(name)}" onload="this.classList.remove('hidden');this.nextElementSibling.classList.add('hidden')" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><span class="hidden">图片加载失败</span>` : '<span data-print-image-missing>无图</span>'}<b>${escapeHtml(name)}</b></div>`
 }
 
 export function renderPostFinishingOutboundOrderTemplate(document: PrintDocument): string {
@@ -163,6 +168,7 @@ export function renderPostFinishingOutboundOrderTemplate(document: PrintDocument
     .hidden { display: none !important; }
   </style><article class="post-outbound-print" data-post-finishing-outbound-print>
     <h1>后道出货单</h1>
+    <section class="mb-3" aria-label="出货单号条码">${document.barcodes.map(code => renderCode128Barcode(code.value, code.title)).join('')}</section>
     <section class="post-outbound-meta">
       ${document.headerFields.map((item) => `<div><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.value)}</b></div>`).join('')}
     </section>

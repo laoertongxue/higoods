@@ -115,7 +115,7 @@ function buildTableColumns(): TableColumn<QcRow>[] {
       key: 'inspectedQty',
       title: '质检数量',
       className: 'align-top',
-      render: (row) => `<div class="font-medium">${row.inspectedQty}</div><div class="mt-1 text-xs text-muted-foreground">合格 ${row.qualifiedQty}</div>`,
+      render: (row) => `<div class="font-medium">${row.inspectionKnown===false?'历史未记录':row.inspectedQty}</div><div class="mt-1 text-xs text-muted-foreground">${row.inspectionKnown===false?'历史合格':'实检合格'} ${row.qualifiedQty}${row.uninspectedReleaseQty===undefined?'':` · 未抽放行 ${row.uninspectedReleaseQty} · 正常放行 ${row.releasedQty ?? 0}`}</div>`,
     },
     { key: 'reworkQty', title: '返工数量', className: 'align-top', render: (row) => String(row.reworkQty) },
     { key: 'defectQty', title: '瑕疵数量', className: 'align-top', render: (row) => String(row.defectQty) },

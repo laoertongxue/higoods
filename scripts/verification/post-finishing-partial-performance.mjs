@@ -255,7 +255,7 @@ function installMeasurement() {
   const visible = element => { const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight && getComputedStyle(element).visibility !== 'hidden'; };
   async function readback(spec) {
     if (!spec) return { valid: true, checked: false };
-    const db = await new Promise((resolve, reject) => { const request = indexedDB.open('higood-pcs-records', 2); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    const db = await new Promise((resolve, reject) => { const request = indexedDB.open('higood-pcs-records'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
     try {
       const tx = originalTransaction.call(db, 'records', 'readonly');
       const lower = 'higood-fcs-post-finishing-records/flow/' + spec.collection + '/';
@@ -352,7 +352,7 @@ async function injectBackup(page, backup, { legacy = false, method = 'put' } = {
     if(digest!==expected.sha256||JSON.stringify(counts)!==JSON.stringify(expected.counts))throw new Error('Decoded test fixture differs from the original public-command backup.');
     const decodedAt=performance.now();
     const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('higood-pcs-records', 2);
+      const request = indexedDB.open('higood-pcs-records');
       request.onupgradeneeded = () => { for (const name of ['records','files','operations','meta']) if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name, { keyPath: 'id' }); const ops = request.transaction.objectStore('operations'); if (!ops.indexNames.contains('createdAt')) ops.createIndex('createdAt','createdAt'); };
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
@@ -562,7 +562,7 @@ async function actionFamilies() {
       if(args.includes('--qc-only'))continue;
       // Task identity is obtained from native persisted rows, not from a bundle-private API.
       target.taskId=await page.evaluate(async qcId=>{
-        const db=await new Promise(resolve=>{const q=indexedDB.open('higood-pcs-records',2);q.onsuccess=()=>resolve(q.result);});
+        const db=await new Promise(resolve=>{const q=indexedDB.open('higood-pcs-records');q.onsuccess=()=>resolve(q.result);});
         const value=await new Promise(resolve=>{const q=db.transaction('records').objectStore('records').getAll();q.onsuccess=()=>resolve(q.result.find(row=>!row.deleted&&row.collection==='flow/postTasks'&&row.value.qcTaskId===qcId)?.value);});db.close();return value.postTaskId;
       },target.qcId);
       await page.goto(targetOrigin+prefix+'work-orders/'+encodeURIComponent(target.taskId),{waitUntil:'networkidle'});
@@ -579,7 +579,7 @@ async function actionFamilies() {
         for(const input of await page.locator('[data-post-entry-quantity]').all())await input.fill('20');
       await recorded(page,'recheck:create',trial,{gone:'[data-post-entry-form]',readback:{collection:'recheckOrders',where:{postTaskId:target.taskId}}},()=>page.locator(detailAction('save-entry')).click());
       target.recheck=await page.evaluate(async taskId=>{
-        const db=await new Promise(resolve=>{const q=indexedDB.open('higood-pcs-records',2);q.onsuccess=()=>resolve(q.result);});
+        const db=await new Promise(resolve=>{const q=indexedDB.open('higood-pcs-records');q.onsuccess=()=>resolve(q.result);});
         const value=await new Promise(resolve=>{const q=db.transaction('records').objectStore('records').getAll();q.onsuccess=()=>resolve(q.result.find(row=>!row.deleted&&row.collection==='flow/recheckOrders'&&row.value.postTaskId===taskId)?.value);});db.close();return value;
       },target.taskId);
       if(calibration&&!args.includes('--full-actions')){report.calibrationAction={taskId:target.taskId,recheckNo:target.recheck.recheckOrderNo,quantity:target.recheck.lines.reduce((sum,line)=>sum+line.expectedQty,0)};checkpoint();continue;}
@@ -599,7 +599,7 @@ async function actionFamilies() {
       await recorded(page,'recheck:complete',trial,{contains:'已进入后道待交出仓',readback:{collection:'outboundOrders',where:{recheckOrderId:target.recheck.recheckOrderId}}},()=>page.locator('[data-pda-post-action="complete-recheck"]').click());
       await page.setViewportSize({width:1366,height:768});
       target.outbound=await page.evaluate(async recheckId=>{
-        const db=await new Promise(resolve=>{const q=indexedDB.open('higood-pcs-records',2);q.onsuccess=()=>resolve(q.result);});
+        const db=await new Promise(resolve=>{const q=indexedDB.open('higood-pcs-records');q.onsuccess=()=>resolve(q.result);});
         const value=await new Promise(resolve=>{const q=db.transaction('records').objectStore('records').getAll();q.onsuccess=()=>resolve(q.result.find(row=>!row.deleted&&row.collection==='flow/outboundOrders'&&row.value.recheckOrderId===recheckId)?.value);});db.close();return value;
       },target.recheck.recheckOrderId);
       await page.goto(targetOrigin+'/wls/finished-inbound',{waitUntil:'networkidle'});

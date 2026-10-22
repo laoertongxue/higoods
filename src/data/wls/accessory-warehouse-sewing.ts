@@ -108,8 +108,8 @@ export function getAccessorySewingPickupPath(assignmentId: string, versionId?: s
   return key ? `/wls/accessory-warehouses/${key}/pickups?pickupId=${encodeURIComponent(pickup.id)}${versionId ? `&versionId=${encodeURIComponent(versionId)}` : ''}` : undefined
 }
 /** 页面独立读取；安装的是原实交账/凭证的受限桥，普通访问不生成单据。 */
-export async function prepareAccessorySewing(): Promise<void> {
-  await prepareAccessoryWarehouseSources()
+export async function prepareAccessorySewing(options:{readOnly?:boolean}={}): Promise<void> {
+  await prepareAccessoryWarehouseSources({postFinishingReadOnly:options.readOnly})
   installSewingMaterialHandoverBridge({ context: id => contexts().find(row => row.assignmentId === id), contexts, events: id => events().filter(row => row.assignmentId === id), ownsLines: (id, lines) => {
     if (!owned(id)) return false
     const context = contexts().find(row => row.assignmentId === id) || captureSewingMaterialState().contexts.find(([key]) => key === id)?.[1]

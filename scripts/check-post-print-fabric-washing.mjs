@@ -1,6 +1,6 @@
 import { chromium } from '@playwright/test'
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
@@ -127,5 +127,5 @@ await page.setViewportSize({width:1366,height:768})
 await check('PG-02/PR-01/02','洗水单和交接卷标预览包含真图、手感、源卷和实际责任方',async()=>{
  await page.evaluate(async()=>{const pda=await import('/src/data/fcs/store-domain-pda.ts');pda.clearPdaSession()});const orderId=uiOrderId;await page.goto(base+'/fcs/craft/dyeing/washing/work-orders/'+encodeURIComponent(orderId));await page.waitForSelector('[data-washing-order]');await page.getByRole('tab',{name:'打印',exact:true}).click();await page.locator('[data-washing-tab="print"][aria-selected="true"]').waitFor();await page.getByRole('button',{name:'洗水加工单预览',exact:true}).click();await page.locator('[data-washing-print-document]').waitFor();assert.match(await page.locator('[data-washing-print-document]').innerText(),/目标手感：柔软手感/);assert.equal(await page.locator('[data-washing-print-document] img').evaluate(img=>img.complete&&img.naturalWidth>0),true);await page.getByRole('button',{name:'交接与卷标预览',exact:true}).click();await page.locator('[data-washing-print-document] [data-real-barcode]').first().waitFor();assert.match(await page.locator('[data-washing-print-document]').innerText(),/WS-REPACK-01/);await page.screenshot({path:'output/playwright/washing/print-preview-1366.png',fullPage:true});return{barcodes:await page.locator('[data-washing-print-document] [data-real-barcode]').count()}
 })
-const sourcePaths=execFileSync('git',['ls-files','-m','-o','--exclude-standard'],{encoding:'utf8'}).trim().split('\n').filter(p=>/^(src|tests|scripts)\//.test(p));report.sourceHashes=Object.fromEntries(sourcePaths.map(p=>[p,createHash('sha256').update(readFileSync(p)).digest('hex')]));report.browserVersion=browser.version();report.summary={pass:report.cases.filter(r=>r.status==='PASS').length,fail:report.cases.filter(r=>r.status==='FAIL').length,pageErrors:report.errors.length}
+const sourcePaths=execFileSync('git',['ls-files','-m','-o','--exclude-standard'],{encoding:'utf8'}).trim().split('\n').filter(p=>/^(src|tests|scripts)\//.test(p));report.deletedSourcePaths=sourcePaths.filter(p=>!existsSync(p));report.sourceHashes=Object.fromEntries(sourcePaths.filter(p=>existsSync(p)).map(p=>[p,createHash('sha256').update(readFileSync(p)).digest('hex')]));report.browserVersion=browser.version();report.summary={pass:report.cases.filter(r=>r.status==='PASS').length,fail:report.cases.filter(r=>r.status==='FAIL').length,pageErrors:report.errors.length}
 writeFileSync(out+'/browser-contracts-'+stamp+'.json',JSON.stringify(report,null,2));await browser.close();console.log(report.summary);if(report.summary.fail||report.summary.pageErrors)process.exitCode=1

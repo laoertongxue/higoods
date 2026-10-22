@@ -1,3 +1,4 @@
+import { ensureSewingExecutionFact } from './sewing-execution-history.ts'
 import { REPLACEMENT_FABRIC_DEMOS, REPLACEMENT_FABRIC_DEMO_ASSIGNED_AT } from './cutting/replacement-fabric-demo.ts'
 import { ACCESSORY_WAREHOUSE_DEMOS } from '../wls/accessory-warehouse-demo.ts'
 import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
@@ -471,6 +472,7 @@ export function runRuntimeTaskAction<T>(action: () => T): T {
   const encodedBefore = encodeRuntimeTaskActions()
   const runtimeRaw = typeof localStorage === 'undefined' ? null : localStorage.getItem(RUNTIME_TASK_STORAGE_KEY)
   const orderRaw = typeof localStorage === 'undefined' ? null : localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY)
+  const executionRaw = localStorage.getItem('higood.sewing-execution-history.v1')
   runtimeActionDepth++
   try {
     const result = action()
@@ -484,11 +486,12 @@ export function runRuntimeTaskAction<T>(action: () => T): T {
     restoreRuntimeDirectDispatchState(before)
     restoreStoredRuntimeValue(RUNTIME_TASK_STORAGE_KEY, runtimeRaw)
     restoreStoredRuntimeValue(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, orderRaw)
+    restoreStoredRuntimeValue('higood.sewing-execution-history.v1', executionRaw)
     throw new Error('加工任务未保存，原动作已撤回；请检查本机存储后重试。' + (error instanceof Error ? error.message : String(error)))
   } finally { runtimeActionDepth-- }
 }
 function readRuntimeTaskActions(): void {
-  if (typeof window !== 'undefined' && typeof document !== 'undefined' && !isProductionContextReady()) return
+  if (typeof window !== 'undefined' && typeof document !== 'undefined' && !isProductionContextReady(RUNTIME_TASK_STORAGE_KEY)) return
   if (runtimeStorageFailure) throw runtimeStorageFailure
   if (runtimeStorageReady) return
   try {
@@ -509,18 +512,20 @@ function readRuntimeTaskActions(): void {
   runtimeStorageReady = true
   } catch (error) { runtimeStorageFailure = error instanceof Error ? error : new Error(String(error)); throw runtimeStorageFailure }
 }
+function restoreRuntimeActionDefaults(): void {
+  runtimeTaskOverrides.clear(); runtimeTaskSplitPlans.clear(); runtimeMergedTaskPlans.clear(); runtimeReassignedTasks.clear()
+  runtimeAuditSeq = 0
+  if (!staticRuntimeDefaults) return
+  staticRuntimeDefaults.taskOverrides.forEach(([id, value]) => runtimeTaskOverrides.set(id, structuredClone(value)))
+  staticRuntimeDefaults.splitPlans.forEach(([id, value]) => runtimeTaskSplitPlans.set(id, structuredClone(value)))
+  staticRuntimeDefaults.mergedPlans.forEach(([id, value]) => runtimeMergedTaskPlans.set(id, structuredClone(value)))
+  staticRuntimeDefaults.reassignedTasks.forEach(([id, value]) => runtimeReassignedTasks.set(id, structuredClone(value)))
+  runtimeAuditSeq = staticRuntimeDefaults.auditSeq
+}
 onProductionContextChanged(RUNTIME_TASK_STORAGE_KEY, () => {
   runtimeStorageReady = false
   runtimeStorageFailure = null
-  runtimeTaskOverrides.clear(); runtimeTaskSplitPlans.clear(); runtimeMergedTaskPlans.clear(); runtimeReassignedTasks.clear()
-  runtimeAuditSeq = 0
-  if (staticRuntimeDefaults) {
-    staticRuntimeDefaults.taskOverrides.forEach(([id, value]) => runtimeTaskOverrides.set(id, structuredClone(value)))
-    staticRuntimeDefaults.splitPlans.forEach(([id, value]) => runtimeTaskSplitPlans.set(id, structuredClone(value)))
-    staticRuntimeDefaults.mergedPlans.forEach(([id, value]) => runtimeMergedTaskPlans.set(id, structuredClone(value)))
-    staticRuntimeDefaults.reassignedTasks.forEach(([id, value]) => runtimeReassignedTasks.set(id, structuredClone(value)))
-    runtimeAuditSeq = staticRuntimeDefaults.auditSeq
-  }
+  restoreRuntimeActionDefaults()
   readRuntimeTaskActions()
   invalidateRuntimeTasksCache()
 })
@@ -1454,7 +1459,20 @@ function ensureDispatchBoardSeedData(): void {
   installProcessTasksMutationHook()
   if (runtimeStorageFailure) throw runtimeStorageFailure
   if (dispatchBoardSeedReady) return
+  const before = captureRuntimeDirectDispatchState()
+  const storageWasReady = runtimeStorageReady
+  const defaultsBefore = staticRuntimeDefaults
+  // 冷恢复可能先于任务页读取用户动作；固定演示默认值必须从干净内存构建，再叠加用户记录。
+  // 否则用户任务会被误记为静态种子，在下一次差量保存时被省略并删除。
+  restoreRuntimeActionDefaults()
+  runtimeStorageReady = false
   dispatchBoardSeedReady = true
+  try {
+  if (staticRuntimeDefaults) {
+    readRuntimeTaskActions()
+    invalidateRuntimeTasksCache()
+    return
+  }
 
   // 采用原生成器的运行任务身份；已确认裁剪工厂只是演示输入，不新增第二套任务或选厂规则。
   for (const fixture of ACCESSORY_WAREHOUSE_DEMOS) {
@@ -1827,6 +1845,13 @@ function ensureDispatchBoardSeedData(): void {
   }, { staticDemo: true })
   if (!staticRuntimeDefaults) staticRuntimeDefaults = captureRuntimeDirectDispatchState()
   readRuntimeTaskActions()
+  invalidateRuntimeTasksCache()
+  } catch (error) {
+    staticRuntimeDefaults = defaultsBefore
+    restoreRuntimeDirectDispatchState(before, false)
+    runtimeStorageReady = storageWasReady
+    throw error
+  }
 }
 
 function getOrderIdsFromTaskIds(taskIds: string[]): string[] {
@@ -1952,6 +1977,10 @@ export function recordRuntimeTaskExecution(taskId: string, patch: {
   if (patch.status === 'IN_PROGRESS') markProductionOrderExecutionStarted({ productionOrderId: task.productionOrderId, taskId, startedAt: actionTime, actorName: actor })
   const result = patchRuntimeTask(taskId, structuredClone(patch))
   if (!result) throw new Error('加工任务保存失败。')
+  if (patch.status === 'IN_PROGRESS' && isRuntimeSewingTask(task) && listFactoryMasterRecords().find(factory => factory.id === task.assignedFactoryId)?.factoryTier === 'THIRD_PARTY' && !isKolGotoFactory(task.assignedFactoryId)) {
+    ensureSewingExecutionFact({factoryId: task.assignedFactoryId!, taskId, productionOrderId: task.productionOrderId, firstExecutedAt: actionTime,
+      styleCode:productionOrders.find(order=>order.productionOrderId===task.productionOrderId)?.techPackSnapshot?.styleCode || productionOrders.find(order=>order.productionOrderId===task.productionOrderId)?.demandSnapshot.spuCode || task.productionOrderId, source:'MANUAL_START', sourceId:`START:${taskId}`, actorName:actor})
+  }
   return result
 
   })
@@ -2003,6 +2032,10 @@ export function autoStartRuntimeSewingTaskFromCutPieceHandover(input: {
     input.receivedBy,
   )
   if (!updated) throw new Error(`车缝任务 ${input.taskId} 自动开工失败`)
+  if (listFactoryMasterRecords().find(factory => factory.id === task.assignedFactoryId)?.factoryTier === 'THIRD_PARTY' && !isKolGotoFactory(task.assignedFactoryId)) {
+    ensureSewingExecutionFact({factoryId:task.assignedFactoryId!,taskId:task.taskId,productionOrderId:task.productionOrderId,
+      styleCode:productionOrders.find(order=>order.productionOrderId===task.productionOrderId)?.techPackSnapshot?.styleCode || productionOrders.find(order=>order.productionOrderId===task.productionOrderId)?.demandSnapshot.spuCode || task.productionOrderId, firstExecutedAt:input.receivedAt,source:'CUT_PIECE_RECEIVE_START',sourceId:input.handoverRecordNo,actorName:input.receivedBy})
+  }
   recomputeRuntimeTransitionsForOrder(updated.productionOrderId)
   return getRuntimeTaskById(updated.taskId) ?? updated
 

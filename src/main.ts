@@ -377,6 +377,15 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (target.closest('[data-post-verified-print]')) {
+    if (event?.type !== 'click') return true
+    eventTarget.dataset.pmsEventHandledLocally = 'true'
+    await (await import('./pages/print/post-finishing-print-ready.ts')).preparePostFinishingPrint(target.closest<HTMLElement>('[data-post-verified-print]')!)
+    return true
+  }
+  if (pagePath.startsWith('/fcs/quality-management/')) return event ? (await import('./pages/quality-management/index.ts')).handleQualityManagementEvent(event) : false
+  if (pagePath === '/fcs/sewing-outsourcing/sample-approval-suggestions') return (await import('./pages/sewing-outsourcing/sample-approval-suggestions.ts')).handleSampleApprovalSuggestionsEvent(eventTarget, event)
+  if (pagePath === '/wls/finished/inventory-quality' || pagePath.startsWith('/wls/finished/inventory-quality/')) return (await import('./pages/wls/finished/inventory-quality.ts')).handleFinishedInventoryQualityEvent(eventTarget, event)
   if (pagePath === '/fcs/progress/material') {
     // This list owns its fields; typing and opening a native select must not
     // initialize unrelated factory execution modules or consume native clicks.
@@ -807,6 +816,7 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 async function closeDialogsOnEscape(): Promise<boolean> {
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/sewing-outsourcing/sample-approval-suggestions') return (await import('./pages/sewing-outsourcing/sample-approval-suggestions.ts')).closeSampleApprovalSuggestionDialog()
   if (pagePath === '/fcs/settlement/statements') {
     const page = await import('./pages/statements.ts')
     if (!page.isStatementsDialogOpen()) return false
@@ -1015,7 +1025,7 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     || normalizedPathname === '/fcs/pda/warehouse/wait-process'
     || normalizedPathname === '/wls/finished-inbound'
     || (normalizedPathname === '/fcs/print/preview'
-      && ['POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') || ''))
+      && ['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') || ''))
   const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
     '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns',
     '/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)
@@ -1026,10 +1036,115 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     await productionSourceEffectsHydration
   }
 }
+let qualityNavigationDirty: (() => boolean) | undefined
+function isQualityInventoryEntry(pathname:string):boolean {
+  return /^\/wls\/(?:finished\/(?:inventory-quality|stock\/(?:realtime|location|flow|transfer)|outbound-orders|pre-inbound|putaway)|(?:online|stock-online)\/warehouse-stock)(?:\/|$)/.test(pathname)
+}
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  if (normalizedPathname.startsWith('/fcs/quality-management/')) {
+    if (/\/(?:records|audits|statistics)(?:\/|$)/.test(normalizedPathname)) await (await import('./data/fcs/quality-business-bridge.ts')).prepareQualityBusinessSources()
+    const qualityPage = await import('./pages/quality-management/index.ts')
+    qualityNavigationDirty = qualityPage.qualityManagementHasUnsavedChanges
+    await qualityPage.prepareQualityManagementPage(normalizedPathname)
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
+  if (isQualityInventoryEntry(normalizedPathname)) {
+    // Inventory queries consume their own facts and canonical product/channel
+    // identity. The original joint command prepares finishing before a write.
+    await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState([
+      'higood-pcs-config-workspace-store-v1', 'higood-pcs-material-config-v1',
+      'higood-pcs-style-archive-store-v3', 'higood-pcs-sku-archive-store-v1',
+      'higood-pcs-channel-catalog-v1', 'higood-pcs-channel-store-v1',
+    ])
+    await (await import('./data/wls/finished-inventory-records.ts')).ensureFinishedInventoryRecords()
+    // Warehouse views read their own saved application/inventory facts. The
+    // original joint command prepares finishing facts before a related write.
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
+  const postFactReadEntry = normalizedPathname.startsWith('/fcs/craft/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/exec/PF-POST-')
+    || normalizedPathname === '/fcs/pda/handover'
+    || normalizedPathname.startsWith('/fcs/pda/handover/HOH-POST-')
+    || normalizedPathname.startsWith('/fcs/pda/warehouse/')
+    || normalizedPathname === '/wls/finished-inbound'
+    || (normalizedPathname === '/fcs/print/preview' && (new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType')?.startsWith('POST_FINISHING_')
+      || new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'PRODUCTION_QC_MASTER'))
+  let qcReadEntry=false
+  let productionPrintSnapshot: import('./data/fcs/cutting/cutting-record-repository.ts').CuttingRecordSnapshot | undefined
+  if(postFactReadEntry) {
+    // Fetch the independent repository module early; its hydration still waits
+    // for PCS, preserving all original source/read failure gates.
+    const postRecordModule = import('./data/fcs/post-finishing-records.ts')
+    const productionQcMaster = normalizedPathname === '/fcs/print/preview'
+      && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'PRODUCTION_QC_MASTER'
+    if (productionQcMaster) {
+      qcReadEntry=true
+      // The cutting snapshot is independent of PCS preparation. Keep the PCS
+      // guard before finishing hydration and await both complete original
+      // sources before the formal owner consumes this exact snapshot once.
+      const [, snapshot] = await Promise.all([
+        (async () => {
+          await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
+          await (await postRecordModule).ensurePostFinishingExecutionRecordState(appStore.getState().pathname)
+        })(),
+        productionEntryHydration ? undefined : import('./data/fcs/cutting/cutting-record-repository.ts').then(records => records.readPostFinishingProductionRecords()),
+      ])
+      productionPrintSnapshot = snapshot
+    } else {
+      // The shipped handover reads an independent production snapshot. Start
+      // that native read alongside PCS/QC preparation, but do not hydrate any
+      // consumer until both original sources have finished and passed guards.
+      const shippedProductionRead = normalizedPathname === '/fcs/pda/handover'
+        && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('tab') === 'shipped'
+        && !productionEntryHydration
+        ? import('./data/fcs/cutting/cutting-record-repository.ts').then(records => records.readPostFinishingProductionRecords())
+        : undefined
+      shippedProductionRead?.catch(() => undefined)
+      // Garment identity and the bound technical/material references are enough
+      // to identify an inventory QC. Production entries additionally prepare
+      // their original full source before any production consumer is rendered.
+      await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState(normalizedPathname!=='/fcs/craft/post-finishing/qc-workbench' ? [] : [
+        'higood-pcs-config-workspace-store-v1','higood-pcs-material-config-v1',
+        'higood-pcs-style-archive-store-v3','higood-pcs-sku-archive-store-v1',
+        'higood-pcs-channel-catalog-v1','higood-pcs-channel-store-v1',
+        'higood-pcs-material-archive-store-v2','higood-pcs-technical-data-version-store-v5',
+        'higood-fcs-production-tech-pack-publish-evaluations-v1',
+      ])
+      const postRecords=await postRecordModule
+      await postRecords.ensurePostFinishingExecutionRecordState(appStore.getState().pathname)
+      if (shippedProductionRead) productionPrintSnapshot = await shippedProductionRead
+      const qcEntry=await import('./data/fcs/post-finishing-qc-entry.ts')
+      qcReadEntry=qcEntry.isPreparedQcRoute(appStore.getState().pathname)
+      // The shared handover page also consumes part tickets during module setup.
+      // Await that real source (and its read/migration errors) before rendering;
+      // this specific receipt does not consume sewing sample history or events.
+      if (normalizedPathname.startsWith('/fcs/pda/handover/HOH-POST-')) {
+        const records = await import('./data/fcs/cutting/cutting-record-repository.ts')
+        // Include both part-ticket: entities and part-ticket-migration: markers
+        // from the same original revision; saving still reloads the full source.
+        await hydratePartTicketsForEntry(normalizedPathname, await records.readCuttingRecordsByPrefix('part-ticket'))
+        previousRenderedPagePathname=normalizedPathname
+        return
+      }
+      if(qcEntry.isPreparedInventoryQcRoute(appStore.getState().pathname)) {
+        // Execution and paper preview consume the already-received QC facts.
+        // The original QC mutation handler prepares the warehouse participant
+        // before any joint completion; viewing does not reread unrelated stock.
+        await (await import('./data/fcs/quality-management-records.ts')).ensureQualityManagementRecords()
+        previousRenderedPagePathname=normalizedPathname
+        return
+      }
+    }
+  }
+  if (normalizedPathname.startsWith('/fcs/craft/post-finishing/')) {
+    await (await import('./data/fcs/quality-management-records.ts')).ensureQualityManagementRecords()
+  }
   // Direct downstream and print entries read committed wool facts without first
   // visiting a wool page. Load their shared PCS/FCS dependencies before rendering.
-  if (/^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/finished-inbound$|fcs\/print\/preview$)/.test(normalizedPathname)) {
+  if (!qcReadEntry && /^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/finished-inbound$|fcs\/print\/preview$)/.test(normalizedPathname)) {
     await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
   }
   // Ordinary procurement pages hydrate their own direct sources; they do not load production/cutting records.
@@ -1037,6 +1152,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     previousRenderedPagePathname = normalizedPathname
     return
   }
+  if (/^\/pcs\/products\/channel-products(?:\/|$)/.test(normalizedPathname)) await (await import('./data/wls/finished-inventory-records.ts')).ensureFinishedInventoryRecords()
   // 档案、渠道和基础配置独立读取 PCS 记录。引用核查与仓储可售各自
   // 准备所需来源；生产准备等消费正式生产事实的页面仍走下面的初始化。
   if (/^\/los\/live-room(\/|$)/.test(normalizedPathname) || /^\/pcs\/(?:products\/(?:styles|specifications|channel-products)|materials|channels\/stores|settings\/config-workspace)(\/|$)/.test(normalizedPathname)) {
@@ -1045,10 +1161,12 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
   }
   // 一次页面会话只初始化一次读视图；保存动作自行在同一快照上读回。
   // 局部输入导致的render不得再次抢占保存/迁移锁，也不得并发初始化。
+  if(!postFactReadEntry && productionEntryHydration && !(await import('./data/fcs/production-context-records.ts')).isProductionContextReady())productionEntryHydration=undefined
   productionEntryHydration ??= (async () => {
     const [productionContext,records] = await Promise.all([import('./data/fcs/production-context-records.ts'),import('./data/fcs/cutting/cutting-record-repository.ts')])
-    const snapshot=await records.readCuttingRecords()
-    await productionContext.hydrateProductionContextRecords(snapshot)
+    const snapshot=productionPrintSnapshot ?? await (postFactReadEntry ? records.readPostFinishingProductionRecords() : records.readCuttingRecords())
+    if(postFactReadEntry)await productionContext.hydratePostFinishingProductionContextRecords(snapshot)
+    else await productionContext.hydrateProductionContextRecords(snapshot)
     await hydratePartTicketsForEntry(normalizedPathname, snapshot)
     await hydrateProductionSourceEffectsForEntry(normalizedPathname)
     if(normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/') || normalizedPathname==='/fcs/print/preview') {
@@ -1064,8 +1182,18 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     || normalizedPathname === '/fcs/pda/warehouse/wait-handover'
     || normalizedPathname === '/fcs/print/preview') {
-    cuttingEntryHydration ??= import('./data/fcs/cutting/cutting-event-repository.ts').then(records => records.hydrateCuttingEventRecords())
-      .catch(error => { cuttingEntryHydration = undefined; throw error })
+    cuttingEntryHydration ??= import('./data/fcs/cutting/cutting-event-repository.ts').then(async events => {
+      if (normalizedPathname === '/fcs/pda/handover'
+        && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('tab') === 'shipped') {
+        // A prior QC list may already have prepared production without the
+        // cutting event reader. Reuse the same complete non-sample source
+        // contract on this adjacent navigation, rather than loading samples.
+        const snapshot = await (await import('./data/fcs/cutting/cutting-record-repository.ts')).readPostFinishingProductionRecords()
+        await (await import('./data/fcs/production-context-records.ts')).hydratePostFinishingProductionContextRecords(snapshot)
+        await (await import('./data/fcs/cutting/part-ticket-records.ts')).hydratePartTicketRecords(snapshot)
+        await events.hydrateCuttingEventRecords(snapshot, true)
+      } else await events.hydrateCuttingEventRecords()
+    }).catch(error => { cuttingEntryHydration = undefined; throw error })
     await cuttingEntryHydration
   }
   const isSupplementManagementEntry =
@@ -1237,7 +1365,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       || normalizedPathname === '/fcs/pda/warehouse/wait-process'
       || normalizedPathname === '/wls/finished-inbound'
       || (normalizedPathname === '/fcs/print/preview'
-        && ['POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || ''))
+        && ['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || ''))
     // These pages read their preparation and ticket facts from the hydrated FCS
     // sources. PMS keeps its initialization on its original module entries.
     const isolatedPcsList = ['/pcs/products/styles', '/pcs/products/specifications'].includes(normalizedPathname)
@@ -1248,7 +1376,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const factoryReceiptReadEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/pending-receipts$/.test(normalizedPathname)
     // Onboarding retains the existing PCS/FCS preparation and PDA handlers;
     // its form does not consume procurement initialization.
-    if (normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
+    if (!normalizedPathname.startsWith('/fcs/quality-management/') && !isQualityInventoryEntry(normalizedPathname) && normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }
@@ -1960,6 +2088,7 @@ function closeMobileSidebar(): void {
 }
 
 function navigateWithImmediateSidebar(pathname: string): void {
+  if (appStore.getState().pathname.startsWith('/fcs/quality-management/') && qualityNavigationDirty?.() && !window.confirm('质检配置尚未保存，确定离开并丢弃本页输入？')) return
   const currentPathname = appStore.getState().pathname
   if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
     preloadPdaMainTabModule(pathname)

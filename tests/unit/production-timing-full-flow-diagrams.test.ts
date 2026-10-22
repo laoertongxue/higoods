@@ -19,8 +19,8 @@ for(const c of listTimingCases())test(`FLOW graph ${c.key}: full lifecycle keeps
  if(c.key==='unknown'){assert.ok(html.includes('资料待核实 · 不据此判断尚未生产'));assert.equal(Object.keys(b.docs).length,1)}
 })
 test('FLOW live: QC, processing, recheck quantities have distinct current positions while history remains',()=>{
- const c=getTimingCaseByScene('live');assert.equal(fullFlowPositionCaption(c),'待质检／质检中50件 · 后道加工中50件 · 待复检／复检中50件')
- setTimingDiagramScene('live');const html=renderTimingNodeDetail('flow:post');for(const text of ['质检','复检','交货／实际交出','成衣仓接收','已交出待入仓','成衣仓已入库','无需后道加工'])assert.ok(html.includes(text),text)
+ const c=getTimingCaseByScene('live');assert.equal(fullFlowPositionCaption(c),'待质检／质检中50件 · 后道加工中50件 · 历史数量复核记录50件')
+ setTimingDiagramScene('live');const html=renderTimingNodeDetail('flow:post');for(const text of ['质检','出货单／实际发出','成衣仓接收','已交出待入仓','成衣仓已入库','无需后道加工'])assert.ok(html.includes(text),text)
 })
 test('FLOW full contract: scopes and execution documents stay distinct from cumulative contract milestones',()=>{
  setTimingDiagramScene('fullContract');const html=renderTimingNodeDetail('flow:sewing');for(const text of ['独立车缝','车缝＋烫包','裁剪＋车缝＋烫包','承包工厂烫包','裁剪','分别记录实际开始与完成'])assert.ok(html.includes(text),text)
@@ -46,7 +46,7 @@ test('FLOW bypass records go from completed QC directly to delivery, without fab
  const c=getTimingCaseByScene('complete'),b=getTimingBranch(c)!,batch=c.fullFlow.batches.find(x=>!x.processingDocumentId)!
  assert.ok(batch&&b.docs[batch.qcDocumentId].clock?.end)
  setTimingDiagramScene(c.key);const html=renderTimingNodeDetail('flow:post').split(`data-flow-batch="${batch.id}"`)[1].split('</article>')[0]
- assert.ok(html.includes('质检后直接交成衣仓'))
+ assert.ok(html.includes('质检完成后准备出货，实际发出后由成衣仓接收'))
  assert.ok(!html.includes('③ 后道加工单')&&!html.includes('④ 处理后交出复核'))
 })
 
@@ -56,7 +56,7 @@ test('FLOW summary cards distinguish pending, unknown, historical and current st
   if(scene==='positioning')assert.ok(cards.includes('尚未进入 · 尚未分配执行任务')&&cards.includes('尚未进入 · 暂无后道执行记录'))
   if(scene==='unknown')assert.ok(cards.includes('执行资料待核实 · 不推定尚未生产')&&cards.includes('后道资料待核实 · 不推定尚未开展'))
   if(scene==='fullContract')assert.ok(cards.includes('回货节点未达标 · 已超时')&&cards.includes('时效要求未确认'))
-  if(scene==='live')for(const label of ['待质检／质检中 50件','加工中 50件','待复检／复检中 50件','已交出待入仓 150件','成衣仓已入库 600件'])assert.ok(cards.includes(label),label)
+  if(scene==='live')for(const label of ['待质检／质检中 50件','加工中 50件','历史数量复核 50件','已交出待入仓 150件','成衣仓已入库 600件'])assert.ok(cards.includes(label),label)
   assert.ok(!cards.includes('已知时效项无当前逾期'))
  }
  const c=getTimingCaseByScene('completeUnknown'),work=fullFlowWorkCounts(c,'delivery');assert.equal(work.active,0);assert.ok(work.completionTimeUnknown>0)
