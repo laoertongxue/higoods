@@ -246,6 +246,10 @@ async function pdfExport(page, iteration, labels, expectedOrder, familyPrefix = 
   try { await printPage.setContent(html, { waitUntil: 'domcontentloaded' }); await paint(printPage, 'body'); bytes = await printPage.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true }) } finally { await printPage.close() }
   assert.equal(bytes.subarray(0, 5).toString(), '%PDF-')
   const file = join(output, `${prefix}-${iteration}.pdf`); await writeFile(file, bytes)
+  // Response ends when the actual PDF bytes are ready. External Python content
+  // auditing remains mandatory evidence, outside the product response clock.
+  const timer = await page.evaluate(() => ({ start: window.__qcPerfTimer.start, end: performance.now() }))
+  const auditStartedAt = performance.now()
   const inspection = JSON.parse(execFileSync(python, ['-c', 'import json,sys;from pypdf import PdfReader;r=PdfReader(sys.argv[1]);print(json.dumps({"pages":len(r.pages),"images":sum(len(p.images) for p in r.pages),"text":"\\n".join(p.extract_text() or "" for p in r.pages)},ensure_ascii=False))', file], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
   assert.ok(inspection.pages > 0 && inspection.images > 0)
   if (expectedOrder.rolls.length >= 30) assert.ok(inspection.pages >= 2, '30卷必须实际跨页，不能仅截首屏')
@@ -253,10 +257,9 @@ async function pdfExport(page, iteration, labels, expectedOrder, familyPrefix = 
   for (const roll of expectedOrder.rolls) assert.ok(inspection.text.includes(labels ? roll.outputBarcode : roll.barcode), 'PDF缺少对应卷码')
   const normalizedText = inspection.text.replace(/\s+/g, ' ')
   for (const roll of expectedOrder.rolls) assert.ok(normalizedText.includes(`${labels ? roll.outputQty : roll.inputQty} ${roll.unit}`), 'PDF缺少对应卷的实际数量/单位')
-  const timer = await page.evaluate(() => ({ start: window.__qcPerfTimer.start, end: performance.now() }))
   record(prefix + '-pdf', iteration, timer, { readablePdfHeader: true, bytes: bytes.length, pages: inspection.pages, embeddedImages: inspection.images, quantityAndBarcodeTextMatched: true, actualProductPrintHtmlSha256: digest(html), orderId: expectedOrder.id, sourceType: expectedOrder.source.kind, sourceId: expectedOrder.source.id }, { route: page.url(), action: printButton, cacheState: 'existing-context/actual-print-iframe', file: relative(output, file), fixtureVersion: familyPrefix ? 'scale30-list12-v1' : 'default-ui-chain-v1', rolls: expectedOrder.rolls.length, rows: expectedOrder.rolls.length, printTransport: '实际产品打印iframe HTML原样交浏览器printToPDF；仅截获原生打印调用，未修改业务模板/来源' })
   if (iteration === 1) { await writeFile(join(output, prefix + '-actual-print.html'), html); for (const pageNumber of [...new Set([1, Math.ceil(inspection.pages / 2), inspection.pages])]) execFileSync('pdftoppm', ['-f', String(pageNumber), '-singlefile', '-scale-to', '1600', '-png', file, join(output, prefix + '-page-' + pageNumber)]) }
-  report.pdfs.push({ file: relative(output, file), pages: inspection.pages, embeddedImages: inspection.images, orderId: expectedOrder.id, rows: expectedOrder.rolls.length, text: inspection.text, htmlSha256: digest(html) })
+  report.pdfs.push({ externalAuditMs: +(performance.now() - auditStartedAt).toFixed(1), externalAuditOutsideResponse: true, responseEndpoint: '实际PDF字节生成并保存；Python内容核验随后执行，验证要求保持', file: relative(output, file), pages: inspection.pages, embeddedImages: inspection.images, orderId: expectedOrder.id, rows: expectedOrder.rolls.length, text: inspection.text, htmlSha256: digest(html) })
   await page.evaluate(() => document.querySelector('[data-stenter-print-frame]')?.remove())
 }
 async function seedScaleFixture(page, templateOrder, iteration) {

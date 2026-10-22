@@ -74,7 +74,13 @@ export async function ensureFactoryQcRecords(force = false) { await ensureRecord
 /** Shipped and original finishing receipts read the process ledger without loading samples. */
 export async function ensureFactoryQcViewRecords() { await ensureRecords(true, true) }
 export const listFactoryQcOrders = (kind?: FactoryQcKind) => visibleState().qcOrders.filter(order => !kind || order.kind === kind)
-export const getFactoryQcOrder = (id: string) => visibleState().qcOrders.find(order => order.id === id)
+export const getFactoryQcOrder = (id: string) => {
+  const saved = readFactoryQcState().qcOrders.find(order => order.id === id)
+  // Handfeel output QC is created from actual output, never a static demo.
+  // A saved order or absent output QC needs no unrelated printing/dyeing scan.
+  if (saved || id.startsWith(qcIdForSource({ kind: 'STENTER_HAND_FEEL', id: '' }))) return saved
+  return staticQc().qcOrders.find(order => order.id === id)
+}
 export const listStenterHandfeelOrders = () => readFactoryQcState().handfeelOrders
 export const getStenterHandfeelOrder = (id: string) => listStenterHandfeelOrders().find(order => order.id === id)
 export const listFactoryQcActions = (id?: string) => readFactoryQcState().actions.filter(action => !id || action.orderId === id || action.qcId === id)
