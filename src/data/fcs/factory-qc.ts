@@ -1,6 +1,6 @@
 import { listPrintingWorkOrders, getPrintWorkOrderById, getPrintingWorkOrderById, capturePrintProcessMutationState, markPrintingHandfeelTransfer } from './printing-task-domain.ts'
-import { listDyeWorkOrders, captureDyeProcessMutationState, getDyeDispatchPartner, getDyeDispatchMaterial, markDyeHandfeelTransfer, listDyeDispatchDocuments, isDyeYarnOrder } from './dyeing-task-domain.ts'
-import { listWaterSolubleWorkOrders, getWaterSolubleReceivingMaterial } from './water-soluble-task-domain.ts'
+import { listDyeWorkOrders, getDyeWorkOrderById, captureDyeProcessMutationState, getDyeDispatchPartner, getDyeDispatchMaterial, markDyeHandfeelTransfer, listDyeDispatchDocuments, isDyeYarnOrder } from './dyeing-task-domain.ts'
+import { listWaterSolubleWorkOrders, getWaterSolubleWorkOrderById, getWaterSolubleReceivingMaterial } from './water-soluble-task-domain.ts'
 import { listWaterOutputRows } from './water-soluble-output.ts'
 import { listFactoryInternalWarehouses } from './factory-internal-warehouse-locations.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
@@ -32,14 +32,18 @@ function addActualHandfeelTransfers(source: FactoryQcSource): FactoryQcSource {
   for (const roll of source.rolls) if (source.handedOutRollIds.includes(roll.id)) roll.handedOut = true
   return source
 }
-export function listFactoryQcSources(): FactoryQcSource[] {
-  const printing = listPrintingWorkOrders().flatMap(view => {
+export function listFactoryQcSources(scope?: Pick<FactoryQcSource, 'kind' | 'id'>): FactoryQcSource[] {
+  // Commands already own one source identity. Read that current source through
+  // its original getter; lists/discovery still enumerate the complete set.
+  const printingViews = !scope ? listPrintingWorkOrders() : scope.kind === 'PRINTING' ? [getPrintingWorkOrderById(scope.id)].flatMap(view => view ? [view] : []) : []
+  const printing = printingViews.flatMap(view => {
     const raw = getPrintWorkOrderById(view.workOrderId)
     if (!raw || raw.printOrderId.startsWith('PWO-WASH-DEMO-') || view.output.objectType === '纱线' || raw.status === 'CANCELLED') return []
     const batches = view.productionBatches ?? [], batchIds = new Set(batches.map(batch => batch.id))
     return [addActualHandfeelTransfers({ kind: 'PRINTING', id: raw.printOrderId, no: view.printOrderNo, taskId: raw.taskId, factoryId: raw.printFactoryId, factoryName: raw.printFactoryName, materialSku: view.output.sku, materialName: view.output.materialName, imageUrl: view.output.imageUrl, referenceImageUrl: view.output.imageUrl, requiredMaterialSku: view.plannedInput.sku, requirementVersion: String(view.requirementVersion), materialProperties: { composition: view.output.composition, gsm: view.output.gsm, widthCm: view.output.widthCm }, unit: view.output.qtyUnit, target: partner({ id: view.receivingTargetId, name: view.receivingTargetName || view.receivingTargetWarehouseName, kind: raw.receiverKind === 'FACTORY' ? 'FACTORY' : 'WAREHOUSE' }), hasFinalOutput: batches.some(batch => batch.qty > 0), completedAt: batches[0]?.at, rolls: view.barcodes.filter(roll => batchIds.has(roll.batchId || '')).map(roll => ({ id: roll.id, barcode: roll.barcode, batchId: roll.batchId || '', qty: roll.lengthY, unit: view.output.qtyUnit, confirmed: roll.quantityConfirmed === true, handedOut: ['已交出', '已入库'].includes(roll.status) })), handedOutRollIds: view.barcodes.filter(roll => ['已交出', '已入库'].includes(roll.status)).map(roll => roll.id).concat(view.handover.handedOverQty > 0 ? ['__ACTUAL_HANDOUT__'] : []), sourceNo: view.demandSource.sourceNo, sourceType: view.demandSource.type, productionOrderId: raw.sourceSnapshot?.productionOrderId || raw.sourceProductionOrderId, techPackVersionId: raw.sourceSnapshot?.techPackVersionId, demo: !!raw.factoryDemoInitialized })]
   })
-  const dyeOrders = listDyeWorkOrders(), nodes = new Map(captureDyeProcessMutationState().nodeRecords)
+  const dyeOrders = !scope ? listDyeWorkOrders() : scope.kind === 'DYEING' ? [getDyeWorkOrderById(scope.id)].flatMap(order => order ? [order] : []) : []
+  const nodes = new Map(dyeOrders.length ? captureDyeProcessMutationState().nodeRecords : [])
   const dye = dyeOrders.filter(order => !isDyeYarnOrder(order)).map(order => {
     let target: QcPartner = { id: '', name: '接收方待核对', kind: 'UNKNOWN' }
     try { target = partner(getDyeDispatchPartner(order.dyeOrderId)) } catch { /* An unassigned downstream is not a non-dyeing factory. */ }
@@ -48,8 +52,9 @@ export function listFactoryQcSources(): FactoryQcSource[] {
     const completed = [...(nodes.get(order.dyeOrderId) ?? []), ...(order.completedExecutionBatches ?? []).flat()].filter(node => node.nodeCode === 'PACK' && !!node.finishedAt && (node.outputQty ?? 0) > 0)
     return addActualHandfeelTransfers({ kind: 'DYEING', id: order.dyeOrderId, no: order.dyeOrderNo, taskId: order.taskId, factoryId: order.dyeFactoryId, factoryName: order.dyeFactoryName, materialSku: material.sku, materialName: material.name, imageUrl: material.imageUrl, referenceImageUrl: material.imageUrl, requiredMaterialSku: order.rawMaterialSku, requirementVersion: JSON.stringify([order.rawMaterialSku, order.targetColor, order.sourceSnapshot?.techPackVersionId]), materialProperties: { composition: material.composition, widthCm: parseFloat(order.width || '') || undefined, gsm: order.weightGsm }, unit: order.qtyUnit, target, hasFinalOutput: completed.length > 0, completedAt: completed[0]?.finishedAt, reportedRollCount: reportedDyeQcRollCount(completed), rolls: (order.outputRolls ?? []).map(roll => ({ id: roll.id, barcode: roll.barcode, batchId: roll.vatNo || order.dyeOrderId, qty: roll.qty, unit: order.qtyUnit, confirmed: roll.qty > 0, handedOut: !!roll.dispatchId && order.dispatchDocuments?.some(doc => doc.id === roll.dispatchId && doc.status === '已交出') })), handedOutRollIds: (order.outputRolls ?? []).filter(roll => !!roll.dispatchId && order.dispatchDocuments?.some(doc => doc.id === roll.dispatchId && doc.status === '已交出')).map(roll => roll.id).concat(legacyHandout(order.taskId) ? ['__ACTUAL_HANDOUT__'] : []), sourceNo: order.sourceProductionOrderNo, sourceType: order.sourceType, productionOrderId: order.sourceSnapshot?.productionOrderId || order.sourceProductionOrderId, techPackVersionId: order.sourceSnapshot?.techPackVersionId, demo: !!DYE_DEMO_DETAILS[order.dyeOrderId] })
   })
-  const waterViews = new Map(listWaterOutputRows().map(view => [view.orderId, view]))
-  const water = listWaterSolubleWorkOrders().map(order => {
+  const waterOrders = !scope ? listWaterSolubleWorkOrders() : scope.kind === 'WATER_SOLUBLE' ? [getWaterSolubleWorkOrderById(scope.id)].flatMap(order => order ? [order] : []) : []
+  const waterViews = new Map((waterOrders.length ? listWaterOutputRows() : []).map(view => [view.orderId, view]))
+  const water = waterOrders.map(order => {
     const view = waterViews.get(order.waterOrderId)
     let material = { sku: order.materialCode, name: order.materialName, imageUrl: '', composition: '' }
     try { material = getWaterSolubleReceivingMaterial(order.waterOrderId) } catch { /* Missing reference data is visible, not a hidden creation condition. */ }
@@ -84,7 +89,7 @@ export const getFactoryQcOrder = (id: string) => {
 export const listStenterHandfeelOrders = () => readFactoryQcState().handfeelOrders
 export const getStenterHandfeelOrder = (id: string) => listStenterHandfeelOrders().find(order => order.id === id)
 export const listFactoryQcActions = (id?: string) => readFactoryQcState().actions.filter(action => !id || action.orderId === id || action.qcId === id)
-function sourceFor(qc: FactoryQcOrder): FactoryQcSource | undefined { return listFactoryQcSources().find(source => qcSourceKey(source) === qcSourceKey(qc.source)) }
+function sourceFor(qc: Pick<FactoryQcOrder, 'source'>): FactoryQcSource | undefined { return listFactoryQcSources(qc.source).find(source => qcSourceKey(source) === qcSourceKey(qc.source)) }
 function adoptSource(source: FactoryQcSource) {
   const ids = new Set([source.id, source.taskId, ...source.rolls.map(roll => roll.id)])
   adoptFactoryProcessRows(row => ids.has(row.key) || ids.has((row.value as any)?.taskId) || ids.has((row.value as any)?.printingOrderId) || ids.has((row.value as any)?.dyeOrderId) || ids.has((row.value as any)?.waterOrderId) || (row.value as any)?.lines?.some((line: any) => ids.has(line.printingOrderId) || ids.has(line.dyeOrderId) || ids.has(line.waterOrderId) || ids.has(line.originPrintOrderId)))
@@ -96,7 +101,7 @@ async function execute(command: FactoryQcCommand, operationId: string, newFiles:
     if ('qcId' in command && !state.qcOrders.some(order => order.id === command.qcId)) { const demo = staticQc().qcOrders.find(order => order.id === command.qcId); if (demo) state.qcOrders.push(structuredClone(demo)) }
     const qc = 'qcId' in command ? state.qcOrders.find(order => order.id === command.qcId) : undefined
     const handfeel = 'orderId' in command ? state.handfeelOrders.find(order => order.id === command.orderId) : undefined
-    const source = qc ? sourceFor(qc) : handfeel ? listFactoryQcSources().find(source => qcSourceKey(source) === qcSourceKey(handfeel.source)) : undefined
+    const source = qc ? sourceFor(qc) : handfeel ? sourceFor(handfeel) : undefined
     const fresh = qc ? source : undefined
     if (typeof location !== 'undefined' && location.pathname.startsWith('/fcs/pda/') && handfeel) {
       const session = getPdaSession(), responsible = command.type === 'SEND' ? handfeel.source.factoryId : command.type === 'DOWNSTREAM_RECEIVE' ? handfeel.source.target.factoryId : STENTER_FACTORY.id
