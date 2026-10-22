@@ -1,3 +1,5 @@
+import {ensureQualityManagementRecords} from '../../src/data/fcs/quality-management-records.ts'
+await ensureQualityManagementRecords()
 import assert from 'node:assert/strict'
 import test, { type TestContext } from 'node:test'
 import * as flow from '../../src/data/fcs/post-finishing-full-flow.ts'
@@ -47,8 +49,9 @@ function createQc(index: number, quantities: Array<{ sku: Sku; quantity: number 
 
 function finishQc(qc: flow.PostFinishingQcTask, actor = actors.qcA): flow.PostFinishingQcTask {
   flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor, nowMs })
-  return flow.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, actor, processItems: [], nowMs,
-    results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })) })
+  flow.submitPostFinishingQcRound({qcTaskId:qc.qcTaskId,actor,operationId:'priority-round-'+qc.qcTaskId,lines:qc.lines.map(line=>({skuId:line.sku.skuId,passedQty:line.expectedQty,defectQty:0,returnQty:0,issues:[]}))})
+  flow.attachPostFinishingQcSignedPaper({qcTaskId:qc.qcTaskId,actor,url:qc.lines[0].sku.imageUrl,name:'隔离契约纸单，非真实签字'})
+  return flow.completePostFinishingQcTask({qcTaskId:qc.qcTaskId,actor,processItems:[],nowMs})
 }
 
 function stock(sku: Sku | string, quantity = 0): PriorityStock {
@@ -236,6 +239,7 @@ test('QCU-057/076：订单量、截止日、库存、QC合格、实收和身份�
   const done = finishQc(createQc(2, [{ sku, quantity: 20 }]))
   assert.equal((await documentFor(pending)).tomorrowTotal, 20)
   const child = flow.getPostFinishingFullFlowOutboundOrder(done.outboundOrderId!)!
+  flow.dispatchPostFinishingOutboundOrder({outboundOrderId:child.outboundOrderId,actor:actors.postOperator,nowMs})
   flow.receivePostFinishingOutboundOrder({ outboundOrderNo: child.outboundOrderNo, targetWarehouseId: 'WH-AC', actor: actors.warehouseReceiver,
     receivedQuantities: child.lines.map(line => ({ skuId: line.sku.skuId, receivedQty: line.outboundQty })), nowMs })
   assert.equal((await documentFor(pending)).tomorrowTotal, 20, '实收只是P转W，不产生第二份保障')

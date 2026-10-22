@@ -106,15 +106,15 @@ function getPostFinishingInboundRows(): PostFinishingInboundFlowRow[] {
     })
   const waitHandoverRecords = listPostFinishingWaitHandoverWarehouseRecords()
   const waitHandoverRows = listPostFinishingWaitHandoverWarehouseMovements()
-    .filter((movement) => movement.movementType === '复检完成入仓')
+    .filter((movement) => ['出货准备入区', '复检完成入仓'].includes(movement.movementType))
     .map((movement) => {
       const record = waitHandoverRecords.find((item) => item.warehouseRecordId === movement.warehouseRecordId)!
       const qty = movement.quantities.reduce((sum, line) => sum + line.quantity, 0)
       return {
         recordId: movement.movementId,
         warehouseRecordNo: record.warehouseRecordId,
-        flow: { flowRecordId: movement.movementId, flowRecordNo: movement.movementId, qty, qtyUnit: '件', beforeQty: 0, afterQty: qty, sourceActionRecordNo: record.recheckOrderNo, operatorName: movement.operator.actorName, operatedAt: movement.operatedAt, remark: movement.movementType },
-        flowLabel: '处理后复核完成入待交出仓',
+        flow: { flowRecordId: movement.movementId, flowRecordNo: movement.movementId, qty, qtyUnit: '件', beforeQty: 0, afterQty: qty, sourceActionRecordNo: record.outboundOrderNo, operatorName: movement.operator.actorName, operatedAt: movement.operatedAt, remark: movement.movementType },
+        flowLabel: movement.movementType === '复检完成入仓' ? '历史数量复核入区' : '准备出货入区',
         sourceProductionOrderNo: record.productionOrderNo,
         sourceTaskNo: record.postTaskNo || record.qcTaskNo,
         spuName: record.lines[0]?.sku.spuName || '成衣',
@@ -265,7 +265,7 @@ function renderPostFinishingInboundRecordsPage(runtimeFactoryName: string): stri
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="text-lg font-semibold text-foreground">后道入库流水</div>
-            <div class="mt-1 text-xs text-muted-foreground">扫码收货和复检入仓形成的仓库流水。</div>
+            <div class="mt-1 text-xs text-muted-foreground">回货接收和准备出货形成的仓库流水。</div>
           </div>
           <div class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">${escapeHtml(runtimeFactoryName)}</div>
         </div>
@@ -294,7 +294,7 @@ function renderPostFinishingInboundRecordsPage(runtimeFactoryName: string): stri
               <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-inbound-detail" data-record-id="${escapeAttr(row.recordId)}">查看</button>
             </div>
           </article>
-        `).join('') : renderMobilePageEmptyState('暂无后道入库流水', '扫码收货或复检完成后，会形成入库流水。')}
+        `).join('') : renderMobilePageEmptyState('暂无后道入库流水', '回货接收或准备出货后，会形成入区流水。')}
       </section>
       ${renderPostFinishingInboundDetailDrawer()}
     </div>

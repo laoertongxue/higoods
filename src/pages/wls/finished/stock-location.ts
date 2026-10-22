@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { finishedInventoryLocationRows } from '../../../data/wls/finished-inventory-quality.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import type { AppState } from '../../../state/store'
@@ -27,34 +28,8 @@ type StockLocationRow = {
   sku: string;
   quantity: number;
   updatedAt: string;
+  imageUrl: string; productName: string; quality: string; putaway: boolean;
 };
-
-const STOCK_LOCATION_SEED: StockLocationRow[] = (() => {
-  const warehouses = ['中央总仓-成衣仓', '成衣仓-深圳仓01'];
-  const zones = ['A区', 'B区', 'C区'];
-  const locations = ['A01-01', 'A01-02', 'A02-03', 'B01-02', 'B03-01', 'C01-01', 'C02-01'];
-  const rows: StockLocationRow[] = [];
-
-  for (let i = 0; i < 40; i++) {
-    const wh = warehouses[i % warehouses.length];
-    const zone = zones[i % zones.length];
-    const loc = locations[i % locations.length];
-    const dayOffset = Math.floor(i / 10);
-    const baseDate = new Date(2026, 8, 18 - dayOffset, 10 + (i % 8), (i * 7) % 60);
-
-    rows.push({
-      id: `SL-${String(i + 1).padStart(5, '0')}`,
-      warehouseName: wh,
-      warehouseZone: zone,
-      warehouseLocation: loc,
-      spu: `SPU-GC-${String(10001 + (i % 20)).padStart(5, '0')}`,
-      sku: `SKU-GC-${String(20001 + i).padStart(5, '0')}`,
-      quantity: 10 + (i * 7) % 120,
-      updatedAt: baseDate.toISOString().slice(0, 16).replace('T', ' '),
-    });
-  }
-  return rows;
-})();
 
 const EVENT_PREFIX = 'wls-finished-stock-location'
 const PREFERENCE_KEY = '/wls/finished/stock/location:list-columns'
@@ -115,8 +90,8 @@ function ensurePreferencesLoaded(): void {
 
 function filteredRows(): StockLocationRow[] {
   const kw = state.keyword.trim().toLowerCase()
-  if (!kw) return [...STOCK_LOCATION_SEED]
-  return STOCK_LOCATION_SEED.filter(r =>
+  if (!kw) return [...finishedInventoryLocationRows()]
+  return finishedInventoryLocationRows().filter(r =>
     r.warehouseName.toLowerCase().includes(kw)
     || r.warehouseZone.toLowerCase().includes(kw)
     || r.warehouseLocation.toLowerCase().includes(kw)

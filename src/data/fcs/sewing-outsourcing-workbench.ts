@@ -33,6 +33,7 @@ import {
 import {
   listSewingSampleApprovalRecords,
   summarizeSampleApprovalStructuredComments,
+  getSampleApprovalTiming,
   type SewingOutsourcingTaskKind,
   type SewingSampleApprovalRecord,
 } from './sewing-sample-approval-suggestion.ts'
@@ -290,7 +291,7 @@ function addSampleFacts(draft: WorkbenchDraft, record: SewingSampleApprovalRecor
       occurredAt: version.uploadedAt,
       source: '批版建议',
       title: version.conclusion === 'NO_PROBLEM' ? '批版建议：无问题' : '批版建议：有问题',
-      detail: summarizeSampleApprovalStructuredComments(version.structuredComments) || '批版人员确认无问题，可按当前资料生产大货。',
+      detail: summarizeSampleApprovalStructuredComments(version.structuredComments) || '批版人员确认本件无问题。',
     })
     if (version.feedbackSentAt) pushTimeline(draft, {
       timelineId: `SAMPLE-FEEDBACK::${version.suggestionVersionId}`,
@@ -301,18 +302,16 @@ function addSampleFacts(draft: WorkbenchDraft, record: SewingSampleApprovalRecor
     })
   })
 
-  if (sample.status === 'WAITING_FACTORY_PRODUCTION') {
-    pushSignal(draft, { health: 'NORMAL', nextResponsibleParty: 'SEWING_FACTORY', nextAction: '制作一件大货产前版样衣', dueAt: '按任务约定时间', impactSummary: '产前版样衣尚未制作', reason: '等待工厂制作产前版样衣', priority: 20 })
-  } else if (sample.status === 'WAITING_RETURN_TO_PPIC') {
-    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'PPIC', nextAction: '把产前版样衣实物带回PPIC办公室', dueAt: '今日完成', impactSummary: '未带回前不能进入批版', reason: '产前版样衣待带回', priority: 72 })
+  if (['WAITING_PPIC_RECEIVE','WAITING_FACTORY_PRODUCTION','WAITING_RETURN_TO_PPIC'].includes(sample.status)) {
+    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'PPIC', nextAction: record.qualitySchemaVersion===1?'接收产前版样衣并拍照':'核对并转换旧样衣记录', dueAt: '收到实物后办理', impactSummary: '待PPIC确认本厂样衣实收', reason: '产前版待实收', priority: 72 })
   } else if (sample.status === 'PPIC_RECEIVED') {
     pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'PPIC', nextAction: '把产前版样衣移交批版人员', dueAt: '今日完成', impactSummary: '实物已到PPIC办公室', reason: '待移交批版人员', priority: 74 })
   } else if (sample.status === 'HANDED_TO_APPROVER' || sample.status === 'APPROVAL_IN_PROGRESS') {
-    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'SAMPLE_APPROVER', nextAction: '核对样衣、生产单图片、纸样及面辅料并上传批版建议', dueAt: '今日完成', impactSummary: '大货尚未获得批版建议', reason: '批版建议待完成', priority: 110 })
+    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'SAMPLE_APPROVER', nextAction: '按本次检查要求提交批版意见', dueAt: getSampleApprovalTiming(record).deadlineAt || '领取后48个连续小时', impactSummary: '本件产前纠错待完成', reason: '批版建议待完成', priority: 110 })
   } else if (sample.status === 'SUGGESTION_UPLOADED') {
-    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'PPIC', nextAction: '将批版建议反馈给外发工厂并确认收到', dueAt: '立即反馈', impactSummary: '批版建议已出，尚未完成反馈', reason: '批版建议待反馈', priority: 78 })
+    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'PPIC', nextAction: '登记已将批版建议反馈给外发工厂', dueAt: '立即反馈', impactSummary: '批版建议已出，尚未完成反馈', reason: '批版建议待反馈', priority: 78 })
   } else {
-    pushSignal(draft, { health: 'NORMAL', nextResponsibleParty: 'SEWING_FACTORY', nextAction: '按已反馈的批版建议生产大货', dueAt: '按回货节点', impactSummary: '批版建议已完成反馈', reason: '批版闭环完成', priority: 16 })
+    pushSignal(draft, { health: 'NORMAL', nextResponsibleParty: 'SEWING_FACTORY', nextAction: '关注后续生产问题', dueAt: '按回货节点', impactSummary: '批版建议已完成反馈', reason: '批版闭环完成', priority: 16 })
   }
 }
 

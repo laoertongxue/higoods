@@ -3,12 +3,12 @@ import type {CuttingRecordChange, CuttingRecordSnapshot} from './cutting/cutting
 import {captureSewingResponsibilityState,restoreSewingResponsibilityState} from './sewing-outsourcing-responsibility.ts'
 import {captureMergedTaskSpecialCraftInvalidations,restoreMergedTaskSpecialCraftInvalidations} from './special-craft-task-orders.ts'
 import {cuttingRecordUuid} from './cutting/cutting-record-identity.ts'
-import { saveProductionContextAction, productionContextStorage, PRODUCTION_CONTEXT_KEYS, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
+import { saveProductionContextAction, saveProductionSampleContextAction, productionContextStorage, PRODUCTION_CONTEXT_KEYS, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import { captureRuntimeDirectDispatchState, restoreRuntimeDirectDispatchState } from './runtime-process-tasks.ts'
 import { captureEffectiveTaskAssignmentState, restoreEffectiveTaskAssignmentState } from './effective-task-assignments.ts'
 import { captureProductionOrderPersistenceState, restoreProductionOrderPersistenceState } from './production-orders.ts'
 import { captureSewingDeliverySlaSnapshotStore, restoreSewingDeliverySlaSnapshotStore } from './sewing-delivery-sla.ts'
-import { captureSewingSampleState, restoreSewingSampleState } from './sewing-sample-approval-suggestion.ts'
+import { captureSewingSampleState, restoreSewingSampleState, createSewingSampleActionScope } from './sewing-sample-approval-suggestion.ts'
 import { captureSewingMaterialState, restoreSewingMaterialState } from './sewing-material-handover.ts'
 import { captureProductionReturnState, restoreProductionReturnState } from './production-return-fulfillment.ts'
 import { captureProductionContractState, restoreProductionContractState } from './production-contracts.ts'
@@ -46,7 +46,7 @@ const knownEffectBases=new Set<string>()
 let appliedEffects=new Set<string>()
 /** 只覆盖真正保存的分配产物；保留静态演示默认值，不在首次访问写入种子。 */
 export function hydrateProductionSourceEffects(): void {
-  if (!isProductionContextReady()) return
+  if (!isProductionContextReady(PRODUCTION_CONTEXT_KEYS.effects)) return
   const live=new Map(captureEffects())
   for (const id of appliedEffects) { if(baseEffects.has(id)) live.set(id,baseEffects.get(id)); else live.delete(id) }
   const raw=productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
@@ -144,4 +144,17 @@ export async function saveProductionSourceUiAction<T>(intent:string,action:()=>T
   pendingUiCommands.set(intent,id)
   const result=await saveProductionSourceAction({id,intent,action,events})
   pendingUiCommands.delete(intent);return result
+}
+
+/** PP receive/claim/opinion/feedback have no cutting, accessory or task effects.
+ * Keep their one physical sample and required aliases in the original DB txn. */
+export async function saveSewingSampleSourceUiAction<T>(assignmentId:string,commandId:string,intent:string,action:()=>T):Promise<T>{
+  const pendingKey=`sample:${intent}`,id=pendingUiCommands.get(pendingKey) || `SAMPLE-UI:${cuttingRecordUuid()}`
+  pendingUiCommands.set(pendingKey,id)
+  let scope:ReturnType<typeof createSewingSampleActionScope>|undefined
+  const result=await saveProductionSampleContextAction({id,intent,commandId,
+    capture:()=>{scope ||= createSewingSampleActionScope(assignmentId,commandId);return scope.capture()},
+    restore:value=>scope!.restore(value as ReturnType<ReturnType<typeof createSewingSampleActionScope>['capture']>),
+    action:()=>scope!.run(action)})
+  pendingUiCommands.delete(pendingKey);return result
 }

@@ -1,5 +1,6 @@
 import type { TechnicalDataVersionContent, TechnicalDataVersionStoreSnapshot } from './pcs-technical-data-version-types.ts'
 import { getPcsDurableFileReference, getPcsDeletedRecordIds } from './pcs-record-runtime.ts'
+import { getLegacyQcDemoMaterialBinding } from './pcs-legacy-qc-demo-materials.ts'
 import { isRetiredProcessRouteCode, migrateProcessRouteSchema, removeRetiredProcessRouteEntries } from './tech-pack-process-route.ts'
 
 /** Exact authorized removal; material, review, published and other process facts stay owned by their source. */
@@ -101,7 +102,9 @@ export function projectUneditedLegacyTechnicalDemo(source: TechnicalDataVersionS
   const oldContents = new Map(source.contents.map(content => [content.technicalVersionId, content]))
   const newRecords = new Map(current.records.map(record => [record.technicalVersionId, record]))
   const newContents = new Map(current.contents.map(content => [content.technicalVersionId, content]))
-  const correctedReleaseContents = new Set(source.contents.filter(content => !publishedRetiredRouteIds.has(content.technicalVersionId) && RELEASE_DEMO_CONTENT_SIGNATURES[content.technicalVersionId]?.includes(demoSignature(content)) && newContents.has(content.technicalVersionId)).map(content => content.technicalVersionId))
+  // This material revision updates static defaults only. An already-saved QC
+  // demo remains its original basis, even when it matches a former demo exactly.
+  const correctedReleaseContents = new Set(source.contents.filter(content => !getLegacyQcDemoMaterialBinding(content.technicalVersionId) && !publishedRetiredRouteIds.has(content.technicalVersionId) && RELEASE_DEMO_CONTENT_SIGNATURES[content.technicalVersionId]?.includes(demoSignature(content)) && newContents.has(content.technicalVersionId)).map(content => content.technicalVersionId))
   const upgraded = new Set<string>()
   const records = source.records.map(record => {
     const signatures = LEGACY_DEMO_SIGNATURES[record.technicalVersionId]

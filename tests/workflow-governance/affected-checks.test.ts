@@ -571,6 +571,22 @@ test('原型全功能清理只接入明确消费者，旧演示夹具必须逐�
 })
 
 
+test('质检明确新增原生及原页面套件有真实执行路由，未知同名前缀不获豁免', () => {
+  const native=routeAffectedChecks(['tests/browser-contracts/post-quality-storage.test.ts','tests/helpers/post-finishing-legacy-fixture.ts'])
+  assert.deepEqual(native.unknownPaths,[])
+  assert.deepEqual(native.fullChecks,['node scripts/verification/run-quality-native-contracts.mjs'])
+  const ui=routeAffectedChecks(['tests/quality-management-rules.spec.ts','tests/finished-inventory-quality-flow.spec.ts'])
+  assert.deepEqual(ui.unknownPaths,[])
+  assert.equal(ui.fullChecks.length,1)
+  for(const name of ['quality-management-rules','quality-management-list-contract','quality-management-print-ready','quality-inventory-generic-print-entry','quality-fei-print-lazy-boundary','finished-inventory-quality-flow','sample-approval-quality','print-service-post-route-card']) assert.ok(ui.fullChecks[0].includes(`tests/${name}.spec.ts`))
+  assert.ok(ui.fullChecks[0].includes('PLAYWRIGHT_REUSE_EXISTING_SERVER=false'))
+  assert.ok(ui.fullChecks[0].includes('--workers=1'))
+  assert.deepEqual(routeAffectedChecks(['tests/quality-unknown.spec.ts']).unknownPaths,['tests/quality-unknown.spec.ts'])
+  const source=routeAffectedChecks(['tests/pcs-r1-channel-rules.test.ts'])
+  assert.deepEqual(source.unknownPaths,[])
+  assert.deepEqual(source.fastChecks,["node --import tsx --test 'tests/pcs-r1-channel-rules.test.ts'"])
+})
+
 test('辅料静态Mock专项运行实际浏览器契约，性能采集只做语法核验', () => {
   const route = routeAffectedChecks(['tests/browser-contracts/accessory-workflow-mock.test.ts', 'scripts/check-accessory-workflow-mock-performance.mjs'])
   assert.deepEqual(route.unknownPaths, [])

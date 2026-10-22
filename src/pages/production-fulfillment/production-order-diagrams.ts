@@ -134,8 +134,8 @@ function fullFlowStageTiming(c:any,phase:'allocation'|'sewing'|'post'):string {
   if(work.unknown)html+='<span>'+work.unknown+'项执行进度待核实</span>'
   return '<div class="phase-time-summary">'+html+fullFlowTimeSummary(c,'sewing')+'<small>加工用时与合同回货节点分开</small></div>'
  }
- if(!f.batches.length)return '<div class="phase-time-summary"><span>'+esc(f.postStatus==='尚未进入'?'尚未进入 · 暂无后道执行记录':'后道资料待核实 · 不推定尚未开展')+'</span><small>收货 → 质检 → 适用加工 → 复检 → 交货 → 成衣仓接收</small></div>'
- const locations=[['qc','待质检／质检中'],['processing',f.batches.some((batch:any)=>branchData(c)?.docs[batch.processingDocumentId]?.status==='待后道')?'待加工／加工中':'加工中'],['recheck','待复检／复检中'],['delivery','已交出待入仓'],['warehouse','成衣仓已入库'],['unknown','后道位置待核实']]
+ if(!f.batches.length)return '<div class="phase-time-summary"><span>'+esc(f.postStatus==='尚未进入'?'尚未进入 · 暂无后道执行记录':'后道资料待核实 · 不推定尚未开展')+'</span><small>收货 → 质检 → 适用加工 → 准备出货 → 实际发出 → 成衣仓接收</small></div>'
+ const locations=[['qc','待质检／质检中'],['processing',f.batches.some((batch:any)=>branchData(c)?.docs[batch.processingDocumentId]?.status==='待后道')?'待加工／加工中':'加工中'],['recheck','历史数量复核'],['delivery','已交出待入仓'],['warehouse','成衣仓已入库'],['unknown','后道位置待核实']]
  const quantities=locations.map(([key,label])=>{const qty=f.batches.filter((b:any)=>b.position===key).reduce((sum:number,b:any)=>sum+b.qty,0);return qty?'<span class="flow-summary-position '+(key==='unknown'?'warn':'')+'">'+label+' '+qty+'件</span>':''}).join('')
  return '<div class="phase-time-summary">'+quantities+fullFlowTimeSummary(c,'post')+'<small>加工与交接分别计时</small></div>'
 }
@@ -164,7 +164,7 @@ function period(c?: any, start?: any, end?: any, label?: any, type: any = ''): a
 function sewingFlowRows(c:any):string {const f=c.fullFlow; return row(c,'车缝任务分配',f?.allocationStatus||'资料待核实','flow:allocation',fullFlowRail(c,'allocation',(a,b,l,t)=>period(c,a,b,l,t)),f?.allocationStatus==='资料待核实'?'分配责任待核实':'王明分配 → 承包工厂确认','查看分配合同')+row(c,'车缝执行',f?.allocationStatus==='资料待核实'?'具体任务资料待核实':f?.execution.length?f.execution.length+'个任务 · 按承包范围展开':'尚未分配 · 没有执行任务','flow:sewing',fullFlowRail(c,'sewing',(a,b,l,t)=>period(c,a,b,l,t)),'承包工厂执行 → 接收责任人确认','查看实际执行单据','','flow-time-row'); }
 function postWorkRows(c:any):string {
  const f=facts(c),axis=[['采购下单',f.first.at,''],['查看时点',ASOF,'today'],['入库截止',fmt(f.deadline),'end']].map(([label,at,tone])=>'<span class="tick '+tone+'" style="left:'+pos(c,at)+'%">'+esc(at.slice(5,10))+'<br>'+label+'</span>').join('');
- return '<div class="flow-work-timelines"><div class="chart-head"><div>后道工作</div><div class="axis">'+axis+'</div><div>执行与交接责任</div></div>'+[['qc','后道质检','质检人员执行 → 后道确认'],['processing','后道加工','适用项目执行 → 后道确认'],['recheck','后道复检','SKU数量／条码复核 → 交货确认'],['delivery','后道交货','后道交出 → 成衣仓实收确认']].map(([kind,name,person])=>row(c,name,'各批加工与交接分别计时','flow:'+kind,fullFlowRail(c,kind,(a,b,l,t)=>period(c,a,b,l,t)),person,'查看对应批次单据','','flow-time-row')).join('')+'</div>'
+ return '<div class="flow-work-timelines"><div class="chart-head"><div>后道工作</div><div class="axis">'+axis+'</div><div>执行与交接责任</div></div>'+[['qc','后道质检','质检人员执行 → 后道确认'],['processing','后道加工','适用项目执行 → 后道确认'],['delivery','后道交货','后道交出 → 成衣仓实收确认']].map(([kind,name,person])=>row(c,name,'各批加工与交接分别计时','flow:'+kind,fullFlowRail(c,kind,(a,b,l,t)=>period(c,a,b,l,t)),person,'查看对应批次单据','','flow-time-row')).join('')+'</div>'
 }
 function postFlowRows(c:any):string {
  return row(c,'后道',c.fullFlow?.postStatus||'资料待核实','flow:post',fullFlowRail(c,'post',(a,b,l,t)=>period(c,a,b,l,t)),'后道执行与交接责任见具体单据','查看后道批次','','flow-time-row')

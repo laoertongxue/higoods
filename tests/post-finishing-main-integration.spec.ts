@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import * as flow from '../src/data/fcs/post-finishing-full-flow.ts'
+import { createLegacyPostFinishingFixture } from './helpers/post-finishing-legacy-fixture.ts'
 
 const namespace = 'higood-fcs-post-finishing-records'
 const oldKey = 'higood-fcs-post-finishing-full-flow-v1'
@@ -39,25 +40,7 @@ async function installFixture(page: Page, fixture: any): Promise<void> {
   }, fixture)
 }
 
-function legacyGarment() {
-  flow.resetPostFinishingFullFlow()
-  const source = flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0], original = source.skus[0].plannedQty, actor = flow.POST_FINISHING_ACCEPTANCE_ACTORS
-  try {
-    source.skus[0].plannedQty = 1000
-    const delivery = flow.registerPostFinishingFactoryReturn({ productionOrderNo: source.productionOrderNo, executionTaskId: source.executionTaskId, returnIndex: 1, triggerSource: '车缝正常交出', idempotencyKey: 'MIXED-LEGACY-INPUT', quantities: source.skus.map((sku, i) => ({ skuId: sku.skuId, registeredQty: i ? 0 : 1000 })), deliveryPersonName: '混合迁移隔离送货人', deliveryPersonPhone: '', evidenceImageUrls: [source.skus[0].imageUrl], actor: actor.factoryCourier })
-    flow.confirmPostFinishingFactoryReturn({ deliveryId: delivery.deliveryId, firstCounts: delivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })), actor: actor.returnConfirmer })
-    const qc = flow.sendPostFinishingFactoryReturnToQc({ deliveryId: delivery.deliveryId, actor: actor.sender })
-    flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actor.qcA })
-    const complete = flow.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, actor: actor.qcA, processItems: [...flow.POST_FINISHING_PROCESS_ITEMS], results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })) })
-    const parent = flow.getPostFinishingFullFlowPostTask(complete.postTaskId!)!
-    for (const processItem of flow.POST_FINISHING_PROCESS_ITEMS) flow.appendPostFinishingProcessCompletion({ postTaskId: parent.postTaskId, processItem, quantities: [{ skuId: source.skus[0].skuId, quantity: 400 }], responsible: actor.postOperator, actor: actor.postOperator, operationId: `MIXED-OLD-${processItem}` })
-    const rc: any = flow.submitPostFinishingForRecheck({ postTaskId: parent.postTaskId, quantities: [{ skuId: source.skus[0].skuId, quantity: 400 }], actor: actor.postOperator, operationId: 'MIXED-OLD-RC' })
-    delete rc.operationId; delete rc.operationIntent; delete rc.sequence
-    const oldParent: any = { ...parent, executionModel: undefined, processItems: ['烫包'], status: '后道完成', recheckOrderId: rc.recheckOrderId, recheckOrderNo: rc.recheckOrderNo, results: parent.lines.map((line, i) => ({ ...line, processedQty: i ? 0 : 400, unprocessedQty: i ? 0 : 600, unprocessedReason: i ? undefined : '明确旧合并表示' })) }
-    const snapshot: any = { schemaVersion: 2, deliveries: [flow.getPostFinishingFactoryReturn(delivery.deliveryId)], qcTasks: [flow.getPostFinishingFullFlowQcTask(qc.qcTaskId)], postTasks: [oldParent], recheckOrders: [rc], outboundOrders: [], warehouseReceipts: [], waitProcessWarehouseRecords: flow.listPostFinishingWaitProcessWarehouseRecords(), waitProcessWarehouseMovements: flow.listPostFinishingWaitProcessWarehouseMovements(), waitHandoverWarehouseRecords: [], waitHandoverWarehouseMovements: [], returnConfirmationVersions: flow.listPostFinishingReturnConfirmationVersions(), defects: [], materialTransferOrders: [], materialStocks: [] }
-    return { snapshot, parentId: parent.postTaskId, skuId: source.skus[0].skuId, oldRecheckId: rc.recheckOrderId }
-  } finally { source.skus[0].plannedQty = original }
-}
+const legacyGarment = () => createLegacyPostFinishingFixture(400, 'MIXED-LEGACY-INPUT')
 
 async function durable(page: Page) {
   return page.evaluate(async () => {
@@ -95,7 +78,7 @@ async function materialReadback(page: Page) {
     return { inspection: auxiliary.inspectLegacyAccessoryPostMigration(), sourceKeys: backup.sources.map(row => ({ key: row.key, fingerprint: row.fingerprint })), stocks: flow.listPostFinishingMaterialStocks().filter(row => row.transferOrderId === 'OLD-POST-1'), transfer: flow.getPostFinishingMaterialTransferOrder('OLD-POST-1') }
   })
 }
-async function carryAndContinue(page: Page, input: ReturnType<typeof legacyGarment>) {
+async function carryAndContinue(page: Page, input: Awaited<ReturnType<typeof legacyGarment>>) {
   await page.goto(`/fcs/craft/post-finishing/work-orders/${input.parentId}`)
   await expect(page.locator('[data-post-prototype-actor], [data-post-finishing-work-order-detail-action="switch-actor"]')).toHaveCount(0)
   await page.locator('[data-post-finishing-work-order-detail-action="open-legacy"]').click()
@@ -110,8 +93,8 @@ async function carryAndContinue(page: Page, input: ReturnType<typeof legacyGarme
   return page.evaluate(async ({ parentId, skuId }) => {
     const r = await import('/src/data/fcs/post-finishing-records.ts'), f = await import('/src/data/fcs/post-finishing-full-flow.ts'), a = f.POST_FINISHING_ACCEPTANCE_ACTORS
     for (const item of f.POST_FINISHING_PROCESS_ITEMS) await r.runPostFinishingCommand(() => f.appendPostFinishingProcessCompletion({ postTaskId: parentId, processItem: item, quantities: [{ skuId, quantity: 100 }], responsible: a.postOperator, actor: a.postOperator, operationId: `MIXED-CONTINUE-${item}` }))
-    const child = await r.runPostFinishingCommand(() => f.submitPostFinishingForRecheck({ postTaskId: parentId, quantities: [{ skuId, quantity: 100 }], actor: a.postOperator, operationId: 'MIXED-CONTINUE-RC' }))
-    return { progress: f.getPostFinishingProcessProgress(parentId), child, children: f.listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === parentId) }
+    const child = await r.runPostFinishingCommand(() => f.submitPostFinishingForOutbound({ postTaskId: parentId, quantities: [{ skuId, quantity: 100 }], actor: a.postOperator, operationId: 'MIXED-CONTINUE-OUTBOUND' }))
+    return { progress: f.getPostFinishingProcessProgress(parentId), child, children: f.listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === parentId), rechecks: f.listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === parentId) }
   }, input)
 }
 async function artifact(page: Page, name: string, value: unknown) {
@@ -123,7 +106,7 @@ async function artifact(page: Page, name: string, value: unknown) {
 for (const order of ['post-first-inline', 'accessory-first-existing-pcs'] as const) {
   test(`main integration: mixed legacy ${order}, atomic retry, original files and H/N continue`, async ({ page }) => {
     test.setTimeout(90000)
-    const input = legacyGarment(), fixture = structuredClone(legacyMaterials)
+    const input = await legacyGarment(), fixture = structuredClone(legacyMaterials)
     const originals = structuredClone(legacyMaterialRows.map((row: any) => row.value))
     for (const row of originals) input.snapshot[row.collection.split('/')[1]].push(row.value)
     if (order === 'post-first-inline') {
@@ -178,7 +161,10 @@ for (const order of ['post-first-inline', 'accessory-first-existing-pcs'] as con
     const continued = await carryAndContinue(page, input)
     expect(continued.progress.totalCompletedQty).toBe(500)
     expect(continued.children).toHaveLength(2)
-    expect(continued.children.some(child => child.recheckOrderId === input.oldRecheckId)).toBe(true)
+    expect(continued.rechecks).toHaveLength(0)
+    expect(continued.child.status).toBe('待出货')
+    expect(continued.child.lines.reduce((sum,line)=>sum+line.outboundQty,0)).toBe(100)
+    expect(continued.children.some(child => child.retiredRecheckId === input.oldRecheckId)).toBe(true)
     expect((await durable(page)).accessory).toEqual(afterArchive.accessory)
     await artifact(page, order, { inputBoundary: 'public garment source encoded schema2 plus main frozen AW fixture; isolated prototype only', material, continued, durable: await durable(page) })
   })
@@ -187,6 +173,7 @@ for (const order of ['post-first-inline', 'accessory-first-existing-pcs'] as con
 async function publicPostTask(page: Page) {
   return page.evaluate(async () => {
     const f = await import('/src/data/fcs/post-finishing-full-flow.ts'), r = await import('/src/data/fcs/post-finishing-records.ts')
+    await (await import('/src/data/fcs/quality-management-records.ts')).ensureQualityManagementRecords()
     const source = f.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0], prior = source.skus[0].plannedQty, a = f.POST_FINISHING_ACCEPTANCE_ACTORS
     // The seed's qcA already owns another task; this isolated source uses a
     // separate complete prototype identity without releasing unrelated work.
@@ -197,15 +184,25 @@ async function publicPostTask(page: Page) {
       await r.runPostFinishingCommand(() => f.confirmPostFinishingFactoryReturn({ deliveryId: d.deliveryId, firstCounts: d.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })), actor: a.returnConfirmer }))
       const qc = await r.runPostFinishingCommand(() => f.sendPostFinishingFactoryReturnToQc({ deliveryId: d.deliveryId, actor: a.sender }))
       await r.runPostFinishingCommand(() => f.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: qcActor }))
-      const result = await r.runPostFinishingCommand(() => f.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, actor: qcActor, processItems: [...f.POST_FINISHING_PROCESS_ITEMS], results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })) }))
+      await r.runPostFinishingCommand(() => f.submitPostFinishingQcRound({qcTaskId:qc.qcTaskId,actor:qcActor,operationId:'INTEGRATED-BACKUP-ROUND',lines:qc.lines.map(line=>({skuId:line.sku.skuId,passedQty:line.expectedQty,defectQty:0,returnQty:0,issues:[]}))}))
+      await r.runPostFinishingCommand(() => f.attachPostFinishingQcSignedPaper({qcTaskId:qc.qcTaskId,actor:qcActor,url:source.skus[0].imageUrl,name:'隔离夹具纸单素材；不代表现场双签'}))
+      const result = await r.runPostFinishingCommand(() => f.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, actor: qcActor, processItems: [...f.POST_FINISHING_PROCESS_ITEMS] }))
       for (const item of f.POST_FINISHING_PROCESS_ITEMS) await r.runPostFinishingCommand(() => f.appendPostFinishingProcessCompletion({ postTaskId: result.postTaskId!, processItem: item, quantities: [{ skuId: source.skus[0].skuId, quantity: 100 }], responsible: a.postOperator, actor: a.postOperator, operationId: `INTEGRATED-BACKUP-${item}` }))
       return { parentId: result.postTaskId!, skuId: source.skus[0].skuId }
     } finally { source.skus[0].plannedQty = prior }
   })
 }
 
+/** Existing external-tool boundary; normal business pages intentionally have no backup form. */
 async function importBackup(page: Page, value: unknown, name = '混合旧备份.json') {
-  await page.locator('[data-post-finishing-field="storage-import"]').setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(value)) })
+  return page.evaluate(async ({ value, name }) => {
+    const records = await import('/src/data/fcs/post-finishing-records.ts')
+    const input = new File([JSON.stringify(value)], name, {type:'application/json'})
+    const before = await input.text()
+    let error = ''
+    try { await records.importPostFinishingBackup(input) } catch (cause) { error=String(cause) }
+    return { ok:!error,error,inputName:input.name,inputPreserved:before===await input.text() }
+  }, { value, name })
 }
 
 test('main integration: actual restore keeps managed originals readonly, failed input retry and existing auxiliary stock unchanged', async ({ page }) => {
@@ -225,39 +222,36 @@ test('main integration: actual restore keeps managed originals readonly, failed 
   for (const row of legacyMaterialRows) backup.records.push(structuredClone(row.value))
   backup.files.push({ id: legacyFile.id, type: legacyFile.blob.type, bytes: legacyFile.blob.bytes })
   await page.goto('/fcs/craft/post-finishing/audit-records')
-  await expect(page.locator('[data-post-finishing-field="storage-import"]')).toHaveCount(1)
+  await expect(page.locator('[data-post-finishing-field="storage-import"]')).toHaveCount(0)
   const before = await durable(page)
-  await importBackup(page, { invalid: true }, '错误格式.json')
-  await expect(page.locator('[data-post-finishing-action-error]')).toContainText('格式')
+  const invalid = await importBackup(page, { invalid: true }, '错误格式.json')
+  expect(invalid.error).toContain('格式'); expect(invalid.inputPreserved).toBe(true)
   expect(await durable(page)).toEqual(before)
-  const successfulInput = await page.locator('[data-post-finishing-field="storage-import"]').elementHandle()
-  await importBackup(page, backup)
+  const imported = await importBackup(page, backup)
+  expect(imported.ok).toBe(true)
   await expect.poll(async () => (await durable(page)).pcs.records.filter(row => row.collection === 'archive' && (row.value as any)?.format === 'post-finishing-readonly-material-original').length).toBe(2)
   await expect(page.locator('[data-post-finishing-action-error]')).toHaveCount(0)
-  await expect.poll(() => successfulInput!.evaluate(node => node.isConnected)).toBe(false)
   const restored = await durable(page)
   expect(restored.accessory).toEqual(before.accessory)
   expect(restored.pcs.records.filter(row => !row.deleted && /flow\/material(TransferOrders|Stocks)$/.test(row.collection))).toEqual(before.pcs.records.filter(row => !row.deleted && /flow\/material(TransferOrders|Stocks)$/.test(row.collection)))
   expect(restored.pcs.files.some(file => file.id === legacyFile.id && file.bytes.length === legacyFile.blob.bytes.length)).toBe(true)
-  const repeatInput = await page.locator('[data-post-finishing-field="storage-import"]').elementHandle()
-  await importBackup(page, backup, '同一备份重试.json')
+  const repeat = await importBackup(page, backup, '同一备份重试.json')
+  expect(repeat.ok, repeat.error).toBe(true)
   await expect(page.locator('[data-post-finishing-action-error]')).toHaveCount(0)
-  await expect.poll(() => repeatInput!.evaluate(node => node.isConnected)).toBe(false)
   expect((await durable(page)).pcs.records).toEqual(restored.pcs.records)
   const conflict = structuredClone(backup)
   conflict.records.find((row: any) => row.collection === 'flow/materialStocks').value.currentQty = 6
-  await importBackup(page, conflict, '相同原记录不同内容.json')
-  await expect(page.locator('[data-post-finishing-action-error]')).toContainText('冲突')
-  expect(await page.locator('[data-post-finishing-field="storage-import"]').evaluate((node: HTMLInputElement) => node.files?.[0]?.name)).toBe('相同原记录不同内容.json')
+  const rejected = await importBackup(page, conflict, '相同原记录不同内容.json')
+  expect(rejected.error).toContain('冲突'); expect(rejected.inputName).toBe('相同原记录不同内容.json'); expect(rejected.inputPreserved).toBe(true)
   expect(await durable(page)).toEqual(restored)
   const continued = await page.evaluate(async input => {
     const f = await import('/src/data/fcs/post-finishing-full-flow.ts'), r = await import('/src/data/fcs/post-finishing-records.ts'), a = f.POST_FINISHING_ACCEPTANCE_ACTORS
     await r.runPostFinishingCommand(() => f.appendPostFinishingProcessCompletion({ postTaskId: input.parentId, processItem: '开扣眼', quantities: [{ skuId: input.skuId, quantity: 100 }], responsible: a.postOperator, actor: a.postOperator, operationId: 'AFTER-READONLY-RESTORE' }))
-    return r.runPostFinishingCommand(() => f.submitPostFinishingForRecheck({ postTaskId: input.parentId, quantities: [{ skuId: input.skuId, quantity: 100 }], actor: a.postOperator, operationId: 'AFTER-READONLY-RESTORE-RC' }))
+    return r.runPostFinishingCommand(() => f.submitPostFinishingForOutbound({ postTaskId: input.parentId, quantities: [{ skuId: input.skuId, quantity: 100 }], actor: a.postOperator, operationId: 'AFTER-READONLY-RESTORE-OUTBOUND' }))
   }, task)
-  expect(continued.lines.reduce((sum, line) => sum + line.expectedQty, 0)).toBe(100)
+  expect(continued.lines.reduce((sum, line) => sum + line.outboundQty, 0)).toBe(100)
   expect((await durable(page)).accessory).toEqual(before.accessory)
-  await artifact(page, 'readonly-backup-restore', { restored, continued, auxiliaryUnchanged: true })
+  await artifact(page, 'readonly-backup-restore', { restored, continued, auxiliaryUnchanged: true, invalid, imported, repeat, rejected, boundary:'公开外部工具File导入失败/重试/冲突保护；正常业务页不恢复维护控件，不冒称原file input UI操作' })
 })
 
 async function session(page: Page, roleId: string, factoryId = 'ID-F002') {

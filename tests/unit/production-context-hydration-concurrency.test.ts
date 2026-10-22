@@ -23,6 +23,7 @@ function runtime() {
   const read = deferred<Snapshot>(), calls = { reads: 0, writes: 0, notifications: 0 }
   const dependencies: Record<string, any> = {
     locked: false, pendingReadHydration: undefined, current: null, stage: null,
+    preparedKeys: new Set(), materializedSampleRows: new Map(), sampleSerializationDirty: false,
     keys: ['source'], prefix: 'production-context:', serialized: new Map(), initializationRecords: [],
     listeners: new Map([['source', new Set([() => { calls.notifications++ }])]]),
     readCuttingRecords: () => { calls.reads++; return read.promise },

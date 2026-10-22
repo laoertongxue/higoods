@@ -1838,10 +1838,9 @@ export function renderPdaExecPage(): string {
         <main class="flex-1 p-4">
           <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4" data-pda-post-finishing-entry>
             <h1 class="text-base font-semibold text-blue-950">后道现场执行</h1>
-            <p class="mt-1 text-xs leading-5 text-blue-800">精确扫描后道加工单或复检单；质检只在 Web 端进行。</p>
+            <p class="mt-1 text-xs leading-5 text-blue-800">扫描后道加工单，登记加工并核对出货；质检在原质检工作台进行。</p>
             <div class="mt-4 grid grid-cols-2 gap-3">
               <button type="button" class="h-12 rounded-2xl bg-blue-600 text-sm font-semibold text-white" data-nav="/fcs/pda/post-finishing/execute">后道加工</button>
-              <button type="button" class="h-12 rounded-2xl border border-blue-300 bg-white text-sm font-semibold text-blue-800" data-nav="/fcs/pda/post-finishing/recheck">后道复检</button>
             </div>
           </section>
         </main>

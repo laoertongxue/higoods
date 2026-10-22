@@ -324,6 +324,12 @@ function resolveFromRegistry(
 
 export async function resolvePage(pathname: string): Promise<string> {
   const normalizedPathname = normalizePathname(pathname)
+  if (normalizedPathname.startsWith('/fcs/quality-management/')) {
+    return (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname)
+  }
+  if (normalizedPathname === '/wls/finished/inventory-quality' || normalizedPathname.startsWith('/wls/finished/inventory-quality/')) {
+    return (await import('../pages/wls/finished/inventory-quality.ts')).renderFinishedInventoryQuality()
+  }
 
   if (normalizedPathname.startsWith('/wls/accessory-warehouses/')) {
     const registry = (await import('./routes-accessory-warehouses.ts')).routes
@@ -451,7 +457,6 @@ export async function resolvePage(pathname: string): Promise<string> {
       'work-orders': pages.renderPostFinishingWorkOrdersPage,
       'qc-orders': pages.renderPostFinishingQcOrdersPage,
       'qc-workbench': pages.renderPostFinishingQcWorkbenchPage,
-      'recheck-orders': pages.renderPostFinishingRecheckOrdersPage,
       'wait-process-warehouse': pages.renderPostFinishingWaitProcessWarehousePage,
       'wait-handover-warehouse': pages.renderPostFinishingWaitHandoverWarehousePage,
       'outbound-orders': pages.renderPostFinishingOutboundOrdersPage,
@@ -461,11 +466,10 @@ export async function resolvePage(pathname: string): Promise<string> {
       statistics: pages.renderPostFinishingStatisticsPage,
     }
     if (Object.hasOwn(exact, suffix)) return exact[suffix]()
-    const detail = suffix.match(/^(work-orders|recheck-orders|outbound-orders)\/([^/]+)$/)
+    const detail = suffix.match(/^(work-orders|outbound-orders)\/([^/]+)$/)
     if (detail) {
       const renderer = detail[1] === 'work-orders' ? pages.renderPostFinishingWorkOrderDetailPage
-        : detail[1] === 'recheck-orders' ? pages.renderPostFinishingRecheckOrderDetailPage
-          : pages.renderPostFinishingOutboundOrderDetailPage
+        : pages.renderPostFinishingOutboundOrderDetailPage
       return renderer(decodeURIComponent(detail[2]))
     }
   }

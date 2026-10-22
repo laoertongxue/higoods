@@ -143,7 +143,9 @@ test('PDA handlers wait for part-ticket hydration, and the real detail is not mo
   // Execute the actual routing/render control flow with bounded module loaders.
   // Replacing import syntax lets the test reproduce the observed module read
   // gate without opening or altering any browser/business store.
-  const script = functions.map(node => node.getText(ast)).join('\n').replaceAll('import(', 'loadModule(')
+  const inventoryEntry = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isQualityInventoryEntry')!
+  assert.ok(inventoryEntry)
+  const script = [inventoryEntry, ...functions].map(node => node.getText(ast)).join('\n').replaceAll('import(', 'loadModule(')
   const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   let releasePreparation!: () => void
   let releaseHandler!: () => void
@@ -198,7 +200,9 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
   const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
   const routeFunction = ast.statements.find(node => ts.isFunctionDeclaration(node)
     && node.name?.text === 'renderCurrentPageContent')!
-  const script = routeFunction.getText(ast).replaceAll('import(', 'loadModule(')
+  const inventoryEntry = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isQualityInventoryEntry')!
+  assert.ok(inventoryEntry)
+  const script = (inventoryEntry.getText(ast) + '\n' + routeFunction.getText(ast)).replaceAll('import(', 'loadModule(')
   const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const execute = new Function('dependencies', 'pathname', `with (dependencies) { ${javascript}; return renderCurrentPageContent(pathname) }`)
   function createSession() {
@@ -277,7 +281,9 @@ test('ordinary procurement entry does not initialize unrelated production or cut
   const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
   const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
   const routeFunction = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'preparePageRouteEntry')!
-  const script = routeFunction.getText(ast).replaceAll('import(', 'loadModule(')
+  const inventoryEntry = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isQualityInventoryEntry')!
+  assert.ok(inventoryEntry)
+  const script = (inventoryEntry.getText(ast) + '\n' + routeFunction.getText(ast)).replaceAll('import(', 'loadModule(')
   const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const execute = new Function('dependencies', 'pathname', `with (dependencies) { ${javascript}; return preparePageRouteEntry(pathname) }`)
   const loaded: string[] = []

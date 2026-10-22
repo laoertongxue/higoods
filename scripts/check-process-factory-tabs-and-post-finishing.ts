@@ -79,14 +79,13 @@ assertNotIncludes(factoryProfile, "craftName: '复检'", '复检是回货后的�
 assertIncludes(mergedTaskDomain, '车缝+烫包', '合并任务规则必须使用实际工序名称烫包')
 assertNotIncludes(mergedTaskDomain, '车缝+后道', '合并任务规则不得把阶段名当作实际工序')
 
-;['后道工厂管理', '后道生产任务', '质检单', '后道加工单', '复检单', '后道待加工仓', '后道待交出仓', '后道出货单', '差异与操作日志', '我的动态授权码'].forEach((label) => {
+;['后道工厂管理', '后道生产任务', '质检清单', '后道加工单', '后道待加工仓', '后道待交出仓', '后道出货单', '差异与操作日志', '我的动态授权码'].forEach((label) => {
   assertIncludes(appShell, label, `后道阶段菜单缺少 ${label}`)
 })
 assertNotIncludes(appShell, "title: 'Web 质检工作台'", 'Web 质检工作台不得再作为独立菜单')
 ;[
   'renderPostFinishingWorkOrdersPage',
   'renderPostFinishingQcOrdersPage',
-  'renderPostFinishingRecheckOrdersPage',
   'renderPostFinishingWaitProcessWarehousePage',
   'renderPostFinishingWaitHandoverWarehousePage',
   'renderPostFinishingStatisticsPage',
@@ -98,7 +97,6 @@ assertNotIncludes(appShell, "title: 'Web 质检工作台'", 'Web 质检工作台
 ;[
   '/fcs/craft/post-finishing/work-orders',
   '/fcs/craft/post-finishing/qc-orders',
-  '/fcs/craft/post-finishing/recheck-orders',
   '/fcs/craft/post-finishing/wait-process-warehouse',
   '/fcs/craft/post-finishing/wait-handover-warehouse',
   '/fcs/craft/post-finishing/statistics',
@@ -113,16 +111,12 @@ const postCounts = new Map<string, number>()
 listPostFinishingActionRecords().forEach((record) => {
   postCounts.set(record.actionType, (postCounts.get(record.actionType) || 0) + 1)
 })
-;[['扫码收货', 3], ['后道', 3], ['质检', 3], ['复检', 2]].forEach(([actionType, minimum]) => {
+;[['扫码收货', 3], ['后道', 3], ['质检', 3]].forEach(([actionType, minimum]) => {
   assert((postCounts.get(String(actionType)) || 0) >= Number(minimum), `后道阶段 mock 数据中 ${actionType} 记录不足 ${minimum} 行`)
 })
 
-const handoverRecordIds = new Set(listPostFinishingWaitHandoverWarehouseRecords().map((record) => record.recheckOrderId))
-listPostFinishingRecheckOrders()
-  .filter((record) => record.status.includes('完成'))
-  .forEach((record) => {
-    assert(handoverRecordIds.has(record.actionId), `复检完成记录未关联后道交出仓: ${record.actionId}`)
-  })
+assert(listPostFinishingRecheckOrders().length===0,'活动读取不再返回独立复检动作')
+assert(!routes.includes('/fcs/craft/post-finishing/recheck-orders'),'复检业务路由退役')
 
 listPostFinishingWorkOrders()
   .filter((order) => order.routeMode === '车缝厂已做后道')
@@ -132,9 +126,6 @@ listPostFinishingWorkOrders()
     assert(order.postAction.status === '跳过后道', `车缝厂已做后道场景后道工厂不得再执行后道: ${order.postOrderNo}`)
     if (order.qcAction) {
       assert(order.qcAction.factoryId === order.managedPostFactoryId, `车缝厂不得生成本厂质检单: ${order.postOrderNo}`)
-    }
-    if (order.recheckAction) {
-      assert(order.recheckAction.factoryId === order.managedPostFactoryId, `车缝厂不得生成本厂复检单: ${order.postOrderNo}`)
     }
   })
 

@@ -1,3 +1,4 @@
+import { ensureQualityManagementRecords } from '../src/data/fcs/quality-management-records.ts'
 import assert from 'node:assert/strict'
 import * as flow from '../src/data/fcs/post-finishing-full-flow.ts'
 import '../src/data/fcs/runtime-process-tasks.ts'
@@ -20,6 +21,14 @@ import {
   listPostFinishingActionRecords,
   listPostFinishingQcOrders,
 } from '../src/data/fcs/post-finishing-current-read-model.ts'
+
+await ensureQualityManagementRecords()
+
+function finishQc(input: Parameters<typeof completePostFinishingQcTask>[0]) {
+  flow.submitPostFinishingQcRound({qcTaskId:input.qcTaskId,actor:input.actor,operationId:`READ-MODEL-QC:${input.qcTaskId}`,lines:(input.results||[]).map(row=>({skuId:row.skuId,passedQty:row.passedQty,defectQty:row.defectQty,returnQty:row.returnQty,issues:row.defectQty+row.returnQty?[{itemId:'garment-clean',note:'专项实际问题'}]:[]}))})
+  flow.attachPostFinishingQcSignedPaper({qcTaskId:input.qcTaskId,actor:input.actor,url:'/fixtures/isolated-read-model-test-paper.png',name:'专项纸单'})
+  return completePostFinishingQcTask(input)
+}
 
 // POST-002 / POST-008 / POST-024 / CLEAN-005：通用消费者不能丢失正式任务和直达 QC。
 resetPostFinishingFullFlow()
@@ -57,7 +66,7 @@ assert(listPostFinishingQcOrders().some((item) => item.actionRecordId === qc.qcT
 claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actors.qcA })
 const receiver = listPostFinishingQcReworkFactoryOptions().find((item) => item.value !== order.sewingFactoryName)
 assert(receiver)
-completePostFinishingQcTask({
+finishQc({
   qcTaskId: qc.qcTaskId, actor: actors.qcA, processItems: [],
   results: qc.lines.map((line) => ({
     skuId: line.sku.skuId, passedQty: 7, defectQty: 1, returnQty: 2,
@@ -74,7 +83,7 @@ assert.equal(projected.reworkGarmentQty, 10)
 assert.equal(projected.defectAcceptedGarmentQty, 5)
 assert.equal(projected.warehouseAllocations?.[0].productionOrderNo, order.productionOrderNo)
 assert.equal(projected.warehouseAllocations?.[0].postTaskId, getPostFinishingTaskByProductionOrder(order.productionOrderId)?.postTaskId)
-assert.equal(projected.qcSkuResults?.reduce((sum, line) => sum + (line.sourceChargeback?.amount || 0), 0), 50000)
+assert.equal(projected.qcSkuResults?.reduce((sum, line) => sum + (line.sourceChargeback?.amount || 0), 0), 0, '没有真实费用来源不自动计返工扣款')
 assert.equal(listPostFinishingActionRecords().filter((item) => item.actionRecordId === qc.qcTaskId).length, 1, '同一 QC 只投影一次')
 // PFN-033/035/046/048: a current reader must project every actual child,
 // while retaining the existing formal-source/QC-only/chargeback assertions above.
@@ -87,25 +96,19 @@ confirmPostFinishingFactoryReturn({ deliveryId: partialDelivery.deliveryId, acto
   firstCounts: partialDelivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })) })
 const partialQc = sendPostFinishingFactoryReturnToQc({ deliveryId: partialDelivery.deliveryId, actor: actors.sender })
 claimPostFinishingQcTask({ qcTaskNo: partialQc.qcTaskNo, actor: actors.qcA })
-completePostFinishingQcTask({ qcTaskId: partialQc.qcTaskId, actor: actors.qcA, processItems: ['包装'],
+finishQc({ qcTaskId: partialQc.qcTaskId, actor: actors.qcA, processItems: ['包装'],
   results: partialQc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })) })
 const partialPost = listPostFinishingFullFlowPostTasks().find(row => row.qcTaskId === partialQc.qcTaskId)!
 flow.appendPostFinishingProcessCompletion({ postTaskId: partialPost.postTaskId, processItem: '包装',
   quantities: [{ skuId: partialSource.skus[0].skuId, quantity: 20 }], actor: actors.postOperator, responsible: actors.postOperator, operationId: 'READ-MODEL-PACK' })
-const partialChildren = [5, 15].map((quantity, index) => flow.submitPostFinishingForRecheck({ postTaskId: partialPost.postTaskId,
-  quantities: [{ skuId: partialSource.skus[0].skuId, quantity }], actor: actors.postOperator, operationId: `READ-MODEL-RECHECK-${index}` }))
-const firstChild = partialChildren[0]
-flow.claimPostFinishingRecheckOrder({ recheckOrderNo: firstChild.recheckOrderNo, actor: actors.recheckerA })
-flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: firstChild.recheckOrderId, skuId: firstChild.lines[0].sku.skuId, scannedBarcode: firstChild.lines[0].sku.barcode, actor: actors.recheckerA })
-flow.completePostFinishingRecheckOrderFullFlow({ recheckOrderId: firstChild.recheckOrderId, actor: actors.recheckerA,
-  results: firstChild.lines.map(line => ({ skuId: line.sku.skuId, handoverQty: line.expectedQty })) })
-const childActions = listPostFinishingActionRecords('复检').filter(row => row.postOrderId === partialPost.postTaskId)
-assert.equal(childActions.length, 2, '读取模型不能只取第一张复检')
-assert.deepEqual(new Set(childActions.map(row => row.actionRecordId)), new Set(partialChildren.map(row => row.recheckOrderId)))
-assert.equal(childActions.reduce((sum, row) => sum + row.acceptedGarmentQty, 0), 5, '未完成复检不能提前计为已复核成衣')
+const partialChildren = [5, 15].map((quantity, index) => flow.submitPostFinishingForOutbound({ postTaskId: partialPost.postTaskId,
+  quantities: [{ skuId: partialSource.skus[0].skuId, quantity }], actor: actors.postOperator, operationId: `READ-MODEL-OUTBOUND-${index}` }))
+flow.dispatchPostFinishingOutboundOrder({outboundOrderId:partialChildren[0].outboundOrderId,actor:actors.postOperator})
+assert.equal(listPostFinishingActionRecords('复检').length,0, '活动投影不再生成独立复检')
 const partialView = getPostFinishingTaskByProductionOrder(partialSource.productionOrderId)!
-assert.equal(partialView.recheckOrderCount, 2)
-assert.equal(partialView.recheckDoneQty, 5)
-assert.equal(flow.getPostFinishingProcessProgress(partialPost).totalCompletedQty, 20, '分项成衣完成量与复检完成量分别表达')
+assert.equal(partialView.recheckOrderCount,0)
+assert.equal(partialView.waitOutboundQty,15, '准备出货和实际发出的数量分别表达')
+assert.equal(flow.getPostFinishingProcessProgress(partialPost).totalCompletedQty,20)
+assert.equal(flow.getPostFinishingProcessProgress(partialPost).availableForOutboundQty,0)
 resetPostFinishingFullFlow()
-console.log('post-finishing current read model passed: formal task visibility, independent QC facts, quantities and chargeback preserved')
+console.log('post-finishing current read model passed: formal task visibility, independent QC facts, actual quantities, direct outbound and unknown-history boundary preserved')

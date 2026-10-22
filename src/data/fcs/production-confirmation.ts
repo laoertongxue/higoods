@@ -58,6 +58,7 @@ export interface ProductionConfirmationBomSnapshotRow {
   materialName: string
   materialSku: string
   materialCode?: string
+  materialSkuCode?: string
   materialColor: string
   spec: string
   unitConsumption: number | null
@@ -509,6 +510,7 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
       materialName: item.name || '暂无数据',
       materialSku: item.id,
       materialCode: item.materialCode,
+      materialSkuCode: item.materialSkuCode,
       materialColor: item.colorLabel || '暂无数据',
       spec: item.spec || '暂无数据',
       unitConsumption: Number.isFinite(item.unitConsumption) ? item.unitConsumption : null,

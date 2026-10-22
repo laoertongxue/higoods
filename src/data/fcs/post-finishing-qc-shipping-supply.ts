@@ -48,6 +48,7 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
   segments: QcShippingSupplySegment[]
   issues: QcShippingSupplyIssue[]
 } {
+  const normalQty=(line:PostFinishingQualityResultLine)=>line.releasedQty ?? line.passedQty
   const segments: QcShippingSupplySegment[] = []
   const issues: QcShippingSupplyIssue[] = []
   const invalid = new Set<object>()
@@ -187,10 +188,10 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
         invalid.add(line)
         issue('SKU_MISMATCH', '质检结果缺少一致的原始应检 SKU。', root.qcTaskId, root.qcTaskId, line.sku.skuId)
       }
-      const numbers = [line.expectedQty, line.passedQty, line.defectQty, line.returnQty]
+      const numbers = [line.expectedQty, line.passedQty, line.defectQty, line.returnQty, normalQty(line)]
       if (numbers.some(value => !quantity(value, root.qcTaskId, root.qcTaskId, line.sku.skuId))) invalid.add(line)
       if (!invalid.has(line) && (expected!.expectedQty !== line.expectedQty
-        || (line.expectedQty !== line.passedQty + line.defectQty + line.returnQty && !root.qcAuthorizationId?.trim()))) {
+        || (line.expectedQty !== normalQty(line) + line.defectQty + line.returnQty && !root.qcAuthorizationId?.trim()))) {
         invalid.add(line)
         issue('QC_QUANTITY_MISMATCH', '质检应检量不一致，或实点差异缺少已确认授权。', root.qcTaskId, root.qcTaskId, line.sku.skuId)
       }
@@ -210,7 +211,7 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
       const source = qcLines.get(task.qcTaskId)?.get(line.sku.skuId)
       if (!source || !matchesSku(line.sku, source.sku, task.postTaskId, task.qcTaskId)
         || !quantity(line.expectedQty, task.postTaskId, task.qcTaskId, line.sku.skuId)
-        || line.expectedQty !== source.passedQty) {
+        || line.expectedQty !== normalQty(source)) {
         issue('POST_QUANTITY_MISMATCH', '后道应处理量与来源 QC 合格量不一致。', task.postTaskId, task.qcTaskId, line.sku.skuId)
       }
     }
@@ -260,11 +261,11 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
   const outboundChildren = new Map<string, PostFinishingOutboundOrder[]>()
   for (const order of outbounds.values()) {
     if (invalid.has(order) || !parent(order, order.outboundOrderId)) continue
-    if (!['待仓库接收', '已接收入库'].includes(order.status)) {
+    if (!['待出货','待仓库接收', '已接收入库'].includes(order.status)) {
       invalid.add(order)
       issue('INVALID_STATUS', '后道出货状态无法识别。', order.outboundOrderId, order.qcTaskId)
     }
-    const childKey = order.recheckOrderId ? `rc:${order.recheckOrderId}` : `qc:${order.qcTaskId}`
+    const childKey = order.executionModel==='DIRECT_V2' ? `direct:${order.outboundOrderId}` : order.recheckOrderId ? `rc:${order.recheckOrderId}` : `qc:${order.qcTaskId}`
     const siblings = outboundChildren.get(childKey) || []
     siblings.push(order); outboundChildren.set(childKey, siblings)
     if (!matchesPost(order, order.outboundOrderId)) invalid.add(order)
@@ -281,6 +282,8 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
         invalid.add(order)
         issue('CHILD_STATUS_CONFLICT', '复检尚未完成，不能已存在下游出货。', order.outboundOrderId, order.qcTaskId)
       }
+    } else if (order.executionModel==='DIRECT_V2' && order.postTaskId) {
+      // Current processing ships directly; its verified post parent replaces the retired recheck node.
     } else if (order.postTaskId || order.sourceType !== '质检直达') {
       invalid.add(order)
       issue('MISSING_PARENT', '加工后出货缺少来源复检单。', order.outboundOrderId, order.qcTaskId)
@@ -301,7 +304,7 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
         invalid.add(line)
         issue('OUTBOUND_MISMATCH', '出货数量与复检实际交出数量不一致。', order.outboundOrderId, order.qcTaskId, line.sku.skuId)
       }
-      if (!order.recheckOrderId && source && 'passedQty' in source && line.outboundQty !== source.passedQty) {
+      if (!order.recheckOrderId && source && 'passedQty' in source && (order.executionModel==='DIRECT_V2' ? line.outboundQty>normalQty(source) : line.outboundQty !== normalQty(source))) {
         invalid.add(line)
         issue('OUTBOUND_MISMATCH', '质检直达出货数量与该批 QC 合格量不一致。', order.outboundOrderId, order.qcTaskId, line.sku.skuId)
       }
@@ -311,7 +314,7 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
         issue('OUTBOUND_MISMATCH', '出货单遗漏复检已交出的 SKU。', order.outboundOrderId, order.qcTaskId, source.sku.skuId)
       }
     }
-    if (!order.recheckOrderId) for (const source of qcLines.get(order.qcTaskId)?.values() || []) {
+    if (!order.recheckOrderId && order.executionModel!=='DIRECT_V2') for (const source of qcLines.get(order.qcTaskId)?.values() || []) {
       if (source.passedQty > 0 && !values.has(source.sku.skuId)) {
         issue('OUTBOUND_MISMATCH', '质检直达出货遗漏 QC 合格 SKU。', order.outboundOrderId, order.qcTaskId, source.sku.skuId)
       }
@@ -392,8 +395,8 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
         const line = outboundLines.get(order.outboundOrderId)?.get(source.sku.skuId)
         if (line && !invalid.has(line)) reserved += line.outboundQty
       }
-      if (reserved > source.passedQty) issue('OVER_RESERVED', '子单预留量超过该批 QC 合格量。', root.qcTaskId, root.qcTaskId, source.sku.skuId)
-      add(root, source.sku, Math.max(0, source.passedQty - reserved), `qc:${root.qcTaskId}`, 'post')
+      if (reserved > normalQty(source)) issue('OVER_RESERVED', '子单预留量超过该批 QC 合格量。', root.qcTaskId, root.qcTaskId, source.sku.skuId)
+      add(root, source.sku, Math.max(0, normalQty(source) - reserved), `qc:${root.qcTaskId}`, 'post')
     }
   }
 
@@ -407,7 +410,7 @@ export function projectQcShippingSupply(snapshot: QcShippingSupplySnapshot): {
     }
     for (const line of outboundLines.get(order.outboundOrderId)?.values() || []) {
       if (invalid.has(line)) continue
-      if (order.status === '待仓库接收') {
+      if (['待出货','待仓库接收'].includes(order.status)) {
         add(root, line.sku, line.outboundQty, `outbound:${order.outboundOrderId}`, 'post', { outboundOrderId: order.outboundOrderId })
       } else if (matchingReceipts.length === 1) {
         const receipt = matchingReceipts[0]

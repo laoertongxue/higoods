@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { finishedInventoryFlowRows } from '../../../data/wls/finished-inventory-quality.ts'
 import type { AppState } from '../../../state/store'
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
@@ -34,51 +35,6 @@ type StockFlowRecord = {
   operationTime: string;
   remark: string;
 };
-
-const STOCK_FLOW_SEED: StockFlowRecord[] = (() => {
-  const docTypes = ['入库单', '上架单', '调拨单', '拣货单', '出库单'];
-  const actionTypes = ['入库', '上架', '库内调拨', '拣货', '出库'];
-  const warehouses = ['中央总仓-成衣仓', '成衣仓-深圳仓01', '成衣仓-武汉仓01'];
-  const locations = ['A01-01', 'A01-02', 'A02-03', 'B01-02', 'B03-01', 'C01-01', 'C02-01'];
-  const operators = ['张仓管', '李操作员', '王组长', '赵仓管', '刘操作员'];
-  const records: StockFlowRecord[] = [];
-
-  for (let i = 0; i < 56; i++) {
-    const actionIdx = i % 5;
-    const change = 5 + (i * 3) % 30;
-    const before = 50 + (i * 7) % 200;
-    const dayOffset = Math.floor(i / 10);
-    const baseDate = new Date(2026, 8, 18 - dayOffset, 8 + (i % 10), (i * 13) % 60);
-    const timeStr = baseDate.toISOString().slice(0, 16).replace('T', ' ');
-
-    records.push({
-      id: `SF-${String(i + 1).padStart(5, '0')}`,
-      operateTime: timeStr,
-      warehouseName: warehouses[i % warehouses.length],
-      spu: `SPU-GC-${String(10001 + (i % 20)).padStart(5, '0')}`,
-      sku: `SKU-GC-${String(20001 + i).padStart(5, '0')}`,
-      productName: ['黑色连衣裙 M', '白色短袖 L', '灰色百褶裙 M', '卡其夹克 S', '蓝色牛仔裤 L'][i % 5],
-      businessNo: `BZ2026${String(5000 + i).padStart(6, '0')}`,
-      docType: docTypes[actionIdx],
-      actionType: actionTypes[actionIdx],
-      inboundChange: actionIdx === 0 ? change : 0,
-      inboundBefore: actionIdx === 0 ? before : 0,
-      putawayChange: actionIdx === 1 ? change : 0,
-      putawayBefore: actionIdx === 1 ? before : 0,
-      transferChange: actionIdx === 2 ? change : 0,
-      transferBefore: actionIdx === 2 ? before : 0,
-      pickChange: actionIdx === 3 ? -change : 0,
-      pickBefore: actionIdx === 3 ? before : 0,
-      outboundChange: actionIdx === 4 ? -change : 0,
-      outboundBefore: actionIdx === 4 ? before : 0,
-      locationCode: locations[i % locations.length],
-      operatorName: operators[i % operators.length],
-      operationTime: timeStr,
-      remark: i % 8 === 0 ? '进入质检区' : '',
-    });
-  }
-  return records;
-})();
 
 const EVENT_PREFIX = 'wls-stock-flow'
 const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
@@ -194,7 +150,7 @@ function ensurePreferencesLoaded(): void {
 
 function filteredRows(): StockFlowRecord[] {
   const kw = state.keyword.trim().toLowerCase()
-  return STOCK_FLOW_SEED.filter(r => {
+  return finishedInventoryFlowRows().filter(r => {
     if (state.warehouseFilter && r.warehouseName !== state.warehouseFilter) return false
     if (state.docTypeFilter && r.docType !== state.docTypeFilter) return false
     if (state.actionTypeFilter && r.actionType !== state.actionTypeFilter) return false
@@ -204,9 +160,9 @@ function filteredRows(): StockFlowRecord[] {
 }
 
 function renderFilters(): string {
-  const warehouses = [...new Set(STOCK_FLOW_SEED.map(r => r.warehouseName))]
-  const docTypes = [...new Set(STOCK_FLOW_SEED.map(r => r.docType))]
-  const actionTypes = [...new Set(STOCK_FLOW_SEED.map(r => r.actionType))]
+  const warehouses = [...new Set(finishedInventoryFlowRows().map(r => r.warehouseName))]
+  const docTypes = [...new Set(finishedInventoryFlowRows().map(r => r.docType))]
+  const actionTypes = [...new Set(finishedInventoryFlowRows().map(r => r.actionType))]
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="业务单号 / SPU / SKU / 商品 / 仓库 / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
@@ -225,10 +181,10 @@ function renderWorkspace(): string {
     title: '库存流水查询',
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
-      { label: '总记录数', value: `${STOCK_FLOW_SEED.length} 条` },
-      { label: '入库', value: `${STOCK_FLOW_SEED.filter(r => r.actionType === '入库').length} 条` },
-      { label: '出库', value: `${STOCK_FLOW_SEED.filter(r => r.actionType === '出库').length} 条` },
-      { label: '拣货', value: `${STOCK_FLOW_SEED.filter(r => r.actionType === '拣货').length} 条` },
+      { label: '总记录数', value: `${all.length} 条` },
+      { label: '入库', value: `${all.filter(r => r.actionType === '返仓实收').length} 条` },
+      { label: '出库', value: `${all.filter(r => r.actionType === '送检出库').length} 条` },
+      { label: '上架', value: `${all.filter(r => r.actionType === '返仓上架').length} 条` },
     ]),
     listTitle: '流水记录列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,

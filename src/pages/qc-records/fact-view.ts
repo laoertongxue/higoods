@@ -1,3 +1,4 @@
+import { getPostFinishingFullFlowQcTask, getPostFinishingQcInspectionSummary } from '../../data/fcs/post-finishing-full-flow.ts'
 import {
   getPlatformQcDetailViewModelByRouteKey,
   listPlatformQcListItems,
@@ -26,6 +27,9 @@ export interface QcFactSkuResult {
   sizeName: string
   imageUrl?: string
   inspectedQty: number
+  inspectionKnown?: boolean
+  uninspectedReleaseQty?: number
+  releasedQty?: number
   qualifiedQty: number
   reworkQty: number
   defectQty: number
@@ -46,6 +50,9 @@ export interface QcFactRow {
   sourceFactoryName: string
   receiverName: string
   inspectedQty: number
+  inspectionKnown?: boolean
+  uninspectedReleaseQty?: number
+  releasedQty?: number
   qualifiedQty: number
   reworkQty: number
   defectQty: number
@@ -77,12 +84,8 @@ function sumSku(results: PostFinishingQcSkuResult[], key: 'reworkQty' | 'defectA
   return results.reduce((sum, item) => sum + numberValue(item[key]), 0)
 }
 
-function sumDefectReasonQty(result: PostFinishingQcSkuResult): number {
-  return (result.defectReasonItems ?? []).reduce((sum, item) => sum + numberValue(item.qty), 0)
-}
-
 function displayDefectQty(result: PostFinishingQcSkuResult): number {
-  return numberValue(result.defectAcceptedQty) || sumDefectReasonQty(result)
+  return numberValue(result.defectAcceptedQty)
 }
 
 function getExternalReworkChargebackAmount(result: PostFinishingQcSkuResult, sourceFactoryName: string | undefined): number {
@@ -106,7 +109,7 @@ function summarizeDefectReasons(result: PostFinishingQcSkuResult): string {
     .filter((item) => numberValue(item.qty) > 0)
     .map((item) => `${item.reasonName}${item.qty}`)
     .join('、')
-  return summary || '—'
+  return uniqueText(result.inspectionIssueSummaries?.length?result.inspectionIssueSummaries:[summary])
 }
 
 function summarizePostProjects(result: PostFinishingQcSkuResult): string {
@@ -189,6 +192,9 @@ function mapPostSku(result: PostFinishingQcSkuResult, sourceFactoryName: string 
     sizeName: result.sizeName,
     imageUrl: result.skuImageUrl,
     inspectedQty: numberValue(result.inspectedQty),
+    inspectionKnown: result.inspectionKnown,
+    uninspectedReleaseQty:result.uninspectedReleaseQty,
+    releasedQty:result.releasedQty,
     qualifiedQty: numberValue(result.qualifiedQty),
     reworkQty: numberValue(result.reworkQty),
     defectQty: displayDefectQty(result),
@@ -202,6 +208,8 @@ function mapPostSku(result: PostFinishingQcSkuResult, sourceFactoryName: string 
 
 function mapPostRow(record: PostFinishingActionRecord): QcFactRow {
   const skuResults = record.qcSkuResults ?? []
+  const task=getPostFinishingFullFlowQcTask(record.actionRecordId)
+  const summary=task&&getPostFinishingQcInspectionSummary(task)
   const reworkQty = numberValue(record.reworkGarmentQty) || sumSku(skuResults, 'reworkQty')
   const defectQty = numberValue(record.defectAcceptedGarmentQty) || skuResults.reduce((sum, item) => sum + displayDefectQty(item), 0)
   const reworkChargebackAmount = skuResults.reduce(
@@ -212,12 +220,15 @@ function mapPostRow(record: PostFinishingActionRecord): QcFactRow {
     id: record.actionRecordId,
     displayNo: record.actionRecordNo,
     sourceKind: 'POST_FINISHING_QC',
-    sourceTypeLabel: '后道质检单',
-    productionOrderNo: record.warehouseAllocations?.[0]?.productionOrderNo || record.qualityDeductionSnapshot?.productionOrderNo || '—',
+    sourceTypeLabel: task?.sourceKind==='WAREHOUSE_STOCK'?'成衣仓库存质检单':'后道质检单',
+    productionOrderNo: task?.sourceKind==='WAREHOUSE_STOCK'?'不适用（库存送检）':record.warehouseAllocations?.[0]?.productionOrderNo || record.qualityDeductionSnapshot?.productionOrderNo || '—',
     skuSummary: uniqueText(record.skuLines.map((item) => item.skuCode)),
     sourceFactoryName: record.sourceFactoryName || '—',
     receiverName: record.targetFactoryName || '—',
-    inspectedQty: numberValue(record.inspectedGarmentQty ?? record.submittedGarmentQty),
+    inspectedQty: summary?.inspectedQty ?? 0,
+    inspectionKnown:!!summary,
+    uninspectedReleaseQty: task?.status==='质检完成'?summary?.uninspectedQty:undefined,
+    releasedQty:task?.status==='质检完成'?summary?.releasedQty:undefined,
     qualifiedQty: numberValue(record.passedGarmentQty ?? record.acceptedGarmentQty),
     reworkQty,
     defectQty,
@@ -302,13 +313,19 @@ function mapPlatformDetail(vm: PlatformQcDetailViewModel): QcFactDetail {
 }
 
 function mapPostDetail(record: PostFinishingActionRecord): QcFactDetail {
+  const task=getPostFinishingFullFlowQcTask(record.actionRecordId)
+  const summary=task&&getPostFinishingQcInspectionSummary(task)
   return {
     ...mapPostRow(record),
     qcStationName: record.qcStationName || '—',
     skuResults: (record.qcSkuResults ?? []).map((item) => mapPostSku(item, record.sourceFactoryName)),
     evidenceAssets: (record.evidenceAssets ?? []).map(mapPostEvidence),
     rawFacts: [
-      { label: '来源后道加工单', value: record.postOrderNo || '—' },
+      { label: task?.sourceKind==='WAREHOUSE_STOCK'?'库存申请单':'来源后道加工单', value: task?.inventoryApplicationId || record.postOrderNo || '—' },
+      { label: '实检口径', value: summary?`实检合格 ${summary.passedQty} / 瑕疵 ${summary.defectQty} / 返工 ${summary.returnQty}；未检 ${summary.uninspectedQty}`:'历史未记录实际实检量，不按批次数量补齐' },
+      { label: '固定标准', value:task?.inspection?`${task.inspection.snapshot.basicStandard.name} v${task.inspection.snapshot.basicStandard.version}；${task.inspection.snapshot.selectedAt}`:'历史未记录' },
+      { label: '本次检查比例', value:task?.inspection?`${task.inspection.percent}%`:'历史未记录' },
+      { label: '问题项目', value:task?.inspection?.rounds.flatMap(round=>round.lines.flatMap(line=>(line.issues||[]).map(issue=>`${line.skuId} / ${task.inspection!.snapshot.items.find(item=>item.id===issue.itemId)?.name || issue.itemId}：${issue.note || '有问题'}`))).join('；') || '未记录问题项目' },
       { label: '上游工厂', value: record.sourceFactoryName || '—' },
       { label: '后道工厂', value: record.targetFactoryName || '—' },
     ],

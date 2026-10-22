@@ -44,21 +44,22 @@ export function renderPostFinishingStatisticsPage(): string {
         ${renderPostMetricCard('待质检单数', String(statistics.waitQcTaskCount), '状态分布')}
         ${renderPostMetricCard('质检中任务数', String(statistics.qcDoingTaskCount), '状态分布')}
         ${renderPostMetricCard('质检完成任务数', String(statistics.qcDoneTaskCount), '状态分布')}
-        ${renderPostMetricCard('待处理后复核任务数', String(statistics.waitRecheckTaskCount), '状态分布')}
-        ${renderPostMetricCard('处理后复核中任务数', String(statistics.recheckDoingTaskCount), '状态分布')}
-        ${renderPostMetricCard('处理后复核完成任务数', String(statistics.recheckDoneTaskCount), '状态分布')}
         ${renderPostMetricCard('待成衣仓接收任务数', String(statistics.waitHandoverTaskCount), '存在尚未实收的出货单')}
         ${renderPostMetricCard('全部出货已收任务数', String(statistics.handedOverTaskCount), '全量加工及后续已闭环，待生产任务人工完成')}
         ${renderPostMetricCard('已完成任务数', String(statistics.completedTaskCount), '生产单已人工完成')}
         ${renderPostMetricCard('尚未完成全部后道件数', formatGarmentQty(statistics.waitPostGarmentQty), '逐SKU应加工量减全部适用项完成量')}
         ${renderPostMetricCard('后道完成成衣件数', formatGarmentQty(statistics.postDoneGarmentQty), '后道记录')}
         ${renderPostMetricCard('待质检成衣件数', formatGarmentQty(statistics.waitQcGarmentQty), '统一待加工仓')}
-        ${renderPostMetricCard('质检通过成衣件数', formatGarmentQty(statistics.qcPassGarmentQty), '质检记录')}
-        ${renderPostMetricCard('质检不合格成衣件数', formatGarmentQty(statistics.qcRejectedGarmentQty), '质检记录')}
-        ${renderPostMetricCard('待处理后复核成衣件数', formatGarmentQty(statistics.waitRecheckGarmentQty), '后道加工完成')}
-        ${renderPostMetricCard('处理后复核确认成衣件数', formatGarmentQty(statistics.recheckConfirmedGarmentQty), '数量与条码记录')}
-        ${renderPostMetricCard('待成衣仓接收件数', formatGarmentQty(statistics.waitHandoverGarmentQty), '已生成出货单，尚未实收')}
-        ${renderPostMetricCard('已生成出货件数', formatGarmentQty(statistics.handedOverGarmentQty), '包含待成衣仓接收的出货单')}
+        ${renderPostMetricCard('实检合格成衣件数', formatGarmentQty(statistics.qcPassGarmentQty), '质检记录')}
+        ${renderPostMetricCard('实际检查成衣件数', formatGarmentQty(statistics.qcInspectedGarmentQty), '只统计已记录的真实实检量')}
+        ${renderPostMetricCard('未抽随批放行件数', formatGarmentQty(statistics.qcUninspectedReleaseGarmentQty), '已完成QC中未实际抽检的正常放行量')}
+        ${renderPostMetricCard('正常放行件数', formatGarmentQty(statistics.qcReleasedGarmentQty), '实检合格加未抽随批放行')}
+        ${renderPostMetricCard('历史实检量未知单数', String(statistics.unknownQcInspectionCount), '未按应检量补齐，未知历史不计入实检数量')}
+        ${renderPostMetricCard('加工完成待实际发出件数', formatGarmentQty(statistics.waitOutboundGarmentQty), '含待准备出货和已准备未发出的成衣')}
+        ${renderPostMetricCard('待实际发出单数', String(statistics.waitOutboundOrderCount), '已生成出货单，尚未实际发出')}
+        ${renderPostMetricCard('实检不合格成衣件数', formatGarmentQty(statistics.qcRejectedGarmentQty), '质检记录')}
+        ${renderPostMetricCard('待成衣仓接收件数', formatGarmentQty(statistics.waitHandoverGarmentQty), '已实际发出，尚未实收')}
+        ${renderPostMetricCard('已实际发出件数', formatGarmentQty(statistics.handedOverGarmentQty), '已确认实际发出，包含待仓库实收的成衣')}
         ${renderPostMetricCard('成衣仓实收件数', formatGarmentQty(statistics.receivedGarmentQty), '逐张出货的实际接收')}
         ${renderPostMetricCard('成衣仓收货差异件数', formatGarmentQty(statistics.diffGarmentQty), '实际接收与本次出货之差')}
         ${renderPostMetricCard('成衣仓收货差异单数', String(statistics.differenceRecordCount), '按有差异的出货单计数')}
@@ -72,10 +73,8 @@ export function renderPostFinishingStatisticsPage(): string {
         ${renderPostMetricCard('后道工厂加工任务数', String(statistics.postFactoryExecutedTaskCount), '流程来源')}
         ${renderPostMetricCard('QC 直达生产任务数', String(statistics.sewingFactoryPostDoneTaskCount), '流程来源')}
         ${renderPostMetricCard('专门后道工厂待质检成衣件数', formatGarmentQty(statistics.dedicatedWaitQcGarmentQty), '后道工厂直管')}
-        ${renderPostMetricCard('专门后道工厂待处理后复核成衣件数', formatGarmentQty(statistics.dedicatedWaitRecheckGarmentQty), '后道工厂直管')}
         ${renderPostMetricCard('非专门工厂已完成实际工序待交接数', String(statistics.transferWaitManagedFactoryTaskCount), '车缝等工厂转入')}
         ${renderPostMetricCard('非专门工厂转入后道工厂待质检成衣件数', formatGarmentQty(statistics.transferInWaitQcGarmentQty), '转入待处理')}
-        ${renderPostMetricCard('非专门工厂转入后道工厂待处理后复核成衣件数', formatGarmentQty(statistics.transferInWaitRecheckGarmentQty), '转入待处理')}
       </section>
       ${renderPostSection(
         '节点平均耗时',
@@ -83,8 +82,7 @@ export function renderPostFinishingStatisticsPage(): string {
           <div class="grid gap-3 md:grid-cols-3">
             ${renderPostMetricCard('后道平均耗时', `${statistics.postAverageHours} 小时`, '按后道记录计算')}
             ${renderPostMetricCard('质检平均耗时', `${statistics.qcAverageHours} 小时`, '按后道工厂质检记录计算')}
-            ${renderPostMetricCard('处理后复核平均耗时', `${statistics.recheckAverageHours} 小时`, '按数量与条码复核记录计算')}
-            ${renderPostMetricCard('交出平均回写耗时', `${statistics.handoverAverageWritebackHours} 小时`, '统一交出记录')}
+            ${renderPostMetricCard('交出平均回写耗时', `${statistics.handoverAverageWritebackHours} 小时`, '实际发出至仓库实收')}
             ${renderPostMetricCard('待回写超时记录数', String(statistics.overdueWritebackCount), '超过 48 小时')}
           </div>
         `,

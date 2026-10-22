@@ -10,6 +10,7 @@ import {
   listPostFinishingFactoryReturns,
   listPostFinishingFullFlowQcTasks,
   getPostFinishingMaterialReadiness,
+  getPostFinishingQcInspectionSummary,
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWaitProcessWarehouseRecords,
   tracePostFinishingFullFlow,
@@ -71,6 +72,7 @@ interface PostFinishingRootTaskRow {
   waitProcessQty: number
   uninspectedQty: number
   inspectedQty: number
+  unknownInspectionCount: number
   waitHandoverQty: number
   returnCount: number
   outboundStatus: '未出库' | '待出库' | '部分已出库' | '已出库'
@@ -126,6 +128,11 @@ function formatTime(value?: string): string {
   return value ? new Date(value).toLocaleString('zh-CN') : '—'
 }
 
+function qcQuantitySummary(task: PostFinishingQcTask): string {
+  const summary=getPostFinishingQcInspectionSummary(task)
+  return `<div>本批 ${totalQuantity(task.lines,'expectedQty')} 件</div><div class="mt-1 text-xs">实检 ${summary?`${summary.inspectedQty} 件`:task.status==='质检完成'?'历史未记录':'尚未开检'}</div>${summary?`<div class="mt-1 text-xs">当前应检 ${summary.target} 件${task.status==='质检完成'?` · 正常放行 ${summary.releasedQty} 件`:''}</div>`:''}`
+}
+
 function renderRelatedRecordsDialog(
   order: TaskOrder,
   kind: 'returns' | 'qc',
@@ -143,7 +150,7 @@ function renderRelatedRecordsDialog(
         const differenceQty = confirmedQty - registeredQty
         return `<tr><td class="px-3 py-3 font-medium">第 ${delivery.returnIndex} 次</td><td class="px-3 py-3 font-mono text-xs">${escapeHtml(delivery.deliveryOrderNo)}</td><td class="px-3 py-3 text-xs">${escapeHtml(delivery.sewingFactoryName)}</td><td class="px-3 py-3 whitespace-nowrap">${registeredQty} / ${delivery.confirmedAt ? confirmedQty : '待确认'} / <span class="${differenceQty === 0 ? 'text-emerald-700' : 'text-amber-700'}">${delivery.confirmedAt ? `${differenceQty > 0 ? '+' : ''}${differenceQty}` : '—'}</span> 件</td><td class="px-3 py-3">${renderPostStatusBadge(delivery.status)}</td><td class="px-3 py-3 whitespace-nowrap text-xs">${escapeHtml(formatTime(delivery.confirmedAt))}</td><td class="px-3 py-3"><a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(delivery.deliveryId)}" class="whitespace-nowrap text-xs text-blue-700 hover:underline">查看回货详情</a></td></tr>`
       }).join('') || '<tr><td colspan="7" class="px-4 py-10 text-center text-muted-foreground">该后道生产任务暂无回货记录。</td></tr>'}</tbody></table></div></div>`
-    : `<div class="max-h-[65vh] overflow-y-auto" data-testid="post-production-task-qc-dialog"><div class="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900"><strong>${escapeHtml(responsibilityText)}</strong><div class="mt-1">每次回货最终确认时自动生成且只生成一张质检单；单号按“回货单号-ZJ”生成，不允许人工修改。待加工仓送检只完成库存交接，不会再次建单或改号。</div></div><div class="overflow-x-auto rounded-lg border"><table class="min-w-[780px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">回货批次</th><th class="px-3 py-2">质检单号</th><th class="px-3 py-2">关联送货单</th><th class="px-3 py-2">质检数量</th><th class="px-3 py-2">质检人 / 状态</th><th class="px-3 py-2">生成时间</th><th class="px-3 py-2">操作</th></tr></thead><tbody class="divide-y">${sortedQcTasks.map((task) => `<tr><td class="px-3 py-3 font-medium">第 ${task.returnIndex} 次</td><td class="px-3 py-3 font-mono text-xs font-semibold text-blue-700">${escapeHtml(task.qcTaskNo)}</td><td class="px-3 py-3 font-mono text-xs">${escapeHtml(task.deliveryOrderNo)}</td><td class="px-3 py-3 whitespace-nowrap">${totalQuantity(task.lines, 'expectedQty')} 件</td><td class="px-3 py-3"><div>${escapeHtml(task.status === '待送检' ? '尚未送检' : task.claimedBy?.actorName || '待领取')}</div><div class="mt-1">${renderPostStatusBadge(task.status)}</div></td><td class="px-3 py-3 whitespace-nowrap text-xs">${escapeHtml(formatTime(task.createdAt))}</td><td class="px-3 py-3"><div class="flex flex-col gap-1">${task.status === '待送检' ? `<a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(task.deliveryId)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">去待加工仓送检</a>` : `<a data-nav="/fcs/craft/post-finishing/qc-workbench?view=detail&taskNo=${encodeURIComponent(task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-700 hover:underline">查看质检单</a>`}</div></td></tr>`).join('') || '<tr><td colspan="7" class="px-4 py-10 text-center text-muted-foreground">该后道生产任务暂无质检单。</td></tr>'}</tbody></table></div></div>`
+    : `<div class="max-h-[65vh] overflow-y-auto" data-testid="post-production-task-qc-dialog"><div class="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900"><strong>${escapeHtml(responsibilityText)}</strong><div class="mt-1">每次回货最终确认时自动生成且只生成一张质检单；单号按“回货单号-ZJ”生成，不允许人工修改。待加工仓送检只完成库存交接，不会再次建单或改号。</div></div><div class="overflow-x-auto rounded-lg border"><table class="min-w-[780px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">回货批次</th><th class="px-3 py-2">质检单号</th><th class="px-3 py-2">关联送货单</th><th class="px-3 py-2">批次 / 实检</th><th class="px-3 py-2">质检人 / 状态</th><th class="px-3 py-2">生成时间</th><th class="px-3 py-2">操作</th></tr></thead><tbody class="divide-y">${sortedQcTasks.map((task) => `<tr><td class="px-3 py-3 font-medium">第 ${task.returnIndex} 次</td><td class="px-3 py-3 font-mono text-xs font-semibold text-blue-700">${escapeHtml(task.qcTaskNo)}</td><td class="px-3 py-3 font-mono text-xs">${escapeHtml(task.deliveryOrderNo)}</td><td class="px-3 py-3 whitespace-nowrap">${qcQuantitySummary(task)}</td><td class="px-3 py-3"><div>${escapeHtml(task.status === '待送检' ? '尚未送检' : task.claimedBy?.actorName || '待领取')}</div><div class="mt-1">${renderPostStatusBadge(task.status)}</div></td><td class="px-3 py-3 whitespace-nowrap text-xs">${escapeHtml(formatTime(task.createdAt))}</td><td class="px-3 py-3"><div class="flex flex-col gap-1">${task.status === '待送检' ? `<a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(task.deliveryId)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">去待加工仓送检</a>` : `<a data-nav="/fcs/craft/post-finishing/qc-workbench?view=detail&taskNo=${encodeURIComponent(task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-700 hover:underline">查看质检单</a>`}</div></td></tr>`).join('') || '<tr><td colspan="7" class="px-4 py-10 text-center text-muted-foreground">该后道生产任务暂无质检单。</td></tr>'}</tbody></table></div></div>`
   const footer = `<button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm" data-post-finishing-tasks-action="close-related-dialog">关闭</button>`
   return `<div data-post-production-task-related-dialog data-skip-page-rerender="true">${renderDialog({
     title: kind === 'returns' ? '回货记录' : '质检单',
@@ -179,8 +186,8 @@ const columns: StandardListColumn<PostFinishingRootTaskRow>[] = [
   { key: 'production', title: '生产单信息', width: 160, required: true, render: (row) => `<div class="font-mono font-semibold text-blue-700">${escapeHtml(row.order.productionOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.order.techPackVersionLabel || '未记录')}</div><div class="mt-1 text-xs text-muted-foreground">售卖类型：${escapeHtml(row.order.saleType || '未记录')}</div>` },
   { key: 'planned', title: '计划数量', width: 80, required: true, align: 'center', render: (row) => `${row.plannedQty} 件` },
   { key: 'waitProcess', title: '已入待加工仓', width: 100, required: true, align: 'center', render: (row) => `${row.waitProcessQty} 件` },
-  { key: 'uninspected', title: '未质检', width: 76, required: true, align: 'center', render: (row) => `${row.uninspectedQty} 件` },
-  { key: 'inspected', title: '已质检', width: 76, required: true, align: 'center', render: (row) => `${row.inspectedQty} 件` },
+  { key: 'uninspected', title: '待完成质检', width: 76, required: true, align: 'center', render: (row) => `${row.uninspectedQty} 件` },
+  { key: 'inspected', title: '实际检查', width: 100, required: true, align: 'center', render: (row) => `${row.inspectedQty} 件${row.unknownInspectionCount?`<div class="text-[11px] text-amber-700">历史 ${row.unknownInspectionCount} 单未记录</div>`:''}` },
   { key: 'handover', title: '待交出', width: 76, required: true, align: 'center', render: (row) => `${row.waitHandoverQty} 件` },
   { key: 'source', title: '上游来源', width: 110, required: true, render: (row) => escapeHtml(row.order.sourceKinds.map(taskSourceLabel).join('、')) },
   { key: 'material', title: '后道辅料', width: 130, required: true, render: (row) => row.materialReadiness.applicable ? `<div class="${row.materialReadiness.status === '已入库' ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(row.materialReadiness.status)}</div>${row.materialReadiness.transferOrderNo ? `<a data-nav="/fcs/craft/post-finishing/material-transfers?keyword=${encodeURIComponent(row.materialReadiness.transferOrderNo)}" class="mt-1 block font-mono text-xs text-blue-700 hover:underline">${escapeHtml(row.materialReadiness.transferOrderNo)}</a>` : ''}` : '<span class="text-muted-foreground">不适用</span>' },
@@ -225,7 +232,8 @@ export function renderPostFinishingTasksPage(): string {
       plannedQty: order.plannedGarmentQty,
       waitProcessQty: waitProcessRecords.filter((record) => record.productionOrderNo === order.productionOrderNo).reduce((sum, record) => sum + record.lines.reduce((lineSum, line) => lineSum + line.confirmedQty, 0), 0),
       uninspectedQty: orderQcTasks.filter((task) => task.status !== '质检完成').reduce((sum, task) => sum + task.lines.reduce((lineSum, line) => lineSum + line.expectedQty, 0), 0),
-      inspectedQty: orderQcTasks.filter((task) => task.status === '质检完成').reduce((sum, task) => sum + (task.results || []).reduce((lineSum, line) => lineSum + line.expectedQty, 0), 0),
+      inspectedQty: orderQcTasks.reduce((sum, task) => sum + (getPostFinishingQcInspectionSummary(task)?.inspectedQty || 0),0),
+      unknownInspectionCount:orderQcTasks.filter(task=>task.status==='质检完成'&&!task.inspection).length,
       waitHandoverQty: orderWaitHandover.reduce((sum, record) => sum + record.lines.reduce((lineSum, line) => lineSum + line.availableQty, 0), 0)
         + directQcOutbounds.filter((outbound) => outbound?.status === '待仓库接收').reduce((sum, outbound) => sum + (outbound?.lines.reduce((lineSum, line) => lineSum + line.outboundQty, 0) || 0), 0),
       returnCount: orderDeliveries.length,
@@ -263,7 +271,7 @@ export function renderPostFinishingTasksPage(): string {
     statsHtml: renderStandardListStats([
       { label: '后道生产任务', value: `${orders.length} 个` },
       { label: '计划数量', value: `${totalPlanned} 件` },
-      { label: '未质检数量', value: `${totalUninspected} 件` },
+      { label: '待完成质检批次件数', value: `${totalUninspected} 件` },
       { label: '已入待加工仓', value: `${totalWaitProcess} 件` },
       { label: '待交出数量', value: `${totalWaitHandover} 件` },
     ], { compact: true }),

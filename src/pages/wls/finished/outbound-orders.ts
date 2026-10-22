@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { renderFinishedInventoryTasksPanel, handleFinishedInventoryQualityEvent } from './inventory-quality.ts'
 import { escapeHtml as e } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage } from '../../../components/ui/list-page.ts'
@@ -191,7 +192,7 @@ export function renderFinishedOutboundOrders(): string {
   const detail = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('id')
   if (!state.loaded && !state.loading && !readScheduled && typeof document !== 'undefined') { readScheduled = true; requestAnimationFrame(readAfterMount) }
   if (detail) return `<div data-${PREFIX}-root data-skip-page-rerender="true"><div data-outbound-content>${detailHtml()}</div><div data-outbound-overlay>${overlayHtml()}</div></div>`
-  return `<div data-${PREFIX}-root data-skip-page-rerender="true"><div data-outbound-content>${renderListWorkspace()}</div><div data-outbound-overlay>${overlayHtml()}</div></div>`
+  return `<div data-${PREFIX}-root data-skip-page-rerender="true"><div data-outbound-content>${renderListWorkspace()}</div>${renderFinishedInventoryTasksPanel('outbound')}<div data-outbound-overlay>${overlayHtml()}</div></div>`
 }
 function applyFilters(): void {
   root()?.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-${PREFIX}-field]`).forEach(input => { const key = input.dataset.wlsOutboundOrdersField as keyof FinishedOutboundFilters; if (key in state.draft) state.draft[key] = input.value })
@@ -240,6 +241,7 @@ async function perform(actionName: FinishedOutboundAction, ids: string[], printW
   } finally { state.busy = false; refreshResults(); refreshOverlay() }
 }
 export function handleFinishedOutboundOrdersEvent(target: HTMLElement, event?: Event): boolean {
+  if (handleFinishedInventoryQualityEvent(target, event)) return true
   if (!root()) return false
   if (event?.type === 'drop' || event?.type.startsWith('drag')) {
     const drag = event as DragEvent & { higoodStandardListColumnKey?: string }

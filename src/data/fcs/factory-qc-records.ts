@@ -70,18 +70,22 @@ export function readFactoryQcState(): FactoryQcState {
   for (const item of pendingRolls) state.qcOrders.find(order => order.id === item.qcId)?.rolls.push(item.roll)
   return state
 }
-export async function ensureFactoryQcRecords(force = false): Promise<void> {
+export async function ensureFactoryQcRecords(force = false, readOnly = false): Promise<void> {
   if (loaded && !force) return
   if (saving) throw new Error('上一笔加工或质检记录正在保存，请稍候。')
   try {
     await Promise.all([
       (async () => (await import('../pcs-record-runtime.ts')).ensurePcsRecordState(PCS_FCS_COLLECTIONS))(),
-      (async () => (await import('./production-context-records.ts')).hydrateProductionContextRecords())(),
+      (async () => {
+        const context = await import('./production-context-records.ts')
+        if (readOnly) await context.hydratePostFinishingProductionContextRecords()
+        else await context.hydrateProductionContextRecords()
+      })(),
     ])
     const data = await readPcsRecords([QC_COLLECTION, HAND_FEEL_COLLECTION, PROCESS_COLLECTION])
     const priorVersions = JSON.stringify([...records.values()].filter(row => row.collection === PROCESS_COLLECTION).map(row => [row.id, row.version]).sort())
     records = new Map(data.records.map(row => [row.id, row])); files = new Map(data.files.map(file => [file.id, file.blob]))
-    loaded = true; readFailure = ''
+    loaded = !readOnly; readFailure = ''
     const nextVersions = JSON.stringify(data.records.filter(row => row.collection === PROCESS_COLLECTION).map(row => [row.id, row.version]).sort())
     if (priorVersions !== nextVersions) hydrateDesignRevisionFcsCaches()
   } catch (error) { readFailure = '加工与QC资料无法读取，未按空资料覆盖。' + (error instanceof Error ? error.message : String(error)); throw new Error(readFailure) }

@@ -71,6 +71,8 @@ function visibleState(): FactoryQcState {
   return { ...saved, qcOrders: [...demo.qcOrders.filter(order => !saved.qcOrders.some(row => row.id === order.id)), ...saved.qcOrders] }
 }
 export async function ensureFactoryQcRecords(force = false) { await ensureRecords(force) }
+/** Shipped and original finishing receipts read the process ledger without loading samples. */
+export async function ensureFactoryQcViewRecords() { await ensureRecords(true, true) }
 export const listFactoryQcOrders = (kind?: FactoryQcKind) => visibleState().qcOrders.filter(order => !kind || order.kind === kind)
 export const getFactoryQcOrder = (id: string) => visibleState().qcOrders.find(order => order.id === id)
 export const listStenterHandfeelOrders = () => readFactoryQcState().handfeelOrders

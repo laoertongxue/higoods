@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { renderFinishedInventoryTasksPanel, handleFinishedInventoryQualityEvent } from './inventory-quality.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -231,10 +232,11 @@ function refreshWorkspace(): void {
 export function renderFinishedPreInbound(): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   ensurePreferencesLoaded()
-  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div>${renderFinishedInventoryTasksPanel('inbound')}</div>`
 }
 
 export function handleFinishedPreInboundEvent(target: HTMLElement, event?: Event): boolean {
+  if (handleFinishedInventoryQualityEvent(target, event)) return true
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {

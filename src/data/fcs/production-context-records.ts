@@ -1,7 +1,7 @@
 import { validateProductionCreatedProcessSources } from './production-created-process-source-types.ts'
 import { needsSeamEmbroideryNormalization, normalizeSeamEmbroideryReferences } from './seam-embroidery-identity.ts'
 import { cuttingRecordUuid, cuttingRecordFingerprint, cuttingRecordBytesFingerprint } from './cutting/cutting-record-identity.ts'
-import { readCuttingRecords, readCuttingCommand, commitCuttingRecords, diffCuttingRecords, type CuttingStoredRecord, type CuttingRecordSnapshot, type CuttingRecordChange, readCuttingRecordFile } from './cutting/cutting-record-repository.ts'
+import { readCuttingRecords, readPostFinishingProductionRecords, readCuttingRecordRevision, readCuttingCommand, commitCuttingRecords, diffCuttingRecords, type CuttingStoredRecord, type CuttingRecordSnapshot, type CuttingRecordChange, readCuttingRecordFile } from './cutting/cutting-record-repository.ts'
 
 /** 换片布及裁片交出使用的上游事实，复用同一数据库和版本。 */
 export const PRODUCTION_CONTEXT_KEYS = {
@@ -9,6 +9,7 @@ export const PRODUCTION_CONTEXT_KEYS = {
   runtime: 'higood.runtime-process-task-actions.v1',
   assignments: 'higood.effective-task-assignments.v2',
   samples: 'higood:sewing-sample-approval:v3',
+  sewingExecutions: 'higood.sewing-execution-history.v1',
   contracts: 'higood:fcs:production-contracts:v2',
   effects: 'higood.production-assignment-effects.v1',
   responsibility:'higood.sewing-task-responsibility-transfers.v1',
@@ -59,6 +60,11 @@ export function decodeProductionContextRecords(key: string, raw: string | null):
   let data: unknown
   try { data = JSON.parse(raw) } catch { fail('上游记录格式错误') }
   if (needsSeamEmbroideryNormalization(raw)) normalizeSeamEmbroideryReferences(data)
+  return decodeProductionContextData(key,data)
+}
+/** Parse and native-row readers share exactly the original schema checks. */
+function decodeProductionContextData(key:string,data:unknown):CuttingStoredRecord[] {
+  assertKey(key)
   if (!object(data)) fail('上游记录格式错误')
   let result: CuttingStoredRecord[]
   if (key === PRODUCTION_CONTEXT_KEYS.orders) {
@@ -99,11 +105,49 @@ export function decodeProductionContextRecords(key: string, raw: string | null):
     })
     result = [...assignments, ...current, ...audit, row('assignment-meta', 'sequence', { auditSeq: data.auditSeq, assignmentSeq: data.assignmentSeq })]
   }
+  else if (key === PRODUCTION_CONTEXT_KEYS.sewingExecutions) {
+    if (data.version !== 1) fail('真实车缝执行历史版本不支持')
+    const ordinals = new Set<string>(), identities = new Set<string>()
+    result = list(data.facts).map(value => {
+      if (!object(value) || !text(value.id) || !text(value.factoryId) || !text(value.taskId) || !text(value.productionOrderId)
+        || !text(value.styleCode) || !Array.isArray(value.taskAliases) || !value.taskAliases.includes(value.taskId) || value.taskAliases.some(alias=>!text(alias)) || new Set(value.taskAliases).size!==value.taskAliases.length
+        || !text(value.firstExecutedAt) || !Number.isFinite(Date.parse(value.firstExecutedAt)) || !text(value.confirmedAt)
+        || !text(value.sourceId) || !text(value.actorName) || !['MANUAL_START','CUT_PIECE_RECEIVE_START'].includes(String(value.source))
+        || !Number.isSafeInteger(value.ordinal) || Number(value.ordinal) < 1) fail('真实车缝执行身份、时间或序次错误')
+      const ordinal = `${value.factoryId}:${value.ordinal}`, identity = `${value.factoryId}:${value.productionOrderId}:${value.styleCode}`
+      if (ordinals.has(ordinal) || identities.has(identity) || value.id !== `SEW-EXEC:${[value.factoryId,value.productionOrderId,value.styleCode].map(encodeURIComponent).join(':')}`) fail('真实车缝执行序次或任务重复')
+      ordinals.add(ordinal); identities.add(identity)
+      return row('sewing-executions', value.id, value)
+    })
+  }
   else if (key === PRODUCTION_CONTEXT_KEYS.samples) {
     if (data.version !== 3) fail('样衣来源版本不支持')
     sequence(data.sequence)
     result = list(data.records).map(value => {
       if (!object(value) || !text(value.assignmentId) || !object(value.sample) || value.sample.assignmentId !== value.assignmentId || !text(value.sample.sampleId) || !Array.isArray(value.suggestionVersions)) fail('样衣身份或版本记录错误')
+      if(value.qualitySchemaVersion !== undefined) {
+        if(value.qualitySchemaVersion !== 1 || !text(value.sample.factoryId) || !text(value.sample.runtimeTaskId) || !text(value.sample.productionOrderId)
+          || !['WAITING_PPIC_RECEIVE','PPIC_RECEIVED','HANDED_TO_APPROVER','APPROVAL_IN_PROGRESS','SUGGESTION_UPLOADED','FEEDBACK_SENT'].includes(String(value.sample.status))) fail('样衣当前格式身份或状态不完整')
+        const aliases=value.assignmentAliases
+        if(aliases!==undefined && (!Array.isArray(aliases) || aliases.some(alias=>!object(alias)||!text(alias.assignmentId)||!text(alias.runtimeTaskId))
+          || new Set(aliases.map(alias=>alias.assignmentId)).size!==aliases.length)) fail('样衣任务别名身份冲突')
+        const snapshot=value.inspectionStandardSnapshot
+        if(snapshot!==undefined) {
+          if(!object(snapshot)||!text(snapshot.id)||!text(snapshot.selectedAt)||!object(snapshot.context)||snapshot.context.sourceKind!=='PRE_PRODUCTION_SAMPLE'
+            ||snapshot.context.objectType!=='GARMENT'||snapshot.ruleSnapshot!==null||!Array.isArray(snapshot.items)||!snapshot.items.length
+            ||snapshot.items.some(item=>!object(item)||!text(item.id)||!text(item.name)||!text(item.criterion))
+            ||new Set(snapshot.items.map(item=>item.id)).size!==snapshot.items.length) fail('样衣固定标准不完整或混入抽检规则')
+          const itemIds=new Set(snapshot.items.map(item=>item.id))
+          for(const suggestion of value.suggestionVersions) {
+            if(!object(suggestion)||!['NO_PROBLEM','HAS_PROBLEM'].includes(String(suggestion.conclusion))) fail('样衣结论不完整')
+            const issues=suggestion.issues
+            if(issues!==undefined && (!Array.isArray(issues)||issues.some(issue=>!object(issue)||!itemIds.has(issue.itemId)||!text(issue.note))
+              ||new Set(issues.map(issue=>issue.itemId)).size!==issues.length)) fail('样衣问题未对应本次标准项目')
+            if(!value.legacyHistory && suggestion.conclusion==='HAS_PROBLEM' && (!Array.isArray(issues)||!issues.length)) fail('样衣有问题结论缺少具体项目')
+          }
+        }
+        if(value.sample.approverReceivedInstant!==undefined && (!text(value.sample.approverReceivedInstant)||!/(Z|[+-]\d{2}:?\d{2})$/.test(value.sample.approverReceivedInstant)||!Number.isFinite(Date.parse(value.sample.approverReceivedInstant)))) fail('样衣领取时间点无效')
+      }
       return row('samples', value.assignmentId, value)
     })
     result.push(...pairs(data.commands, 'sample-commands', (_id, value) => { if (!object(value) || !text(value.assignmentId) || !text(value.action)) fail('样衣动作记录错误') }), row('sample-meta','sequence',{sequence:data.sequence}))
@@ -148,12 +192,44 @@ function collections(key: string): string[] {
   if (key === PRODUCTION_CONTEXT_KEYS.runtime) return ['taskOverrides', 'splitPlans', 'mergedPlans', 'reassignedTasks', 'runtime-meta']
   if (key === PRODUCTION_CONTEXT_KEYS.assignments) return ['assignments', 'assignment-current', 'assignment-audit', 'assignment-meta']
   if (key === PRODUCTION_CONTEXT_KEYS.samples) return ['samples','sample-commands','sample-meta']
+  if (key === PRODUCTION_CONTEXT_KEYS.sewingExecutions) return ['sewing-executions']
   if (key === PRODUCTION_CONTEXT_KEYS.contracts) return ['contracts','contract-audit','contract-meta']
   if(key===PRODUCTION_CONTEXT_KEYS.responsibility) return ['responsibility-transfers','responsibility-meta']
   return ['assignment-effects']
 }
+/** Samples already arrive as detached native objects. Validate the same schema
+ * once without parsing our freshly serialized 2,000 complete snapshots again.
+ * Legacy seam references retain the original normalization/roundtrip path. */
+function encodeCurrentSampleRows(selected:CuttingStoredRecord[]):string|undefined {
+  if(selected.some(item=>!object(item.value)))fail('已保存来源实体格式错误')
+  const values=(name:string)=>selected.filter(item=>item.collection===prefix+name).map(item=>item.value as Json)
+  const data={version:3,records:values('samples'),commands:values('sample-commands').map(item=>[item.key,item.value]),sequence:values('sample-meta')[0]?.sequence}
+  const raw=JSON.stringify(data)
+  if(needsSeamEmbroideryNormalization(raw))return undefined
+  const decoded=decodeProductionContextData(PRODUCTION_CONTEXT_KEYS.samples,data)
+  const canonical=new Map(decoded.map(item=>[item.id,item]))
+  const mismatch=()=>fail('已保存来源身份或元数据不一致')
+  if(decoded.length!==selected.length || canonical.size!==selected.length)mismatch()
+  for(const item of selected){
+    const expected=canonical.get(item.id)
+    if(!expected || item.collection!==expected.collection || Object.keys(item).some(field=>!['id','collection','value'].includes(field)))mismatch()
+    const value=item.value as Json,expectedValue=expected!.value as Json
+    if(item.collection===prefix+'samples'){
+      if(value!==expectedValue)mismatch()
+    }else if(item.collection===prefix+'sample-commands'){
+      if(Object.keys(value).some(field=>!['key','value'].includes(field)) || value.key!==expectedValue.key || value.value!==expectedValue.value)mismatch()
+    }else if(Object.keys(value).some(field=>field!=='sequence') || value.sequence!==expectedValue.sequence)mismatch()
+  }
+  return raw
+}
 export function encodeProductionContextRecords(key: string, records: CuttingStoredRecord[]): string | null {
   const names = collections(key).map(name => prefix + name)
+  if(key===PRODUCTION_CONTEXT_KEYS.samples){
+    const selected=records.filter(item=>names.includes(item.collection))
+    if(!selected.length)return null
+    const current=encodeCurrentSampleRows(selected)
+    if(current!==undefined)return current
+  }
   const selected = records.filter(item => names.includes(item.collection)).map(item => {
     const raw = JSON.stringify(item.value)
     return needsSeamEmbroideryNormalization(raw) ? { ...item, value: normalizeSeamEmbroideryReferences(JSON.parse(raw)) } : item
@@ -169,6 +245,7 @@ export function encodeProductionContextRecords(key: string, records: CuttingStor
     reassignedTasks: readPairs('reassignedTasks'), auditSeq: values('runtime-meta')[0]?.auditSeq }
   else if (key === PRODUCTION_CONTEXT_KEYS.assignments) data = { version: 2, assignments: readPairs('assignments'), current: readPairs('assignment-current'), auditLogs: values('assignment-audit'),
     assignmentSeq: values('assignment-meta')[0]?.assignmentSeq, auditSeq: values('assignment-meta')[0]?.auditSeq }
+  else if (key === PRODUCTION_CONTEXT_KEYS.sewingExecutions) data = {version:1,facts:values('sewing-executions')}
   else if (key === PRODUCTION_CONTEXT_KEYS.samples) data = {version:3, records:values('samples'),commands:readPairs('sample-commands'),sequence:values('sample-meta')[0]?.sequence}
   else if (key === PRODUCTION_CONTEXT_KEYS.contracts) data = {contracts:values('contracts'),auditLogs:values('contract-audit'),...values('contract-meta')[0]}
   else if(key===PRODUCTION_CONTEXT_KEYS.responsibility) data={version:1,records:values('responsibility-transfers'),sequence:values('responsibility-meta')[0]?.sequence}
@@ -193,20 +270,38 @@ export function productionContextFileIds(value: unknown): string[] {
 }
 async function prepareContextFiles(records: CuttingStoredRecord[]): Promise<{records:CuttingStoredRecord[];files:Array<{id:string;blob:Blob}>}> {
   const files=new Map<string,Blob>()
+  const pendingSources=new Map<string,Promise<{$productionFile:string}>>()
+  const preparationNeeded=(root:unknown):boolean=>{
+    const pending=[root]
+    while(pending.length){
+      const value=pending.pop()
+      if(typeof value==='string'){if(urlFiles.has(value)||value.startsWith('blob:')||value.startsWith('data:'))return true}
+      else if(Array.isArray(value)){for(const item of value)pending.push(item)}
+      else if(object(value)){
+        if('$productionFile' in value){if(!fileReference(value))throw new Error('附件引用格式不正确。');continue}
+        for(const item of Object.values(value))pending.push(item)
+      }
+    }
+    return false
+  }
   async function visit(value:unknown):Promise<unknown> {
     if(typeof value === 'string') {
       const existing=urlFiles.get(value)
       if(existing) return {$productionFile:existing}
       if(value.startsWith('blob:')) throw new Error('附件预览已失效，请重新选择文件后保存。')
       if(value.startsWith('data:')) {
-        const response=await fetch(value),blob=await response.blob()
-        const bytes=await blob.arrayBuffer()
-        const hash=await cuttingRecordBytesFingerprint(new Uint8Array(bytes))
-        const id=`production-context-file:${hash}`
-        const saved=await readCuttingRecordFile(id)
-        if(!saved) files.set(id,blob)
-        else if(saved.size!==blob.size) throw new Error('附件身份冲突，原文件未覆盖。')
-        return {$productionFile:id}
+        let pending=pendingSources.get(value)
+        if(!pending){pending=(async()=>{
+          const response=await fetch(value),blob=await response.blob()
+          const bytes=await blob.arrayBuffer()
+          const hash=await cuttingRecordBytesFingerprint(new Uint8Array(bytes))
+          const id=`production-context-file:${hash}`
+          const saved=await readCuttingRecordFile(id)
+          if(!saved) files.set(id,blob)
+          else if(saved.size!==blob.size) throw new Error('附件身份冲突，原文件未覆盖。')
+          return {$productionFile:id}
+        })();pendingSources.set(value,pending)}
+        return pending
       }
       return value
     }
@@ -217,43 +312,72 @@ async function prepareContextFiles(records: CuttingStoredRecord[]): Promise<{rec
     }
     return value
   }
-  return {records:await Promise.all(records.map(async record=>({...record,value:await visit(record.value)}))),files:[...files].map(([id,blob])=>({id,blob}))}
+  const prepared=await Promise.all(records.map(async record=>preparationNeeded(record.value)
+    ? {...record,value:await visit(record.value)}
+    : record.id==='command-result'?{...record,value:structuredClone(record.value)}:record))
+  return {records:prepared,files:[...files].map(([id,blob])=>({id,blob}))}
 }
 async function materializeContextFiles(records:CuttingStoredRecord[],revokeUnused=true):Promise<CuttingStoredRecord[]> {
+  // Several fields/records can reference the same original file. Cache the
+  // in-flight read as well as its completed URL; no duplicate native reads.
+  const pendingUrls=new Map<string,Promise<string>>()
+  const resolveFile=(id:string):Promise<string>=>{
+    const existing=fileUrls.get(id)
+    if(existing)return Promise.resolve(existing)
+    let pending=pendingUrls.get(id)
+    if(!pending){pending=(async()=>{const blob=await readCuttingRecordFile(id);if(!blob)throw new ProductionContextReadError('生产关联附件缺失，请保留现有数据并导入完整备份。');const url=URL.createObjectURL(blob);fileUrls.set(id,url);urlFiles.set(url,id);return url})();pendingUrls.set(id,pending)}
+    return pending
+  }
   async function visit(value:unknown):Promise<unknown> {
-    if(fileReference(value)) {
-      if(!fileUrls.has(value.$productionFile)) {
-        const blob=await readCuttingRecordFile(value.$productionFile)
-        if(!blob) throw new ProductionContextReadError('生产关联附件缺失，请保留现有数据并导入完整备份。')
-        const url=URL.createObjectURL(blob);fileUrls.set(value.$productionFile,url);urlFiles.set(url,value.$productionFile)
-      }
-      return fileUrls.get(value.$productionFile)
-    }
+    if(fileReference(value))return resolveFile(value.$productionFile)
     if(Array.isArray(value)) return Promise.all(value.map(visit))
     if(object(value)) return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key,item])=>[key,await visit(item)])))
     return value
   }
-  const result=await Promise.all(records.map(async record=>({...record,value:await visit(record.value)})))
-  const referenced=new Set(records.flatMap(record=>productionContextFileIds(record.value)))
+  // Keep reference-free record trees from the detached native read. Rebuilding
+  // every field with an async Promise adds no materialization and duplicates all
+  // historical standards. Only trees that actually reference a Blob need it.
+  const referenced=new Set<string>(),withFiles=new Set<CuttingStoredRecord>()
+  for(const record of records){
+    const pending:unknown[]=[record.value]
+    while(pending.length){
+      const value=pending.pop()
+      if(fileReference(value)){referenced.add(value.$productionFile);withFiles.add(record)}
+      else if(Array.isArray(value)){for(const item of value)if(item && typeof item==='object')pending.push(item)}
+      else if(object(value)){for(const item of Object.values(value))if(item && typeof item==='object')pending.push(item)}
+    }
+  }
+  const result=await Promise.all(records.map(async record=>withFiles.has(record)?({...record,value:await visit(record.value)}):record))
   for(const [id,url] of fileUrls) if(revokeUnused && !referenced.has(id)) { URL.revokeObjectURL(url);fileUrls.delete(id);urlFiles.delete(url) }
   return result
 }
 
 let current: CuttingRecordSnapshot | null = null
+let preparedKeys = new Set<string>()
 let stage: Map<string, string | null> | null = null
 let locked = false
 let pendingReadHydration: Promise<void> | undefined
 const listeners = new Map<string, Set<() => void>>()
 const serialized = new Map<string, string | null>()
+// The original samples JSON is only a synchronous compatibility view of the
+// same native rows. A single PP action updates these detached rows; rebuild the
+// old view only when an original getItem/generic action actually asks for it.
+let materializedSampleRows = new Map<string,CuttingStoredRecord>()
+let sampleSerializationDirty = false
+function flushSampleSerialization():void {
+  if(!sampleSerializationDirty)return
+  serialized.set(PRODUCTION_CONTEXT_KEYS.samples,encodeProductionContextRecords(PRODUCTION_CONTEXT_KEYS.samples,[...materializedSampleRows.values()]))
+  sampleSerializationDirty=false
+}
 const inspectedEmptyKeys = new Set<string>()
 let initializationRecords: CuttingStoredRecord[] = []
 /** 只供已有裁床动作合并到同一事务；普通读取绝不写入初始化记录。 */
 export function productionContextInitializationRecords(): CuttingStoredRecord[] {
-  if (!current) throw new ProductionContextReadError('生产来源尚未读取，不能创建来源初始化记录。')
+  if (!isProductionContextReady()) throw new ProductionContextReadError('完整生产来源尚未读取，不能创建来源初始化记录。')
   return structuredClone(initializationRecords)
 }
 export function assertProductionContextLegacyUnchanged(): void {
-  if (!current) throw new ProductionContextReadError('生产来源尚未读取，请重新进入页面。')
+  if (!isProductionContextReady()) throw new ProductionContextReadError('完整生产来源尚未读取，请重新进入页面。')
   if (isBrowserContext()) for (const item of initializationRecords) {
     if (legacyValue((item.value as MigrationMarker).key) !== null) throw new ProductionContextReadError('旧页面写入了生产来源，请先迁移，本次未保存。')
   }
@@ -261,12 +385,12 @@ export function assertProductionContextLegacyUnchanged(): void {
 export function onProductionContextChanged(key: string, callback: () => void): void {
   assertKey(key); const group = listeners.get(key) || new Set(); group.add(callback); listeners.set(key, group)
 }
-export function isProductionContextReady(): boolean { return current !== null }
+export function isProductionContextReady(key?:string): boolean { return current !== null && (key ? preparedKeys.has(key) : preparedKeys.size===keys.length) }
 export function isProductionContextStaged(): boolean { return stage !== null }
 export function readProductionContextValue(key: string): string | null {
   assertKey(key)
   if (stage) return stage.get(key) ?? null
-  if (current) return serialized.get(key) ?? null
+  if (isProductionContextReady(key)) {if(key===PRODUCTION_CONTEXT_KEYS.samples)flushSampleSerialization();return serialized.get(key) ?? null}
   if (!isBrowserContext()) {const storage=nodeContextStorage();return storage ? storage.getItem(key) : nodeMemoryValues.get(key) ?? null}
   throw new ProductionContextReadError('生产来源尚未读取，请重新进入页面；未使用空记录代替已有数据。')
 }
@@ -319,6 +443,29 @@ export function validateProductionContextRecords(records: CuttingStoredRecord[])
 function legacyValue(key: string): string | null {
   try { return localStorage.getItem(key) } catch { throw new ProductionContextReadError('旧生产来源无法检查，请允许读取本机旧数据后迁移；未将无法读取当作空数据。') }
 }
+/** 单来源只读入口复用原迁移标记；普通读取不执行迁移，也不信任“旧键曾经为空”的缓存。 */
+export function assertProductionContextSourceReadable(key: string, migrationRecord?: CuttingStoredRecord): void {
+  assertKey(key)
+  let saved: MigrationMarker | undefined
+  try {
+    if (migrationRecord && (migrationRecord.id !== `source-migration:${key}` || migrationRecord.collection !== migrationCollection)) throw new Error('生产来源迁移身份不一致')
+    saved = marker({ revision: 0, records: migrationRecord ? [migrationRecord] : [] }, key)
+    if (migrationRecord && !saved) throw new Error('生产来源迁移进度缺失')
+  } catch {
+    throw new ProductionContextReadError('该生产来源迁移进度无法核对，请保留旧资料并在数据管理中恢复；未使用部分记录。')
+  }
+  if (saved && saved.phase !== 'COMPLETE') throw new ProductionContextReadError('该生产来源迁移尚未完成，请在数据管理中继续迁移；未使用部分记录。')
+  if (!isBrowserContext()) return
+  let raw: string | null
+  try { raw = legacyValue(key) } catch (error) {
+    // 已完成标记由原迁移事务产生。偏好存储不可用不能否定已确认的本机库事实。
+    if (saved?.phase === 'COMPLETE') return
+    throw error
+  }
+  if (raw !== null) throw new ProductionContextReadError(saved?.phase === 'COMPLETE'
+    ? '已完成迁移后又发现旧生产来源，请保留新旧资料并在数据管理中核对；未忽略重现的旧记录。'
+    : '发现旧生产来源，请先完成显式迁移；未使用空记录或演示资料代替。')
+}
 export interface ProductionContextMigrationStatus { key: string; phase: 'PENDING' | 'COPYING' | 'VERIFIED' | 'COMPLETE' | 'EMPTY' | 'UNAVAILABLE'; count: number; copied: number; message: string }
 export async function listProductionContextMigrationStatus(): Promise<ProductionContextMigrationStatus[]> {
   const snapshot = await readCuttingRecords()
@@ -342,28 +489,39 @@ function assertLegacyReady(snapshot: CuttingRecordSnapshot): void {
     inspectedEmptyKeys.add(key)
   }
 }
-async function hydrate(snapshot?: CuttingRecordSnapshot, forceNotify = false): Promise<void> {
+async function hydrate(snapshot?: CuttingRecordSnapshot, forceNotify = false, requestedKeys=keys): Promise<void> {
+  // The existing same-revision path already keeps the current read view. Check
+  // that revision before copying every production/sample row again. A changed
+  // revision still reads, validates and materializes the complete original set.
+  if (!snapshot && current && requestedKeys.every(key=>preparedKeys.has(key)) && !forceNotify && await readCuttingRecordRevision() === current.revision) {
+    assertLegacyReady(current)
+    return
+  }
   const next = snapshot || await readCuttingRecords()
   assertLegacyReady(next)
-  if (current?.revision === next.revision && !forceNotify) return
+  if (current?.revision === next.revision && requestedKeys.every(key=>preparedKeys.has(key)) && !forceNotify) return
   const visibleRecords=await materializeContextFiles(next.records.filter(item=>item.collection.startsWith(prefix)))
-  const values = new Map(keys.map(key => [key, encodeProductionContextRecords(key, visibleRecords)]))
-  const unmarked = keys.filter(key => !marker(next, key))
+  const values = new Map(requestedKeys.map(key => [key, encodeProductionContextRecords(key, visibleRecords)]))
+  const unmarked = requestedKeys.filter(key => !marker(next, key))
   const fingerprint = unmarked.length ? await cuttingRecordFingerprint('null') : ''
   const targetFingerprint = unmarked.length ? await recordsFingerprint([]) : ''
   initializationRecords = unmarked.map(key => markerRow({ key, fingerprint, targetFingerprint, phase: 'COMPLETE', count: 0, copied: 0, ids: [] }))
-  const changed = keys.filter(key => forceNotify || serialized.get(key) !== values.get(key))
+  const changed = requestedKeys.filter(key => forceNotify || !preparedKeys.has(key) || serialized.get(key) !== values.get(key))
+  for(const key of keys)if(!values.has(key))serialized.delete(key)
   for (const [key, value] of values) serialized.set(key, value)
+  materializedSampleRows=new Map(visibleRecords.filter(item=>['production-context:samples','production-context:sample-commands','production-context:sample-meta'].includes(item.collection)).map(item=>[item.id,item]))
+  sampleSerializationDirty=false
   current = next
+  preparedKeys=new Set(requestedKeys)
   try { for (const key of changed) for (const callback of listeners.get(key) || []) callback() }
-  catch (error) { current = null; serialized.clear(); initializationRecords = []; throw error }
+  catch (error) { current = null; serialized.clear();materializedSampleRows.clear();sampleSerializationDirty=false; initializationRecords = []; throw error }
 }
 export function hydrateProductionContextRecords(snapshot?: CuttingRecordSnapshot): Promise<void> {
   if (snapshot === undefined && pendingReadHydration) return pendingReadHydration
   if (locked) return Promise.reject(new Error('生产来源正在保存或迁移，请等待当前动作完成。'))
   locked = true
   const loading = (async () => {
-    try { await hydrate(snapshot) }
+    try { await hydrate(snapshot?.readScope ? undefined : snapshot) }
     catch (error) { current = null; throw error }
     finally {
       locked = false
@@ -372,6 +530,23 @@ export function hydrateProductionContextRecords(snapshot?: CuttingRecordSnapshot
   })()
   if (snapshot === undefined) pendingReadHydration = loading
   return loading
+}
+/** A bounded read view for original finishing pages. A sample consumer or any
+ * production command upgrades to the complete original source before use. */
+export async function hydratePostFinishingProductionContextRecords(snapshot?:CuttingRecordSnapshot):Promise<void> {
+  if(locked)throw new Error('生产来源正在保存或迁移，请等待当前动作完成。')
+  // Never downgrade a previously exposed sample source or leave its listeners stale.
+  if(preparedKeys.has(PRODUCTION_CONTEXT_KEYS.samples)){
+    await hydrateProductionContextRecords();return
+  }
+  locked=true
+  try{
+    const needed=keys.filter(key=>key!==PRODUCTION_CONTEXT_KEYS.samples)
+    if(!snapshot && current && needed.every(key=>preparedKeys.has(key)) && await readCuttingRecordRevision()===current.revision){assertLegacyReady(current);return}
+    await hydrate(snapshot || await readPostFinishingProductionRecords(),false,needed)
+  }
+  catch(error){current=null;throw error}
+  finally{locked=false}
 }
 function restoreWithoutPersist<T>(restore: (value: unknown) => void, value: T, values: Map<string, string | null>): void {
   const prior = stage
@@ -398,6 +573,7 @@ export async function saveProductionContextAction<T>(input: {
       if (previous.intent !== intent) throw new Error('本次确认编号已用于不同内容，请重新核对。')
       await hydrate(undefined, true); return (await materializeContextFiles([{id:'command-result',collection:'command-result',value:previous.result}],false))[0].value as T
     }
+    flushSampleSerialization()
     const snapshot = current!, original = new Map(serialized)
     before = structuredClone(input.capture()); captured = true
     const working = new Map(original)
@@ -426,6 +602,83 @@ export async function saveProductionContextAction<T>(input: {
     if (committed) throw new Error(`生产记录已保存，但页面同步失败，请重新进入页面核对，不要重复新建。${String(error)}`)
     throw error
   } finally { stage = null; locked = false }
+}
+
+export interface ProductionSampleActionState {
+  records:Array<[string,unknown]>
+  commands:Array<[string,{assignmentId:string;action:string}]>
+  sequence:number
+}
+function sampleActionRecords(state:ProductionSampleActionState):CuttingStoredRecord[] {
+  return decodeProductionContextRecords(PRODUCTION_CONTEXT_KEYS.samples,JSON.stringify({version:3,records:state.records.map(([,value])=>value),commands:state.commands,sequence:state.sequence}))
+}
+function sampleActionState(rows:CuttingStoredRecord[]):ProductionSampleActionState {
+  const raw=encodeProductionContextRecords(PRODUCTION_CONTEXT_KEYS.samples,rows)
+  if(!raw)throw new Error('本次样衣保存结果缺失，请重新进入页面核对。')
+  const value=JSON.parse(raw)
+  return {records:value.records.map((record:Json)=>[record.assignmentId,record]),commands:value.commands,sequence:value.sequence}
+}
+/** Only the original PP sample page uses this bounded action. Other production
+ * actions keep their existing full-context contract and read the same rows. */
+export async function saveProductionSampleContextAction<T>(input:{id:string;intent:string;commandId:string;
+  capture:()=>ProductionSampleActionState;restore:(state:ProductionSampleActionState)=>void;action:()=>T}):Promise<T> {
+  if(locked)throw new Error('另一项生产确认尚未完成，请稍后重试。')
+  locked=true
+  let before:ProductionSampleActionState|undefined,committed=false
+  try{
+    if(!isProductionContextReady())await hydrate()
+    const snapshot=current!
+    assertLegacyReady(snapshot)
+    const migrationRecord=snapshot.records.find(item=>item.id===`source-migration:${PRODUCTION_CONTEXT_KEYS.samples}`)
+    assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples,migrationRecord)
+    if(!input.id || !input.commandId || !input.intent.trim())throw new Error('本次样衣确认标识缺失。')
+    const intent=`production-source:${await cuttingRecordFingerprint(input.intent)}`
+    const [previous,revision]=await Promise.all([readCuttingCommand(input.id),readCuttingRecordRevision()])
+    if(previous){
+      if(previous.intent!==intent)throw new Error('本次确认编号已用于不同内容，请重新核对。')
+      await hydrate(undefined,true)
+      return (await materializeContextFiles([{id:'command-result',collection:'command-result',value:previous.result}],false))[0].value as T
+    }
+    if(revision!==snapshot.revision)throw new Error('其他页面已更新生产记录。本次未保存，请刷新并重新核对后确认。')
+    before=input.capture()
+    const recordIds=new Set(before.records.map(([id])=>id))
+    if(!recordIds.size || recordIds.size!==before.records.length || before.commands.some(([id])=>id!==input.commandId))throw new Error('本次样衣保存范围不完整。')
+    let result:T,after:ProductionSampleActionState
+    try{
+      result=input.action()
+      if(result && typeof (result as {then?:unknown}).then==='function')throw new Error('样衣动作必须先完成同步计算再保存。')
+      after=input.capture()
+      if(after.records.some(([id])=>!recordIds.has(id)) || after.commands.some(([id])=>id!==input.commandId))throw new Error('本次样衣确认包含其他任务记录，尚未保存。')
+    }finally{input.restore(before)}
+    const prepared=await prepareContextFiles([...sampleActionRecords(after),{id:'command-result',collection:'command-result',value:result}])
+    const persistedResult=prepared.records.pop()!.value as T
+    const managedIds=new Set([...recordIds].map(id=>`production-context:samples:${id}`))
+    managedIds.add(`production-context:sample-commands:${input.commandId}`);managedIds.add('production-context:sample-meta:sequence')
+    const change=diffCuttingRecords(snapshot.records.filter(item=>managedIds.has(item.id)),prepared.records)
+    change.files=prepared.files;change.puts.push(...productionContextInitializationRecords())
+    const unmarked=keys.filter(key=>!marker(snapshot,key))
+    const saved=await commitCuttingRecords({revision:snapshot.revision,change,command:{id:input.id,intent,result:persistedResult,at:new Date().toISOString()},assertSourcesCurrent:()=>{
+      assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples,migrationRecord)
+      if(isBrowserContext())for(const key of unmarked)if(legacyValue(key)!==null)throw new ProductionContextReadError('旧页面写入了生产来源，请先迁移，本次未保存。')
+    }})
+    committed=true
+    if(saved.replayed){await hydrate(undefined,true);return (await materializeContextFiles([{id:'command-result',collection:'command-result',value:saved.result}],false))[0].value as T}
+    const visible=await materializeContextFiles([...prepared.records,{id:'command-result',collection:'command-result',value:saved.result}],false)
+    const normalizedResult=visible.pop()!.value as T
+    const normalizedState=sampleActionState(visible)
+    input.restore(normalizedState)
+    const rows=new Map(snapshot.records.map(item=>[item.id,item]))
+    for(const id of change.deletes || []){rows.delete(id);materializedSampleRows.delete(id)}
+    for(const item of change.puts)rows.set(item.id,item)
+    for(const item of visible)materializedSampleRows.set(item.id,item)
+    current={revision:saved.revision,records:[...rows.values()]}
+    initializationRecords=[];sampleSerializationDirty=true
+    return normalizedResult
+  }catch(error){
+    if(before&&!committed)input.restore(before)
+    if(committed){current=null;throw new Error(`样衣记录已保存，但页面同步失败，请重新进入页面核对，不要重复新建。${String(error)}`)}
+    throw error
+  }finally{locked=false}
 }
 function markerRow(value: MigrationMarker): CuttingStoredRecord { return { id: `source-migration:${value.key}`, collection: migrationCollection, value } }
 async function recordsFingerprint(records: CuttingStoredRecord[]): Promise<string> { return cuttingRecordFingerprint(JSON.stringify([...records].sort((a, b) => a.id.localeCompare(b.id)))) }

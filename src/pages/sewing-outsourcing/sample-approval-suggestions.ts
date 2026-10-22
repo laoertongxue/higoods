@@ -1,594 +1,151 @@
-import {saveProductionSourceUiAction} from '../../data/fcs/production-context-actions.ts'
-import { getEffectiveTaskAssignment } from '../../data/fcs/effective-task-assignments.ts'
 // @page-pattern: list
-
+import { saveSewingSampleSourceUiAction } from '../../data/fcs/production-context-actions.ts'
+import { getEffectiveTaskAssignment } from '../../data/fcs/effective-task-assignments.ts'
 import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../components/ui/list-table.ts'
-import type { StandardListColumnPreferences } from '../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../components/ui/pagination.ts'
-import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
-import { formatOperationLocalWallClock } from '../../data/fcs/sewing-delivery-sla.ts'
+import { renderTabs } from '../../components/ui/tabs.ts'
 import { ensureSewingOutsourcingSampleDemo } from '../../data/fcs/sewing-outsourcing-demo.ts'
+import { readInspectionSnapshot, assertInspectionSnapshotCurrent } from '../../data/fcs/quality-management-records.ts'
+import { getProductionOrderTechPackSnapshot } from '../../data/fcs/production-order-tech-pack-runtime.ts'
+import { resolveQualityStyleContext } from '../../data/fcs/quality-management-style-context.ts'
 import {
-  getSewingSampleApprovalRecord,
-  getSampleApprovalTiming,
-  handoffPreProductionSampleToApprover,
-  listSewingSampleApprovalRecords,
-  receivePreProductionSampleByPpic,
-  recordSampleApprovalFeedbackToFactory,
-  startSampleApproval,
-  submitSampleApprovalSuggestion,
-  summarizeSampleApprovalStructuredComments,
-  type SampleApprovalStructuredComments,
-  type SewingSampleApprovalRecord,
+  convertLegacySampleApproval, supplementLegacySampleStandard,
+  getSewingSampleApprovalRecord, getSampleApprovalTiming, handoffPreProductionSampleToApprover,
+  listSewingSampleApprovalListEntries, receivePreProductionSampleByPpic, recordSampleApprovalFeedbackToFactory,
+  startSampleApproval, submitSampleApprovalSuggestion, summarizeSampleApprovalStructuredComments, sampleApprovalStatusLabels,
+  type SampleApprovalStructuredComments, type SewingSampleApprovalRecord,
 } from '../../data/fcs/sewing-sample-approval-suggestion.ts'
+import type { InspectionIssue } from '../../data/fcs/quality-management-types.ts'
 import { escapeHtml } from '../../utils.ts'
 
-type SampleSituation = 'PENDING_RETURN' | 'PENDING_APPROVAL' | 'PENDING_FEEDBACK' | 'COMPLETED'
-type ApprovalFormState = SampleApprovalStructuredComments & {
-  conclusion: 'NO_PROBLEM' | 'HAS_PROBLEM'
-  approvalSheetPhotoUrls: string[]
-  requiresAnotherApproval: boolean
-  approverName: string
-  approverConfirmed: boolean
+type Situation = 'PENDING_RETURN' | 'PENDING_APPROVAL' | 'PENDING_FEEDBACK' | 'COMPLETED'
+type Form = SampleApprovalStructuredComments & { conclusion: 'NO_PROBLEM'|'HAS_PROBLEM'; issues:InspectionIssue[]; approvalSheetPhotoUrls:string[]; approverName:string; approverConfirmed:boolean }
+type Dialog = {kind:'RECEIVE'|'START'|'APPROVAL'|'CARD'|'CONVERT'|'SUPPLEMENT';assignmentId:string;commandId:string;error:string;photos:string[];name:string;confirmed:boolean;form?:Form;reason:string}|null
+let dialog:Dialog=null
+let preview:{url:string;label:string}|null=null
+let active:Situation='PENDING_RETURN', keyword='', draftKeyword='', activePage=1, pageSize=20, feedback=''
+let sequence=0, saving=false
+const LABELS:Record<string,string> = sampleApprovalStatusLabels
+const TABS:Record<Situation,string>={PENDING_RETURN:'待PPIC接收',PENDING_APPROVAL:'待批版',PENDING_FEEDBACK:'待反馈工厂',COMPLETED:'已完成'}
+const COMMENT_FIELDS:Array<[keyof SampleApprovalStructuredComments,string]>=[['fabricApprovalComment','面料意见'],['processComment','工艺意见'],['materialUsageComment','用料意见'],['otherComment','其他意见']]
+const action=(name:string,id:string,label:string,primary=false)=>`<button type="button" class="${primary?'rounded bg-blue-600 px-3 py-2 text-white':'text-blue-700'}" data-sample-approval-action="${name}" data-assignment-id="${escapeHtml(id)}">${label}</button>`
+const command=(action:string)=>`SAMPLE-${action}-${Date.now()}-${++sequence}`
+function matches(record: { sample: Pick<SewingSampleApprovalRecord['sample'], 'status'> }, situation = active):boolean {
+  const status=record.sample.status
+  return situation==='PENDING_RETURN'?['WAITING_PPIC_RECEIVE','WAITING_FACTORY_PRODUCTION','WAITING_RETURN_TO_PPIC'].includes(status)
+    :situation==='PENDING_FEEDBACK'?status==='SUGGESTION_UPLOADED':situation==='COMPLETED'?status==='FEEDBACK_SENT'
+    :['PPIC_RECEIVED','HANDED_TO_APPROVER','APPROVAL_IN_PROGRESS'].includes(status)
 }
-type DialogState =
-  | { kind: 'CARD'; assignmentId: string }
-  | { kind: 'START'; assignmentId: string; commandId: string; error: string; approverName: string; confirmed: boolean }
-  | { kind: 'RECEIVE'; assignmentId: string; error: string; receivedSamplePhotoUrls: string[] }
-  | { kind: 'APPROVAL'; assignmentId: string; error: string; form: ApprovalFormState }
-  | { kind: 'IMAGE'; imageUrl: string; label: string }
-  | null
-
-let activeSituation: SampleSituation = 'PENDING_RETURN'
-let keyword = ''
-let draftKeyword = ''
-let activePage = 1
-let pageSize = 20
-let dialog: DialogState = null
-let feedback = ''
-let commandSequence = 0
-
-const STATUS_LABELS: Record<string, string> = {
-  WAITING_FACTORY_PRODUCTION: '待工厂制作',
-  WAITING_RETURN_TO_PPIC: '待送回PPIC',
-  PPIC_RECEIVED: 'PPIC已接收',
-  HANDED_TO_APPROVER: '待批版人员领取',
-  APPROVAL_IN_PROGRESS: '批版中',
-  SUGGESTION_UPLOADED: '建议已上传待反馈',
-  FEEDBACK_SENT: '已反馈工厂',
+function photos(record:SewingSampleApprovalRecord):string[]{return record.sample.ppicReceivedSamplePhotoUrls.length?record.sample.ppicReceivedSamplePhotoUrls:record.sample.samplePhotoUrls}
+function image(url:string,label:string,classes='h-20 w-16'):string {
+  if(!url)return '<span class="text-xs text-red-700">对应图片待补齐</span>'
+  return `<button type="button" class="${classes} shrink-0 overflow-hidden rounded border" data-sample-approval-action="preview-image" data-image-url="${escapeHtml(url)}" data-image-label="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}大图"><img class="h-full w-full object-contain" src="${escapeHtml(url)}" alt="${escapeHtml(label)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-xs text-red-700">图片加载失败</span></button>`
 }
-
-const TASK_KIND_LABELS: Record<string, string> = {
-  INDEPENDENT_SEWING: '独立车缝',
-  SEWING_IRON_PACK: '车缝+烫包',
-  CUTTING_SEWING_IRON_PACK: '裁剪+车缝+烫包',
+function gallery(urls:string[],label:string,editable=false):string {
+  return `<div class="flex flex-wrap gap-3">${urls.map((url,index)=>`<div>${image(url,`${label}${index+1}`,'h-32 w-28')}${editable?action('remove-photo',dialog!.assignmentId,`删除第${index+1}张`).replace('data-assignment-id=',`data-photo-index="${index}" data-assignment-id=`):''}</div>`).join('')||'<p class="text-sm text-slate-500">暂无照片</p>'}</div>`
 }
-
-const SITUATION_LABELS: Record<SampleSituation, string> = {
-  PENDING_RETURN: '待样衣送回',
-  PENDING_APPROVAL: '待批版',
-  PENDING_FEEDBACK: '待反馈工厂',
-  COMPLETED: '已完成',
+function rowActions(record:SewingSampleApprovalRecord):string {
+  if(record.qualitySchemaVersion!==1)return action('convert',record.assignmentId,'核对并转换旧记录')+action('show-card',record.assignmentId,'查看旧资料')
+  const map:Record<string,[string,string]>={WAITING_PPIC_RECEIVE:['receive-sample','接收样衣并拍照'],PPIC_RECEIVED:['handoff-approver','转交批版人员'],HANDED_TO_APPROVER:['start-approval','领取批版'],APPROVAL_IN_PROGRESS:record.inspectionStandardSnapshot?['open-approval','填写批版建议']:['supplement-standard','补定本次检查要求'],SUGGESTION_UPLOADED:['feedback-factory','登记已反馈工厂']}
+  const next=map[record.sample.status]
+  return `<div class="flex flex-wrap justify-end gap-3">${next?action(next[0],record.assignmentId,next[1],true):''}${action('show-card',record.assignmentId,'查看建议卡')}</div>`
 }
-
-const STRUCTURED_COMMENT_FIELDS: Array<{
-  key: keyof SampleApprovalStructuredComments
-  label: string
-  offlineLabel: string
-  placeholder: string
-}> = [
-  {
-    key: 'fabricApprovalComment',
-    label: '批版面料',
-    offlineLabel: 'Persetujuan Kain untuk Sampel',
-    placeholder: '记录面料、色差、裁片编号或配套方面的批版意见',
-  },
-  {
-    key: 'processComment',
-    label: '工艺意见',
-    offlineLabel: 'Catatan Proses/Metode Produksi',
-    placeholder: '记录车缝工艺、部位位置、线路及制作方法方面的意见',
-  },
-  {
-    key: 'materialUsageComment',
-    label: '用料意见',
-    offlineLabel: 'Catatan Pemakaian/Penggunaan Bahan',
-    placeholder: '记录面辅料用法、松量、拉伸或安装方面的意见',
-  },
-  {
-    key: 'otherComment',
-    label: '其他意见',
-    offlineLabel: 'Catatan Lainnya',
-    placeholder: '记录前述分类之外、工厂生产大货必须注意的事项',
-  },
+const columns:StandardListColumn<SewingSampleApprovalRecord>[]=[
+  {key:'sample',title:'款式／实物',width:300,required:true,render:r=>`<div class="flex gap-3">${image(photos(r)[0]||r.sample.styleImageUrl,r.sample.styleCode)}<div><b>${escapeHtml(r.sample.styleCode)}</b><p>${escapeHtml(r.sample.styleName)}</p><p class="text-xs">${escapeHtml(r.sample.sampleNo)}</p><p class="text-xs">实收照片 ${r.sample.ppicReceivedSamplePhotoUrls.length} 张</p></div></div>`},
+  {key:'task',title:'生产单／任务',width:230,required:true,render:r=>`${escapeHtml(r.sample.productionOrderNo)}<p>${escapeHtml(r.sample.taskNo)}</p>`},
+  {key:'factory',title:'工厂／PPIC',width:230,render:r=>`${escapeHtml(r.sample.factoryName)}<p>PPIC：${escapeHtml(r.sample.currentPpicName)}</p>`},
+  {key:'status',title:'当前节点／时效',width:240,required:true,render:r=>{const t=getSampleApprovalTiming(r);return `<b>${LABELS[r.sample.status]||'待核对'}</b><p class="text-xs">领取：${escapeHtml(t.startedAt||'尚未领取')}</p>${t.deadlineAt?`<p class="text-xs ${t.overdue?'text-red-700':''}">截止：${escapeHtml(t.deadlineAt)} ${escapeHtml(t.timeZone)}</p>`:t.startedAt?'<p class="text-xs text-amber-700">旧时间来源待核对</p>':''}`}},
+  {key:'suggestion',title:'批版意见',width:260,render:r=>{const s=r.suggestionVersions.at(-1);return s?`<b>${s.conclusion==='NO_PROBLEM'?'无问题':'有问题'}</b><p>${escapeHtml((s.issues||[]).map(i=>i.note).join('；')||summarizeSampleApprovalStructuredComments(s.structuredComments)||'已提交')}</p><p class="text-xs">${escapeHtml(s.uploadedByName)}</p>`:'尚未提交'}},
+  {key:'actions',title:'操作',width:260,required:true,actionColumn:true,render:rowActions},
 ]
-
-function matchesSituation(record: SewingSampleApprovalRecord, situation: SampleSituation): boolean {
-  const status = record.sample.status
-  if (situation === 'PENDING_RETURN') return ['WAITING_FACTORY_PRODUCTION', 'WAITING_RETURN_TO_PPIC', 'PPIC_RECEIVED'].includes(status)
-  if (situation === 'PENDING_APPROVAL') return ['HANDED_TO_APPROVER', 'APPROVAL_IN_PROGRESS'].includes(status)
-  if (situation === 'PENDING_FEEDBACK') return status === 'SUGGESTION_UPLOADED'
-  return status === 'FEEDBACK_SENT'
+function standard(record:SewingSampleApprovalRecord,form?:Form):string {
+  const snapshot=record.inspectionStandardSnapshot
+  if(!snapshot)return '<p class="text-amber-700">历史记录原无标准快照，未补造当时要求。</p>'
+  return `<section data-sample-inspection-standard class="space-y-3 rounded border p-4"><h3 class="font-semibold">本次检查要求 · ${escapeHtml(snapshot.basicStandard.name)}</h3><p class="text-xs">取用时间 ${escapeHtml(snapshot.selectedAt)}；共 ${snapshot.items.length} 项。基础标准及适用附加要求已合成。</p>${snapshot.items.map(item=>{const issue=form?.issues.find(i=>i.itemId===item.id);return `<article class="rounded border p-3"><b>${escapeHtml(item.dimension)} · ${escapeHtml(item.name)}</b><p>${escapeHtml(item.content)}</p><p class="text-sm">判定：${escapeHtml(item.criterion)}</p><p class="text-xs text-slate-500">来源 ${escapeHtml(item.sourceStandardId)} v${item.sourceStandardVersion}${item.overriddenBy.length?' · 附加要求覆盖':''}</p>${item.references.map(ref=>`<p class="text-xs">依据：${escapeHtml(ref.name)}${ref.value?` · ${escapeHtml(ref.value)}`:''}</p>`).join('')}${form?`<label class="mt-2 flex gap-2 text-sm"><input type="checkbox" data-sample-issue-id="${escapeHtml(item.id)}" ${issue?'checked':''}>此项有问题</label><textarea class="mt-1 min-h-16 w-full rounded border p-2 text-sm" data-sample-issue-note="${escapeHtml(item.id)}" placeholder="填写此项具体问题">${escapeHtml(issue?.note||'')}</textarea>`:''}</article>`}).join('')}</section>`
 }
-
-function nextCommandId(action: string): string {
-  commandSequence += 1
-  return `CMD-PPIC-SAMPLE-${action}-${Date.now()}-${commandSequence}`
+function card(record:SewingSampleApprovalRecord):string {
+  const suggestion=record.suggestionVersions.at(-1), timing=getSampleApprovalTiming(record)
+  return `<article data-sample-approval-screenshot-card class="space-y-4"><h2 class="text-xl font-semibold">批版建议</h2><p>${escapeHtml(record.sample.styleCode)} · ${escapeHtml(record.sample.styleName)}</p><p>${escapeHtml(record.sample.factoryName)} · ${escapeHtml(record.sample.productionOrderNo)} · ${escapeHtml(record.sample.taskNo)}</p>${gallery(photos(record),'PPIC实收样衣照片')}<p>领取人：${escapeHtml(record.currentApproverName||'尚未领取')}；领取 ${escapeHtml(timing.startedAt||'—')}；截止 ${escapeHtml(timing.deadlineAt||'时间待核对')} ${escapeHtml(timing.timeZone)}</p>${standard(record)}${suggestion?`<h3 class="font-semibold">结论：${suggestion.conclusion==='NO_PROBLEM'?'无问题':'有问题'}</h3><ul>${(suggestion.issues||[]).map(issue=>`<li>${escapeHtml(record.inspectionStandardSnapshot?.items.find(item=>item.id===issue.itemId)?.name||issue.itemId)}：${escapeHtml(issue.note||'')}</li>`).join('')}</ul><p>${escapeHtml(summarizeSampleApprovalStructuredComments(suggestion.structuredComments))}</p>${gallery(suggestion.approvalSheetPhotoUrls,'批版补充资料')}<p>提交 ${escapeHtml(timing.completedAt || suggestion.uploadedAt)}${timing.timeVerified ? ` ${escapeHtml(timing.timeZone)}` : '（旧时间来源待核对）'} · ${escapeHtml(suggestion.uploadedByName)}</p><p>反馈登记：${escapeHtml(suggestion.feedbackNote||'待反馈')}</p>`:'<p>尚未提交批版意见。</p>'}<details><summary>本次技术资料（${record.referenceSnapshots.length}项）</summary>${record.referenceSnapshots.map(ref=>`<div class="my-2 rounded border p-2"><b>${escapeHtml(ref.label)}</b> · ${escapeHtml(ref.versionLabel)}${ref.imageUrl?image(ref.imageUrl,ref.label):''}${ref.fileName?`<pre class="whitespace-pre-wrap break-all text-xs">${escapeHtml(ref.fileName)}</pre>`:''}</div>`).join('')||'已有资料待补齐'}</details>${record.legacyHistory?`<details><summary>转换前历史原文与附件</summary><p>${escapeHtml(record.legacyHistory.note)}</p>${renderLegacyPhotos(record.legacyHistory.original)}<pre class="max-h-72 overflow-auto whitespace-pre-wrap break-all text-xs">${escapeHtml(JSON.stringify(record.legacyHistory.original,null,2))}</pre></details>`:''}</article>`
 }
-
-function refreshPage(): void {
-  const root = document.querySelector<HTMLElement>('[data-sample-approval-page]')
-  if (root) root.outerHTML = renderSampleApprovalSuggestionsPage()
+function renderLegacyPhotos(value:unknown):string {const found=new Set<string>();function visit(v:unknown){if(typeof v==='string'&&/^(https?:|blob:|data:image|\/)/.test(v))found.add(v);else if(Array.isArray(v))v.forEach(visit);else if(v&&typeof v==='object')Object.values(v).forEach(visit)}visit(value);return gallery([...found],'历史资料')}
+function readForm(fallback:Form):Form {
+  const read=(name:string)=>document.querySelector<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>(`[data-sample-approval-field="${name}"]`)
+  const issues=[...document.querySelectorAll<HTMLInputElement>('[data-sample-issue-id]')].filter(field=>field.checked).map(field=>({itemId:field.dataset.sampleIssueId!,note:[...document.querySelectorAll<HTMLTextAreaElement>('[data-sample-issue-note]')].find(note=>note.dataset.sampleIssueNote===field.dataset.sampleIssueId)?.value.trim()||''}))
+  return {...fallback,...Object.fromEntries(COMMENT_FIELDS.map(([key])=>[key,read(key)?.value||''])),issues,conclusion:read('conclusion')?.value==='HAS_PROBLEM'?'HAS_PROBLEM':'NO_PROBLEM',approverName:read('approverName')?.value.trim()||'',approverConfirmed:!!(read('approverConfirmed') as HTMLInputElement)?.checked}
 }
-
-export function isSampleApprovalSuggestionDialogOpen(): boolean {
-  return dialog !== null
+function overlays():string {
+  let result=''
+  if(dialog){const r=getSewingSampleApprovalRecord(dialog.assignmentId);if(r){let body='',title='',submit=''
+    if(dialog.kind==='CARD'){title='批版建议卡';body=card(r)}
+    if(dialog.kind==='RECEIVE'){title='PPIC接收产前版样衣';body=`<p>${escapeHtml(r.sample.styleCode)} · ${escapeHtml(r.sample.styleName)} · ${escapeHtml(r.sample.factoryName)}</p><p>拍摄实际收到的本厂样衣，可选择多张，至少一张。</p>${image(r.sample.styleImageUrl,'款式识别图')}<input type="file" accept="image/*" multiple data-sample-approval-action="select-received-photos" data-assignment-id="${escapeHtml(r.assignmentId)}">${gallery(dialog.photos,'待保存实收照片',true)}`;submit='submit-receive'}
+    if(dialog.kind==='START'){title='领取批版';body=`<p>领取后按工厂当地时间连续计48小时；本次固定当前有效检查要求。</p><label>实际领取人姓名<input class="mt-1 h-10 w-full rounded border px-3" data-sample-approval-field="startApproverName" value="${escapeHtml(dialog.name)}"></label><label class="flex gap-2"><input type="checkbox" data-sample-approval-field="startConfirmed" ${dialog.confirmed?'checked':''}>本人已收到本件样衣，确认承担本次批版</label>`;submit='confirm-start-approval'}
+    if(dialog.kind==='CONVERT'){title='核对并转换旧样衣记录';body='<p>原照片、意见、转交和领取人完整保留。未发生的后续送样计划归档；已收到的实物继续完成一次批版。旧墙上时间来源未核实，保留原文并标待核对，不静默推定时区。</p><p>已领取旧单不重置领取与48小时时效，继续填写前须明确补定检查要求。</p>';submit='confirm-convert'}
+    if(dialog.kind==='SUPPLEMENT'){title='补定本次检查要求';body=`<p>旧记录原无标准快照。本次明确取用当前有效要求，保留原领取人和领取时间，不伪称原开检时已固定。</p><label>补定原因<textarea class="mt-2 min-h-20 w-full rounded border p-2" data-sample-approval-field="supplementReason">${escapeHtml(dialog.reason)}</textarea></label>`;submit='confirm-supplement'}
+    if(dialog.kind==='APPROVAL'&&dialog.form){title='填写批版建议';body=`${gallery(photos(r),'PPIC实收样衣')}${standard(r,dialog.form)}<label>批版结论<select class="mt-1 h-10 w-full rounded border" data-sample-approval-field="conclusion"><option value="NO_PROBLEM" ${dialog.form.conclusion==='NO_PROBLEM'?'selected':''}>无问题</option><option value="HAS_PROBLEM" ${dialog.form.conclusion==='HAS_PROBLEM'?'selected':''}>有问题</option></select></label><p>有问题须勾选具体检查项并填写问题；不新增纸面签字要求。</p>${COMMENT_FIELDS.map(([key,label])=>`<label class="block">${label}（选填）<textarea class="mt-1 min-h-16 w-full rounded border p-2" data-sample-approval-field="${key}">${escapeHtml(dialog!.form![key])}</textarea></label>`).join('')}<label>补充批版资料照片（选填）<input type="file" accept="image/*" multiple data-sample-approval-action="select-approval-sheet-photos" data-assignment-id="${escapeHtml(r.assignmentId)}"></label>${gallery(dialog.form.approvalSheetPhotoUrls,'补充批版资料',true)}<label>实际提交人姓名<input class="mt-1 h-10 w-full rounded border px-3" data-sample-approval-field="approverName" value="${escapeHtml(dialog.form.approverName)}"></label><label class="flex gap-2"><input type="checkbox" data-sample-approval-field="approverConfirmed" ${dialog.form.approverConfirmed?'checked':''}>本人为领取人 ${escapeHtml(r.currentApproverName||'')}，已核对本次要求和样衣</label>`;submit='submit-approval'}
+    result=`<div data-sample-dialog class="fixed inset-0 z-50 overflow-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label="${title}"><section class="relative mx-auto my-3 w-full max-w-4xl rounded-lg bg-white shadow-xl"><header class="flex justify-between border-b p-5"><h2 class="text-xl font-semibold">${title}</h2>${action('close-dialog',r.assignmentId,'关闭')}</header><div class="space-y-4 p-5">${dialog.error?`<p role="alert" class="rounded bg-red-50 p-3 text-red-700">${escapeHtml(dialog.error)}</p>`:''}${body}</div><footer class="flex justify-end gap-3 border-t p-4">${action('close-dialog',r.assignmentId,'取消')}${submit?action(submit,r.assignmentId,saving?'保存中…':dialog.kind==='CONVERT'?'确认转换并保留历史':dialog.kind==='START'?'确认领取':dialog.kind==='RECEIVE'?'保存照片并确认接收':dialog.kind==='SUPPLEMENT'?'明确补定本次要求':'提交批版建议',true):''}</footer></section></div>`
+  }}
+  if(preview)result+=`<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" aria-label="图片大图"><button class="absolute inset-0" data-sample-approval-action="close-image" aria-label="关闭大图遮罩"></button><section class="relative max-h-[94vh] max-w-5xl overflow-auto rounded bg-white p-3"><header class="flex justify-between gap-3"><b>${escapeHtml(preview.label)}</b>${action('close-image','','关闭')}</header><img class="max-h-[82vh] max-w-full object-contain" src="${escapeHtml(preview.url)}" alt="${escapeHtml(preview.label)}高清图"></section></div>`
+  return result
 }
-
-export function closeSampleApprovalSuggestionDialog(): boolean {
-  if (!dialog) return false
-  dialog = null
-  refreshPage()
-  return true
+function content():string {
+  const all=listSewingSampleApprovalListEntries().filter(r=>(r.assignmentAliases || [{assignmentId:r.assignmentId}]).some(alias=>getEffectiveTaskAssignment(alias.assignmentId)?.status==='EFFECTIVE'))
+  const normalized=keyword.trim().toLowerCase(), filtered=all.filter(record=>matches(record)).filter(r=>!normalized||[r.sample.styleCode,r.sample.styleName,r.sample.productionOrderNo,r.sample.taskNo,r.sample.factoryName,r.sample.currentPpicName].some(value=>value.toLowerCase().includes(normalized)))
+  const totalPages=Math.max(1,Math.ceil(filtered.length/pageSize));activePage=Math.min(Math.max(1,activePage),totalPages);const from=(activePage-1)*pageSize
+  const rows=filtered.slice(from,from+pageSize).map(entry=>getSewingSampleApprovalRecord(entry.assignmentId)!)
+  return renderStandardListPage({title:'批版建议',feedbackHtml:feedback?`<p role="status" class="rounded border p-3">${escapeHtml(feedback)}</p>`:'',statusTabsHtml:renderTabs({tabs:(Object.keys(TABS) as Situation[]).map(key=>({key,label:TABS[key],count:all.filter(record=>matches(record,key)).length})),activeKey:active,variant:'pills',prefix:'sample-approval',action:'switch-tab',fullWidth:true}),filtersHtml:renderStandardListFilters({actionPrefix:'sample-approval',fieldsHtml:`<input class="h-10 w-full max-w-lg rounded border px-3" placeholder="SPU / PO / 任务 / 工厂 / PPIC" value="${escapeHtml(draftKeyword)}" data-sample-approval-filter="keyword">`}),listTitle:`${TABS[active]}的产前版样衣`,tableHtml:renderStandardListTable({columns,rows,preferences:{order:columns.filter(c=>!c.actionColumn).map(c=>c.key),visibleKeys:columns.map(c=>c.key),frozenKeys:['sample'],pageSize},sort:null,eventPrefix:'sample-approval',emptyText:'当前条件下暂无产前版样衣'}),paginationHtml:renderTablePagination({total:filtered.length,from:filtered.length?from+1:0,to:Math.min(from+pageSize,filtered.length),currentPage:activePage,totalPages,pageSize,actionPrefix:'sample-approval',fieldPrefix:'sample-approval',pageSizeOptions:[20,50]})})
 }
-
-function statusTone(status: string): string {
-  if (status === 'FEEDBACK_SENT') return 'bg-emerald-50 text-emerald-700'
-  if (status === 'SUGGESTION_UPLOADED') return 'bg-amber-50 text-amber-800'
-  if (status === 'APPROVAL_IN_PROGRESS' || status === 'HANDED_TO_APPROVER') return 'bg-blue-50 text-blue-700'
-  return 'bg-slate-100 text-slate-700'
+function refreshPage(dataChanged=false):void {const root=document.querySelector<HTMLElement>('[data-sample-approval-page]');if(!root)return;if(dataChanged)root.querySelector<HTMLElement>('[data-sample-content]')!.innerHTML=content();root.querySelector<HTMLElement>('[data-sample-overlays]')!.innerHTML=overlays()}
+let leaveGuardInstalled=false
+function installLeaveGuard():void {
+ if(leaveGuardInstalled || typeof window==='undefined')return
+ leaveGuardInstalled=true
+ const hasDraft=()=>!!dialog && ['RECEIVE','APPROVAL','START','SUPPLEMENT'].includes(dialog.kind)
+ window.addEventListener('beforeunload',event=>{if(!hasDraft())return;event.preventDefault();event.returnValue=''})
+ document.addEventListener('click',event=>{const anchor=(event.target as Element)?.closest?.('a[href]');if(!anchor||!hasDraft())return;if(saving || !window.confirm('本次照片或意见尚未保存，确认离开？')){event.preventDefault();event.stopImmediatePropagation()}else{dialog=null;preview=null}},true)
 }
-
-function renderImageButton(imageUrl: string, label: string, classes = 'h-20 w-16'): string {
-  return `<button type="button" class="relative ${classes} shrink-0 overflow-hidden rounded border bg-slate-50" data-sample-approval-action="preview-image" data-image-url="${escapeHtml(imageUrl)}" data-image-label="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}高清图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(label)}实拍图" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 px-2 text-center text-xs text-red-700">图片加载失败</span></button>`
-}
-
-function samplePhotos(record: SewingSampleApprovalRecord): string[] {
-  return record.sample.ppicReceivedSamplePhotoUrls.length
-    ? record.sample.ppicReceivedSamplePhotoUrls
-    : record.sample.samplePhotoUrls
-}
-
-function mergePhotoUrls(current: string[], incoming: string[]): string[] {
-  return [...new Set([...current, ...incoming].filter(Boolean))]
-}
-
-function renderSamplePhotoGallery(photos: string[], labelPrefix: string, classes = 'h-24 w-20'): string {
-  if (!photos.length) return '<div class="rounded border border-dashed p-4 text-center text-xs text-slate-500">暂无照片</div>'
-  return `<div class="flex flex-wrap gap-2">${photos.map((photo, index) => renderImageButton(photo, `${labelPrefix}${index + 1}`, classes)).join('')}</div>`
-}
-
-function renderEditablePhotoGallery(input: {
-  photos: string[]
-  assignmentId: string
-  labelPrefix: string
-  removeAction: 'remove-received-photo' | 'remove-approval-sheet-photo'
-  emptyText: string
-}): string {
-  if (!input.photos.length) {
-    return `<div class="rounded border border-dashed p-4 text-center text-xs text-slate-500">${escapeHtml(input.emptyText)}</div>`
-  }
-  return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">${input.photos.map((photo, index) => `<div class="rounded border bg-slate-50 p-2"><div class="flex justify-center">${renderImageButton(photo, `${input.labelPrefix}${index + 1}`, 'h-28 w-full')}</div><button type="button" class="mt-2 w-full rounded border border-red-200 bg-white px-2 py-1 text-xs text-red-700" data-sample-approval-action="${input.removeAction}" data-assignment-id="${escapeHtml(input.assignmentId)}" data-photo-index="${index}">删除第${index + 1}张</button></div>`).join('')}</div>`
-}
-
-function readApprovalFormFromDom(fallback: ApprovalFormState): ApprovalFormState {
-  const read = (name: string) => document.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-sample-approval-field="${name}"]`)?.value.trim()
-  return {
-    approverName: read('approverName') ?? fallback.approverName,
-    approverConfirmed: document.querySelector<HTMLInputElement>('[data-sample-approval-field="approverConfirmed"]')?.checked ?? fallback.approverConfirmed,
-    conclusion: read('conclusion') === 'HAS_PROBLEM' ? 'HAS_PROBLEM' : 'NO_PROBLEM',
-    fabricApprovalComment: read('fabricApprovalComment') ?? fallback.fabricApprovalComment,
-    processComment: read('processComment') ?? fallback.processComment,
-    materialUsageComment: read('materialUsageComment') ?? fallback.materialUsageComment,
-    otherComment: read('otherComment') ?? fallback.otherComment,
-    approvalSheetPhotoUrls: fallback.approvalSheetPhotoUrls,
-    requiresAnotherApproval: document.querySelector<HTMLInputElement>('[data-sample-approval-field="requiresAnotherApproval"]')?.checked ?? fallback.requiresAnotherApproval,
-  }
-}
-
-function renderStructuredCommentRows(comments: SampleApprovalStructuredComments): string {
-  return STRUCTURED_COMMENT_FIELDS.map((field) => `<section class="grid gap-2 border-t px-4 py-3 sm:grid-cols-[180px_1fr]"><div><b class="text-sm">${field.label}</b><p class="text-[11px] text-slate-500">${field.offlineLabel}</p></div><p class="whitespace-pre-wrap text-sm ${comments[field.key] ? 'text-slate-800' : 'text-slate-400'}">${escapeHtml(comments[field.key] || '无')}</p></section>`).join('')
-}
-
-function renderStructuredCommentInputs(form: ApprovalFormState): string {
-  return STRUCTURED_COMMENT_FIELDS.map((field) => `<label class="block rounded border p-3 text-sm"><span class="font-semibold">${field.label}</span><span class="ml-2 text-xs text-slate-500">${field.offlineLabel}</span><textarea class="mt-2 min-h-20 w-full rounded border p-3" data-sample-approval-field="${field.key}" placeholder="${escapeHtml(field.placeholder)}">${escapeHtml(form[field.key])}</textarea></label>`).join('')
-}
-
-async function readFilesAsDataUrls(files: File[]): Promise<string[]> {
-  return Promise.all(files.map((file) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.addEventListener('load', () => resolve(String(reader.result || '')))
-    reader.addEventListener('error', () => reject(new Error(`无法读取照片：${file.name}`)))
-    reader.readAsDataURL(file)
-  })))
-}
-
-function renderRowAction(record: SewingSampleApprovalRecord): string {
-  const status = record.sample.status
-  const assignmentId = escapeHtml(record.assignmentId)
-  const actions = [`<button class="text-blue-700" data-sample-approval-action="show-card" data-assignment-id="${assignmentId}">${record.suggestionVersions.length ? '查看批版建议卡' : '查看样衣与依据'}</button>`]
-  if (status === 'WAITING_RETURN_TO_PPIC') {
-    actions.push(`<button class="font-semibold text-blue-700" data-sample-approval-action="receive-sample" data-assignment-id="${assignmentId}">上传样衣照片</button>`)
-  }
-  if (status === 'PPIC_RECEIVED') {
-    actions.push(`<button class="text-blue-700" data-sample-approval-action="handoff-approver" data-assignment-id="${assignmentId}">转交批版人员</button>`)
-  }
-  if (status === 'SUGGESTION_UPLOADED') {
-    actions.push(`<button class="font-semibold text-emerald-700" data-sample-approval-action="feedback-factory" data-assignment-id="${assignmentId}">记录已截图反馈</button>`)
-  }
-  if (status === 'HANDED_TO_APPROVER') {
-    actions.push(`<button class="text-blue-700" data-sample-approval-action="start-approval" data-assignment-id="${assignmentId}">领取批版</button>`)
-  }
-  if (status === 'APPROVAL_IN_PROGRESS') {
-    actions.push(`<button class="font-semibold text-blue-700" data-sample-approval-action="open-approval" data-assignment-id="${assignmentId}">填写批版建议</button>`)
-  }
-  return actions.join('<span class="text-slate-300">·</span>')
-}
-
-const columns: StandardListColumn<SewingSampleApprovalRecord>[] = [
-  {
-    key: 'sample',
-    title: '款式／产前版样衣',
-    width: 300,
-    required: true,
-    freezeable: true,
-    render: (record) => {
-      const photos = samplePhotos(record)
-      const visiblePhotos = photos.length ? photos.slice(0, 3) : [record.sample.styleImageUrl]
-      return `<div class="flex gap-3"><div class="flex -space-x-3">${visiblePhotos.map((photo, index) => renderImageButton(photo, `${record.sample.styleCode}产前版样衣照片${index + 1}`, 'h-20 w-16')).join('')}</div><div><b>${escapeHtml(record.sample.styleCode)}</b><p class="mt-1 text-xs text-slate-500">${escapeHtml(record.sample.styleName)}</p><p class="mt-1 text-xs">实物：${escapeHtml(record.sample.sampleNo)} · 第${record.sample.roundNo}轮</p><p class="mt-1 text-xs text-blue-700">PPIC实物照片：${record.sample.ppicReceivedSamplePhotoUrls.length}张</p></div></div>`
-    },
-  },
-  {
-    key: 'approvalTiming', title: '批版时效', width: 205,
-    render: (record) => {
-      const timing = getSampleApprovalTiming(record)
-      return timing.startedAt ? `<p class="text-xs">实物接收：${escapeHtml(timing.startedAt)}</p><p class="text-xs">48小时截止：${escapeHtml(timing.deadlineAt)}</p><p class="text-xs ${timing.overdue ? 'text-red-700' : 'text-slate-500'}">${timing.completedAt ? `建议上传：${escapeHtml(timing.completedAt)}` : timing.overdue ? '已超时，请跟进批版人员' : '待上传建议'}</p>` : '<span class="text-xs text-slate-500">待批版人员接收实物后计时</span>'
-    },
-  },
-  {
-    key: 'task',
-    title: '执行任务',
-    width: 240,
-    required: true,
-    render: (record) => `<b>${escapeHtml(record.sample.taskNo)}</b><p class="mt-1 text-xs text-slate-500">${escapeHtml(record.sample.productionOrderNo)}</p><p class="mt-1 font-mono text-[11px] text-slate-500">${escapeHtml(record.sample.runtimeTaskId)}</p>`,
-  },
-  {
-    key: 'factory',
-    title: '工厂／PPIC',
-    width: 210,
-    required: true,
-    render: (record) => `<b>${escapeHtml(record.sample.factoryName)}</b><p class="mt-1 text-xs font-semibold text-blue-700">PPIC：${escapeHtml(record.sample.currentPpicName)}</p>`,
-  },
-  {
-    key: 'kind',
-    title: '任务类型',
-    width: 170,
-    render: (record) => escapeHtml(TASK_KIND_LABELS[record.sample.taskKind] || record.sample.taskKind),
-  },
-  {
-    key: 'status',
-    title: '当前节点',
-    width: 180,
-    required: true,
-    render: (record) => `<span class="rounded px-2 py-1 text-xs ${statusTone(record.sample.status)}">${escapeHtml(STATUS_LABELS[record.sample.status] || record.sample.status)}</span>`,
-  },
-  {
-    key: 'suggestion',
-    title: '最新批版建议／人员',
-    width: 320,
-    render: (record) => {
-      const suggestion = record.suggestionVersions.at(-1)
-      const summary = suggestion ? summarizeSampleApprovalStructuredComments(suggestion.structuredComments) : ''
-      return suggestion
-        ? `<b class="${suggestion.conclusion === 'NO_PROBLEM' ? 'text-emerald-700' : 'text-amber-800'}">${suggestion.conclusion === 'NO_PROBLEM' ? '无问题' : '有问题'}</b><p class="mt-1 max-w-xs text-xs text-slate-600">${escapeHtml(summary || '按当前产前版样衣和生产资料生产大货')}</p><p class="mt-1 text-[11px] text-slate-500">${escapeHtml(suggestion.uploadedByName)} · ${escapeHtml(suggestion.uploadedAt)}</p>`
-        : '<span class="text-slate-400">尚未上传</span>'
-    },
-  },
-  {
-    key: 'actions',
-    title: '操作',
-    width: 260,
-    required: true,
-    actionColumn: true,
-    render: (record) => `<div class="flex flex-wrap justify-end gap-2">${renderRowAction(record)}</div>`,
-  },
-]
-
-const preferences: StandardListColumnPreferences = {
-  order: columns.filter((column) => !column.actionColumn).map((column) => column.key),
-  visibleKeys: columns.map((column) => column.key),
-  frozenKeys: ['sample'],
-  pageSize: 20,
-}
-
-function renderSuggestionCard(record: SewingSampleApprovalRecord): string {
-  const suggestion = record.suggestionVersions.at(-1)
-  const photos = samplePhotos(record)
-  const visibleSamplePhotos = photos.length ? photos : [record.sample.styleImageUrl]
-  const references = (suggestion?.referenceSnapshots || record.referenceSnapshots).slice(0, 6)
-  return `<article class="w-full max-w-5xl overflow-hidden rounded-xl border-2 border-slate-800 bg-white text-slate-900" data-sample-approval-screenshot-card>
-    <header class="flex flex-wrap items-start justify-between gap-4 bg-slate-900 p-5 text-white"><div><p class="text-xs text-slate-300">车缝外发协同 · 可截图反馈工厂</p><h2 class="mt-1 text-2xl font-semibold">批版建议</h2></div><div class="text-right text-sm"><p>${escapeHtml(record.sample.productionOrderNo)}</p><p class="mt-1">${escapeHtml(record.sample.taskNo)}</p></div></header>
-    <div class="grid gap-5 p-5 lg:grid-cols-[280px_1fr]">
-      <section><p class="mb-2 text-xs font-semibold text-slate-600">产前版样衣照片（${visibleSamplePhotos.length}张）</p>${renderSamplePhotoGallery(visibleSamplePhotos, `${record.sample.styleCode}产前版样衣照片`, 'h-36 w-[126px]')}</section>
-      <div class="space-y-4">
-        <div class="grid gap-2 text-sm sm:grid-cols-2"><p><span class="text-slate-500">SPU：</span><b>${escapeHtml(record.sample.styleCode)}</b> · ${escapeHtml(record.sample.styleName)}</p><p><span class="text-slate-500">PO：</span>${escapeHtml(record.sample.productionOrderNo)}</p><p><span class="text-slate-500">三方车缝工厂：</span>${escapeHtml(record.sample.factoryName)}</p><p><span class="text-slate-500">任务PPIC：</span>${escapeHtml(record.sample.currentPpicName)}</p><p><span class="text-slate-500">任务类型：</span>${escapeHtml(TASK_KIND_LABELS[record.sample.taskKind] || record.sample.taskKind)}</p><p><span class="text-slate-500">批版人员／日期：</span>${suggestion ? `${escapeHtml(suggestion.uploadedByName)} · ${escapeHtml(suggestion.uploadedAt)}` : '待批版'}</p></div>
-        ${suggestion ? `<section class="overflow-hidden rounded-lg border"><div class="flex items-center justify-between gap-3 px-4 py-3 ${suggestion.conclusion === 'NO_PROBLEM' ? 'bg-emerald-50' : 'bg-amber-50'}"><div><p class="text-xs text-slate-500">批版结论</p><b class="text-xl ${suggestion.conclusion === 'NO_PROBLEM' ? 'text-emerald-700' : 'text-amber-800'}">${suggestion.conclusion === 'NO_PROBLEM' ? '无问题' : '有问题'}</b></div><span class="text-xs text-slate-500">${escapeHtml(suggestion.suggestionNo)}</span></div>${renderStructuredCommentRows(suggestion.structuredComments)}</section>${suggestion.requiresAnotherApproval ? '<p class="rounded bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">批版人员明确要求下一轮再次批版</p>' : ''}` : '<section class="rounded-lg border border-dashed p-5 text-sm text-slate-500">批版建议尚未上传。当前先核对产前版样衣交接和引用资料。</section>'}
-      </div>
-    </div>
-    ${suggestion?.approvalSheetPhotoUrls.length ? `<section class="border-t p-5"><p class="mb-2 text-xs font-semibold text-slate-600">线下批版单照片（${suggestion.approvalSheetPhotoUrls.length}张）</p>${renderSamplePhotoGallery(suggestion.approvalSheetPhotoUrls, '线下批版单照片', 'h-40 w-32')}</section>` : ''}
-    <footer class="border-t bg-slate-50 p-4"><p class="mb-2 text-xs font-semibold text-slate-600">本次批版核对依据</p><div class="flex flex-wrap gap-2">${references.map((item) => `<span class="rounded border bg-white px-2 py-1 text-xs">${escapeHtml(item.label)} · ${escapeHtml(item.versionLabel)}</span>`).join('') || '<span class="text-xs text-red-700">引用资料待补齐</span>'}</div></footer>
-  </article>`
-}
-
-function renderDialog(): string {
-  if (!dialog) return ''
-  if (dialog.kind === 'IMAGE') {
-    return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4" role="dialog" aria-modal="true" aria-label="${escapeHtml(dialog.label)}高清大图"><button class="absolute inset-0" data-sample-approval-action="close-dialog" aria-label="关闭大图"></button><section class="relative z-10 max-h-[92vh] max-w-5xl overflow-auto rounded-lg bg-white p-3"><header class="mb-3 flex items-center justify-between gap-3"><b>${escapeHtml(dialog.label)}</b><button class="rounded border px-3 py-1 text-sm" data-sample-approval-action="close-dialog">关闭</button></header><img class="max-h-[78vh] max-w-full object-contain" src="${escapeHtml(dialog.imageUrl)}" alt="${escapeHtml(dialog.label)}高清实拍图"></section></div>`
-  }
-  const record = getSewingSampleApprovalRecord(dialog.assignmentId)
-  if (!record) return ''
-  if (dialog.kind === 'RECEIVE') {
-    const factoryPhoto = record.sample.samplePhotoUrls[0] || record.sample.styleImageUrl
-    return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="上传产前版样衣照片"><button class="absolute inset-0" data-sample-approval-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 max-h-[92vh] w-full max-w-3xl overflow-auto rounded-lg bg-white shadow-2xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">上传产前版样衣照片</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(record.sample.factoryName)} · ${escapeHtml(record.sample.taskNo)}</p></header><div class="space-y-4 p-5">${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}<div class="flex gap-3 rounded border p-3">${renderImageButton(factoryPhoto, `${record.sample.styleCode}工厂提交照片`, 'h-24 w-20')}<div class="text-sm"><b>${escapeHtml(record.sample.styleCode)} · ${escapeHtml(record.sample.styleName)}</b><p class="mt-1 text-slate-500">PPIC拍摄实际收到的产前版样衣，可一次选择多张，也可分次继续添加。</p></div></div><label class="block rounded border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-800">选择多张产前版样衣照片<input class="mt-2 block w-full rounded border bg-white p-2 font-normal text-slate-700" type="file" accept="image/*" multiple data-sample-approval-field="receivedSamplePhotos" data-sample-approval-action="select-received-photos" data-assignment-id="${escapeHtml(record.assignmentId)}"></label><div><p class="mb-2 text-sm font-semibold">已选择 ${dialog.receivedSamplePhotoUrls.length} 张</p>${renderEditablePhotoGallery({ photos: dialog.receivedSamplePhotoUrls, assignmentId: record.assignmentId, labelPrefix: '待上传产前版样衣照片', removeAction: 'remove-received-photo', emptyText: '尚未选择照片；至少上传1张后才能确认接收' })}</div></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-sample-approval-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white" data-sample-approval-action="submit-receive" data-assignment-id="${escapeHtml(record.assignmentId)}">上传${dialog.receivedSamplePhotoUrls.length ? `${dialog.receivedSamplePhotoUrls.length}张并` : '并'}确认接收</button></footer></section></div>`
-  }
-  if (dialog.kind === 'CARD') {
-    return `<div class="fixed inset-0 z-50 overflow-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label="批版建议截图卡"><button class="fixed inset-0" data-sample-approval-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 mx-auto my-4 w-fit max-w-full"><div class="mb-3 flex justify-end"><button class="rounded bg-white px-4 py-2 text-sm" data-sample-approval-action="close-dialog">关闭</button></div>${renderSuggestionCard(record)}</section></div>`
-  }
-  if (dialog.kind === 'START') {
-    return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="领取批版"><section class="relative z-10 w-full max-w-lg rounded-lg bg-white shadow-2xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">领取批版</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(record.sample.taskNo)} · ${escapeHtml(record.sample.sampleNo)}</p></header><div class="space-y-4 p-5">${dialog.error ? `<p role="alert" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</p>` : ''}<p class="text-sm">确认实物已由 PPIC 转交，本次领取后开始记录批版时效。</p><label class="block text-sm">实际领取批版人员姓名<input class="mt-1 h-10 w-full rounded border px-3" value="${escapeHtml(dialog.approverName)}" data-sample-approval-field="startApproverName" autocomplete="name" required></label><label class="flex items-start gap-2 text-sm"><input class="mt-1" type="checkbox" data-sample-approval-field="startConfirmed" ${dialog.confirmed ? 'checked' : ''}><span>本人已接收本件产前版样衣，确认承担本轮批版并按领取责任提交建议</span></label></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-sample-approval-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white" data-sample-approval-action="confirm-start-approval" data-assignment-id="${escapeHtml(record.assignmentId)}">确认接收并领取批版</button></footer></section></div>`
-  }
-  const form = dialog.form
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="填写批版建议"><button class="absolute inset-0" data-sample-approval-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 max-h-[94vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-2xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">填写批版建议</h2><p class="mt-1 text-xs text-slate-500">字段与线下批版单一致；实物仍叫“产前版样衣”，本次业务动作和系统记录叫“批版建议”。</p></header><div class="space-y-4 p-5">${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}<section class="grid gap-3 rounded border bg-slate-50 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"><p><span class="text-slate-500">SPU：</span><b>${escapeHtml(record.sample.styleCode)}</b></p><p><span class="text-slate-500">PO：</span><b>${escapeHtml(record.sample.productionOrderNo)}</b></p><p><span class="text-slate-500">三方车缝工厂：</span><b>${escapeHtml(record.sample.factoryName)}</b></p><p><span class="text-slate-500">产前版样衣照片：</span>${samplePhotos(record).length}张</p><p><span class="text-slate-500">批版人员：</span><b>${escapeHtml(record.currentApproverName || '当前领取人')}</b></p><p><span class="text-slate-500">批版日期：</span>提交时自动记录</p></section><label class="block text-sm">实际提交人姓名<input class="mt-1 h-10 w-full rounded border px-3" value="${escapeHtml(form.approverName)}" data-sample-approval-field="approverName" autocomplete="name" required><span class="mt-1 block text-xs text-slate-500">须由本轮领取人 ${escapeHtml(record.currentApproverName || '待核对')} 提交</span></label><label class="flex items-start gap-2 text-sm"><input class="mt-1" type="checkbox" data-sample-approval-field="approverConfirmed" ${form.approverConfirmed ? 'checked' : ''}><span>本人为本轮批版领取人，已核对样衣与引用资料，确认提交本次建议</span></label><label class="block text-sm font-semibold">批版结论<select class="mt-1 h-10 w-full rounded border px-3 font-normal" data-sample-approval-field="conclusion"><option value="NO_PROBLEM"${form.conclusion === 'NO_PROBLEM' ? ' selected' : ''}>无问题</option><option value="HAS_PROBLEM"${form.conclusion === 'HAS_PROBLEM' ? ' selected' : ''}>有问题</option></select><span class="mt-1 block text-xs font-normal text-slate-500">选择“有问题”时，下面四类意见至少填写一项。</span></label><section class="space-y-3"><h3 class="text-sm font-semibold">结构化批版意见</h3>${renderStructuredCommentInputs(form)}</section><section class="space-y-3 rounded border p-4"><div><h3 class="text-sm font-semibold">线下批版单照片</h3><p class="mt-1 text-xs text-slate-500">用于保留现场手写单据、签名与日期佐证；可一次选择多张，也可分次添加。</p></div><input class="block w-full rounded border p-2 text-sm" type="file" accept="image/*" multiple data-sample-approval-field="approvalSheetPhotos" data-sample-approval-action="select-approval-sheet-photos" data-assignment-id="${escapeHtml(record.assignmentId)}">${renderEditablePhotoGallery({ photos: form.approvalSheetPhotoUrls, assignmentId: record.assignmentId, labelPrefix: '线下批版单照片', removeAction: 'remove-approval-sheet-photo', emptyText: '暂未上传线下批版单照片（结构化意见仍会作为正式系统记录）' })}</section><label class="flex items-start gap-2 rounded border p-3 text-sm"><input class="mt-1" type="checkbox" data-sample-approval-field="requiresAnotherApproval"${form.requiresAnotherApproval ? ' checked' : ''}><span>明确要求工厂再做一件并进入下一轮批版（不能仅因“有问题”自动勾选）</span></label></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-sample-approval-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white" data-sample-approval-action="submit-approval" data-assignment-id="${escapeHtml(record.assignmentId)}">提交批版建议</button></footer></section></div>`
-}
-
-export function renderSampleApprovalSuggestionsPage(): string {
-  ensureSewingOutsourcingSampleDemo()
-  const allRecords = listSewingSampleApprovalRecords().filter((item) => getEffectiveTaskAssignment(item.assignmentId)?.status === 'EFFECTIVE')
-  const normalizedKeyword = keyword.trim().toLowerCase()
-  const filteredRecords = allRecords
-    .filter((item) => matchesSituation(item, activeSituation))
-    .filter((item) => !normalizedKeyword || [
-      item.sample.styleCode,
-      item.sample.styleName,
-      item.sample.productionOrderNo,
-      item.sample.taskNo,
-      item.sample.factoryName,
-      item.sample.currentPpicName,
-    ].some((value) => value.toLowerCase().includes(normalizedKeyword)))
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize))
-  activePage = Math.min(Math.max(1, activePage), totalPages)
-  const start = (activePage - 1) * pageSize
-  const records = filteredRecords.slice(start, start + pageSize)
-  return `<div data-sample-approval-page data-skip-page-rerender="true">${renderStandardListPage({
-    title: '批版建议',
-    feedbackHtml: feedback ? `<p role="status" class="rounded border bg-white p-3 text-sm">${escapeHtml(feedback)}</p>` : '',
-    statusTabsHtml: renderUiTabs({
-      tabs: (Object.keys(SITUATION_LABELS) as SampleSituation[]).map((situation) => ({ key: situation, label: SITUATION_LABELS[situation], count: allRecords.filter((item) => matchesSituation(item, situation)).length })),
-      activeKey: activeSituation,
-      variant: 'pills',
-      prefix: 'sample-approval',
-      action: 'switch-tab',
-      fullWidth: true,
-    }),
-    filtersHtml: renderStandardListFilters({
-      actionPrefix: 'sample-approval',
-      fieldsHtml: `<input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="SPU / PO / 执行任务 / 工厂 / PPIC" value="${escapeHtml(draftKeyword)}" data-sample-approval-filter="keyword">`,
-    }),
-    listTitle: `${SITUATION_LABELS[activeSituation]}的产前版样衣`,
-    tableHtml: renderStandardListTable({ columns, rows: records, preferences: { ...preferences, pageSize }, sort: null, eventPrefix: 'sample-approval', emptyText: '当前状态下没有待处理的产前版样衣' }),
-    paginationHtml: renderTablePagination({ total: filteredRecords.length, from: filteredRecords.length ? start + 1 : 0, to: Math.min(start + pageSize, filteredRecords.length), currentPage: activePage, totalPages, pageSize, actionPrefix: 'sample-approval', fieldPrefix: 'sample-approval', pageSizeOptions: [20, 50] }),
-    overlaysHtml: renderDialog(),
-  })}</div>`
-}
-
-function ppicActorFor(record: SewingSampleApprovalRecord) {
-  return { actorId: record.sample.currentPpicId, actorName: record.sample.currentPpicName, role: 'PPIC' as const }
-}
-
-function approvingActorFor(record: SewingSampleApprovalRecord, form: ApprovalFormState) {
-  if (!form.approverName.trim()) throw new Error('请填写实际提交人姓名')
-  if (!record.currentApproverId || !record.currentApproverName) throw new Error('请先由实际批版人员领取本轮样衣')
-  if (form.approverName.trim() !== record.currentApproverName.trim()) throw new Error('本轮批版须由原领取人提交，不能变更已有批版责任')
-  if (!form.approverConfirmed) throw new Error('请由原领取人核对样衣与引用资料后勾选确认')
-  return { actorId: record.currentApproverId, actorName: record.currentApproverName, role: 'SAMPLE_APPROVER' as const }
-}
-
-export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, event?: Event): Promise<boolean> {
-  const listFilter = target.closest<HTMLInputElement>('[data-sample-approval-filter="keyword"]')
-  if (listFilter && !dialog) {
-    draftKeyword = listFilter.value
-    return true
-  }
-  const pageSizeField = target.closest<HTMLSelectElement>('[data-sample-approval-field="pageSize"]')
-  if (pageSizeField && !dialog) {
-    pageSize = Number(pageSizeField.value) || 20
-    activePage = 1
-    refreshPage()
-    return true
-  }
-  const node = target.closest<HTMLElement>('[data-sample-approval-action]')
-  const action = node?.dataset.sampleApprovalAction
-  if (!node || !action) return false
-  if (
-    (action === 'select-received-photos' || action === 'select-approval-sheet-photos')
-    && event?.type !== 'change'
-  ) return false
-  if (action.startsWith('switch-tab:')) {
-    activeSituation = action.slice('switch-tab:'.length) as SampleSituation
-    activePage = 1
-    feedback = ''
-    refreshPage()
-    return true
-  }
-  if (action === 'query') {
-    keyword = draftKeyword
-    activePage = 1
-    feedback = ''
-    refreshPage()
-    return true
-  }
-  if (action === 'reset') {
-    keyword = ''
-    draftKeyword = ''
-    activePage = 1
-    feedback = ''
-    refreshPage()
-    return true
-  }
-  if (action === 'preview-image') {
-    dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '图片' }
-    refreshPage()
-    return true
-  }
-  if (action === 'close-dialog') {
-    dialog = null
-    refreshPage()
-    return true
-  }
-  if (action === 'prev-page') {
-    activePage = Math.max(1, activePage - 1)
-    refreshPage()
-    return true
-  }
-  if (action === 'next-page') {
-    activePage += 1
-    refreshPage()
-    return true
-  }
-  const assignmentId = node.dataset.assignmentId || ''
-  const record = getSewingSampleApprovalRecord(assignmentId)
-  if (!record) return false
-  if (action === 'show-card') {
-    dialog = { kind: 'CARD', assignmentId }
-    refreshPage()
-    return true
-  }
-  try {
-    const actor = ppicActorFor(record)
-    const now = formatOperationLocalWallClock()
-    if (action === 'receive-sample') {
-      dialog = { kind: 'RECEIVE', assignmentId, error: '', receivedSamplePhotoUrls: [] }
-    } else if (action === 'select-received-photos' && dialog?.kind === 'RECEIVE') {
-      const files = [...((node as HTMLInputElement).files || [])]
-      const selectedPhotoUrls = await readFilesAsDataUrls(files)
-      dialog = {
-        ...dialog,
-        error: '',
-        receivedSamplePhotoUrls: mergePhotoUrls(dialog.receivedSamplePhotoUrls, selectedPhotoUrls),
-      }
-    } else if (action === 'remove-received-photo' && dialog?.kind === 'RECEIVE') {
-      const photoIndex = Number(node.dataset.photoIndex)
-      dialog = {
-        ...dialog,
-        error: '',
-        receivedSamplePhotoUrls: dialog.receivedSamplePhotoUrls.filter((_, index) => index !== photoIndex),
-      }
-    } else if (action === 'submit-receive' && dialog?.kind === 'RECEIVE') {
-      event?.preventDefault()
-      const receivedSamplePhotoUrls = dialog.receivedSamplePhotoUrls
-      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,receivedSamplePhotoUrls,}),()=>receivePreProductionSampleByPpic({ commandId: nextCommandId('RECEIVE'), assignmentId, actor, receivedSamplePhotoUrls, receivedAt: now }))
-      feedback = `已上传${receivedSamplePhotoUrls.length}张产前版样衣实物照片并确认接收。`
-      dialog = null
-    } else if (action === 'handoff-approver') {
-      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,}),()=>handoffPreProductionSampleToApprover({ commandId: nextCommandId('HANDOFF'), assignmentId, actor, approverTeamName: '大货批版组', handedAt: now }))
-      feedback = '已记录样衣转交批版人员。'
-    } else if (action === 'start-approval') {
-      dialog = { kind: 'START', assignmentId, commandId: nextCommandId('START'), error: '', approverName: '', confirmed: false }
-    } else if (action === 'confirm-start-approval' && dialog?.kind === 'START') {
-      const approverName = document.querySelector<HTMLInputElement>('[data-sample-approval-field="startApproverName"]')?.value.trim() || ''
-      const confirmed = !!document.querySelector<HTMLInputElement>('[data-sample-approval-field="startConfirmed"]')?.checked
-      dialog = { ...dialog, approverName, confirmed }
-      if (!approverName) throw new Error('请填写实际领取批版人员姓名')
-      if (!confirmed) throw new Error('请由实际领取人接收样衣后勾选责任确认')
-      const commandId = dialog.commandId
-      const approver = { actorId: `SAMPLE-APPROVER:${commandId}`, actorName: approverName, role: 'SAMPLE_APPROVER' as const }
-      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor:approver}),()=>startSampleApproval({ commandId, assignmentId, actor: approver, receivedAt: now }))
-      feedback = `已由 ${approverName} 接收并领取本轮批版。`
-      dialog = null
-    } else if (action === 'open-approval') {
-      dialog = {
-        kind: 'APPROVAL',
-        assignmentId,
-        error: '',
-        form: {
-          conclusion: 'NO_PROBLEM',
-          fabricApprovalComment: '',
-          processComment: '',
-          materialUsageComment: '',
-          otherComment: '',
-          approvalSheetPhotoUrls: [],
-          requiresAnotherApproval: false,
-          approverName: '',
-          approverConfirmed: false,
-        },
-      }
-    } else if (action === 'select-approval-sheet-photos' && dialog?.kind === 'APPROVAL') {
-      const currentForm = readApprovalFormFromDom(dialog.form)
-      const files = [...((node as HTMLInputElement).files || [])]
-      const selectedPhotoUrls = await readFilesAsDataUrls(files)
-      dialog = {
-        ...dialog,
-        error: '',
-        form: {
-          ...currentForm,
-          approvalSheetPhotoUrls: mergePhotoUrls(currentForm.approvalSheetPhotoUrls, selectedPhotoUrls),
-        },
-      }
-    } else if (action === 'remove-approval-sheet-photo' && dialog?.kind === 'APPROVAL') {
-      const currentForm = readApprovalFormFromDom(dialog.form)
-      const photoIndex = Number(node.dataset.photoIndex)
-      dialog = {
-        ...dialog,
-        error: '',
-        form: {
-          ...currentForm,
-          approvalSheetPhotoUrls: currentForm.approvalSheetPhotoUrls.filter((_, index) => index !== photoIndex),
-        },
-      }
-    } else if (action === 'feedback-factory') {
-      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,}),()=>recordSampleApprovalFeedbackToFactory({ commandId: nextCommandId('FEEDBACK'), assignmentId, actor, feedbackAt: now, feedbackNote: '已从系统截取批版建议卡并反馈给承接工厂生产负责人。' }))
-      feedback = '已记录PPIC截图反馈工厂的时间和责任人。'
-    } else if (action === 'submit-approval' && dialog?.kind === 'APPROVAL') {
-      event?.preventDefault()
-      const form = readApprovalFormFromDom(dialog.form)
-      dialog = { ...dialog, form }
-      const approver = approvingActorFor(record, form)
-      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor:approver,form}),()=>submitSampleApprovalSuggestion({
-        commandId: nextCommandId('SUBMIT'),
-        assignmentId,
-        actor: approver,
-        conclusion: form.conclusion,
-        structuredComments: {
-          fabricApprovalComment: form.fabricApprovalComment,
-          processComment: form.processComment,
-          materialUsageComment: form.materialUsageComment,
-          otherComment: form.otherComment,
-        },
-        approvalSheetPhotoUrls: form.approvalSheetPhotoUrls,
-        requiresAnotherApproval: form.requiresAnotherApproval,
-        uploadedAt: now,
-      }))
-      feedback = '批版建议已形成新版本，等待PPIC截图反馈工厂。'
-      dialog = null
-    } else {
-      return false
+export function renderSampleApprovalSuggestionsPage():string {installLeaveGuard();ensureSewingOutsourcingSampleDemo();return `<div data-sample-approval-page data-skip-page-rerender="true"><div data-sample-content>${content()}</div><div data-sample-overlays>${overlays()}</div></div>`}
+export function isSampleApprovalSuggestionDialogOpen():boolean{return !!(dialog||preview)}
+export function closeSampleApprovalSuggestionDialog():boolean{if(saving)return true;if(preview){preview=null;refreshPage();return true}if(!dialog)return false;if((dialog.kind==='APPROVAL'||dialog.kind==='RECEIVE')&&!window.confirm('尚未保存的照片或意见将不会保留，确认离开？'))return true;dialog=null;refreshPage();return true}
+async function filesToUrls(files:File[]):Promise<string[]>{if(files.length>20||files.some(file=>!file.type.startsWith('image/')||file.size>10*1024*1024))throw new Error('请选择图片，每张不超过10MB，每次不超过20张');return Promise.all(files.map(file=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error(`无法读取照片：${file.name}`));reader.readAsDataURL(file)})))}
+async function snapshotFor(record:SewingSampleApprovalRecord){const bound=getProductionOrderTechPackSnapshot(record.sample.productionOrderId);return readInspectionSnapshot({sourceKind:'PRE_PRODUCTION_SAMPLE',stage:'PRE_PRODUCTION_SAMPLE_APPROVAL',objectType:'GARMENT',...resolveQualityStyleContext({styleId:bound?.styleId,styleCode:record.sample.styleCode})})}
+export async function handleSampleApprovalSuggestionsEvent(target:HTMLElement,event?:Event):Promise<boolean>{
+  const filter=target.closest<HTMLInputElement>('[data-sample-approval-filter="keyword"]');if(filter){draftKeyword=filter.value;return true}
+  const size=target.closest<HTMLSelectElement>('[data-sample-approval-field="pageSize"]');if(size){pageSize=Number(size.value)||20;activePage=1;refreshPage(true);return true}
+  const node=target.closest<HTMLElement>('[data-sample-approval-action]'),name=node?.dataset.sampleApprovalAction;if(!node||!name)return false
+  if(name.startsWith('select-')&&event?.type!=='change')return true
+  if(name==='preview-image'){if(dialog?.kind==='APPROVAL'&&dialog.form)dialog.form=readForm(dialog.form);preview={url:node.dataset.imageUrl||'',label:node.dataset.imageLabel||'图片'};refreshPage();return true}
+  if(name==='close-image'){preview=null;refreshPage();return true}
+  if(name==='close-dialog'){closeSampleApprovalSuggestionDialog();return true}
+  if(name.startsWith('switch-tab:')){active=name.slice(11) as Situation;activePage=1;refreshPage(true);return true}
+  if(name==='query'||name==='reset'){keyword=name==='reset'?'':draftKeyword;if(name==='reset')draftKeyword='';activePage=1;refreshPage(true);return true}
+  if(name==='prev-page'||name==='next-page'){activePage+=name==='prev-page'?-1:1;refreshPage(true);return true}
+  if(saving)return true
+  const id=node.dataset.assignmentId||'',record=getSewingSampleApprovalRecord(id);if(!record)return false
+  const ppic={actorId:record.sample.currentPpicId,actorName:record.sample.currentPpicName,role:'PPIC' as const}
+  const open=(kind:NonNullable<Dialog>['kind'])=>{dialog={kind,assignmentId:id,commandId:command(kind),error:'',photos:[],name:'',confirmed:false,reason:'旧记录原无标准快照，本次明确补定当前有效检查要求'}}
+  let changed=false
+  try{
+    if(name==='show-card')open('CARD')
+    else if(name==='receive-sample')open('RECEIVE')
+    else if(name==='start-approval')open('START')
+    else if(name==='convert')open('CONVERT')
+    else if(name==='supplement-standard')open('SUPPLEMENT')
+    else if(name==='open-approval'){open('APPROVAL');dialog!.form={conclusion:'NO_PROBLEM',issues:[],fabricApprovalComment:'',processComment:'',materialUsageComment:'',otherComment:'',approvalSheetPhotoUrls:[],approverName:'',approverConfirmed:false}}
+    else if(name==='select-received-photos'||name==='select-approval-sheet-photos'){if(!dialog)return true;if(dialog.form)dialog.form=readForm(dialog.form);const selected=await filesToUrls([...((node as HTMLInputElement).files||[])]);if(dialog.kind==='RECEIVE')dialog.photos=[...new Set([...dialog.photos,...selected])];else if(dialog.form)dialog.form.approvalSheetPhotoUrls=[...new Set([...dialog.form.approvalSheetPhotoUrls,...selected])]}
+    else if(name==='remove-photo'&&dialog){const index=Number(node.dataset.photoIndex);if(dialog.form){dialog.form=readForm(dialog.form);dialog.form.approvalSheetPhotoUrls=dialog.form.approvalSheetPhotoUrls.filter((_,i)=>i!==index)}else dialog.photos=dialog.photos.filter((_,i)=>i!==index)}
+    else {saving=true;event?.preventDefault();const now=new Date().toISOString()
+      if(name==='submit-receive'&&dialog?.kind==='RECEIVE'){const urls=dialog.photos,cmd=dialog.commandId;await saveSewingSampleSourceUiAction(id,cmd,JSON.stringify({name,id,urls}),()=>receivePreProductionSampleByPpic({commandId:cmd,assignmentId:id,actor:ppic,receivedSamplePhotoUrls:urls,receivedAt:now}));feedback='已保存本件实收照片并接收样衣。'}
+      else if(name==='handoff-approver'){const cmd=command('HANDOFF');await saveSewingSampleSourceUiAction(id,cmd,JSON.stringify({name,id}),()=>handoffPreProductionSampleToApprover({commandId:cmd,assignmentId:id,actor:ppic,approverTeamName:'大货批版组',handedAt:now}));feedback='已记录实物转交。'}
+      else if(name==='confirm-start-approval'&&dialog?.kind==='START'){dialog.name=document.querySelector<HTMLInputElement>('[data-sample-approval-field="startApproverName"]')?.value.trim()||'';dialog.confirmed=!!document.querySelector<HTMLInputElement>('[data-sample-approval-field="startConfirmed"]')?.checked;if(!dialog.name||!dialog.confirmed)throw new Error('请填写实际领取人，并确认本人接收样衣');const actor={actorId:`SAMPLE-APPROVER:${dialog.commandId}`,actorName:dialog.name,role:'SAMPLE_APPROVER' as const},cmd=dialog.commandId,snapshot=await snapshotFor(record);await assertInspectionSnapshotCurrent(snapshot);await saveSewingSampleSourceUiAction(id,cmd,JSON.stringify({name,id,actor,snapshotId:snapshot.id}),()=>startSampleApproval({commandId:cmd,assignmentId:id,actor,receivedAt:now,inspectionStandardSnapshot:snapshot}));feedback='领取已保存，本次要求已固定，连续计48小时。'}
+      else if(name==='confirm-convert'&&dialog?.kind==='CONVERT'){const cmd=dialog.commandId;await saveSewingSampleSourceUiAction(id,cmd,JSON.stringify({name,id}),()=>convertLegacySampleApproval({commandId:cmd,assignmentId:id,at:now,by:ppic.actorName}));feedback='旧记录已明确转换，历史完整保留；旧时间原文待核对。'}
+      else if(name==='confirm-supplement'&&dialog?.kind==='SUPPLEMENT'){dialog.reason=document.querySelector<HTMLTextAreaElement>('[data-sample-approval-field="supplementReason"]')?.value.trim()||'';const reason=dialog.reason,cmd=dialog.commandId;if(!reason)throw new Error('请说明补定原因');const snapshot=await snapshotFor(record);await assertInspectionSnapshotCurrent(snapshot);await saveSewingSampleSourceUiAction(id,cmd,JSON.stringify({name,id,reason,snapshotId:snapshot.id}),()=>supplementLegacySampleStandard({commandId:cmd,assignmentId:id,at:now,by:ppic.actorName,reason,snapshot}));feedback='已补定本次要求；原领取人、时间和历史保留。'}
+      else if(name==='submit-approval'&&dialog?.form){dialog.form=readForm(dialog.form);const form=dialog.form,cmd=dialog.commandId;if(!form.approverConfirmed||form.approverName!==record.currentApproverName||!record.currentApproverId)throw new Error('须由原领取人填写姓名并确认提交');const actor={actorId:record.currentApproverId,actorName:form.approverName,role:'SAMPLE_APPROVER' as const};await saveSewingSampleSourceUiAction(id,cmd,JSON.stringify({name,id,form}),()=>submitSampleApprovalSuggestion({commandId:cmd,assignmentId:id,actor,conclusion:form.conclusion,issues:form.issues,structuredComments:form,approvalSheetPhotoUrls:form.approvalSheetPhotoUrls,uploadedAt:now}));feedback='批版意见已保存，等待PPIC登记反馈工厂。'}
+      else if(name==='feedback-factory'){const cmd=command('FEEDBACK');await saveSewingSampleSourceUiAction(id,cmd,JSON.stringify({name,id}),()=>recordSampleApprovalFeedbackToFactory({commandId:cmd,assignmentId:id,actor:ppic,feedbackAt:now,feedbackNote:'已从系统截取批版建议卡并反馈给承接工厂生产负责人。'}));feedback='已登记截图反馈时间和责任人，不代表工厂收悉回执。'}
+      else return false
+      dialog=null;changed=true
     }
-  } catch (error) {
-    if (dialog?.kind === 'START') {
-      dialog = { ...dialog, error: error instanceof Error ? error.message : '领取批版未保存' }
-    } else if (dialog?.kind === 'RECEIVE') {
-      dialog = { ...dialog, error: error instanceof Error ? error.message : '照片上传失败' }
-    }
-    else if (dialog?.kind === 'APPROVAL') {
-      dialog = {
-        ...dialog,
-        error: error instanceof Error ? error.message : '操作失败',
-        form: readApprovalFormFromDom(dialog.form),
-      }
-    }
-    else feedback = error instanceof Error ? error.message : '操作失败'
-  }
-  refreshPage()
+  }catch(error){const message=error instanceof Error?error.message:'尚未保存，请重试';if(dialog)dialog.error=message;else feedback=message;changed=!dialog}
+  finally{saving=false;refreshPage(changed)}
   return true
 }

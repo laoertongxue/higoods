@@ -10,7 +10,7 @@ import { FULL_CAPABILITY_FACTORY_ID, getPostFinishingWorkOrderById, getPostFinis
 import { getProcessActionOperationRecordsBySource, getProcessActionOperationRecordsByTask, type ProcessActionOperationRecord } from '../data/fcs/process-action-writeback-service.ts'
 import { renderProductionObjectCodeButton } from '../data/fcs/production-order-identity.ts'
 import { getProductionObjectLinkIndex, resolveProductionObjectRequest, type ProductionObjectSearchIndex } from '../data/fcs/production-object-overview.ts'
-import { getPostFinishingFullFlowPostTask, getPostFinishingProcessProgress, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders } from '../data/fcs/post-finishing-full-flow.ts'
+import { getPostFinishingFullFlowPostTask, getPostFinishingProcessProgress, listPostFinishingFullFlowOutboundOrders } from '../data/fcs/post-finishing-full-flow.ts'
 
 // Only the production and process references present on this existing detail
 // are resolved; reuse the same current link projection for this one render.
@@ -40,14 +40,13 @@ function readPostFinishingDetail(order: PostFinishingWorkOrder) {
   const task = getPostFinishingFullFlowPostTask(order.postOrderId) || getPostFinishingFullFlowPostTask(order.postOrderNo)
   const progress = task ? getPostFinishingProcessProgress(task) : undefined
   const ids = task ? new Set([task.postTaskId]) : undefined
-  const rechecks = task ? listPostFinishingFullFlowRecheckOrders(undefined, ids) : []
   const outbounds = task ? listPostFinishingFullFlowOutboundOrders(undefined, ids) : []
-  return { task, progress, rechecks, outbounds }
+  return { task, progress, outbounds }
 }
 
 function renderPostFinishingActionPanel(order: PostFinishingWorkOrder, detail: ReturnType<typeof readPostFinishingDetail>): string {
   const links: string[] = []
-  const { task, progress, rechecks, outbounds } = detail
+  const { task, progress, outbounds } = detail
   if (!order.receiveAction.finishedAt) {
     links.push('<a class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/return-confirm">扫描送货单确认实收</a>')
   }
@@ -55,12 +54,9 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder, detail: R
     links.push('<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/craft/post-finishing/qc-workbench">前往 Web 执行质检</a>')
   }
   if (task) {
-    links.push(`<a class="inline-flex min-h-12 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/execute?id=${encodeURIComponent(task.postTaskNo)}">${progress && progress.availableForRecheckQty > 0 ? `登记加工／交复检（可交 ${progress.availableForRecheckQty} 件）` : task.status === '后道完成' ? '查看加工及后续记录' : '按项登记本次加工数量'}</a>`)
+    links.push(`<a class="inline-flex min-h-12 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/execute?id=${encodeURIComponent(task.postTaskNo)}">${progress && progress.availableForOutboundQty > 0 ? `登记加工／准备出货（可交 ${progress.availableForOutboundQty} 件）` : task.status === '后道完成' ? '查看加工及后续记录' : '按项登记本次加工数量'}</a>`)
   }
-  if (task && rechecks.some((record) => record.status !== '复检完成')) {
-    links.push(`<a class="inline-flex min-h-12 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/recheck?id=${encodeURIComponent(task.postTaskNo)}">选择待处理复检单（${rechecks.filter((record) => record.status !== '复检完成').length} 张）</a>`)
-  }
-  if (outbounds.some((record) => record.status === '待仓库接收') || (!task && order.handoverStatus === '待交出')) {
+  if (outbounds.some((record) => record.status === '待出货') || (!task && order.handoverStatus === '待交出')) {
     links.push('<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/pda/handover?tab=handout">前往待交出</a>')
   }
   return links.length
@@ -69,7 +65,7 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder, detail: R
 }
 
 function renderPostFinishingPartialRecords(detail: ReturnType<typeof readPostFinishingDetail>): string {
-  const { task, rechecks, outbounds } = detail
+  const { task, outbounds } = detail
   if (!task) return ''
   const progress = detail.progress!
   const historicalUnsplit = task.executionModel !== 'ITEMS_V1' && !task.legacyCarryover
@@ -78,9 +74,8 @@ function renderPostFinishingPartialRecords(detail: ReturnType<typeof readPostFin
     <div class="grid grid-cols-2 gap-2">${progress.processes.map((process) => `<div class="rounded-md border p-3 text-xs"><div class="font-medium">${escapeHtml(process.processItem)}</div><div class="mt-2 text-sm">${historicalUnsplit ? '历史未分项' : process.applicable ? `${historicalCompletedQty > 0 ? '新增 ' : ''}${process.completedQty} / ${process.expectedQty} 件` : '不涉及'}</div></div>`).join('')}</div>
     ${progress.legacyPending ? '<div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">历史加工尚未分项，需核对承接后继续登记。</div>' : ''}
     ${historicalCompletedQty > 0 ? `<div class="rounded-md border p-3 text-xs text-muted-foreground">历史合并完成 ${historicalCompletedQty} 件，历史未分项；分项数量仅表示剩余新加工范围。</div>` : ''}
-    <div class="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-900">全部后道完成 ${progress.totalCompletedQty} 件 · 已交复检占用 ${progress.totalReservedQty} 件 · 可交 ${progress.availableForRecheckQty} 件</div>
+    <div class="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-900">全部后道完成 ${progress.totalCompletedQty} 件 · 已准备出货占用 ${progress.totalReservedQty} 件 · 可交 ${progress.availableForOutboundQty} 件</div>
     <details class="rounded-md border p-3"><summary class="min-h-8 cursor-pointer text-xs font-medium">加工责任记录（${progress.records.length} 次）</summary><div class="mt-2 space-y-2">${progress.records.length ? progress.records.map((record) => `<div class="rounded-md bg-muted/30 p-2 text-xs"><div>${escapeHtml(record.processItem)} · ${record.correctionOf ? '订正增减' : '本次完成'} ${record.quantities.reduce((sum, line) => sum + line.quantity, 0)} 件 · 责任人 ${escapeHtml(record.responsible.actorName)}</div><div class="mt-1 text-muted-foreground">录入 ${escapeHtml(record.recordedBy.actorName)} · ${escapeHtml(record.recordedAt)}</div>${record.reason ? `<div class="mt-1 text-amber-800">订正原因：${escapeHtml(record.reason)}</div>` : ''}</div>`).join('') : '<p class="text-muted-foreground">尚无分项登记。</p>'}</div></details>
-    <h3 class="text-xs font-semibold">复检（${rechecks.length} 张）</h3><div class="space-y-2">${rechecks.length ? rechecks.map((record) => `<a class="block min-h-12 rounded-md border p-3 text-xs" href="/fcs/pda/post-finishing/recheck?id=${encodeURIComponent(record.recheckOrderNo)}"><div class="break-all font-mono text-blue-700">${escapeHtml(record.recheckOrderNo)}</div><div class="mt-1">${escapeHtml(record.status)} · 本次 ${record.lines.reduce((sum, line) => sum + line.expectedQty, 0)} 件</div></a>`).join('') : '<p class="text-xs text-muted-foreground">尚未交复检。</p>'}</div>
     <h3 class="text-xs font-semibold">出货（${outbounds.length} 张）</h3><div class="space-y-2">${outbounds.length ? outbounds.map((record) => `<div class="rounded-md border p-3 text-xs"><div class="break-all font-mono">${escapeHtml(record.outboundOrderNo)}</div><div class="mt-1">${escapeHtml(record.status)} · 本次 ${record.lines.reduce((sum, line) => sum + line.outboundQty, 0)} 件</div></div>`).join('') : '<p class="text-xs text-muted-foreground">尚未生成出货单。</p>'}</div>
   </div></article>`
 }
@@ -205,8 +200,8 @@ export function renderPdaPostFinishingExecutionPage(execId: string, order: PostF
             <span>${order.linkedQcOrderId ? '需要' : '不需要'}</span>
             <span class="text-muted-foreground">是否需要后道</span>
             <span>${order.requiresPostFinishing ? '需要' : '不需要后道加工'}</span>
-            <span class="text-muted-foreground">是否需要复检</span>
-            <span>${order.requiresPostFinishing ? '需要，按已完成量交复检' : '不需要'}</span>
+            <span class="text-muted-foreground">后续交出方式</span>
+            <span>${order.requiresPostFinishing ? '按全部后道完成量准备出货' : 'QC后直接准备出货'}</span>
           </div>
         </div>
       </article>

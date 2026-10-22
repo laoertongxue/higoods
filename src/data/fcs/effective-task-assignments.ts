@@ -420,4 +420,4 @@ export function resetEffectiveTaskAssignmentsForTests(): void {
 }
 
 onProductionContextChanged(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, () => { assignmentReadError = null; readEffectiveTaskAssignmentState() })
-if (typeof window === 'undefined' || typeof document === 'undefined' || isProductionContextReady()) readEffectiveTaskAssignmentState()
+if (typeof window === 'undefined' || typeof document === 'undefined' || isProductionContextReady(EFFECTIVE_ASSIGNMENT_STORAGE_KEY)) readEffectiveTaskAssignmentState()

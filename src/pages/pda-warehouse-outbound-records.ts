@@ -66,7 +66,7 @@ const FILTERS: Array<{ value: OutboundFilter; label: string }> = [
 interface PostFinishingOutboundFlowRow {
   recordId: string
   warehouseRecordNo: string
-  recheckOrderNo: string
+  outboundOrderNo: string
   flow: {
     flowRecordNo: string
     qty: number
@@ -112,14 +112,14 @@ function getPostFinishingOutboundRows(): PostFinishingOutboundFlowRow[] {
       return {
         recordId: movement.movementId,
         warehouseRecordNo: record.warehouseRecordId,
-        recheckOrderNo: record.outboundOrderNo,
+        outboundOrderNo: record.outboundOrderNo,
         flow: { flowRecordNo: movement.movementId, qty, qtyUnit: '件', sourceActionRecordNo: record.outboundOrderNo, operatorName: movement.operator.actorName, operatedAt: movement.operatedAt, remark: movement.movementType },
         sourceProductionOrderNo: record.productionOrderNo,
         sourceTaskNo: record.postTaskNo || record.qcTaskNo,
         spuName: record.lines[0]?.sku.spuName || '成衣',
         skuSummary: record.lines.map((line) => `${line.sku.skuCode} ${line.sku.colorName}/${line.sku.sizeName}`).join('、'),
         receivedQty,
-        diffQty: receivedQty - qty,
+        diffQty: outbound?.status === '已接收入库' ? receivedQty - qty : 0,
       }
     })
 }
@@ -239,7 +239,7 @@ function renderPostFinishingOutboundDetailDrawer(): string {
             { label: '流水号', value: row.flow.flowRecordNo },
             { label: '出库类型', value: '交出记录出仓' },
             { label: '仓库记录', value: row.warehouseRecordNo },
-            { label: '复检单', value: row.recheckOrderNo },
+            { label: '出货单', value: row.outboundOrderNo },
             { label: '生产单', value: row.sourceProductionOrderNo },
             { label: '后道生产任务', value: row.sourceTaskNo },
             { label: '款式', value: row.spuName },
@@ -253,7 +253,7 @@ function renderPostFinishingOutboundDetailDrawer(): string {
             { label: '备注', value: row.flow.remark },
           ])}
           <div class="mt-4">
-            <button type="button" class="w-full rounded-xl border px-3 py-2.5 text-sm" data-nav="${escapeAttr(buildPostFinishingPdaHandoverRoute(row.recheckOrderNo))}">查看交出单</button>
+            <button type="button" class="w-full rounded-xl border px-3 py-2.5 text-sm" data-nav="${escapeAttr(buildPostFinishingPdaHandoverRoute(row.outboundOrderNo))}">查看交出单</button>
           </div>
         </div>
       </section>
@@ -297,7 +297,7 @@ function renderPostFinishingOutboundRecordsPage(runtimeFactoryName: string): str
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
               <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-outbound-detail" data-record-id="${escapeAttr(row.recordId)}">查看</button>
-              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(buildPostFinishingPdaHandoverRoute(row.recheckOrderNo))}">查看交出</button>
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(buildPostFinishingPdaHandoverRoute(row.outboundOrderNo))}">查看交出</button>
             </div>
           </article>
         `).join('') : renderMobilePageEmptyState('暂无后道出库流水', '交出记录提交后，会形成出库流水。')}

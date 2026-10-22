@@ -21,8 +21,8 @@ export function renderPostFinishingQcPrintActions(qcTaskNo = ''): string {
   const baseClass = 'inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50'
   if (qcTaskNo) {
     return `<div class="flex flex-wrap gap-2" data-post-finishing-qc-print-actions>
-      <a data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(qcTaskNo)}" class="${baseClass}">打印质检单</a>
-      <a data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(qcTaskNo)}" class="${baseClass}">打印质检单详情</a>
+      <a href="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(qcTaskNo)}" data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(qcTaskNo)}" class="${baseClass}">打印质检单</a>
+      <a href="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(qcTaskNo)}" data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(qcTaskNo)}" class="${baseClass}">打印质检单详情</a>
     </div>`
   }
   return `<div class="flex flex-wrap gap-2" data-post-finishing-qc-print-actions>

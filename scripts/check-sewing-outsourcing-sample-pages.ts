@@ -7,49 +7,13 @@ const routes = readFileSync('src/router/routes-fcs.ts', 'utf8')
 const renderers = readFileSync('src/router/route-renderers-fcs.ts', 'utf8')
 const handlers = readFileSync('src/main-handlers/fcs-handlers.ts', 'utf8')
 
-for (const text of [
-  '批版建议',
-  'PPIC视角',
-  '批版人员视角',
-  '上传样衣照片',
-  '确认接收',
-  '转交批版人员',
-  '填写批版建议',
-  '记录已截图反馈',
-  '有问题',
-  '批版面料',
-  '工艺意见',
-  '用料意见',
-  '其他意见',
-  '线下批版单照片',
-  '批版人员',
-  '批版日期',
-  '本次批版核对依据',
-]) {
-  assert.ok(samplePage.includes(text), `批版建议页面缺少业务口径：${text}`)
-}
-assert.ok(!samplePage.includes('三方车缝工厂制作的实物叫产前版样衣；PPIC转交批版人员后'), '列表顶部不得保留红框标记的解释段落')
-assert.ok(!samplePage.includes('已领取批版，请填写批版建议。'), '列表顶部不得保留红框标记的成功提示')
-assert.ok(samplePage.includes('statusTabsHtml:'), '批版状态Tab必须使用标准列表独立区域')
-assert.ok(samplePage.includes('filtersHtml:'), '批版搜索必须与状态Tab分离')
-assert.ok(samplePage.includes('data-sample-approval-screenshot-card'), '必须提供单卡片截图区域')
-assert.ok(samplePage.includes('data-sample-approval-field="receivedSamplePhotos"'), 'PPIC接收时必须提供产前版样衣实物照片上传控件')
-assert.ok(samplePage.includes('data-sample-approval-action="select-received-photos"'), '选择样衣照片后必须立即形成多图预览')
-assert.ok(samplePage.includes("removeAction: 'remove-received-photo'"), '样衣照片提交前必须支持逐张删除')
-assert.ok(samplePage.includes('type="file" accept="image/*" multiple'), '样衣照片必须支持一次选择多张图片')
-assert.ok(samplePage.includes('ppicReceivedSamplePhotoUrls'), '列表和截图卡必须优先展示PPIC收到实物后上传的照片')
-assert.ok(samplePage.includes('data-sample-approval-action="preview-image"'), '产前版样衣和引用图片必须支持高清大图')
-assert.ok(samplePage.includes('isSampleApprovalSuggestionDialogOpen'), '批版建议弹窗必须接入Escape关闭')
-assert.ok(samplePage.includes("form.conclusion === 'HAS_PROBLEM' ? ' selected'"), '校验失败后必须保留有问题结论')
-assert.ok(samplePage.includes('fabricApprovalComment: read(\'fabricApprovalComment\')'), '校验失败或选择附件后必须保留结构化批版意见')
-assert.ok(samplePage.includes('data-sample-approval-field="approvalSheetPhotos"'), '必须支持上传线下批版建议单照片作为佐证')
-assert.ok(samplePage.includes("removeAction: 'remove-approval-sheet-photo'"), '线下批版单照片提交前必须支持逐张删除')
-assert.ok(samplePage.includes('suggestion.structuredComments'), '批版建议卡必须按四类结构化意见展示')
-assert.ok(samplePage.includes('photos.map'), '批版建议卡不能只展示第一张产前版样衣照片')
+for(const text of ['批版建议','PPIC接收产前版样衣','确认接收','转交批版人员','领取批版','填写批版建议','反馈工厂','有问题','面料意见','工艺意见','用料意见','其他意见','本次检查要求','具体检查项','连续计48小时','核对并转换旧记录']) assert.ok(samplePage.includes(text),`缺少批版业务表达：${text}`)
+for(const text of ['requiresAnotherApproval','第${record.sample.roundNo}轮','待工厂制作','root.outerHTML']) assert.ok(!samplePage.includes(text),`不得保留活动逻辑：${text}`)
+for(const text of ['statusTabsHtml:','filtersHtml:','data-sample-approval-screenshot-card','select-received-photos','multiple','ppicReceivedSamplePhotoUrls','preview-image','isSampleApprovalSuggestionDialogOpen','readForm','approvalSheetPhotoUrls','data-sample-issue-id','data-sample-issue-note','data-sample-overlays']) assert.ok(samplePage.includes(text),`页面能力缺失：${text}`)
 
 for (const text of [
   '面辅料交出',
-  '仅适用于裁剪+车缝+烫包任务',
+  '按当前任务读取仓库实交事实',
   '仓库交出事实',
   'PPIC页面不提供新增、修改或确认数量按钮',
 ]) {

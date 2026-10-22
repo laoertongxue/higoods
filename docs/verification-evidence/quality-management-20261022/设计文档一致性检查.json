@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-22",
+  "phase": "T1设计文档检查；非产品测试",
+  "head": "fc3283f6286e943e66d2b0c7f91cab88571b85ae",
+  "checks": {
+    "source_head": {
+      "passed": true,
+      "detail": "fc3283f6286e943e66d2b0c7f91cab88571b85ae"
+    },
+    "source_ledger_version": {
+      "passed": true,
+      "detail": {
+        "summary": {
+          "uniqueFullFiles": 166,
+          "uniqueFullLines": 64323,
+          "fullSourceFiles": 136,
+          "fullSourceLines": 58632,
+          "partialFiles": 11,
+          "partialReadLines": 3281,
+          "ledgerValidated": true
+        },
+        "drift": []
+      }
+    },
+    "documentation_only": {
+      "passed": true,
+      "detail": {
+        "trackedChanges": [],
+        "outsideDocs": []
+      }
+    },
+    "relative_links": {
+      "passed": true,
+      "detail": []
+    },
+    "atomic_ids_and_columns": {
+      "passed": true,
+      "detail": {
+        "rows": 362,
+        "matrixRows": 362,
+        "unique": 362
+      }
+    },
+    "implementation_states": {
+      "passed": true,
+      "detail": "Q01已确认，362条均待实施，未预填产品通过"
+    },
+    "all_77_confirmations": {
+      "passed": true,
+      "detail": {
+        "expected": 77,
+        "missing": []
+      }
+    },
+    "all_32_business_scenarios": {
+      "passed": true,
+      "detail": {
+        "mapped": 32
+      }
+    },
+    "primary_work_packages": {
+      "passed": true,
+      "detail": {
+        "WP2": 53,
+        "WP7": 48,
+        "WP3": 100,
+        "WP5": 33,
+        "WP6": 57,
+        "WP1": 16,
+        "WP4": 27,
+        "WP8": 15,
+        "WP9": 6,
+        "WP0": 7
+      }
+    },
+    "existing_verification_commands": {
+      "passed": true,
+      "detail": []
+    },
+    "whitespace": {
+      "passed": true,
+      "detail": []
+    }
+  },
+  "issues": [],
+  "files": [
+    {
+      "path": "docs/product-design/quality-management-20261022/调整方案.md",
+      "lineCount": 290,
+      "sha256": "697692da550256f27e4bec509551b4dc0da47de99a4bcd6ce4ede25b1dfd36e0"
+    },
+    {
+      "path": "docs/product-design/quality-management-20261022/实施计划.md",
+      "lineCount": 170,
+      "sha256": "0ef1dfb5422abfd4ceb2b50b8eb23d369c3692827c2e114254dc8f13826869e2"
+    },
+    {
+      "path": "docs/product-design/quality-management-20261022/验收方案.md",
+      "lineCount": 284,
+      "sha256": "05aa717af1e847bacd19186d8501384db7903b2a61df609d774c2373287722c5"
+    },
+    {
+      "path": "docs/requirement-traceability/质检管理需求原子矩阵-2026-10-22.md",
+      "lineCount": 560,
+      "sha256": "a01df1e7c8f683811e2b924daa09a9bfdef8f4b4f711ec221c9374c3472804b5"
+    }
+  ],
+  "productTestsRun": false,
+  "productCodeChanged": false
+}

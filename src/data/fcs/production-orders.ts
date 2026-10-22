@@ -1731,7 +1731,7 @@ function hydrateSavedProductionOrders(): void {
 }
 onProductionContextChanged(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, hydrateSavedProductionOrders)
 // 打包后的共享模块可能先于页面入口执行；实际页面等待 hydrate 后才开放业务。
-if (typeof window === 'undefined' || typeof document === 'undefined' || isProductionContextReady()) hydrateSavedProductionOrders()
+if (typeof window === 'undefined' || typeof document === 'undefined' || isProductionContextReady(CREATED_PRODUCTION_ORDERS_STORAGE_KEY)) hydrateSavedProductionOrders()
 
 /** 原任务实际开工触发；不从 FCK、回货或演示种子反推生产执行。 */
 export function markProductionOrderExecutionStarted(input: { productionOrderId: string; taskId: string; startedAt: string; actorName: string }): void {
