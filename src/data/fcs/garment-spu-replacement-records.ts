@@ -228,6 +228,16 @@ export function persistSnapshot(snapshot: GarmentReplacementStoreSnapshot): void
   if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
 }
 
+/** Read the existing source afresh for priority; never migrates or writes it. */
+export function readGarmentReplacementSnapshotForPriority(): GarmentReplacementStoreSnapshot {
+  if (typeof window === 'undefined') return loadSnapshot()
+  const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
+  if (!raw) return structuredClone(publishedSeeds as GarmentReplacementStoreSnapshot)
+  const value = JSON.parse(raw) as GarmentReplacementStoreSnapshot
+  if (value.version !== 1 || !Array.isArray(value.records) || !Array.isArray(value.inventoryBatches)) throw new Error('成衣替换身份资料需核对。')
+  return value
+}
+
 export function nowText(): string {
   return new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
 }

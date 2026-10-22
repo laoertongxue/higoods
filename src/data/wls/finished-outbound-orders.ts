@@ -3,9 +3,12 @@
  * 静态源版本：2026-10-20-v1。前三条为参照页面抽样，DEMO 记录为边界演示。
  * 用户动作只把受影响记录及操作收据写入本库；读取不复制种子、不触及线上库存。
  */
+import { QC_SHIPPING_OUTBOUND_SEEDS } from '../fcs/post-finishing-qc-shipping-seeds.ts'
+import { parseQcShippingDeadlineMillis } from '../fcs/post-finishing-qc-shipping-priority.ts'
 export const OUTBOUND_STATUSES = ['待处理', '待拣货', '拣货完成', '已打单', '已出库', '已揽收', '已取消'] as const
 export type FinishedOutboundStatus = typeof OUTBOUND_STATUSES[number]
 export type FinishedOutboundProduct = {
+  lineId?: string
   spu: string
   sku: string
   imageUrl: string
@@ -26,6 +29,7 @@ export type FinishedOutboundOrder = {
   createdAt: string
   updatedAt: string
   deadline: string
+  deadlineTimeZone?: string
   pickedAt: string
   shippedAt: string
   cancelledAt: string
@@ -117,7 +121,7 @@ function demoOrder(index: number): FinishedOutboundOrder {
     id: `outbound-demo-${suffix}`, outboundOrderNo: `DEMO-DN-202610-${suffix}`, relatedOrderNo: `DEMO-ORDER-${suffix}`,
     trackingNo: hasPrinted ? `DEMO-TRACK-${suffix}` : '', warehouse: n % 3 === 0 ? 'F&M WH' : 'A&C WH', platform,
     orderType: n % 2 === 0 ? '现货订单' : '预售订单', status, createdAt, updatedAt: createdAt,
-    deadline: `${date} 23:59:59`, pickedAt: hasPicked ? `${date} 11:00:00` : '',
+    deadline: `${date} 23:59:59`, deadlineTimeZone: 'Asia/Shanghai', pickedAt: hasPicked ? `${date} 11:00:00` : '',
     shippedAt: shipped ? `${date} 13:00:00` : '', cancelledAt: status === '已取消' ? `${date} 11:30:00` : '',
     // Tiktok 拣货完成样本保留已下载面单、未打印的独立事实。
     labelDownloadedAt: hasPrinted || platform === 'Tiktok' && status === '拣货完成' ? `${date} 11:10:00` : '',
@@ -129,7 +133,7 @@ function demoOrder(index: number): FinishedOutboundOrder {
 }
 
 export const FINISHED_OUTBOUND_SEED: FinishedOutboundOrder[] = [
-  referenceOrder(0), referenceOrder(1), referenceOrder(2), ...Array.from({ length: 42 }, (_, index) => demoOrder(index)),
+  referenceOrder(0), referenceOrder(1), referenceOrder(2), ...Array.from({ length: 42 }, (_, index) => demoOrder(index)), ...QC_SHIPPING_OUTBOUND_SEEDS,
 ]
 
 export function outboundQuantity(order: FinishedOutboundOrder): number {
@@ -185,6 +189,9 @@ export function filterFinishedOutboundOrders(
 
 /** 纯业务动作：打印记录历史与下载事实分别保留；本函数不改传入记录。 */
 export function applyFinishedOutboundAction(order: FinishedOutboundOrder, action: FinishedOutboundAction, at: string): FinishedOutboundOrder {
+  // Calendar validation is required even for inactive records; source timezone
+  // remains explicit for priority calculation and is never inferred here.
+  if (parseQcShippingDeadlineMillis(order.deadline, order.deadlineTimeZone || 'Asia/Jakarta') === undefined) throw new Error('出库单揽收时效无效，请依据来源核对后再操作。')
   const next = structuredClone(order)
   let description: string
   if (action === 'download-label') {

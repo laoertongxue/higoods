@@ -20,4 +20,3 @@ function preparedQcSourceKind(href: string):'WAREHOUSE_STOCK'|'PRODUCTION_RETURN
 }
 export function isPreparedInventoryQcRoute(href:string):boolean{return preparedQcSourceKind(href)==='WAREHOUSE_STOCK'}
 export function isPreparedQcRoute(href:string):boolean{return preparedQcSourceKind(href)!==undefined}
-

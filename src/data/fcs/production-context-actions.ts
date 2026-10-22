@@ -91,7 +91,8 @@ export async function saveProductionSourceAction<T>(input:{id:string;intent:stri
   const eventRepo=await import('./cutting/cutting-event-repository.ts')
   const part=await import('./cutting/part-ticket-records.ts')
   const prepareSnapshot=async(snapshot:CuttingRecordSnapshot)=>{
-    accessoryBefore=snapshot.records.filter(row=>row.id.startsWith('accessory-warehouse:'))
+    const accessory=await import('../wls/accessory-warehouse-records.ts')
+    accessoryBefore=accessory.mergeAccessoryMockRecords(await accessory.loadAccessoryMockRecordSources(),snapshot.records.filter(row=>row.id.startsWith('accessory-warehouse:')))
     await part.hydratePartTicketRecords(snapshot)
     eventRepo.prepareCommittedCuttingEventSnapshot(snapshot)
     await release.hydrateCutPieceReleaseRecords(snapshot)

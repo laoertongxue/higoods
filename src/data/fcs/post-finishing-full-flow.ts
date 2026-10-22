@@ -40,6 +40,7 @@ import {
 import { resetPostFinishingAuthorizationConsumptions } from './post-finishing-authorization.ts'
 import { listSewingFactoryMasterRecords } from './factory-master-store.ts'
 import { productionOrders } from './production-orders.ts'
+import { readQcShippingDestination, isQcShippingWarehouseId } from './post-finishing-qc-shipping-facts.ts'
 import { isKolGotoProductionOrder } from './kol-goto-special-flow.ts'
 import {
   buildFormalPostFinishingReturnSources,
@@ -608,6 +609,7 @@ export interface PostFinishingOutboundOrder {
   retiredRecheckId?: string
   /** Read-only original retained by the explicit retirement migration. */
   retiredRecheck?: PostFinishingRecheckOrder
+  targetWarehouseId?: string
   outboundOrderId: string
   outboundOrderNo: string
   deliveryId: string
@@ -633,6 +635,7 @@ export interface PostFinishingOutboundOrder {
 }
 
 export interface PostFinishingWarehouseReceipt {
+  warehouseId?: string
   receiptId: string
   outboundOrderId: string
   outboundOrderNo: string
@@ -1759,6 +1762,13 @@ function findQcTask(qcTaskIdOrNo: string): PostFinishingQcTask {
   const task = state.qcTasks.find((item) => item.qcTaskId === qcTaskIdOrNo || item.qcTaskNo === qcTaskIdOrNo)
   if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到质检任务 ${qcTaskIdOrNo}。`)
   return task
+}
+
+/** Both QC print entrances resolve the current formal source through the same adapter. */
+export function getPostFinishingQcPrintProductionSource(qcTaskIdOrNo: string): PostFinishingAcceptanceProductionOrder {
+  const task = findQcTask(qcTaskIdOrNo)
+  const delivery = findDelivery(task.deliveryId)
+  return clone(getProductionOrder(task.productionOrderNo, delivery.executionTaskId))
 }
 
 function getOrCreateQcTaskForConfirmedDelivery(input: {
@@ -3371,6 +3381,7 @@ function upsertOutboundFromQc(
   }, new Date(createdAt))
   const outbound: PostFinishingOutboundOrder = {
     outboundOrderId,
+    targetWarehouseId: readQcShippingDestination(qcTask.qcTaskId)?.warehouseId || readQcShippingDestination(delivery.productionOrderNo)?.warehouseId,
     outboundOrderNo: number.documentNo,
     deliveryId: delivery.deliveryId,
     deliveryOrderNo: delivery.deliveryOrderNo,
@@ -3430,7 +3441,7 @@ export function submitPostFinishingForOutbound(input: {
   const createdAt = nowIso(input.nowMs), outboundOrderId = `PF-OUT-${task.postTaskId}-${sequence}`
   const number = issuePostFinishingDocumentNumber({ kind: 'OUTBOUND', sourceDocumentNo: `${task.postTaskNo}-${String(sequence).padStart(3,'0')}`,
     productionOrderNo: task.productionOrderNo, sourceObjectId: task.postTaskId, idempotencyKey: `DIRECT-OUT:${input.operationId}`, sequence },new Date(createdAt))
-  const outbound: PostFinishingOutboundOrder = { outboundOrderId, outboundOrderNo: number.documentNo, executionModel: 'DIRECT_V2', operationId: input.operationId, operationIntent: intent, sequence,
+  const outbound: PostFinishingOutboundOrder = { targetWarehouseId:readQcShippingDestination(qc.qcTaskId)?.warehouseId || readQcShippingDestination(task.productionOrderNo)?.warehouseId, outboundOrderId, outboundOrderNo: number.documentNo, executionModel: 'DIRECT_V2', operationId: input.operationId, operationIntent: intent, sequence,
     deliveryId: task.deliveryId, deliveryOrderNo: task.deliveryOrderNo, productionOrderNo: task.productionOrderNo,
     qcTaskId: qc.qcTaskId, qcTaskNo: qc.qcTaskNo, postTaskId: task.postTaskId, postTaskNo: task.postTaskNo,
     responsibility: clone(task.responsibility), sourceType: '后道加工后', returnIndex: task.returnIndex, status: '待出货', lines, createdAt }
@@ -3571,6 +3582,7 @@ function backfillWaitHandoverWarehouseFacts(): void {
 
 export function receivePostFinishingOutboundOrder(input: {
   outboundOrderNo: string
+  targetWarehouseId?: string
   actor: PostFinishingActor
   receivedQuantities: Array<{ skuId: string; receivedQty: number }>
   authorization?: PostFinishingAuthorizationInput
@@ -3584,6 +3596,7 @@ export function receivePostFinishingOutboundOrder(input: {
   }
   const exact = state.outboundOrders.find((item) => item.outboundOrderNo === input.outboundOrderNo.trim())
   if (!exact) throw new PostFinishingFlowGateError('NOT_FOUND', '只接受完整后道出货单号，不接受复检单或内部交接号。')
+  if (input.targetWarehouseId && !isQcShippingWarehouseId(input.targetWarehouseId)) throw new PostFinishingFlowGateError('INVALID_STATUS', '实际目标成衣仓无效，请核对后再确认。')
   const delivery = findDelivery(exact.deliveryId)
   const existingReceipt = state.warehouseReceipts.find((item) => item.outboundOrderId === exact.outboundOrderId)
   if (existingReceipt) return { outbound: clone(exact), receipt: clone(existingReceipt), alreadyReceived: true }
@@ -3607,6 +3620,7 @@ export function receivePostFinishingOutboundOrder(input: {
     line.receivedQty = lines.find((item) => item.sku.skuId === line.sku.skuId)!.receivedQty
   })
   exact.status = '已接收入库'
+  exact.targetWarehouseId = input.targetWarehouseId || exact.targetWarehouseId || readQcShippingDestination(exact.qcTaskId)?.warehouseId || readQcShippingDestination(exact.productionOrderNo)?.warehouseId
   exact.receivedAt = now
   exact.receivedBy = clone(input.actor)
   exact.warehouseAuthorizationId = consumed?.authorizationId
@@ -3639,6 +3653,7 @@ export function receivePostFinishingOutboundOrder(input: {
     })
   }
   const receipt: PostFinishingWarehouseReceipt = {
+    warehouseId: exact.targetWarehouseId,
     receiptId: `PF-WH-RCPT-${String(state.warehouseReceipts.length + 1).padStart(6, '0')}`,
     outboundOrderId: exact.outboundOrderId,
     outboundOrderNo: exact.outboundOrderNo,
@@ -3661,6 +3676,21 @@ export function receivePostFinishingOutboundOrder(input: {
     differenceReason: input.authorization?.differenceReason, authorization: consumed,
   })
   return { outbound: clone(exact), receipt: clone(receipt), alreadyReceived: false }
+}
+
+/** Freeze or correct one unreceived child destination without moving its goods. */
+export function setPostFinishingOutboundDestination(input: { outboundOrderId: string; warehouseId: string; expectedWarehouseId?: string; operator: string; reason: string }): void {
+  assertPostFinishingWrite()
+  const outbound = findOutbound(input.outboundOrderId)
+  if (!['待出货','待仓库接收'].includes(outbound.status)) throw new Error('已实收出货单的目标仓不能修改。')
+  if (!isQcShippingWarehouseId(input.warehouseId) || !input.operator.trim() || !input.reason.trim()) throw new Error('选择有效目标成衣仓，填写实际维护人及原因。')
+  if (outbound.targetWarehouseId !== input.expectedWarehouseId) throw new Error('出货去向已变化，请重新打开核对。')
+  const previous = outbound.targetWarehouseId || '待核对'
+  outbound.targetWarehouseId = input.warehouseId
+  appendBusinessLog({ stage: '仓库收货', delivery: findDelivery(outbound.deliveryId), objectType: '后道出货单', objectId: outbound.outboundOrderId, objectNo: outbound.outboundOrderNo,
+    action: '维护出货去向', actor: { actorId: `QC-SHIPPING:${input.operator.trim()}`, actorName: input.operator.trim(), roleName: '供货去向维护人' }, operatedAt: nowIso(),
+    beforeStatus: outbound.status, afterStatus: outbound.status, remark: `${previous} → ${input.warehouseId}；${input.reason.trim()}` })
+  persist()
 }
 
 export function listPostFinishingFactoryReturns(productionOrderIds?: ReadonlySet<string>): PostFinishingFactoryReturnDelivery[] {
@@ -3709,6 +3739,20 @@ export function listPostFinishingReturnConfirmationVersions(input: {
     .filter((version) => !input.activeOnly || version.status === 'ACTIVE')
     .sort((left, right) => left.versionCreatedAt.localeCompare(right.versionCreatedAt)
       || left.confirmationVersionId.localeCompare(right.confirmationVersionId)))
+}
+
+/** Read-only shipping facts from the same canonical QC state. Inspection trees,
+ * photos and paper histories do not participate in quantity/urgency projection. */
+export function listPostFinishingQcShippingFacts():PostFinishingQcTask[] {
+  return state.qcTasks.map(row=>({
+    qcTaskId:row.qcTaskId,qcTaskNo:row.qcTaskNo,productionOrderId:row.productionOrderId,productionOrderNo:row.productionOrderNo,
+    deliveryId:row.deliveryId,deliveryOrderNo:row.deliveryOrderNo,returnIndex:row.returnIndex,status:row.status,sourceKind:row.sourceKind,
+    responsibility:row.responsibility?{...row.responsibility,defaultProcessItems:[...row.responsibility.defaultProcessItems]}:row.responsibility,
+    createdBy:row.createdBy?{...row.createdBy}:row.createdBy,createdAt:row.createdAt,qcAuthorizationId:row.qcAuthorizationId,referenceIds:[],
+    lines:(row.lines||[]).map(line=>({sku:{...line.sku},expectedQty:line.expectedQty})),
+    results:row.results?.map(line=>({sku:{...line.sku},expectedQty:line.expectedQty,passedQty:line.passedQty,defectQty:line.defectQty,returnQty:line.returnQty,
+      releasedQty:line.releasedQty,inspectedQty:line.inspectedQty,uninspectedQty:line.uninspectedQty})),
+  }))
 }
 
 export function listPostFinishingFullFlowQcTasks(productionOrderNos?: ReadonlySet<string>): PostFinishingQcTask[] {

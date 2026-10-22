@@ -132,4 +132,3 @@ test('既存三款已保存内容与自定义图片不被当前静态修订投�
   assert.ok(!result.records.some(row => row.technicalVersionId === removedId))
   assert.ok(!result.contents.some(row => row.technicalVersionId === removedId))
 })
-

@@ -41,6 +41,7 @@ test('未出GTP改厂保持原调拨身份，取消原预入库并生成不同�
   assert.equal(receipts.find(row => row.status === '待收货').warehouseCode, 'WH-FITTING-MAHAMERU')
   assert.notEqual(receipts[0].id, receipts[1].id)
   assert.equal(original.receipt.status, '待收货')
+  for (const row of result.puts) if (row.collection === 'accessory-warehouse:audit') assert.equal(row.id, `${row.collection}:${(row.value as any).id}`, '改厂审计身份须满足同一备份契约')
 })
 test('待定分配只补原单目的方，不另建第二张首次调拨；无变化不重复写', () => {
   const original = setup(); original.prep.cuttingFactoryId = null; original.prep.cuttingFactoryName = null

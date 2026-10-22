@@ -327,7 +327,8 @@ test('三类任务责任与新质检分流保持页面骨架，原历史辅料�
   await expectNoBodyOverflow(page)
   await attachPageEvidence(page, testInfo, 'web-post-production-task-responsibility')
 
-  await page.goto('/fcs/craft/post-finishing/material-transfers')
+  // main adds valid source rows and pagination; query the stable legacy identity.
+  await page.goto('/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001')
   await expect(page.getByRole('heading', { name: '后道辅料调拨单', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '调拨单列表', exact: true })).toBeVisible()
   const acceptanceTransfer = page.locator('tbody tr').filter({ hasText: 'DB-PF-202608-001' })
@@ -1078,7 +1079,7 @@ test('仓库弹层跟随关联单据后关闭，返回列表可继续操作', as
     const flow = await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-full-flow.ts'))
     const records = await import((window as any).__postActualModuleUrl('/src/data/fcs/post-finishing-records.ts'))
     await records.runPostFinishingCommand(() => flow.receivePostFinishingMaterialTransfer({
-      transferOrderNo: flow.listPostFinishingMaterialTransferOrders()[0].transferOrderNo,
+      transferOrderNo: 'DB-PF-202608-001', // Known non-managed legacy source; never send a managed AW order through the retired whole-receipt writer.
       actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
     }))
   })

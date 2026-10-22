@@ -586,3 +586,17 @@ test('质检明确新增原生及原页面套件有真实执行路由，未知�
   assert.deepEqual(source.unknownPaths,[])
   assert.deepEqual(source.fastChecks,["node --import tsx --test 'tests/pcs-r1-channel-rules.test.ts'"])
 })
+
+test('辅料静态Mock专项运行实际浏览器契约，性能采集只做语法核验', () => {
+  const route = routeAffectedChecks(['tests/browser-contracts/accessory-workflow-mock.test.ts', 'scripts/check-accessory-workflow-mock-performance.mjs'])
+  assert.deepEqual(route.unknownPaths, [])
+  assert.deepEqual(route.fullChecks, ['node --import tsx --test tests/browser-contracts/accessory-workflow-mock.test.ts'])
+  assert.deepEqual(route.fastChecks, ["node --check 'scripts/check-accessory-workflow-mock-performance.mjs'"])
+})
+
+test('裁剪改厂 Mock 浏览器契约路由到实际回放，性能脚本保留显式测量', () => {
+  const route = routeAffectedChecks(['tests/browser-contracts/accessory-cutting-change-mock.test.ts', 'scripts/check-accessory-workflow-mock-performance.mjs'])
+  assert.deepEqual(route.unknownPaths, [])
+  assert.deepEqual(route.fullChecks, ['node --import tsx --test tests/browser-contracts/accessory-cutting-change-mock.test.ts'])
+  assert.deepEqual(route.fastChecks, ["node --check 'scripts/check-accessory-workflow-mock-performance.mjs'"])
+})

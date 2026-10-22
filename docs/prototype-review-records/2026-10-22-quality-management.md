@@ -153,7 +153,7 @@
 
 ### 页面证据
 
-- 版本：工作树`/Users/laoer/.codex/worktrees/e103/higoods`；分支`codex/quality-management-20261022`，HEAD `fc3283f6286e943e66d2b0c7f91cab88571b85ae`及本任务未提交差异；当前106条运行路径及资产见`runtime-source-r34x.json`，SHA256 `5b1d3fa2d45a129f80a6e3cf01a0f0da3c11a3365a2664bbc2484e3a0300b580`。固定服务`http://127.0.0.1:43585`，入口`61225a554a5c0cd1fa6a251f1b562da714984646863748cf40a086a7fbf00d89`；原43555未替换。
+- 版本：工作树`/Users/laoer/.codex/worktrees/e103/higoods`；分支`codex/quality-management-20261022`，HEAD `fc3283f6286e943e66d2b0c7f91cab88571b85ae`及本任务未提交差异；当前106条运行路径及资产见`runtime-source-r34x.json`，SHA256 `0ced537aac480c1bb9048d836d79e9087cd050f40612f5d1011d7d9dbdf84be2`。固定服务`http://127.0.0.1:43585`，入口`61225a554a5c0cd1fa6a251f1b562da714984646863748cf40a086a7fbf00d89`；原43555未替换。
 - 证据：`output/qc-closure-20261022-r34/`下`final-performance-acceptance-r34.json`、`final-atom-acceptance-r34.json`、`root-semantic-review-r34.json`、`realtime-filter-ui-w.json`、`native-full-x.log`、`print-pdf-review/review.json`。原73项页面、跨端23项及消费者/迁移原结果保留版本；当前新增固定预览1项独立运行，不伪造单次74项结果。
 - 复用：t→u仅三运行文件，u→w仅库存统计单页，反向补丁逐字节核对；中心t、样衣u、后道p/s/t和实际打印t保留各自产物与SHA，未影响分支复用，不重新命名旧样本。当前库存w230次全验。原阶段完整审查记录已按原字节存于`input-snapshots/final-preclose/2026-10-22-quality-management.md`。
 
@@ -181,3 +181,6 @@
 ### 2026-10-23 r34x 旧资料边界补验
 
 首轮最终收据未通过，原失败及日志已保留为`first-final-task-receipt-failed.json`、`final-workflow-first-failed.log`。实际修正仅允许缺少显示单号的旧QC按原稳定身份读取，仍严格校验记录位置，不补写旧值；原生回归核对旧值/版本未变。恢复记录逐字段按稳定编号比较，Web/PDA旧连接的升级前后断言同步当前版本4。下游24个场景的22项原通过与2项修正后回放逐案列于`downstream-acceptance-x.json`，当前原生47项及构建1521项通过。常规166族830次按原身份保留，x相对w仅移除一个已知旧资料不应具备的显示字段校验，精确反向还原源码及性能复用依据见`w-to-x-source-reuse-proof.json`。较晚开发服务PFN回放5次仍超1秒、最高1413.4ms，但全部≤2秒；不会隐去或用较早快值替代。最终整体验收仍以待生成的r2收据实际状态为准。
+
+
+2026-10-23 发布核对：上文r34x清单摘要原误复制了w版本值，现按原x文件字节纠正；原报告版本保留在`ccdedbdf`提交。本轮main合并增量、依赖与待执行完整回归另见[main集成审查](2026-10-23-quality-main-integration.md)，不将r34原样本冒称为合并版本重测。

@@ -11,11 +11,11 @@ function actual(name:string,path:string){
 test('现有后道辅料只读准备核对七类生产来源，实际操作仍恢复完整来源；读取错误保留并阻断',async()=>{
  for(const readOnly of [false,true])for(const failure of [false,true]){
   const calls:string[]=[],reason='原生产来源不可读取'
-  const dependencies={preparationReadFailure:'',hydrateProductionContextRecords:async()=>{calls.push('full');if(failure)throw Error(reason)},hydratePostFinishingProductionContextRecords:async()=>{calls.push('seven');if(failure)throw Error(reason)},ensureAccessoryWarehouseRecords:async()=>{calls.push('accessories')},checkedLegacyStorage:()=>{calls.push('legacy-check')}}
+  const dependencies={ensureDispatchTaskSheetAssignments:()=>{calls.push('assignments')},preparationReadFailure:'',hydrateProductionContextRecords:async()=>{calls.push('full');if(failure)throw Error(reason)},hydratePostFinishingProductionContextRecords:async()=>{calls.push('seven');if(failure)throw Error(reason)},ensureAccessoryWarehouseRecords:async()=>{calls.push('accessories')},checkedLegacyStorage:()=>{calls.push('legacy-check')}}
   const prepare=actual('prepareAccessoryWarehouseSources','../../src/data/wls/accessory-warehouse-sources.ts')(dependencies)
   if(failure){await assert.rejects(prepare(readOnly?{postFinishingReadOnly:true}:undefined),new RegExp(reason));assert.equal(dependencies.preparationReadFailure,reason)}
   else await prepare(readOnly?{postFinishingReadOnly:true}:undefined)
-  assert.deepEqual(calls,[readOnly?'seven':'full',...(!failure?['accessories','legacy-check']:[])])
+  assert.deepEqual(calls,[readOnly?'seven':'full',...(!failure?['accessories','assignments','legacy-check']:[])])
  }
 })
 

@@ -244,6 +244,8 @@ export async function handleUnifiedPrintPreviewEvent(target: HTMLElement): Promi
   if (['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(input.documentType)
     || (input.documentType === 'TASK_ROUTE_CARD' && input.sourceType === 'POST_FINISHING_WORK_ORDER')) {
     target.dataset.pmsEventHandledLocally = 'true'
+    const priorityButton=document.querySelector<HTMLElement>('[data-qc-shipping-print]')
+    if(priorityButton)return (await import('./templates/post-finishing-qc-print-template.ts')).handleQcShippingPriorityPrint(priorityButton)
     await (await import('./post-finishing-print-ready.ts')).preparePostFinishingPrint(actionNode)
     return true
   }

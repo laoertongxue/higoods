@@ -29,6 +29,7 @@ import { getEffectiveTaskAssignment } from '../../data/fcs/effective-task-assign
 import { getCutPieceDispatchReadinessForTask, getCutPieceReleaseSummaryForProductionOrder, getCutPieceReleaseMatrix, withCutPieceReleaseReadSnapshot } from '../../data/fcs/cut-piece-release.ts'
 import { getSewingMaterialHandoverProjection } from '../../data/fcs/sewing-material-handover.ts'
 import { getMaterialPrepDispatchReadinessForTask } from '../../data/fcs/cutting/production-material-prep.ts'
+import { withAccessoryPreparationIdentityReadSnapshot } from '../../data/wls/accessory-warehouse-sources.ts'
 
 type DialogState =
   | { kind: 'DETAIL'; rowId: string }
@@ -253,7 +254,7 @@ function renderSewingOutsourcingTasksContent(): string {
 export function renderSewingOutsourcingTasksPage(): string {
   renderPreparationSources = { summaries: new Map(), matrices: new Map() }
   renderTaskRows = null
-  try { return withCutPieceReleaseReadSnapshot(renderSewingOutsourcingTasksContent) }
+  try { return withAccessoryPreparationIdentityReadSnapshot(() => withCutPieceReleaseReadSnapshot(renderSewingOutsourcingTasksContent)) }
   finally { renderPreparationSources = null; renderTaskRows = null }
 }
 

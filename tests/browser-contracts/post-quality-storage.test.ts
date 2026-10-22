@@ -970,6 +970,8 @@ test('单张执行读取保留同生产单及所有在检QC，保存不删未读
   try{
    await r.ensurePostFinishingExecutionRecordState('/fcs/craft/post-finishing/qc-workbench?taskNo=SCOPE-QC-TARGET')
    if(r.getPostFinishingStorageFailure())throw Error(r.getPostFinishingStorageFailure())
+   await r.ensurePostFinishingExecutionRecordState('/wls/finished/stock/realtime')
+   if(r.getPostFinishingStorageFailure())throw Error(r.getPostFinishingStorageFailure())
    selected=f.listPostFinishingFullFlowQcTasks().map((row:any)=>row.qcTaskId)
    readWrites=writes
    const quantity=target.qc.lines.reduce((n:number,row:any)=>n+row.expectedQty,0)

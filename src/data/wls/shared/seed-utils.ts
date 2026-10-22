@@ -20,8 +20,8 @@ import type {
   WarehouseZone,
 } from "../types";
 
-import { getCurrentDateTime } from "./format";
-import { warehouseCodePrefixMap } from "./warehouse-config";
+import { getCurrentDateTime } from "./format.ts";
+import { warehouseCodePrefixMap } from "./warehouse-config.ts";
 
 // ── Location / Zone helpers ─────────────────────────────────────────────────
 

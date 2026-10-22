@@ -50,6 +50,7 @@ const plan = {
   ].map(([name,path,phase,title]) => ({name,path,phase,title, modes:['cold','refresh','spa'], requiredSamplesPerMode:5})),
   actionFamilies: ['eligibility-preview','eligibility-preview-after-change','whole-application','whole-post-receipt','normal-ship','defect-ship','rework-ship','normal-receive','defect-receive','rework-receive','normal-putaway','defect-putaway','difference-confirm'],
   equivalence: [
+    'Realtime total is the exact union of physical warehouse/SKU keys and existing main linked readonly stock keys; source lot/SKU counts remain independently asserted, reference rows never become inventory-QC lots.',
     'No affected WLS page route is omitted. Each of the eleven page members gets five cold, five refresh and five real SPA-click samples; minimum165 page samples. The old stock-transfer member verifies the necessary migrated-stock writer guard and retains its original UI.',
     'Normal/defect/rework classification are distinct action families because receivers and completion conditions differ. Normal receive/putaway uses all24 SKU and up to96 original allocations; defect/rework retain nonzero real categories.',
     'The eligibility preview and application use the24-SKU style with four source locations per SKU and all three projections of each real fixture order exclusion. Smaller one-SKU paths cannot substitute.',
@@ -82,6 +83,8 @@ async function generateFixtureInNode() {
   const quality = await moduleAt('src/data/fcs/quality-management-records.ts')
   const master = await moduleAt('src/data/pcs-sku-archive-repository.ts')
   const shared = await moduleAt('src/data/wls/seed/shared-seed.ts')
+  const { QC_SHIPPING_STOCK_SEEDS } = await moduleAt('src/data/fcs/post-finishing-qc-shipping-seeds.ts')
+  const linkedStockKeys = QC_SHIPPING_STOCK_SEEDS.map(row=>`${row.warehouseId}|${row.sku}`)
   await quality.ensureQualityManagementRecords()
   const originals = seed.createFinishedInventorySeed(), formal = master.listSkuArchives().filter(row => row.archiveStatus === 'ACTIVE' && row.skuImageUrl?.startsWith('/materials/pcs-reviewed/') && !row.bundleComponents?.length)
   const black = formal.find(row => row.skuId === 'sku_r1_wms_tee_black_s'), white = formal.find(row => row.skuId === 'sku_r1_tee_white_m')
@@ -127,7 +130,7 @@ async function generateFixtureInNode() {
     const snapshot=records.captureFinishedInventoryState(),qc=application?.qcTaskId ? flow.getPostFinishingFullFlowQcTask(application.qcTaskId) : undefined
     phases[name]={records:currentRows(snapshot,qc),applicationId:application?.id,applicationNo:application?.applicationNo,qcTaskId:application?.qcTaskId,
       transferIds:Object.fromEntries(snapshot.transfers.filter(row=>row.category!=='送后道').map(row=>[row.category,row.id])),
-      stats:{lots:snapshot.lots.length,uniqueSkus:new Set(snapshot.lots.map(row=>row.skuId)).size,warehouses:new Set(snapshot.lots.map(row=>row.warehouseId)).size,
+      stats:{realtimeRows:new Set([...snapshot.lots.map(row=>`${row.warehouseId}|${row.skuCode}`),...linkedStockKeys]).size,lots:snapshot.lots.length,uniqueSkus:new Set(snapshot.lots.map(row=>row.skuId)).size,warehouses:new Set(snapshot.lots.map(row=>row.warehouseId)).size,
         positiveSourceLots:snapshot.lots.filter(row=>row.quantity>0).length,exclusionRows:snapshot.exclusions.length,movements:snapshot.movements.length,applications:snapshot.applications.length},
       expectedNormalReceived:application?.qcResults?.reduce((n,row)=>n+row.releasedQty,0)}
   }
@@ -165,7 +168,7 @@ async function generateFixtureInNode() {
   const difference=records.captureFinishedInventoryState().differences[0]
   return {format:'quality-inventory-performance-fixture-v1',seed:20261022,baseline:{normalWarehouses:10,uniqueSkus:1000,sourceLots:4000,maxSourceLocationsPerSku:4,heavyStyleSkus:24,normalQtyPerSku:100,uniqueOrderExcludedPerSku:5,projectedExclusionRows:3000,heavyEligibleQty:2280},
     heavy:{warehouseId:warehouses[0].id,warehouseName:warehouses[0].name,styleId:heavyStyleId,styleNo:heavyStyleNo,skuIds:heavySkuIds,firstSkuCode:'PERF-INV-0001',differenceId:difference.id,putawayLocation:seed.FINISHED_INVENTORY_LOCATIONS[2].locationCode},
-    mapping,phases}
+    linkedReadonlyStock:{source:'src/data/fcs/post-finishing-qc-shipping-seeds.ts',keys:linkedStockKeys},mapping,phases}
 }
 if(args.includes('--prepare-fixture')) {
   const beforePreparationHashes=hashes()
@@ -182,6 +185,7 @@ if(!base) throw Error('Set BASE_URL or --base-url to the actual fixed target; no
 if(!['127.0.0.1','localhost','[::1]'].includes(new URL(base).hostname))throw Error('This fixture collector runs only against an isolated local preview/dev origin, never a production or test-site database.')
 if(!existsSync(fixturePath)) throw Error('Prepare the independent native IDB fixture first with --prepare-fixture, or supply --fixture=FILE.')
 const fixtureBytes=readFileSync(fixturePath), fixture=JSON.parse(fixtureBytes)
+if(!Number.isSafeInteger(fixture.phases.stock.stats.realtimeRows)||!fixture.linkedReadonlyStock?.keys?.length)throw Error('Regenerate fixture with explicit unified realtime count and linked reference source; do not remove the count assertion.')
 if(fixture.format!=='quality-inventory-performance-fixture-v1' || fixture.baseline.normalWarehouses<10 || fixture.baseline.uniqueSkus<1000 || fixture.baseline.sourceLots<4000 || fixture.baseline.heavyStyleSkus<24 || fixture.baseline.maxSourceLocationsPerSku!==4 || fixture.phases.eligibilityChanged?.expectedEligibleQty!==2279) throw Error('Fixture does not meet the approved load/membership-change contract; regenerate it instead of silently reducing volume.')
 const sourceHashes=hashes()
 if(JSON.stringify(fixture.sourceHashes)!==JSON.stringify(sourceHashes)) throw Error('Fixture source fingerprints differ from the current working tree. Regenerate instead of reusing stale business facts.')
@@ -300,7 +304,7 @@ const runtimeAssetChecks=[],seenRuntimeAssets=new Set()
 function pageSpec(route,phase){
   const path=route.path==='PREVIEW'?`/wls/finished/inventory-quality?warehouseId=${encodeURIComponent(fixture.heavy.warehouseId)}&styleId=${encodeURIComponent(fixture.heavy.styleId)}`:route.path==='DETAIL'?`/wls/finished/inventory-quality?id=${encodeURIComponent(phase.applicationId)}`:route.path
   const parsed=new URL(path,base),selectors={realtime:'[data-wls-stock-realtime-root]',location:'[data-wls-finished-stock-location-root]',flow:'[data-wls-stock-flow-root]',online:'[data-wls-online-warehouse-stock-root]','application-list':'[data-fiq-workspace]','application-preview':'[data-fiq-form="apply"]','application-detail':'[data-fiq-workspace]',outbound:'[data-outbound-content]','pre-inbound':'[data-fiq-tasks-panel="inbound"]',putaway:'[data-fiq-tasks-panel="putaway"]','old-transfer-guard':'[data-wls-stock-transfer-root]'}
-  const expectedTotals={realtime:phase.stats.uniqueSkus,location:phase.stats.lots,online:phase.stats.lots,flow:phase.stats.movements,'application-list':phase.stats.applications}
+  const expectedTotals={realtime:phase.stats.realtimeRows,location:phase.stats.lots,online:phase.stats.lots,flow:phase.stats.movements,'application-list':phase.stats.applications}
   const spec={path,pathname:parsed.pathname,search:parsed.search,title:route.title,selector:selectors[route.name]}
   if(expectedTotals[route.name]!==undefined)spec.compactText=`${expectedTotals[route.name]}条`
   if(['application-preview','application-detail'].includes(route.name)){spec.minSkuRows=24;spec.skuSelector='[data-fiq-workspace] tbody tr'}

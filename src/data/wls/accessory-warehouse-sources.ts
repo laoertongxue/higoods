@@ -1,3 +1,5 @@
+import { ACCESSORY_WAREHOUSE_DEMOS } from './accessory-warehouse-demo.ts'
+import { ensureDispatchTaskSheetAssignments } from '../fcs/dispatch-task-sheet.ts'
 import {
   listMaterialPrepOrderProjections,
   listMaterialPrepProductionIdsForIdentities,
@@ -71,6 +73,7 @@ const exactPurposeNames: Record<string, AccessoryPurpose> = {
   价格吊牌: '价格吊牌', 品牌吊牌: '品牌吊牌', 吊粒: '吊粒', 车缝线: '车缝线', 缝纫线: '车缝线',
 }
 const exactMaterialPurposes: Record<string, AccessoryPurpose> = {
+  ...Object.fromEntries(ACCESSORY_WAREHOUSE_DEMOS.flatMap(fixture => fixture.techPack.bomItems.filter(bom => ['拉链', '纽扣'].includes(bom.name)).map(bom => [bom.materialCode!, '其他' as const]))),
   'AW-DEMO-ZIPPER': '其他',
   'AW-DEMO-BUTTON': '其他',
   'HG-DEMO-ZIPPER-GRY-60': '其他',
@@ -234,48 +237,73 @@ export async function prepareAccessoryWarehouseSources(options:{postFinishingRea
     if(options.postFinishingReadOnly)await hydratePostFinishingProductionContextRecords()
     else await hydrateProductionContextRecords()
     await ensureAccessoryWarehouseRecords()
+    ensureDispatchTaskSheetAssignments()
     checkedLegacyStorage()
   } catch (error) {
     preparationReadFailure = error instanceof Error ? error.message : String(error)
     throw error
   }
 }
+function readAccessoryIdentitySources() {
+  const legacyStorage = checkedLegacyStorage()
+  const saved = listAccessoryRecords<AccessoryPreparation>('preparation')
+  // 归属只需要完整性核验；同一次同步渲染内复用读取，业务动作仍独立重读。
+  listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock'))
+  return { legacyStorage, saved, tasks: listRuntimeProcessTasks(), factories: listFactoryMasterRecords(), assignments: listEffectiveTaskAssignments() }
+}
+let identityRead: { sources: ReturnType<typeof readAccessoryIdentitySources> | null; results: Map<string, ReadonlySet<string>>; preparations: AccessoryPreparation[] | null } | null = null
+/** 归属及关联展示仅包围一次同步渲染，finally 丢弃；不跨事件或保存复用。 */
+export function withAccessoryPreparationIdentityReadSnapshot<T>(read: () => T): T {
+  const previous = identityRead
+  identityRead = { sources: null, results: new Map(), preparations: null }
+  try { return read() } finally { identityRead = previous }
+}
+
 /** Current ownership only; ordinary preparation pages still use the full projection below. */
 export function listAccessoryPreparationProductionIdentities(candidates: ReadonlySet<string>): ReadonlySet<string> {
   if (preparationReadFailure) throw new Error(preparationReadFailure)
   try {
-    const legacyStorage = checkedLegacyStorage()
-    const saved = listAccessoryRecords<AccessoryPreparation>('preparation')
+    const key = JSON.stringify([...candidates].sort())
+    const cached = identityRead?.results.get(key)
+    if (cached) return new Set(cached)
+    const sources = identityRead ? (identityRead.sources ??= readAccessoryIdentitySources()) : readAccessoryIdentitySources()
+    const { legacyStorage, saved } = sources
     const productionOrderIds = listMaterialPrepProductionIdsForIdentities(candidates)
     for (const row of saved) if (candidates.has(row.productionOrderId) || candidates.has(row.productionOrderNo)) productionOrderIds.add(row.productionOrderId)
-    // Keep the existing stock integrity gate even when the source scope is empty.
-    listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock'))
     if (!productionOrderIds.size) return new Set<string>()
     const result = buildAccessoryPreparationSources({
       projections: listMaterialPrepOrderProjections(legacyStorage, { productionOrderIds }), orders: productionOrders,
-      tasks: listRuntimeProcessTasks(), factories: listFactoryMasterRecords(), assignments: listEffectiveTaskAssignments(),
+      tasks: sources.tasks, factories: sources.factories, assignments: sources.assignments,
       savedPreparations: saved.filter(row => productionOrderIds.has(row.productionOrderId)),
     })
     // Ownership needs neither copied availability rows nor changes to the
     // business-page issue catalogue.
-    return new Set(result.preparations.flatMap(row => [row.productionOrderId, row.productionOrderNo]))
+    const identities = new Set(result.preparations.flatMap(row => [row.productionOrderId, row.productionOrderNo]))
+    identityRead?.results.set(key, identities)
+    return new Set(identities)
   } catch (error) {
     preparationReadFailure = error instanceof Error ? error.message : String(error)
     throw error
   }
 }
-export function listAccessoryPreparations(): AccessoryPreparation[] {
+export function listAccessoryPreparations(productionOrderIds?: ReadonlySet<string>): AccessoryPreparation[] {
   if (preparationReadFailure) throw new Error(preparationReadFailure)
   try {
+    if (identityRead?.preparations) return structuredClone(identityRead.preparations.filter(row => !productionOrderIds || productionOrderIds.has(row.productionOrderId)))
     const legacyStorage = checkedLegacyStorage()
+    const archives = listAccessoryRecords<{ id?: string; phase?: string; kind?: string; field?: string; entry?: { prepOrderId?: string; pickedQty?: number; closeReason?: string } }>('migration')
+    // 已有旧资料/迁移记录仍走原完整核对；干净来源可按当前任务生产单取投影。
+    const scope = productionOrderIds && !archives.length && !legacyStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ? productionOrderIds : undefined
+    const saved = listAccessoryRecords<AccessoryPreparation>('preparation')
+    const projections = listMaterialPrepOrderProjections(legacyStorage, scope ? { productionOrderIds: new Set(scope) } : undefined)
     const result = buildAccessoryPreparationSources({
-      projections: listMaterialPrepOrderProjections(legacyStorage), orders: productionOrders,
+      projections, orders: productionOrders,
       tasks: listRuntimeProcessTasks(), factories: listFactoryMasterRecords(), assignments: listEffectiveTaskAssignments(),
-      savedPreparations: listAccessoryRecords<AccessoryPreparation>('preparation'),
+      savedPreparations: scope ? saved.filter(row => scope.has(row.productionOrderId)) : saved,
     })
-    sourceIssues = result.issues
-    const archives = listAccessoryRecords<{ kind?: string; field?: string; entry?: { prepOrderId?: string; pickedQty?: number; closeReason?: string } }>('migration')
-    const migrated = listAccessoryRecords<{ id?: string; phase?: string }>('migration').some(row => row.id === 'legacy-preparation-v1' && ['COMPLETE', 'RESTORED'].includes(row.phase || ''))
+    const checkedIds = new Set([...projections.map(row => row.order.prepOrderId), ...saved.filter(row => scope?.has(row.productionOrderId)).map(row => row.id)])
+    sourceIssues = scope ? sourceIssues.filter(issue => !checkedIds.has(issue.preparationId)).concat(result.issues) : result.issues
+    const migrated = archives.some(row => row.id === 'legacy-preparation-v1' && ['COMPLETE', 'RESTORED'].includes(row.phase || ''))
     if (migrated) for (const conflict of findPostMigrationAccessoryConflicts(legacyStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) || null, result.preparations, archives)) {
       sourceIssues.push({ code: 'LEGACY_CONFLICT', preparationId: conflict.preparationId,
         message: '迁移后原配料资料又出现本范围记录，可能仍有旧页面写入。新旧资料均已保留；停止旧页面操作并核对冲突前，不能继续办理。', blocking: true })
@@ -287,7 +315,12 @@ export function listAccessoryPreparations(): AccessoryPreparation[] {
         message: '旧资料已有实际领料，原数量和交接历史已保留。需核对实物去向后再办理新调拨，不能重复发出。', blocking: true })
     }
     const stocks = listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock'))
-    return result.preparations.map(preparation => projectAccessoryPreparationAvailability(preparation, stocks))
+    const preparations = result.preparations.map(preparation => projectAccessoryPreparationAvailability(preparation, stocks))
+    if (identityRead && !scope) {
+      identityRead.preparations = preparations
+      return structuredClone(preparations.filter(row => !productionOrderIds || productionOrderIds.has(row.productionOrderId)))
+    }
+    return preparations.filter(row => !productionOrderIds || productionOrderIds.has(row.productionOrderId))
   } catch (error) {
     preparationReadFailure = error instanceof Error ? error.message : String(error)
     throw error

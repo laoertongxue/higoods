@@ -75,4 +75,3 @@ export function completeLegacyQcMaterialDemoContent(source: TechnicalDataVersion
   }))
   return content
 }
-

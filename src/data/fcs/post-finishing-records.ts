@@ -96,6 +96,7 @@ const primaryIds: Record<string, string> = {
   ppicPromises: 'promiseId', ppicMakeups: 'makeupId', ppicAllocations: 'allocationId',
   ppicConfirmations: 'confirmationId', ppicConfigs: 'configId', ppicBases: 'basisId',
   ppicActions: 'actionId', ppicEvaluations: 'evaluationId',
+  destinations: 'sourceId', changes: 'id',
 }
 const recordKey = (scope: string, collection: string, row: any): string => {
   if (row.kind && row.idempotencyKey) return `${row.kind}:${row.idempotencyKey}`
@@ -230,6 +231,7 @@ function visible(value: unknown): any {
 function legacySources(): Map<string, string> {
   const result = new Map<string, string>()
   for (const repo of repositories.values()) {
+    if (!repo.legacyKey) continue // New record-only scopes have no legacy source.
     const raw = globalThis.localStorage?.getItem(repo.legacyKey)
     if (raw) result.set(repo.legacyKey, raw)
   }
@@ -240,6 +242,12 @@ function legacySources(): Map<string, string> {
   return result
 }
 export function getPostFinishingStorageFailure(): string { return failure }
+export async function assertPostFinishingReadVersion(): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (!ready || failure) throw new Error(failure || '后道资料尚未读取完成。')
+  const [freshVersion] = await readPcsRecordProjection([{id:revisionId}],row=>row.version)
+  if ((freshVersion || 0) !== (stored.get(revisionId)?.version || 0)) throw new Error('读取期间后道资料已变化，请重新查看。')
+}
 export function hasPostFinishingLegacyData(options:{verifiedSchemaVersion?:number}={}): boolean {
   try {return migrationNeeded || legacySources().size>0} catch {
     // A verified current record store remains usable when preference storage is
@@ -298,7 +306,7 @@ function restoreReadRepositories(records: PcsStoredRecord[], scopes: Iterable<st
 }
 function executionReadScope(href:string):ExecutionReadScope|null {
   const [path,search='']=href.split('?'),params=new URLSearchParams(search)
-  const known=path==='/fcs/craft/post-finishing/qc-workbench' || path==='/fcs/craft/post-finishing/print'
+  const known=path==='/wls/finished/stock/realtime' || path==='/fcs/craft/post-finishing/qc-workbench' || path==='/fcs/craft/post-finishing/print'
     || /^\/fcs\/craft\/post-finishing\/(?:work-orders|outbound-orders)\/[^/]+$/.test(path)
     || path==='/fcs/pda/post-finishing/execute' || path.startsWith('/fcs/pda/exec/PF-POST-')
     || path.startsWith('/fcs/pda/handover/HOH-POST-') || (path==='/fcs/pda/handover' && params.get('tab')==='shipped')

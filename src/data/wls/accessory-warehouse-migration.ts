@@ -1,3 +1,4 @@
+import { listAccessoryMockRecordSources } from './accessory-warehouse-records.ts'
 import {
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY, listMaterialPrepOrderProjections,
   type ProductionMaterialPrepWorkflowStore,
@@ -308,9 +309,13 @@ export function validateAccessoryWarehouseBackup(value: unknown): asserts value 
     || data.dependencies.some(row => !row.id.startsWith('production-context:') || !row.collection.startsWith('production-context:'))
     || data.files.some(file => !(file.blob instanceof Blob))
     || data.records.some(row => !object(row.value) || hasUnrecoverableAttachment(row.value))) throw new Error('辅料备份包含越界或无法恢复的记录/附件，未恢复。')
-  const knownKinds = new Set(['preparation', 'transfer', 'receipt', 'stock', 'pickup', 'change', 'migration', 'audit', 'sewing-slip', 'sewing-context', 'sewing-handover', 'sewing-result'])
+  const knownKinds = new Set(['preparation', 'transfer', 'receipt', 'stock', 'pickup', 'change', 'migration', 'audit', 'sewing-slip', 'sewing-context', 'sewing-handover', 'sewing-result', 'tombstone'])
   for (const row of data.records) {
     const kind = row.collection.slice(ACCESSORY_RECORD_PREFIX.length), entry = row.value as Json
+    if (kind === 'tombstone') {
+      if (entry.deleted !== true || row.id !== entry.id || !row.id.startsWith(ACCESSORY_RECORD_PREFIX) || !knownKinds.has(row.id.slice(ACCESSORY_RECORD_PREFIX.length).split(':')[0])) throw new Error('辅料备份删除标记身份无效。')
+      continue
+    }
     if (!knownKinds.has(kind) || row.id !== `${row.collection}:${entry.id}`) throw new Error('辅料备份记录身份与类型不一致。')
     if (['preparation', 'transfer', 'pickup'].includes(kind)) {
       if (!text(entry.productionOrderId) || !Array.isArray(entry.lines) || !entry.lines.length
@@ -388,7 +393,16 @@ export async function exportAccessoryWarehouseBackup(): Promise<AccessoryWarehou
   await hydrateProductionContextRecords()
   await ensureAccessoryWarehouseRecords()
   const all = await exportCuttingRecordBackup()
-  const records = new Map(all.records.filter(row => row.id.startsWith(ACCESSORY_RECORD_PREFIX)).map(row => [row.id, row]))
+  // 导出时显式包含固定来源快照，再叠加用户覆盖和删除标记；普通读取仍不落盘。
+  const records = new Map([...listAccessoryMockRecordSources(), ...all.records.filter(row => row.id.startsWith(ACCESSORY_RECORD_PREFIX))].map(row => [row.id, row]))
+  // 早期改厂审计遗漏 value.id；仅在显式导出副本中按可核对的原 changeId 补齐。
+  // 不改已保存资料；显式冲突或其他损坏记录仍由原校验阻断。
+  for (const [id, row] of records) {
+    if (row.collection === `${ACCESSORY_RECORD_PREFIX}audit` && object(row.value) && row.value.id === undefined
+      && text(row.value.changeId) && id === `${row.collection}:${row.value.changeId}`) {
+      records.set(id, { ...row, value: { ...row.value, id: row.value.changeId } })
+    }
+  }
   const existingManifest = [...records.values()].map(row => row.value as Json).find(value => value.id === ACCESSORY_LEGACY_MIGRATION_ID)
   const source = await currentPlan()
   if (!existingManifest || !['COMPLETE', 'RESTORED'].includes(existingManifest.phase)) {

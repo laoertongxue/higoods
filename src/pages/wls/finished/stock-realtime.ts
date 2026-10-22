@@ -11,6 +11,7 @@ import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { finishedInventoryRealtimeRows, type FinishedInventoryRealtimeRow } from '../../../data/wls/finished-inventory-quality.ts'
 import { renderFinishedInventoryTasksPanel, handleFinishedInventoryQualityEvent } from './inventory-quality.ts'
 import { stockRealtimeSeed } from '../../../data/wls/seed/stock-seed'
+import { readUnifiedQcShippingStockRows, getQcShippingInventoryWarning } from '../../../data/fcs/post-finishing-qc-shipping-priority-runtime.ts'
 import { materialCategoryLabelMap } from '../../../data/wls/shared/warehouse-config'
 import type { StockRealtimeItem, MaterialInventorySummary, MaterialCategory } from '../../../data/wls/types'
 
@@ -102,7 +103,7 @@ function preferenceKey(): string {
 
 const finishedColumns: StandardListColumn<StockRealtimeItem>[] = [
   { key: 'image', title: '商品图片', width: 100, required: true,
-    render: r => `<div class="relative h-12 w-12"><button type="button" class="h-full w-full" data-pda-image-preview-url="${escapeHtml(r.image)}" data-pda-image-preview-title="${escapeHtml(r.productName)}" aria-label="查看${escapeHtml(r.productName)}图片"><img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.productName)}" class="h-12 w-12 rounded-md border object-contain" onload="this.parentElement.nextElementSibling.hidden=true" onerror="this.hidden=true;this.parentElement.nextElementSibling.textContent='图片加载失败'"></button><span class="pointer-events-none absolute inset-0 bg-white/90 text-xs">加载中</span></div>` },
+    render: r => `<button type="button" data-pda-image-preview-url="${escapeHtml(r.image)}" data-pda-image-preview-title="${escapeHtml(`${r.sku} · ${r.productName}`)}" data-skip-page-rerender="true" aria-label="查看 ${escapeHtml(r.sku)} 商品大图" class="relative h-12 w-12 overflow-hidden rounded-md border border-slate-200"><img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.productName)}" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="text-[10px]">图片加载中</span></button>` },
   { key: 'productName', title: '商品名称', width: 180, sortable: true, sortValue: r => r.productName,
     render: r => `<span class="text-slate-700">${escapeHtml(r.productName)}</span>` },
   { key: 'spu', title: '商品SPU', width: 160, sortable: true, sortValue: r => r.spu,
@@ -111,7 +112,7 @@ const finishedColumns: StandardListColumn<StockRealtimeItem>[] = [
     render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
   { key: 'warehouseName', title: '仓库名称', width: 160, sortable: true, sortValue: r => r.warehouseName,
     render: r => `<span class="text-slate-600">${escapeHtml(r.warehouseName)}</span>` },
-  { key: 'totalStock', title: '总库存', width: 90, align: 'right', sortable: true, sortValue: r => r.spotStock + r.transitStock,
+  { key: 'totalStock', title: '总库存', width: 90, align: 'right', sortable: true, sortValue: r => (r as FinishedInventoryRealtimeRow).physicalQuantity ?? (r.spotStock + r.transitStock),
     render: r => `<span class="font-medium text-slate-700">${(r as FinishedInventoryRealtimeRow).physicalQuantity ?? (r.spotStock + r.transitStock)}</span>` },
   { key: 'spotStock', title: '正常已上架库存', width: 100, align: 'right', sortable: true, sortValue: r => r.spotStock,
     render: r => `<span class="text-slate-600">${r.spotStock}</span>` },
@@ -207,7 +208,7 @@ function ensurePreferencesLoaded(): void {
 /* ---------- Data accessors ---------- */
 
 function getFinishedItems(): StockRealtimeItem[] {
-  return state.activeVariant === 'transit' ? stockRealtimeSeed.filter(item => item.warehouse_type === 'TRANSIT') : finishedInventoryRealtimeRows()
+  return state.activeVariant === 'transit' ? stockRealtimeSeed.filter(item => item.warehouse_type === 'TRANSIT') : readUnifiedQcShippingStockRows()
 }
 
 function getRawItems(): MaterialInventorySummary[] {
@@ -248,7 +249,7 @@ function renderFilters(finishedItems?: StockRealtimeItem[]): string {
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
   }
 
-  const warehouses = [...new Set((finishedItems || getFinishedItems()).map(i => i.warehouseName))]
+  const warehouses = [...new Set((finishedItems ?? getFinishedItems()).map(i => i.warehouseName))]
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-3"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="商品名称 / SPU / SKU / 仓库名称" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
@@ -271,7 +272,7 @@ function filteredRows(finishedItems?: StockRealtimeItem[]): unknown[] {
       return `${item.material_name} ${item.spu_code} ${item.sku_code} ${item.warehouse_name}`.toLowerCase().includes(kw)
     })
   }
-  return (finishedItems || getFinishedItems()).filter(item => {
+  return (finishedItems ?? getFinishedItems()).filter(item => {
     if (state.exactSku && item.sku !== state.exactSku) return false
     if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
     if (!kw) return true
@@ -310,6 +311,7 @@ function renderWorkspace(): string {
 
   return renderStandardListPage({
     title: titleForVariant(variant),
+    feedbackHtml: variant === 'finished' && getQcShippingInventoryWarning() ? `<p role="status" class="rounded border border-amber-300 p-3 text-sm">${escapeHtml(getQcShippingInventoryWarning())}</p>` : '',
     filtersHtml: renderFilters(finishedItems),
     statsHtml: renderStandardListStats(statsItems),
     listTitle: variant === 'raw' ? '原料库存列表' : '商品库存列表',

@@ -62,7 +62,14 @@ export function listManagedAccessoryPostTransfers(): PostFinishingMaterialTransf
   const preparations = new Map(listAccessoryPreparations().map(row => [row.id, row]))
   return transfers.map(row => project(row, preparations.get(row.preparationId)))
 }
-export function isManagedAccessoryPostTransfer(id: string): boolean { return postTransfers().some(row => row.id === id || postNumber(row) === id) }
+export function isManagedAccessoryPostTransfer(id: string): boolean {
+  const transfers = postTransfers()
+  if (transfers.some(row => row.id === id)) return true
+  if (!id.startsWith('HD-')) return false
+  // 正式单号才读取配料来源，旧单/其他业务 ID 不为每行重复投影整张生产单清单。
+  const preparations = new Map(listAccessoryPreparations().map(row => [row.id, row]))
+  return transfers.some(row => postNumber(row, preparations.get(row.preparationId)) === id)
+}
 function projectStocks(): PostFinishingMaterialStock[] {
   const result: PostFinishingMaterialStock[] = []
   const stocks = listAccessoryRecords<AccessoryStock>('stock').filter(row => row.warehouseCode === 'DLN')
