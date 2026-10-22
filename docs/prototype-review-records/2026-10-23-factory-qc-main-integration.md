@@ -27,7 +27,7 @@
 | 旧洗水正式对象与入口 | 通过 | main 对旧洗水读取的改动转到新加工事实桥；旧专属文件及相应旧测试退役，新只读边界契约替代。原正式退役证据保留其版本，未清理真实用户浏览器 |
 | 真实图片和打印防错 | 通过 | 32 项相邻页面检查覆盖两套 QC 打印、实际图码、坏图阻断与重试、库存打印冷开及刷新；手感模板未因本次查询修复改变 |
 | 当前版本完整响应性能 | 不通过 | 首轮 365 样本有 3095ms 的 30 卷 PDF 和 1048ms 的 PDA 刷新。已修正 PDF 将外部 Python 内容审计计入响应的问题，并修复约 485ms 的静态 QC 查询扫描；后续实际 GTG 实收 CPU 剖析另定位约 1.6s 的全来源扫描，已改为按单读取。修复后正式性能仍待验收，不以负载解释删除慢值 |
-| Git 发布 | 不通过 | 本地 main 已快进到 dd017f834184a6dc281ee9739cc56957f621c2e6。GitHub 推送、Actions 与正式 HTTPS SHA 仍待实际证据；用户于本会话明确确认“允许先推送，性能未验收”；发布按此例外执行，最终 SHA／Actions／HTTPS 状态另写回执 |
+| Git 发布 | 不通过 | 首轮本地 main 与 GitHub main 已同为 63466cb5a9b6a7159fde5074dcffa7e8c2b9e914；Actions 39873633386 构建进行中。本文格式补正后的最终 SHA、Actions 与正式 HTTPS 仍以后续回执为准；用户于本会话明确确认“允许先推送，性能未验收”；发布按此例外执行，最终 SHA／Actions／HTTPS 状态另写回执 |
 
 ## 最终结论
 
@@ -71,11 +71,13 @@
 
 ### 验证命令
 
-- 两次 `npm run build`：分别 1669／1670 单测、工程类型检查及 Vite 生产构建通过；完整日志 `qc-main-merge-build.log`、`qc-main-build-r2.log`。
-- 9 个冲突涉及源码的渐进 TypeScript 检查：范围内 0 错误；全量范围外 20 项保留，不称全量类型检查通过。
-- `node scripts/verification/run-quality-native-contracts.mjs`：44 项通过；3 项独立数据库测试修复依赖加载后重新执行通过；不改判原失败日志。
-- `npx playwright test tests/post-finishing-main-integration.spec.ts tests/quality-management-print-ready.spec.ts tests/quality-inventory-generic-print-entry.spec.ts tests/quality-management-list-contract.spec.ts --workers=1 --reporter=json`：32 项通过。
-- `node --import tsx --test tests/unit/factory-qc-scoped-source.test.ts tests/unit/factory-qc-lazy-static-read.test.ts`：5 项通过。
+- `npm run build`：通过
+- `npx playwright test tests/post-finishing-main-integration.spec.ts tests/quality-management-print-ready.spec.ts tests/quality-inventory-generic-print-entry.spec.ts tests/quality-management-list-contract.spec.ts --workers=1 --reporter=json`：通过
+- `node --import tsx --test tests/unit/factory-qc-scoped-source.test.ts tests/unit/factory-qc-lazy-static-read.test.ts`：通过
+
+上述两次完整构建分别为 1669／1670 单测、工程类型检查及 Vite 通过；32 项页面和 5 项专项分别保留实际运行版本及日志，不因文档提交变更而改写身份。9 个冲突涉及源码的渐进 TypeScript 检查范围内 0 错误，全量范围外 20 项保留。原生检查的初次 44 项通过及 3 项依赖修复后的重新通过在自查表和原始日志中分别登记，不把原失败改写成一次全通过。
+
+发布前以本任务完整分支差异重新运行原型设计及列表治理检查。初次输出指出本节命令结果未按固定格式填写，现已补正；本记录仍明确保留最终结论及性能“不通过”，因此治理检查不应被冒称通过。用户的先行推送授权仅用于本次发布，不修改检查器、性能门槛或原始结果，最终治理退出值另存发布回执。
 
 ## 例外
 
