@@ -1274,6 +1274,12 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
   if (authorizedCostCleanupError) return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(authorizedCostCleanupError)
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // Feedback pages prepare their own comment and product records. Unrelated
+    // production recovery must not block this independent business entry.
+    if (/^\/pcs\/product-feedback(?:\/(?:collection|batches|comments|products|analysis))?\/?$/.test(normalizedPathname)) {
+      previousRenderedPagePathname = normalizedPathname
+      return await resolvePage(pathname)
+    }
     // These direct consumers must read the same committed QC/source/handfeel
     // records before importing pages that project them at module evaluation.
     const factoryQcReadEntry = /^\/fcs\/(?:craft\/(?:printing|dyeing)(?:\/|$)|production\/orders\/|pda\/(?:handover|warehouse|stenter-handfeel)(?:\/|$)|pda\/exec\/TASK-(?:PRINT|DYE|WATER)-)/.test(normalizedPathname)
@@ -2590,6 +2596,16 @@ root.addEventListener('click', async (event) => {
   }
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  // Feedback source links retain their list context through the app router.
+  // Cancel the native navigation before any asynchronous page dispatch.
+  const feedbackLink = target.closest<HTMLAnchorElement>('a[data-nav][href]')
+  const feedbackHref = feedbackLink?.getAttribute('href')
+  if (window.location.pathname.startsWith('/pcs/product-feedback/') && feedbackHref?.startsWith('/')
+    && !feedbackHref.startsWith('//') && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault()
+    await navigateWithImmediateSidebar(feedbackHref)
+    return
+  }
   if (isFactoryPhysicalUiTarget(target) && !target.closest('[data-nav]')) {
     const nativeControl = target.closest('input,select,textarea,label,summary')
     if (!nativeControl && target.closest('[data-factory-qc-action], [data-stenter-handfeel-action]')) event.preventDefault()
@@ -2951,6 +2967,13 @@ document.addEventListener('keydown', async (event) => {
   }
   if (event.key !== 'Escape') return
 
+  if (appStore.getState().pathname.startsWith('/pcs/product-feedback/')) {
+    // Feedback drawers own their local updates and dirty-input guard; do not
+    // recreate the page or invoke a second close after the user cancels.
+    if (await (await getPcsHandlersModule()).closePcsDialogsOnEscape()) event.preventDefault()
+    return
+  }
+
   if (document.querySelector('[data-ppic-daily-page]')) {
     if ((await import('./pages/sewing-outsourcing/daily-return-report.ts')).closePpicDailyReturnDialog()) event.preventDefault()
     return
@@ -2991,6 +3014,11 @@ document.addEventListener('keydown', async (event) => {
 })
 
 window.addEventListener('popstate', async () => {
+  const previousPath = appStore.getState().pathname
+  if (previousPath.startsWith('/pcs/product-feedback/') && !(await (await getPcsHandlersModule()).confirmFeedbackHistoryLeave(previousPath))) {
+    history.pushState(null, '', previousPath)
+    return
+  }
   if (root.querySelector('[data-factory-qc-root]') && !(await getFactoryQcPageModule()).confirmFactoryQcLeave()) {
     history.pushState(null, '', appStore.getState().pathname)
     return

@@ -194,6 +194,18 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           ],
         },
         {
+          key: 'pcs-menu-product-feedback',
+          title: '商品反馈管理',
+          icon: 'MessageSquare',
+          children: [
+            { key: 'pcs-feedback-collection', title: '采集工作台', icon: 'ClipboardList', href: '/pcs/product-feedback/collection' },
+            { key: 'pcs-feedback-batches', title: '采集记录', icon: 'ListChecks', href: '/pcs/product-feedback/batches' },
+            { key: 'pcs-feedback-comments', title: '评论明细', icon: 'MessageSquare', href: '/pcs/product-feedback/comments' },
+            { key: 'pcs-feedback-products', title: '商品评价汇总', icon: 'BadgeCheck', href: '/pcs/product-feedback/products' },
+            { key: 'pcs-feedback-analysis', title: '反馈分析', icon: 'ChartBar', href: '/pcs/product-feedback/analysis' },
+          ],
+        },
+        {
           key: 'pcs-menu-settings',
           title: '系统设置',
           icon: 'Settings',

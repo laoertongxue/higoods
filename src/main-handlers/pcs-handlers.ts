@@ -45,6 +45,21 @@ function getCurrentPathname(): string {
 }
 
 const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
+  ...[
+    ['collection', 'Collection', () => import('../pages/product-feedback/collection.ts')],
+    ['batches', 'Batches', () => import('../pages/product-feedback/batches.ts')],
+    ['comments', 'Comments', () => import('../pages/product-feedback/comments.ts')],
+    ['products', 'Products', () => import('../pages/product-feedback/products.ts')],
+    ['analysis', 'Analysis', () => import('../pages/product-feedback/analysis.ts')],
+  ].map(([slug, name, loader]) => ({
+    cacheKey: `pcs-feedback-${slug}`,
+    matches: (pathname: string) => pathname === `/pcs/product-feedback/${slug}`,
+    importModule: loader as () => Promise<HandlerModule>,
+    eventExport: `handleFeedback${name}Event`,
+    inputExport: `handleFeedback${name}Input`,
+    dialogExport: `getFeedback${name}Dialog`,
+    closeActions: [{ datasetKey: `feedback${name}Action`, value: 'close-dialog' }],
+  })),
   {
     cacheKey: 'pcs-config-workspace',
     matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/settings/config-workspace'),
@@ -369,4 +384,14 @@ export async function closePcsDialogsOnEscape(): Promise<boolean> {
   }
 
   return true
+}
+
+/** Called with the previous route because popstate has already changed location. */
+export async function confirmFeedbackHistoryLeave(previousPath: string): Promise<boolean> {
+  const spec = getActiveHandlerSpec(previousPath.split('?')[0])
+  if (!spec?.cacheKey.startsWith('pcs-feedback-')) return true
+  const module = await loadHandlerModule(spec)
+  const name = spec.eventExport?.replace(/^handle/, 'confirm').replace(/Event$/, 'Leave')
+  const confirmLeave = name && module[name]
+  return typeof confirmLeave === 'function' ? Boolean((confirmLeave as () => boolean)()) : true
 }

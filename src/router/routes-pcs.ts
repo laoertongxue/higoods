@@ -21,6 +21,12 @@ function renderIndependentProfessionalTaskOr(
 export const routes: RouteRegistry = {
   exactRoutes: {
     '/pcs': () => renderRouteRedirect('/pcs/products/styles', '正在跳转到商品档案'),
+    '/pcs/product-feedback': () => renderRouteRedirect('/pcs/product-feedback/collection', '正在打开采集工作台'),
+    '/pcs/product-feedback/collection': async () => (await import('../pages/product-feedback/collection.ts')).renderFeedbackCollectionPage(),
+    '/pcs/product-feedback/batches': async () => (await import('../pages/product-feedback/batches.ts')).renderFeedbackBatchesPage(),
+    '/pcs/product-feedback/comments': async () => (await import('../pages/product-feedback/comments.ts')).renderFeedbackCommentsPage(),
+    '/pcs/product-feedback/products': async () => (await import('../pages/product-feedback/products.ts')).renderFeedbackProductsPage(),
+    '/pcs/product-feedback/analysis': async () => (await import('../pages/product-feedback/analysis.ts')).renderFeedbackAnalysisPage(),
     '/pcs/production-preparation/orders': () => renderers.renderPcsEngineeringMasterListPage(),
     '/pcs/production-preparation/design-revision': () => renderers.renderPcsDesignRevisionListPage(),
     '/pcs/production-preparation/color': () => renderers.renderPcsColorTaskPage(),

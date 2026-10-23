@@ -102,6 +102,29 @@ function seed(): ChannelCatalogSnapshot {
     }
     for (const field of ['title', 'description', 'languageCode', 'sellingPoints', 'translations', 'handle', 'platformCategoryId', 'platformBrandId', 'platformAttributes', 'media'] as const) snapshot.fieldBaselines.push({ id: `${id}:${id}:${field}`, listingId: id, targetId: id, field, value: content[field], version: 1, eventId: 'demo-wms-baseline', updatedAt: at })
   }
+  // 反馈场景引用共享店铺、款式和规格；第十个链接与第一个链接售卖同款同规格。
+  const feedbackStores = stores.filter(store => store.id.startsWith('ST-FB-'))
+  const feedbackStyles = styles.filter(style => isChannelStyleSelectable(style) && listSkuArchivesByStyleId(style.styleId).filter(isChannelSkuSelectable).length >= 2)
+  for (let index = 0; index < feedbackStores.length + 1 && feedbackStyles.length; index++) {
+    const store = feedbackStores[index % feedbackStores.length]
+    if (!store) continue
+    const style = feedbackStyles[index === 9 ? 0 : index % feedbackStyles.length]
+    const at = '2026-07-01T01:00:00Z', id = `channel-listing-feedback-${index + 1}`
+    const content = contentForChannelStore(style.styleId, store.id)
+    const listing: ChannelListing = { id, storeId: store.id, styleId: style.styleId, platformProductId: `feedback-demo-pid-${index + 1}`, content, contentVersion: 1, version: 1, reviewStatus: '审核通过', approvedVersion: 1, platformStatus: index === 8 ? '已下架' : '在售', platformRawStatus: index === 8 ? 'DEMO_INACTIVE' : 'DEMO_ACTIVE', syncStatus: '一致', lastSuccessAt: at, sourceTestingOrderId: '', testingListingActionId: '', sourceIdentity: '商品反馈一期静态示例，平台链接标识为 Mock', contentOverrides: [], baseStyleVersion: style.updatedAt, publishedContent: structuredClone(content), createdAt: at, updatedAt: at, updatedBy: '演示资料', remark: index === 9 ? '同店同 SKU 的另一条独立商品链接' : '用于评论关联与历史追溯的示例商品' }
+    snapshot.listings.push(listing)
+    const variants = listSkuArchivesByStyleId(style.styleId).filter(isChannelSkuSelectable).slice(0, 2)
+    variants.forEach((sku, line) => {
+      const variant: ChannelVariant = { id: `${id}-v${line + 1}`, listingId: id, platformVariantId: `feedback-demo-variant-${index + 1}-${line + 1}`, sellerSku: sku.skuCode, internalSkuId: sku.skuId, displayColor: sku.colorName, displaySize: sku.sizeName, displayPattern: sku.printName, platformAttributeValues: {}, platformAttributeSchemaVersion: 'R1-apparel-demo-v1', platformAttributeUnits: {}, imageId: sku.skuId, imageUrl: sku.skuImageUrl || style.mainImageUrl, mappingVersion: 1, mappingEffectiveAt: at, mappingReason: '反馈一期共享商品示例', mappingHistory: [{ version: 1, internalSkuId: sku.skuId, effectiveAt: at, reason: '反馈一期共享商品示例', actor: '演示资料' }], defaultPriceGroupId: `${store.id}:${sku.skuId}`, active: index !== 8, version: 1 }
+      snapshot.variants.push(variant)
+      for (const priceType of ['retail', 'regular', 'live', 'wholesale', 'clearance'] as ChannelPriceType[]) {
+        const priceId = `${store.id}:${sku.skuId}:${priceType}`
+        if (!snapshot.prices.some(price => price.id === priceId)) snapshot.prices.push({ id: priceId, storeId: store.id, internalSkuId: sku.skuId, externalVariantId: '', priceType, amount: priceType === 'clearance' ? null : priceType === 'retail' ? 298000 : 149000, currency: store.salesCurrency, mode: '默认', validFrom: '', validTo: '', origin: '演示', version: 1, updatedAt: at })
+      }
+      for (const [field, value] of Object.entries({ sellerSku: variant.sellerSku, displayColor: variant.displayColor, displaySize: variant.displaySize, displayPattern: variant.displayPattern, imageUrl: variant.imageUrl, platformAttributeValues: {}, 'price.retail': 298000, 'price.regular': 149000 })) snapshot.fieldBaselines.push({ id: `${id}:${variant.id}:${field}`, listingId: id, targetId: variant.id, field, value, version: 1, eventId: `feedback-demo-publish-${index + 1}`, updatedAt: at })
+    })
+    for (const field of ['title', 'description', 'languageCode', 'sellingPoints', 'translations', 'handle', 'platformCategoryId', 'platformBrandId', 'platformAttributes', 'media'] as const) snapshot.fieldBaselines.push({ id: `${id}:${id}:${field}`, listingId: id, targetId: id, field, value: content[field], version: 1, eventId: `feedback-demo-publish-${index + 1}`, updatedAt: at })
+  }
   const first = snapshot.variants[0]
   if (first) snapshot.orderReferences.push({ id: 'demo-order-reference-1', listingId: first.listingId, externalVariantId: first.id, internalSkuId: first.internalSkuId, mappingVersion: 1, orderCode: '演示订单 OMS-1001', status: '履约中', route: '' })
   for (const listing of snapshot.listings) listing.baseContentReference = channelBaseContentReference(listing.styleId, listing.content.languageCode)

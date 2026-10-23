@@ -3,6 +3,14 @@ import type { ChannelStore, ChannelStoreSnapshot, ChannelCode } from './pcs-chan
 import { getProjectCreateCatalog } from './pcs-project-repository.ts'
 import { getChannelPlatformTemplate, validateChannelPlatformTemplate } from './pcs-channel-platform-template.ts'
 export const PCS_CHANNEL_STORE_KEY = 'higood-pcs-channel-store-v1'
+/** 用户确认的首批店铺；业务身份仍由本仓库统一提供。 */
+export const FEEDBACK_STORE_IDENTITIES = [
+  ['Asaya Ind', 'IDLCD3W8X6'], ['FADFAD ID', 'IDLC2XWXEM'],
+  ['CHICMORE IND', 'IDLCNHWLC3'], ['CHICMORE Basic', 'IDLCEXWXE6'],
+  ['FADFAD.Tendblank', 'IDLCLGLL62'], ['Asaya Style', 'IDLCWNWW6Q'],
+  ['MODISH Indonesia', 'IDLC7U2LWUA'], ['FADFAD Indonesia', 'IDLC6EW72S'],
+  ['LUXLUX.ID', 'IDLCHVWXRR'],
+] as const
 export const CURRENT_CHANNELS: Array<{ code: ChannelCode; name: string }> = [
   { code: 'shopify', name: 'Shopify' }, { code: 'tiktok', name: 'TikTok' }, { code: 'independent-site', name: '独立站' },
 ]
@@ -24,10 +32,14 @@ function seed(): ChannelStoreSnapshot {
     ['ST-005', '独立站演示店铺 · 印尼', 'independent-site', 'ID', ['store-independent-01']], ['ST-009', '独立站演示店铺 · 马来西亚', 'independent-site', 'MY', []],
     ['ST-002', 'TikTok 越南店（历史）', 'tiktok', 'VN', ['store-tiktok-02']], ['ST-003', 'Shopee 马来西亚店（历史）', 'shopee', 'MY', ['store-shopee-01']],
   ]
+  FEEDBACK_STORE_IDENTITIES.forEach(([name], index) => records.push([`ST-FB-${String(index + 1).padStart(3, '0')}`, name, 'tiktok', 'ID', []]))
   const people = getChannelResponsibilityOptions()
   return { version: 1, stores: records.map(([id, storeName, channelCode, marketCode, legacyAliases], i) => {
     const market = CURRENT_MARKETS.find(m => m.code === marketCode)
     return { id, storeCode: id, storeName, channelCode, marketCode, externalStoreId: `demo-store-${101 + i}`, salesCurrency: market?.currency || 'VND', settlementCurrency: i === 3 ? 'CNY' : market?.currency || 'VND', languageCode: market?.language || 'vi', timeZone: market?.zone || 'Asia/Ho_Chi_Minh', ownerId: people.owners[i % people.owners.length].id, teamId: people.teams[0].id, operatingStatus: i < 6 ? '启用' : '停用', inventorySource: 'WMS_SHARED', connectionDescription: '原型演示店铺；未连接真实平台 API', allowListing: i < 6, defaultCategoryId: 'apparel', handlingDays: 3, legacyAliases, version: 1, createdAt: '2026-10-05T01:00:00Z', updatedAt: '2026-10-05T01:00:00Z', updatedBy: '演示资料' } satisfies ChannelStore
+  }).map(store => {
+    const confirmed = FEEDBACK_STORE_IDENTITIES.find(([name]) => name === store.storeName)
+    return confirmed ? { ...store, externalStoreId: confirmed[1], operatingStatus: '启用' as const, allowListing: true, connectionDescription: '商品反馈一期原型店铺；未连接真实平台。采集主责见采集安排。' } : store
   }), logs: [] }
 }
 let cache: ChannelStoreSnapshot | null = null
