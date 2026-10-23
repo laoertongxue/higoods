@@ -78,14 +78,16 @@ test('factory profile uses its existing page owner without unrelated initializat
   assert.deepEqual(events, [])
 })
 
-test('craft entry leaves PMS pending, preserves PCS/FCS read gates and later procurement initializes normally', async () => {
+test('craft and printing/dyeing source lists leave PMS pending, preserve PCS/FCS read gates and later procurement initializes normally', async () => {
   const execute = actualFunction('renderCurrentPageContent'), events: string[] = []
   const dependencies = {
     authorizedCostCleanupError: undefined, isIsolatedCraftReadEntry,
     reloadForDynamicModuleLoadError: (error: unknown) => { throw error },
     Image: class { src = ''; decode() { return Promise.resolve() } },
     startPmsInitialization: () => { events.push('PMS started') },
-    loadModule: async (path: string) => path.includes('pms/runtime')
+    loadModule: async (path: string) => path.includes('factory-qc.ts')
+      ? { ensureFactoryQcRecords: async () => { events.push('QC sources') } }
+      : path.includes('pms/runtime')
       ? { hydratePmsLogsFromIdb: async () => { events.push('PMS logs') } }
       : path.includes('canonical-purchase-references')
         ? { ensurePurchaseCatalogState: async () => { events.push('catalog') } }
@@ -93,8 +95,11 @@ test('craft entry leaves PMS pending, preserves PCS/FCS read gates and later pro
     preparePageRouteEntry: async () => { events.push('FCS') },
     resolvePage: async (path: string) => { events.push('page');return path },
   }
-  assert.equal(await execute(dependencies, craft), craft)
-  assert.deepEqual(events, ['PCS', 'FCS', 'page'])
+  for (const path of [craft, '/fcs/craft/printing/work-orders', '/fcs/craft/dyeing/work-orders']) {
+    events.length = 0
+    assert.equal(await execute(dependencies, path), path)
+    assert.deepEqual(events, [...(path === craft ? [] : ['QC sources']), 'PCS', 'FCS', 'page'], path)
+  }
   events.length = 0
   assert.equal(await execute(dependencies, '/pms/material-purchase-orders'), '/pms/material-purchase-orders')
   assert.deepEqual(events, ['PMS started', 'PMS logs', 'catalog', 'FCS', 'page'])
@@ -203,14 +208,16 @@ test('affected financial and dye-report entries retain preparation after PCS whe
     reloadForDynamicModuleLoadError: (error: unknown) => { throw error },
     Image: class { src = ''; decode() { return Promise.resolve() } },
     startPmsInitialization: () => { events.push('PMS') },
-    loadModule: async () => ({ ensurePcsRecordState: async () => { events.push('PCS') } }),
+    loadModule: async (path: string) => path.includes('/factory-qc.ts')
+      ? { ensureFactoryQcRecords: async () => { events.push('QC source records') } }
+      : { ensurePcsRecordState: async () => { events.push('PCS') } },
     preparePageRouteEntry: async () => { events.push('FCS') },
     resolvePage: async (path: string) => { events.push('page');return path },
   }
   for (const path of ['/fcs/settlement/adjustments', '/fcs/settlement/statements', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports']) {
     events.length = 0
     assert.equal(await execute(dependencies, path), path)
-    assert.deepEqual(events, path.endsWith('/reports') ? ['PCS', 'FCS', 'page'] : ['FCS', 'page'], path)
+    assert.deepEqual(events, path.endsWith('/reports') ? ['QC source records', 'PCS', 'FCS', 'page'] : ['FCS', 'page'], path)
   }
 })
 
@@ -286,7 +293,9 @@ test('four affected pages expose actual malformed-source reason and existing rel
     Image: class { src = ''; decode() { return Promise.resolve() } }, startPmsInitialization() {},
     normalizePathname: (path: string) => path.split(/[?#]/)[0],
     escapeHtml: (value: string) => value.replaceAll('<', '&lt;'),
-    loadModule: async () => ({ ensurePcsRecordState: async () => {}, getPcsCollectionFailure: () => '' }),
+    loadModule: async (path: string) => path.includes('/factory-qc.ts')
+      ? { ensureFactoryQcRecords: async () => {} }
+      : { ensurePcsRecordState: async () => {}, getPcsCollectionFailure: () => '' },
     preparePageRouteEntry: async () => { throw Error(reason) },
     resolvePage: async () => { throw Error('normal renderer must stay blocked') },
   }

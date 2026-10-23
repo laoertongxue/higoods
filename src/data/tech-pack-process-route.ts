@@ -52,7 +52,8 @@ export type ProcessRouteValidationIssueCode =
   | 'MATERIAL_SKU_MISMATCH'
   | 'FABRIC_PRINT_OBJECT_INVALID'
   | 'POST_PROCESS_NOT_STATIC_ROUTE'
-  | 'WASH_NOT_STATIC_ROUTE'
+  | 'RETIRED_PROCESS_ROUTE'
+  | 'SITE_HAND_FEEL_NOT_STATIC_ROUTE'
   | 'WEBBING_SPECIFICATION_INVALID'
   | 'WEBBING_INVENTORY_FORM_INVALID'
   | 'WEBBING_PREDECESSOR_INVALID'
@@ -87,6 +88,12 @@ const RAW_MATERIAL_OBJECT_TYPES = new Set<TechnicalProcessObjectType>([
 ])
 
 const DYNAMIC_POST_PROCESS_CODES = new Set(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'])
+// These identities are recognized only to reject and remove the retired processing business.
+const RETIRED_PROCESS_ROUTE_CODES = new Set(['WASH', 'craft-wash'])
+const RETIRED_PROCESS_ROUTE_NAMES = new Set(['水洗', '洗水'])
+export const SITE_HAND_FEEL_PROCESS_CODE = 'STENTER_HAND_FEEL'
+export const isRetiredProcessRouteCode = (code: string): boolean => RETIRED_PROCESS_ROUTE_CODES.has(code)
+export const isRetiredProcessRouteName = (name: string): boolean => RETIRED_PROCESS_ROUTE_NAMES.has(name)
 
 function isPositiveStepNo(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
@@ -406,8 +413,11 @@ export function validateProcessRouteGraph<T extends ProcessRouteGraphEntry>(
         message: '开扣眼、装扣子、烫包由到货 QC 决定，不能写入技术包固定工艺路线。',
       })
     }
-    if (entry.processCode === 'WASH' || entry.processCode === 'craft-wash') {
-      issues.push({ code: 'WASH_NOT_STATIC_ROUTE', entryId: entry.id, message: '洗水须在印花完成后触摸面料判断，不能提前写入工艺路线。' })
+    if (isRetiredProcessRouteCode(entry.processCode)) {
+      issues.push({ code: 'RETIRED_PROCESS_ROUTE', entryId: entry.id, message: '该加工业务已退役，请删除旧工艺节点。' })
+    }
+    if (entry.processCode === SITE_HAND_FEEL_PROCESS_CODE) {
+      issues.push({ code: 'SITE_HAND_FEEL_NOT_STATIC_ROUTE', entryId: entry.id, message: '定型机手感由印花或染色QC的整单决定创建，不能提前写入工艺路线。' })
     }
 
     const seenPredecessors = new Set<string>()
@@ -677,15 +687,18 @@ export function removeProcessRouteEdge<T extends ProcessRouteGraphEntry>(
   return projectProcessRouteLayoutFromPredecessors(next)
 }
 
-/** Planning a new execution chain omits washing; frozen input is never modified. */
-export function removePredeterminedWashing<T extends ProcessRouteGraphEntry>(entries:T[]):T[] {
- const byId=new Map(entries.map(entry=>[entry.id,entry]))
- const washing=(entry:ProcessRouteGraphEntry)=>['WASH','craft-wash'].includes(entry.processCode)
- function predecessors(id:string,seen=new Set<string>()):string[]{
-  if(seen.has(id))throw new Error('原洗水前置关系存在循环，请先核对路线。')
-  const entry=byId.get(id);if(!entry||!washing(entry))return [id]
-  const next=new Set(seen);next.add(id)
-  return (entry.predecessorEntryIds??[]).flatMap(parent=>predecessors(parent,next))
- }
- return entries.filter(entry=>!washing(entry)).map(entry=>({...structuredClone(entry),predecessorEntryIds:[...new Set((entry.predecessorEntryIds??[]).flatMap(id=>predecessors(id)))]}))
+/** Remove retired identities and bridge only their original explicit edges; never infer a new route. */
+export function removeRetiredProcessRouteEntries<T extends ProcessRouteGraphEntry>(entries: T[]): T[] {
+  const byId = new Map(entries.map(entry => [entry.id, entry]))
+  function predecessors(id: string, seen = new Set<string>()): string[] {
+    if (seen.has(id)) throw new Error('已退役工艺节点的原前置关系存在循环，请核对原路线。')
+    const entry = byId.get(id)
+    if (!entry || !isRetiredProcessRouteCode(entry.processCode)) return [id]
+    const next = new Set(seen); next.add(id)
+    return (entry.predecessorEntryIds ?? []).flatMap(parent => predecessors(parent, next))
+  }
+  return entries.filter(entry => !isRetiredProcessRouteCode(entry.processCode)).map(entry => ({
+    ...structuredClone(entry),
+    ...(entry.predecessorEntryIds ? { predecessorEntryIds: [...new Set(entry.predecessorEntryIds.flatMap(id => predecessors(id)))] } : {}),
+  }))
 }

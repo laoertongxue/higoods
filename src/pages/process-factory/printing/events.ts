@@ -8,7 +8,7 @@ import { handlePrintingDashboardsEvent } from './dashboards.ts'
 import { handlePrintingDispatchEvent, refreshPrintingDispatchPage } from './dispatch.ts'
 import { updatePrintingOrderInformation, deletePrintingRollBarcodes, copyPrintingRollBarcode, importPrintingRollLengths, movePrintingRollsToOutboundArea } from '../../../data/fcs/printing-task-domain.ts'
 import { printingMaterialCode, printingUpstreamNames } from './relations.ts'
-import { printingDownstreamNames, withPrintingWashingRead } from '../../../data/fcs/fabric-washing-views.ts'
+import { printingDownstreamNames, withPrintingHandfeelRead } from '../../../data/fcs/factory-qc-views.ts'
 import { PRINTING_DEMAND_SOURCE_LABEL, PRINTING_RECEIPT_STATUS_LABEL, PRINTING_PROCESSING_STATUS_LABEL, PRINTING_HANDOVER_STATUS_LABEL } from '../../../data/fcs/printing-work-order-business.ts'
 import { recordPrintingHistoricalInput } from '../../../data/fcs/printing-work-order-business.ts'
 import {
@@ -39,10 +39,8 @@ import {
   getSelectedPrintingWorkOrderIds,
   handlePrintingWorkOrderListEvent,
   refreshPrintingWorkOrderListPage,
-  refreshPrintingWashingActions,
   selectFilteredPrintingWorkOrders,
 } from './work-orders.ts'
-import { canInitiateFabricWashing } from '../../../data/fcs/fabric-washing.ts'
 
 function showPrintingToast(message: string, tone: 'success' | 'error' = 'success'): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -212,7 +210,7 @@ function navigatePrint(documentType: PrintDocumentType, workOrderIds: string[], 
 }
 
 export function buildPrintingExportRows(kind: 'export', sourceRows = getFilteredPrintingWorkOrders()): { headers: string[]; values: Array<Array<string | number>>; name: string } {
- return withPrintingWashingRead(()=>{
+ return withPrintingHandfeelRead(()=>{
   if (!sourceRows.length) return { headers: ['印花加工单'], values: [], name: '印花加工单' }
   const rows = sourceRows
   const timeLabels = rows[0] ? printingWorkOrderTimeGroups(rows[0]).flatMap(group => group.fields.map(([label]) => label)) : []
@@ -224,7 +222,7 @@ export function buildPrintingExportRows(kind: 'export', sourceRows = getFiltered
     const unknownSource = f.sourceQty === 0 && (row.actualInput.receivedQty > 0 || row.historicalInputQuantityUnknown)
     const quantityFacts: Array<[number | undefined, string]> = [[row.plannedInput.plannedQty,inputUnit],[row.output.plannedQty,outputUnit],[unknownSource?undefined:f.sourceQty,inputUnit],[unknownSource?undefined:Math.max(0,f.sourceQty-f.receivedQty),inputUnit],[row.historicalInputQuantityUnknown?undefined:row.actualInput.receivedQty,inputUnit],[row.historicalRollQuantitiesUnknown?undefined:row.actualInput.receivedRollCount,['面料','花边','织带'].includes(row.plannedInput.objectType)?'卷':'包'],[row.historicalInputQuantityUnknown?undefined:f.availableInputQty,inputUnit],[row.actualInput.usedQty,inputUnit],[f.inProcessQty,inputUnit],[row.output.completedQty,outputUnit],[f.lossQty,inputUnit],[f.reservedOutputQty,outputUnit],[f.availableOutputQty,outputUnit],[row.handover.handedOverQty,outputUnit],[row.handover.receivedQty,outputUnit],[row.pendingWritebackQty,outputUnit]]
     const times = new Map(printingWorkOrderTimeGroups(row).flatMap(group => group.fields))
-    return [row.printFactoryName, row.printOrderNo, row.taskNo, PRINTING_DEMAND_SOURCE_LABEL[row.demandSource.type], row.demandSource.sourceNo || row.demandSource.sourceLabel, demand.get('需求单') || '', demand.get('生产单') || '', row.creationMethod, row.salesType, demand.get('是否补料') || '', row.product.spu || '不适用（备货）', row.plannedInput.materialName, printingMaterialCode(row.plannedInput.sku), row.historicalInputQuantityUnknown ? '历史未记录' : row.actualInput.actualSku ? printingMaterialCode(row.actualInput.actualSku) : '尚未接收', row.plannedInput.qtyUnit, printingMaterialCode(row.output.sku, true), row.output.qtyUnit, row.requirement.craftName, row.requirement.type, row.requirement.printSide, row.requirement.frontPattern.patternNo, row.requirement.frontPattern.patternVersion, row.requirement.insidePattern?.patternNo || (row.requirement.printSide === '双面' ? '资料待补充' : '不适用'), row.requirement.insidePattern?.patternVersion || (row.requirement.printSide === '双面' ? '资料待补充' : '不适用'), row.printerNo, PRINTING_RECEIPT_STATUS_LABEL[row.receiptStatus], PRINTING_PROCESSING_STATUS_LABEL[row.processingStatus], printingProductionStage(row), PRINTING_HANDOVER_STATUS_LABEL[row.handoverStatus], printingUpstreamNames(row).join('、') || '尚无来源', printingDownstreamNames(row).join('、'), printingDownstreamNames(row).includes(row.receivingTargetName) ? row.receivingTargetWarehouseName : '', row.handover.receivedBy || '尚未登记', printingDocumentVersion(row), ...quantityFacts.flatMap(([qty,unit]) => [qty ?? '',unit,qty === undefined ? '历史未记录或尚未核算' : '已记录']), ...allTimeLabels.map(label => times.get(label) || '不适用'), row.remark]
+    return [row.printFactoryName, row.printOrderNo, row.taskNo, PRINTING_DEMAND_SOURCE_LABEL[row.demandSource.type], row.demandSource.sourceNo || row.demandSource.sourceLabel, demand.get('需求单') || '', demand.get('生产单') || '', row.creationMethod, row.salesType, demand.get('是否补料') || '', row.product.spu || '不适用（备货）', row.plannedInput.materialName, printingMaterialCode(row.plannedInput.sku), row.historicalInputQuantityUnknown ? '历史未记录' : row.actualInput.actualSku ? printingMaterialCode(row.actualInput.actualSku) : '尚未接收', row.plannedInput.qtyUnit, printingMaterialCode(row.output.sku, true), row.output.qtyUnit, row.requirement.craftName, row.requirement.type, row.requirement.printSide, row.requirement.frontPattern.patternNo, row.requirement.frontPattern.patternVersion, row.requirement.insidePattern?.patternNo || (row.requirement.printSide === '双面' ? '资料待补充' : '不适用'), row.requirement.insidePattern?.patternVersion || (row.requirement.printSide === '双面' ? '资料待补充' : '不适用'), row.printerNo, PRINTING_RECEIPT_STATUS_LABEL[row.receiptStatus], PRINTING_PROCESSING_STATUS_LABEL[row.processingStatus], printingProductionStage(row), PRINTING_HANDOVER_STATUS_LABEL[row.handoverStatus], printingUpstreamNames(row).join('、') || '尚无来源', printingDownstreamNames(row.workOrderId, row.receivingTargetName).join('、'), printingDownstreamNames(row.workOrderId, row.receivingTargetName).includes(row.receivingTargetName) ? row.receivingTargetWarehouseName : '', row.handover.receivedBy || '尚未登记', printingDocumentVersion(row), ...quantityFacts.flatMap(([qty,unit]) => [qty ?? '',unit,qty === undefined ? '历史未记录或尚未核算' : '已记录']), ...allTimeLabels.map(label => times.get(label) || '不适用'), row.remark]
   })
   return { headers, values, name: '印花加工单' }
  })
@@ -243,15 +241,6 @@ function exportCsv(kind: 'export'): void {
 
 async function handlePrintingAction(actionNode: HTMLElement, action: string): Promise<boolean> {
   const workOrderId = actionNode.dataset.workOrderId || document.querySelector<HTMLElement>('[data-printing-work-order-detail-root]')?.dataset.workOrderId || getPrintingDialogState()?.workOrderId || ''
-  if (action === 'initiate-washing') {
-    if (!canInitiateFabricWashing(workOrderId)) {
-      refreshPrintingWashingActions(workOrderId)
-      showPrintingToast('当前没有符合发起条件的面料卷，请核对实际产出或已有洗水单。','error')
-      return true
-    }
-    openPrintingDialog({type:'washing',workOrderId},()=>refreshPrintingWashingActions(workOrderId))
-    return true
-  }
   if (action === 'open-dispatch-pending' || action === 'open-dispatch-documents') { appStore.navigate(`/fcs/craft/printing/${action === 'open-dispatch-pending' ? 'pending-handover' : 'handover-documents'}${workOrderId ? `?workOrderId=${encodeURIComponent(workOrderId)}` : ''}`); return true }
   if (action === 'receive-input' && !getPrintingWorkOrderById(workOrderId)?.historicalInputQuantityUnknown) { appStore.navigate(`/fcs/craft/printing/pending-receipts?workOrderId=${encodeURIComponent(workOrderId)}`); return true }
   if (action === 'handover') { appStore.navigate(`/fcs/craft/printing/pending-handover?workOrderId=${encodeURIComponent(workOrderId)}`); return true }

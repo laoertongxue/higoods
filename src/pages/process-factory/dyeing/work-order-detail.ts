@@ -55,6 +55,7 @@ import {
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/process-work-order-source-view.ts'
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
+import { renderDyeRecipientSummary } from './recipient-dialog.ts'
 
 function renderTimeOverview(dyeOrderId: string): string {
   const row = listDyeWorkOrderOnlineRows({ workOrderId: dyeOrderId })[0]
@@ -600,6 +601,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${domainOrder?.requiresWaterSoluble ? renderField('中间交出', '无；完成染色及后处理后统一交出') : ''}
           ${renderField('移动端交出记录引用', order.handoverOrderNo || order.handoverOrderId || '未生成')}
         </div>
+        ${domainOrder ? renderDyeRecipientSummary(domainOrder) : ''}
       `,
     ),
     sample: renderSection(

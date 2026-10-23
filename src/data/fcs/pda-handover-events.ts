@@ -1,4 +1,4 @@
-import { assertFabricWashingRelease } from './fabric-washing-gates.ts'
+import { registerFactoryProcessSnapshot } from './factory-process-storage.ts'
 import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks, isStoredDesignRevisionHandoverHead } from './design-revision-pcs-storage.ts'
 import { productionContextStorage, PRODUCTION_CONTEXT_KEYS, isProductionContextReady, onProductionContextChanged } from './production-context-records.ts'
 import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
@@ -2456,13 +2456,7 @@ function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
 
 const FORMAL_HANDOUT_STORAGE_KEY = 'higood.formal-merged-handout-actions.v1'
 const formalHandoutStateKeys = ['handoverHeadAdditions', 'pickupRecordAdditions', 'handoutRecordAdditions', 'pickupRecordOverrides', 'handoutRecordOverrides', 'handoutRecordVersionHistory', 'headCompletionOverrides'] as const
-export function persistPdaHandoverState(expectedSource?: { handoverId: string; taskId: string; productionOrderId: string; sourceDocId: string; sourceBusinessType: 'DYE_WORK_ORDER' | 'WATER_SOLUBLE_WORK_ORDER' | 'PRINT_WORK_ORDER' }): void {
-  if (expectedSource) {
-    const head = handoverHeadAdditions.get(expectedSource.handoverId)
-    if (!head || head.taskId !== expectedSource.taskId || head.productionOrderNo !== expectedSource.productionOrderId || head.sourceDocId !== expectedSource.sourceDocId || head.sourceBusinessType !== expectedSource.sourceBusinessType || !expectedSource.sourceDocId.trim()) throw new Error('交接头与原加工单来源不一致，本次未保存。')
-    if (!productionOrders.some(order => order.productionOrderId === expectedSource.productionOrderId && !initialProductionOrderIds.has(order.productionOrderId))) throw new Error('该接收来源不是本次正式生产单，不写入正式交接动作存储。')
-  }
-  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+function formalHandoutSnapshot(): string {
   const snapshot = capturePdaHandoverState()
   for (const [, head] of snapshot.handoverHeadAdditions) {
     if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head) && !isStoredDesignRevisionHandoverHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
@@ -2487,14 +2481,25 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
     getPdaHandoverRecordsByHead(head.handoverId, head).forEach(record => recordIds.add(record.recordId))
   }
   const taskIds = new Set(heads.map(([, head]) => head.taskId))
-  getDesignRevisionFcsStorage().setItem(FORMAL_HANDOUT_STORAGE_KEY, JSON.stringify({ version: 1, handoverHeadAdditions: heads,
+  return JSON.stringify({ version: 1, handoverHeadAdditions: heads,
     pickupRecordAdditions: snapshot.pickupRecordAdditions.filter(([id]) => headIds.has(id)),
     pickupRecordOverrides: snapshot.pickupRecordOverrides.filter(([, record]) => Boolean(record.handoverId && headIds.has(record.handoverId))), handoutRecordAdditions: records,
     handoutRecordOverrides: snapshot.handoutRecordOverrides.filter(([id]) => recordIds.has(id)),
     handoutRecordVersionHistory: snapshot.handoutRecordVersionHistory.filter(([id]) => taskIds.has(id)),
     headCompletionOverrides: snapshot.headCompletionOverrides.filter(([id]) => headIds.has(id)),
-  }))
+  })
 }
+
+export function persistPdaHandoverState(expectedSource?: { handoverId: string; taskId: string; productionOrderId: string; sourceDocId: string; sourceBusinessType: 'DYE_WORK_ORDER' | 'WATER_SOLUBLE_WORK_ORDER' | 'PRINT_WORK_ORDER' }): void {
+  if (expectedSource) {
+    const head = handoverHeadAdditions.get(expectedSource.handoverId)
+    if (!head || head.taskId !== expectedSource.taskId || head.productionOrderNo !== expectedSource.productionOrderId || head.sourceDocId !== expectedSource.sourceDocId || head.sourceBusinessType !== expectedSource.sourceBusinessType || !expectedSource.sourceDocId.trim()) throw new Error('交接头与原加工单来源不一致，本次未保存。')
+    if (!productionOrders.some(order => order.productionOrderId === expectedSource.productionOrderId && !initialProductionOrderIds.has(order.productionOrderId))) throw new Error('该接收来源不是本次正式生产单，不写入正式交接动作存储。')
+  }
+  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+  getDesignRevisionFcsStorage().setItem(FORMAL_HANDOUT_STORAGE_KEY, formalHandoutSnapshot())
+}
+
 let lastRestoredFormalHandoutRaw: string | null = null
 function readFormalHandoutActions(): void {
   const raw = (typeof window === 'undefined' && typeof localStorage === 'undefined') ? null : getDesignRevisionFcsStorage().getItem(FORMAL_HANDOUT_STORAGE_KEY)
@@ -4679,11 +4684,6 @@ export function createFactoryHandoverRecord(input: {
   if (!head || head.headType !== 'HANDOUT') {
     throw new Error(`未找到交出单：${input.handoverOrderId}`)
   }
-  if(head.sourceBusinessType==='PRINT_WORK_ORDER'||head.processBusinessCode==='PRINT') {
-    const id=head.sourceDocId||input.printingOrderId||''
-    if(input.printingValidatedRollIds?.length)input.printingValidatedRollIds.forEach(rollId=>assertFabricWashingRelease(id,rollId,'HANDOUT'))
-    else assertFabricWashingRelease(id,'__SCOPE__','HANDOUT')
-  }
   if (!input.dyeExecutionConfirmed && head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE')) throw new Error('染色交出请从待交出列表逐卷建单；纱线请使用毛重、净重整单交出。')
   if (head.processBusinessCode === 'WOOL') {
     throw new Error('毛织交出记录由加工单发起交出事实生成，不允许新增通用交出记录')
@@ -5457,3 +5457,5 @@ registerTmfPreparationHandoverReader(readCurrentPreparationHandoverRecord)
 import { registerTmfPreparationHandoverReader } from './tmf-source-readers.ts'
 
 registerDesignRevisionFcsCacheHooks('handover', { capture: capturePdaHandoverState, restore(value) { const snapshot = structuredClone(value); delete snapshot.persistedActionsRaw; restorePdaHandoverState(snapshot) }, hydrate() { lastRestoredFormalHandoutRaw = null; readFormalHandoutActions() } })
+
+registerFactoryProcessSnapshot(FORMAL_HANDOUT_STORAGE_KEY, formalHandoutSnapshot)

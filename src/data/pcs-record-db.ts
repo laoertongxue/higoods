@@ -1,3 +1,4 @@
+import { RETIRED_WASHING_COLLECTIONS, hasRetiredWashingFacts } from './fcs/legacy-washing-removal.ts'
 /** PCS record storage. Opening/reading never copies demonstration data. */
 export interface PcsStoredRecord { id: string; collection: string; value: unknown; version: number; deleted?: boolean }
 export interface PcsStoredFile { id: string; blob: Blob }
@@ -317,6 +318,7 @@ function validateCommit(input: PcsCommitInput): Set<string> {
   }
   for (const record of input.puts) {
     if (!nonempty(record.collection)) throw new Error('PCS 记录缺少业务分类。')
+    if ((RETIRED_WASHING_COLLECTIONS as readonly string[]).includes(record.collection)) throw new Error('旧洗水业务已经退役，不能再次写入或恢复。')
     pcsFileReferences(record.value)
   }
   checkFiles(input.files ?? [])
@@ -463,6 +465,8 @@ export async function commitPcsRecords(input: PcsCommitInput): Promise<void> {
     }
     for (const record of input.puts) {
       if ((final.get(record.id)?.version ?? 0) !== record.expectedVersion) throw new Error('PCS 记录已被其他页面修改，请重新读取后再保存。')
+      const prior = final.get(record.id)
+      if (prior?.collection === 'fcs.factory-qc.v1' && (prior.value as any)?.kind === 'roll' && (prior.value as any)?.data?.completedAt && JSON.stringify(prior.value) !== JSON.stringify(record.value)) throw new Error('本卷已完成质检，不允许修改已完成的结果、照片或完成信息。')
       const { expectedVersion, ...stored } = record
       const next = { ...stored, version: expectedVersion + 1 }
       final.set(record.id, next); recordsStore.put(next)
@@ -470,6 +474,7 @@ export async function commitPcsRecords(input: PcsCommitInput): Promise<void> {
     for (const record of input.deletes) {
       const current = final.get(record.id)
       if ((current?.version ?? 0) !== record.expectedVersion) throw new Error('PCS 记录已被其他页面修改，请重新读取后再删除。')
+      if (current?.collection === 'fcs.factory-qc.v1' && (current.value as any)?.kind === 'roll' && (current.value as any)?.data?.completedAt) throw new Error('本卷已完成质检，不允许删除已完成的检查事实。')
       const next: PcsStoredRecord = { id: record.id, collection: current?.collection ?? 'deleted', value: null, deleted: true, version: record.expectedVersion + 1 }
       final.set(record.id, next); recordsStore.put(next)
     }
@@ -512,6 +517,7 @@ export function validatePcsBackup(value: unknown): asserts value is PcsBackup {
   for (const record of backup.records) {
     if (!nonempty(record.id) || !nonempty(record.collection) || ids.has(record.id) || record.version < 1 || (record.deleted !== undefined && typeof record.deleted !== 'boolean')) throw new Error('PCS 备份记录格式或编号无效。')
     checkVersion(record.version); ids.add(record.id)
+    if (!record.deleted && ((RETIRED_WASHING_COLLECTIONS as readonly string[]).includes(record.collection) || hasRetiredWashingFacts(record.value))) throw new Error('备份含已退役洗水业务资料，不能恢复旧业务。')
     for (const id of pcsFileReferences(record.value, fileIds)) if (!record.deleted && !fileIds.has(id)) throw new Error('PCS 备份缺少被引用的附件。')
   }
 }

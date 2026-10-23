@@ -1,5 +1,4 @@
-import { withWashingRecords } from '../data/fcs/fabric-washing-repository.ts'
-import { renderFabricWashingListPage, renderFabricWashingDetailPage } from './route-renderers.ts'
+import { renderStenterHandfeelListPage, renderStenterHandfeelDetailPage } from './route-renderers.ts'
 import {renderWoolPendingReceiptsPage} from '../pages/process-factory/wool/pending-receipts.ts'
 import {renderFactoryPendingReceiptsPage} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import type { RouteRegistry } from './route-types'
@@ -56,10 +55,10 @@ function decodeRouteSegment(value: string): string {
 
 export const routes: RouteRegistry = {
   exactRoutes: {
-    '/fcs/pda/washing': () => renderFabricWashingListPage(true),
+    '/fcs/pda/stenter-handfeel': () => renderStenterHandfeelListPage(true),
     '/fcs/pda/wool/pending-receipts': () => renderWoolPendingReceiptsPage(),
     '/fcs/pda/cutting/simple-cut-piece-handover': () => renderPdaCuttingSimpleCutPieceHandoverPage(),
-    '/fcs/pda/factory-receipts': () => withWashingRecords(() => renderFactoryPendingReceiptsPage(true)),
+    '/fcs/pda/factory-receipts': async () => { await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords(); return renderFactoryPendingReceiptsPage(true) },
     '/fcs/pda': () =>
       renderRouteRedirect(
         resolvePdaPostLoginRoute(getPdaCurrentAuthSession(), '/fcs/pda/exec') || buildPdaAuthLoginPath('/fcs/pda/exec'),
@@ -95,7 +94,7 @@ export const routes: RouteRegistry = {
     '/fcs/pda/settlement': () => renderPdaSettlementPage(),
   },
   dynamicRoutes: [
-    {pattern: /^\/fcs\/pda\/washing\/([^/]+)$/, render: match => renderFabricWashingDetailPage(decodeURIComponent(match[1]),true)},
+    { pattern: /^\/fcs\/pda\/stenter-handfeel\/([^/]+)$/, render: match => renderStenterHandfeelDetailPage(decodeURIComponent(match[1]), true) },
     {
       pattern: /^\/fcs\/pda\/notify\/([^/]+)$/,
       render: (match) => renderPdaNotifyDetailPage(match[1]),

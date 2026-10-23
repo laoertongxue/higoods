@@ -34,15 +34,16 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       }
     }
 
-    if (/Printing|FabricWashing|WlsInbound|Dyeing|FactoryPending|PdaExec|PdaHandover|ProductionOrderDetail|WaitProcess|WaitHandover/.test(exportName)) {
-      await import('../data/fcs/fabric-washing.ts')
-      try { await (async()=>{const records=await import('../data/fcs/fabric-washing-repository.ts');if(shippedReadOnly||postReceiptReadOnly)await records.ensureWashingViewRecords(true);else await records.ensureWashingRecords()})() } catch(error) { return '<div class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 刷新后重试。</div>' }
+    const executionTaskId = exportName === 'renderPdaExecDetailPage' && typeof args[0] === 'string' ? args[0] : ''
+    const printingExecution = /^(?:TASK-PRINT-|TASKGEN-)/.test(executionTaskId) && Boolean((await import('../data/fcs/printing-task-domain.ts')).getPrintWorkOrderByTaskId(executionTaskId))
+    const factoryExecution = printingExecution || /Pda(?:WorkOrder)?ExecDetail/.test(exportName) && args.some(value => typeof value === 'string' && /^TASK-(?:PRINT|DYE|WATER)-/.test(value))
+    if (factoryExecution || /FactoryQc|StenterHandfeel|Printing|WlsInbound|Dyeing|WaterSoluble|FactoryPending|PdaHandover|PdaWarehouse|ProductionOrderDetail|TechPack|WaitProcess|WaitHandover/.test(exportName)) {
+      try { const records = await import('../data/fcs/factory-qc.ts'); if (shippedReadOnly || postReceiptReadOnly) await records.ensureFactoryQcViewRecords(); else await records.ensureFactoryQcRecords() } catch(error) { return '<div class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 原记录未被覆盖，恢复存储权限后重新读取。</div>' }
     }
     const actualPath = typeof location === 'undefined' ? '' : location.pathname
     const actualDocumentType = typeof location === 'undefined' ? '' : new URLSearchParams(location.search).get('documentType') || ''
     const finishingPrint = exportName==='renderPrintPreviewPage' && actualPath==='/fcs/print/preview'
       && ['PRODUCTION_QC_MASTER','POST_FINISHING_QC_ORDER','POST_FINISHING_OUTBOUND_ORDER','POST_FINISHING_OUTBOUND_BARCODE'].includes(actualDocumentType)
-    const printingExecution=exportName==='renderPdaExecDetailPage'&&typeof args[0]==='string'&&Boolean((await import('../data/fcs/printing-task-domain.ts')).getPrintWorkOrderByTaskId(args[0]))
     const postFinishingScope = !printingExecution&&(exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName))
     const ppicReturnReadScope = exportName === 'renderProgressBoardPage'
     if ((postFinishingScope && !finishingPrint) || ppicReturnReadScope) await import('../data/fcs/ppic-daily-return-records.ts')
@@ -713,5 +714,7 @@ export const renderPdaCuttingSimpleCutPieceHandoverPage = createAsyncRenderer(()
 
 export const renderPcsSampleLabelPage = createAsyncRenderer(() => import('../pages/pcs-sample-label'), 'renderPcsSampleLabelPage')
 
-export const renderFabricWashingListPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/washing/work-orders.ts'), 'renderFabricWashingListPage')
-export const renderFabricWashingDetailPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/washing/work-orders.ts'), 'renderFabricWashingDetailPage')
+export const renderFactoryQcListPage = createAsyncRenderer(() => import('../pages/process-factory/shared/factory-qc.ts'), 'renderFactoryQcListPage')
+export const renderFactoryQcDetailPage = createAsyncRenderer(() => import('../pages/process-factory/shared/factory-qc.ts'), 'renderFactoryQcDetailPage')
+export const renderStenterHandfeelListPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/stenter-handfeel/work-orders.ts'), 'renderStenterHandfeelListPage')
+export const renderStenterHandfeelDetailPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/stenter-handfeel/work-orders.ts'), 'renderStenterHandfeelDetailPage')

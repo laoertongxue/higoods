@@ -116,7 +116,10 @@ import { buildPatternSignature } from './pattern-duplicate-check.ts'
 import {
   materializeLegacyProcessRoutePredecessors,
   normalizeProcessRouteEntries,
-  removePredeterminedWashing,
+  removeRetiredProcessRouteEntries,
+  isRetiredProcessRouteCode,
+  isRetiredProcessRouteName,
+  SITE_HAND_FEEL_PROCESS_CODE,
   projectProcessRouteLayoutFromPredecessors,
   validateProcessRouteGraph,
 } from '../../data/tech-pack-process-route.ts'
@@ -2545,12 +2548,15 @@ function applyTechPackState(
 
   state.bomItems = buildBomItemsFromTechPack(nextTechPack)
   state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
-  // Editable drafts follow current planning rules; published/review-locked graphs stay historical.
-  const routeTechPack = !isTechPackModuleReadOnly('PROCESS') ? {
+  // Retire only the removed processing identities; unrelated published facts remain intact.
+  const retiredEntryIds = new Set((nextTechPack.processEntries ?? []).filter(entry => isRetiredProcessRouteCode(entry.processCode)).map(entry => entry.id))
+  const routeTechPack = {
     ...nextTechPack,
-    processEntries: removePredeterminedWashing(nextTechPack.processEntries ?? []),
-    processes: nextTechPack.processes.filter(item => !['水洗', '洗水'].includes(item.name)),
-  } : nextTechPack
+    processEntries: removeRetiredProcessRouteEntries(nextTechPack.processEntries ?? []),
+    processes: nextTechPack.processes.filter(item => !retiredEntryIds.has(item.id) && !isRetiredProcessRouteName(item.name)),
+    processCostItems: nextTechPack.processCostItems?.filter(item => !retiredEntryIds.has(item.processId)),
+  }
+  state.techPack = routeTechPack
   const loadedTechniques = buildTechniquesFromTechPack(routeTechPack, state.bomItems)
   state.techniques = state.processRouteStatus === 'CONFIRMED'
     ? loadedTechniques
@@ -2561,7 +2567,7 @@ function applyTechPackState(
     markProcessRouteUnconfirmed(false)
   }
   state.materialCostRows = buildMaterialCostRows(state.bomItems, nextTechPack)
-  state.processCostRows = buildProcessCostRows(state.techniques, nextTechPack)
+  state.processCostRows = buildProcessCostRows(state.techniques, routeTechPack)
   state.customCostRows = buildCustomCostRows(nextTechPack)
   const loadedMappings = buildColorMaterialMappings(nextTechPack)
   state.colorMaterialMappings = buildSourceDrivenColorMaterialMappings(loadedMappings)
@@ -2642,7 +2648,7 @@ function getBaselineProcessByCode(code: string): BaselineProcessOption | null {
 
 function getTechniqueProcessOptions(stageCode: '' | 'PREP' | 'PROD' | 'POST') {
   if (!stageCode) return []
-  return listProcessesByStageCode(stageCode).filter(item=>!['WASH','craft-wash'].includes(item.processCode)).map((item) => ({
+  return listProcessesByStageCode(stageCode).filter(item => !isRetiredProcessRouteCode(item.processCode) && item.processCode !== SITE_HAND_FEEL_PROCESS_CODE).map((item) => ({
     processCode: item.processCode,
     processName: item.processName,
     stageCode: item.stageCode,

@@ -1,4 +1,4 @@
-import { renderWashingJudgmentPanel } from './process-factory/dyeing/washing/work-orders.ts'
+import { qcIdForSource } from '../data/fcs/factory-qc-model.ts'
 import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { getProcessOrderReceivingFacts } from '../data/fcs/factory-receiving.ts'
@@ -312,6 +312,23 @@ const detailState: PdaExecDetailState = {
 let waterOverlaySequence = 0
 const waterPrimaryActionTokens = new Map<string, string>()
 const pendingWaterActions = new Set<string>()
+async function persistIndependentWaterAction<T>(node: HTMLElement, actionKey: string, orderId: string, recipe: () => T): Promise<T | undefined> {
+  if (pendingWaterActions.has(actionKey)) return undefined
+  pendingWaterActions.add(actionKey)
+  const scope = node.closest<HTMLElement>('[data-testid="pda-water-soluble-overlay"], [data-testid="pda-water-soluble-detail-content"]')
+  const controls = [...(scope?.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('button, input, select, textarea') ?? [])]
+  if (node instanceof HTMLButtonElement && !controls.includes(node)) controls.push(node)
+  const disabled = controls.map(control => control.disabled), oldText = node.textContent
+  controls.forEach(control => { control.disabled = true })
+  if (node instanceof HTMLButtonElement) node.textContent = '处理中…'
+  try { return await runDesignRevisionFcsCommand(orderId, recipe) }
+  catch (error) { showPdaExecDetailToast(error instanceof Error ? error.message : '本次未保存，请保留输入后重试。'); return undefined }
+  finally {
+    pendingWaterActions.delete(actionKey)
+    controls.forEach((control, index) => { if (control.isConnected) control.disabled = disabled[index] })
+    if (node.isConnected) node.textContent = oldText
+  }
+}
 let dyeWaterOverlaySequence = 0
 let dyeCompletionActionSequence = 0
 const dyeWaterPrimaryActionTokens = new Map<string, string>()
@@ -3754,7 +3771,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
       ${handoverOrder ? renderHandoverOrderCard(handoverOrder) : ''}
       ${renderPdaSewingDeliveryProgress(getSewingDeliverySlaView(task.taskId), getQtyUnitLabel(task.qtyUnit))}
-      ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) + renderWashingJudgmentPanel(printWorkOrder.printOrderId,true) : ''}
+      ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) + `<section class="rounded-lg border bg-white p-3"><a class="inline-block min-h-11 rounded border px-3 py-2 text-blue-700" href="/fcs/craft/printing/qc-orders/${encodeURIComponent(qcIdForSource({ kind: 'PRINTING', id: printWorkOrder.printOrderId }))}" data-nav="/fcs/craft/printing/qc-orders/${encodeURIComponent(qcIdForSource({ kind: 'PRINTING', id: printWorkOrder.printOrderId }))}">查看印花QC单</a><p class="mt-2 text-sm text-slate-500">逐卷质检和整单手感决定在QC单记录。</p></section>` : ''}
       ${mobileTaskAccess.canOpenMobileExecution && dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}
       ${specialCraftExecutionPanel}
 
@@ -4411,6 +4428,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
   }
 
   if (action.startsWith('water-')) {
+    if (pendingWaterActions.size) return true
     if (action === 'water-close-overlay') {
       clearWaterSolubleOverlay()
       return true
@@ -4482,7 +4500,8 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
     if (action === 'water-go-handover') {
       if (rejectOfflinePdaMutation()) return true
       try {
-        const ensured = ensureHandoverOrderForStartedTask(order.taskId)
+        const ensured = await persistIndependentWaterAction(actionNode, `${orderId}:HANDOVER:${order.status}`, orderId, () => ensureHandoverOrderForStartedTask(order.taskId))
+        if (!ensured) return true
         appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
       } catch (error) {
         showPdaExecDetailToast(error instanceof Error ? error.message : '交出单创建失败，请重试。')
@@ -4517,23 +4536,14 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       }
       if (rejectOfflinePdaMutation('[data-pda-execd-field="waterReason"]')) return true
       const actionKey = `${orderId}:COMPLETE:${order.status}`
-      if (pendingWaterActions.has(actionKey)) return true
-      pendingWaterActions.add(actionKey)
-      const button = actionNode as HTMLButtonElement
-      const oldText = button.textContent || '确认完成'
-      button.disabled = true
-      button.textContent = '处理中…'
-      const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor: session })
-      pendingWaterActions.delete(actionKey)
+      const result = await persistIndependentWaterAction(actionNode, actionKey, orderId, () => executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor: session }))
+      if (!result) return true
       showPdaExecDetailToast(result.message)
       if (result.ok) {
         detailState.waterOverlay = null
         detailState.waterCompletionDraft = { taskId: '', orderId: '', completedQty: '', reason: '' }
         refreshWaterSolubleOverlay()
         refreshWaterSolubleDetail(orderId)
-      } else if (button.isConnected) {
-        button.disabled = false
-        button.textContent = oldText
       }
       return true
     }
@@ -4546,46 +4556,27 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       }
       if (rejectOfflinePdaMutation()) return true
       const actionKey = `${orderId}:RESOLVE_PAUSE:${order.status}`
-      if (pendingWaterActions.has(actionKey)) return true
-      pendingWaterActions.add(actionKey)
-      const button = actionNode as HTMLButtonElement
-      const oldText = button.textContent || '确认处理'
-      button.disabled = true
-      button.textContent = '处理中…'
-      const result = executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: session })
-      pendingWaterActions.delete(actionKey)
+      const result = await persistIndependentWaterAction(actionNode, actionKey, orderId, () => executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: session }))
+      if (!result) return true
       showPdaExecDetailToast(result.message)
       if (result.ok) {
         detailState.waterOverlay = null
         refreshWaterSolubleOverlay()
         refreshWaterSolubleDetail(orderId)
-      } else if (button.isConnected) {
-        button.disabled = false
-        button.textContent = oldText
       }
       return true
     }
 
     if (rejectOfflinePdaMutation()) return true
     const actionKey = `${orderId}:${action}:${order.status}`
-    if (pendingWaterActions.has(actionKey)) return true
-    pendingWaterActions.add(actionKey)
-    const button = actionNode as HTMLButtonElement
-    const oldText = button.textContent || ''
-    button.disabled = true
-    button.textContent = '处理中…'
-    const result = action === 'water-receive-input'
+    const result = await persistIndependentWaterAction(actionNode, actionKey, orderId, () => action === 'water-receive-input'
       ? executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: order.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(document.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: document.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: document.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: session })
       : action === 'water-finish-document'
         ? executeWaterSolublePdaAction({ action: 'FINISH_DOCUMENT', orderId, taskId: order.taskId, expectedStatus: 'WAIT_MANUAL_COMPLETION', expectedNode: 'FINISH_DOCUMENT', actor: session })
-        : executeWaterSolublePdaAction({ action: 'START', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: order.status==='WAIT_HANDOVER'?'HANDOVER':order.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: session })
-    pendingWaterActions.delete(actionKey)
+        : executeWaterSolublePdaAction({ action: 'START', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: order.status==='WAIT_HANDOVER'?'HANDOVER':order.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: session }))
+    if (!result) return true
     showPdaExecDetailToast(result.message)
     if (result.ok) refreshWaterSolubleDetail(orderId)
-    else if (button.isConnected) {
-      button.disabled = false
-      button.textContent = oldText
-    }
     return true
   }
 

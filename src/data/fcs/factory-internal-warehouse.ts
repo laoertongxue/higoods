@@ -1,4 +1,4 @@
-import { washingOutputStock } from './fabric-washing-gates.ts'
+import { readFactoryQcState } from './factory-qc-records.ts'
 import { buildWoolCraftWarehouseProjection, isWoolCraftWarehouseProjectionId } from './wool-domain/craft-warehouse.ts'
 import {getReceiptMaterialUsed, getFactoryReceivingRevision} from './factory-receiving.ts'
 import {buildFactoryReceiptInboundRecords} from './factory-receiving-warehouse.ts'
@@ -93,7 +93,7 @@ export type FactoryWarehouseStocktakeReviewStatus = '待审核' | '审核通过'
 export type FactoryWarehouseAdjustmentOrderStatus = '待执行' | '已完成' | '已作废'
 
 interface FactoryWarehouseBaseItem {
-  washingOrderId?: string
+  stenterHandfeelOrderId?: string
   stockItemId: string
   warehouseId: string
   factoryId: string
@@ -182,7 +182,7 @@ export interface FactoryWaitHandoverStockItem extends FactoryWarehouseBaseItem {
 }
 
 export interface FactoryWarehouseInboundRecord {
-  washingOrderId?: string
+  stenterHandfeelOrderId?: string
   inboundRecordId: string
   inboundRecordNo: string
   warehouseId: string
@@ -1149,7 +1149,7 @@ function buildWaitProcessStockItemFromInbound(
   record: FactoryWarehouseInboundRecord,
 ): FactoryWaitProcessStockItem {
   return {
-    washingOrderId: record.washingOrderId,
+    stenterHandfeelOrderId: record.stenterHandfeelOrderId,
     stockItemId: `WPS-${record.inboundRecordId}`,
     warehouseId: record.warehouseId,
     factoryId: record.factoryId,
@@ -2601,8 +2601,33 @@ export function listFactoryWaitProcessStockItems(): FactoryWaitProcessStockItem[
   return cloneValue(ensureFactoryInternalWarehouseStore().waitProcessStockItems)
 }
 
+/** Only recorded handfeel output creates stock; a QC decision or new order creates none. */
+export function listStenterHandfeelOutputStock(): FactoryWaitHandoverStockItem[] {
+  const warehouses = listFactoryInternalWarehouseLocations()
+  return readFactoryQcState().handfeelOrders.flatMap(order => {
+    const warehouse = warehouses.find(item => item.factoryId === order.factoryId && item.warehouseKind === 'WAIT_HANDOVER')
+    return order.rolls.filter(roll => roll.completedAt && Number.isFinite(roll.outputQty) && roll.outputQty! > 0).map(roll => ({
+      stockItemId: 'STENTER-OUTPUT-' + order.id + '-' + roll.id, stenterHandfeelOrderId: order.id,
+      warehouseId: warehouse?.warehouseId || '', warehouseName: warehouse?.warehouseName || '待交出仓',
+      factoryId: order.factoryId, factoryName: order.factoryName, factoryKind: warehouse?.factoryKind || 'CENTRAL_DYE',
+      processCode: 'STENTER_HANDFEEL', processName: '定型机手感', craftCode: 'STENTER_HANDFEEL', craftName: '定型机手感',
+      itemKind: '面料', itemName: order.source.materialName, materialSku: order.source.materialSku,
+      fabricRollNo: roll.outputBarcode || roll.barcode, unit: roll.unit, areaName: '', shelfNo: '', locationNo: '',
+      locationText: '产出卷，实际库位待登记', photoList: order.source.imageUrl ? [order.source.imageUrl] : [],
+      completedQty: roll.outputQty!, lossQty: 0, waitHandoverQty: roll.handedOutAt ? 0 : roll.outputQty!,
+      inTransitQty: roll.handedOutAt && !roll.downstreamReceivedAt ? roll.outputQty! : 0,
+      receiverKind: order.source.target.kind === 'WAREHOUSE' ? '中转仓' : '加工任务', receiverName: order.source.target.name || '待核对',
+      productionOrderId: order.source.productionOrderId, taskId: order.source.taskId, taskNo: order.no,
+      receiverWrittenQty: roll.downstreamReceivedAt ? roll.downstreamQty : undefined,
+      differenceQty: roll.downstreamReceivedAt ? roll.downstreamQty! - roll.outputQty! : undefined,
+      status: roll.downstreamReceivedAt ? Math.abs(roll.downstreamQty! - roll.outputQty!) > 0.000001 ? '差异' : '已回写' : roll.handedOutAt ? '已交出' : '待交出',
+      remark: '实际手感产出；来源卷 ' + roll.barcode + (roll.receivedQty === undefined ? '' : '；实收与产出差异 ' + (roll.outputQty! - roll.receivedQty) + ' ' + roll.unit),
+    }))
+  })
+}
+
 export function listFactoryWaitHandoverStockItems(): FactoryWaitHandoverStockItem[] {
-  return cloneValue([...ensureFactoryInternalWarehouseStore().waitHandoverStockItems,...washingOutputStock()])
+  return cloneValue([...ensureFactoryInternalWarehouseStore().waitHandoverStockItems,...listStenterHandfeelOutputStock()])
 }
 
 export function listFactoryWarehouseInboundRecords(): FactoryWarehouseInboundRecord[] {
@@ -3449,9 +3474,9 @@ export function getFactoryWarehouseSummary(input: {
     .filter((item) => withinRange(item.receivedAt))
     .filter((item) => matchesKeyword([item.sourceRecordNo, item.taskNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo]))
     .filter((item) => (input.status ? item.status === input.status : item.status === '已入待加工仓'))
-    .reduce((sum, item) => sum + (item.washingOrderId ? item.availableQty ?? item.receivedQty : item.receivedQty), 0)
+    .reduce((sum, item) => sum + (item.stenterHandfeelOrderId ? item.availableQty ?? item.receivedQty : item.receivedQty), 0)
 
-  const waitHandoverQty = [...store.waitHandoverStockItems, ...washingOutputStock()]
+  const waitHandoverQty = [...store.waitHandoverStockItems, ...listStenterHandfeelOutputStock()]
     .filter((item) => byFactory(item))
     .filter((item) => matchesKeyword([item.taskNo, item.handoverOrderNo, item.handoverRecordNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo]))
     .filter((item) => (input.status ? item.status === input.status : item.status === '待交出'))

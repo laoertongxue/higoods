@@ -5,12 +5,16 @@ import { test } from 'node:test'
 import { chromium } from '@playwright/test'
 import ts from 'typescript'
 
+// Serve the real retirement dependency beside the isolated native storage module.
+const retirementPath = '/fcs/legacy-washing-removal.ts'
+const retirementCode = ts.transpileModule(await readFile(new URL('../../src/data/fcs/legacy-washing-removal.ts', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
+
 test('PCS readonly projection: exact prefixes, tombstones, metadata, attachment isolation and failure propagation', async () => {
   const source = await readFile(new URL('../../src/data/pcs-record-db.ts', import.meta.url), 'utf8')
   const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
   const server = createServer((req, res) => {
-    res.setHeader('Content-Type', req.url === '/storage.js' ? 'text/javascript' : 'text/html')
-    res.end(req.url === '/storage.js' ? code : '<!doctype html><title>PCS readonly projection contract</title>')
+    res.setHeader('Content-Type', (req.url === '/storage.js' || req.url === retirementPath) ? 'text/javascript' : 'text/html')
+    res.end(req.url === retirementPath ? retirementCode : req.url === '/storage.js' ? code : '<!doctype html><title>PCS readonly projection contract</title>')
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
@@ -87,8 +91,8 @@ test('PCS real IndexedDB: atomic writes, versions, retry, attachment references 
   const source = await readFile(new URL('../../src/data/pcs-record-db.ts', import.meta.url), 'utf8')
   const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
   const server = createServer((req, res) => {
-    res.setHeader('Content-Type', req.url === '/storage.js' ? 'text/javascript' : 'text/html')
-    res.end(req.url === '/storage.js' ? code : '<!doctype html><title>PCS storage test</title>')
+    res.setHeader('Content-Type', (req.url === '/storage.js' || req.url === retirementPath) ? 'text/javascript' : 'text/html')
+    res.end(req.url === retirementPath ? retirementCode : req.url === '/storage.js' ? code : '<!doctype html><title>PCS storage test</title>')
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address() as { port: number }
@@ -204,7 +208,7 @@ test('PCS real IndexedDB: atomic writes, versions, retry, attachment references 
 
 test('PCS旧库不重建大索引：原记录/Blob/操作不变，旧库分批投影与现有索引读取一致且错误不写',async()=>{
  const source=await readFile(new URL('../../src/data/pcs-record-db.ts',import.meta.url),'utf8'),code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText
- const server=createServer((req,res)=>{res.setHeader('Content-Type',req.url==='/storage.js'?'text/javascript':'text/html');res.end(req.url==='/storage.js'?code:'<!doctype html><body>native upgrade</body>')})
+ const server=createServer((req,res)=>{res.setHeader('Content-Type',(req.url==='/storage.js'||req.url===retirementPath)?'text/javascript':'text/html');res.end(req.url===retirementPath?retirementCode:req.url==='/storage.js'?code:'<!doctype html><body>native upgrade</body>')})
  await new Promise<void>(done=>server.listen(0,'127.0.0.1',done));const browser=await chromium.launch({headless:true})
  try{
   for(const oldVersion of [2,3,4]){

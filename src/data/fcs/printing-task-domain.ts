@@ -1,7 +1,5 @@
 import { PRINT_EXECUTION_STORAGE_KEY } from './process-execution-storage-keys.ts'
-import { buildWashingPrintDemoOrders } from './fabric-washing-mock.ts'
-import { assertFabricWashingRelease, setReadingStaticPrintHistory, withStaticPrintHistory } from './fabric-washing-gates.ts'
-import { registerWashingLedgerSnapshot, isWashingStorageTarget, withWashingStaticRead } from './fabric-washing-storage-bridge.ts'
+import { registerFactoryProcessSnapshot, withFactoryProcessStaticRead } from './factory-process-storage.ts'
 import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
 import { isProductionCreationSourceStage, withProductionCreationSourceStage, recordProductionCreatedProcessSource, listProductionCreatedProcessSources, shouldApplyProductionCreatedProcessSource } from './production-created-process-sources.ts'
 import { parsePrintExecution, serializePrintExecution } from './printing-execution-storage.ts'
@@ -749,10 +747,8 @@ function hydrateDesignRevisionPrintPreview(order: PrintWorkOrder): void {
   if (!order.businessView.output.imageUrl) order.businessView.output.imageUrl = preview
 }
 
-function saveFormalPrintExecution(): void {
-  applyProductionCreatedPrintSources()
-  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
-  const ids = new Set([...workOrderStore.keys()].filter(id=>!id.startsWith('PWO-WASH-DEMO-')||isWashingStorageTarget(id)||JSON.stringify(workOrderStore.get(id))!==washingDemoBaselines.get(id))), state = capturePrintProcessMutationState()
+function printExecutionSnapshot(): string {
+  const ids = new Set(workOrderStore.keys()), state = capturePrintProcessMutationState()
   state.workOrders = state.workOrders.filter(([id]) => ids.has(id))
   // 新建但未开工的加工单也保存空执行记录，刷新时可区分“尚未执行”和缺失记录。
   state.nodeRecords = state.workOrders.map(([id]) => [id, structuredClone(nodeRecordStore.get(id) ?? [])])
@@ -771,7 +767,13 @@ function saveFormalPrintExecution(): void {
       records: getPdaHandoverRecordsByHead(head.handoverId, head),
     })))
     .filter(item => item.records.length > 0)
-  const raw = serializePrintExecution({ version: 1, state, tasks, designRevisionHandovers })
+  return serializePrintExecution({ version: 1, state, tasks, designRevisionHandovers })
+}
+
+function saveFormalPrintExecution(): void {
+  applyProductionCreatedPrintSources()
+  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+  const raw = printExecutionSnapshot()
   getDesignRevisionFcsStorage().setItem(PRINT_EXECUTION_STORAGE_KEY, raw)
   if (getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('印花保存结果未核实')
 }
@@ -1527,7 +1529,7 @@ function ensureSeededHandoverRecord(input: {
   if (!head) return { handoverOrderId, recordIds: [] }
   const existing = getPdaHandoverRecordsByHead(head.handoverId, head)
   if (existing.length === 0) {
-    withStaticPrintHistory(()=>createFactoryHandoverRecord({
+    createFactoryHandoverRecord({
       handoverOrderId,
       submittedQty: input.submittedQty,
       qtyUnit: head.qtyUnit,
@@ -1535,7 +1537,7 @@ function ensureSeededHandoverRecord(input: {
       factorySubmittedBy: '印花工厂',
       factoryRemark: `印花加工产出交给${head.receiverName || head.targetName}`,
       objectType: input.objectType ?? 'MATERIAL',
-    }))
+    })
   }
 
   const records = getPdaHandoverRecordsByHead(head.handoverId, head)
@@ -2778,7 +2780,13 @@ function seedPrintingBusinessPageViews(): void {
 
 let initializingPrintDemos = false
 export function isInitializingPrintingDemos() { return initializingPrintDemos }
-const washingDemoBaselines=new Map<string,string>()
+/** Set the live fixed-demo identity after command rehydration replaced its object. */
+export function markPrintingFactoryDemoInitialized(id: string): void {
+  if (!initializingPrintDemos || !/^PWO-PRINT-DEMO-\d{2}-[1-5]$/.test(id)) throw new Error('仅固定印花示例初始化可以登记完成。')
+  const order = workOrderStore.get(id)
+  if (!order) throw new Error('固定印花示例不存在。')
+  order.factoryDemoInitialized = true
+}
 let pendingFactoryDemoOrders: PrintWorkOrder[] = []
 function initializePendingFactoryDemoProgress(): void {
   if (!pendingFactoryDemoOrders.length) return
@@ -2788,11 +2796,11 @@ function initializePendingFactoryDemoProgress(): void {
     ensurePrintingReceivingExamples()
     initializeFactoryDemoProgress(factoryDemos)
   } catch (error) {
-    pendingFactoryDemoOrders = factoryDemos.filter(order => !order.printOrderId.startsWith('PWO-WASH-DEMO-'))
+    pendingFactoryDemoOrders = factoryDemos
     throw error
   }
 }
-function seedDomain(initializeProgress = true): void { return withWashingStaticRead(()=>seedDomainForRead(initializeProgress)) }
+function seedDomain(initializeProgress = true): void { return withFactoryProcessStaticRead(()=>seedDomainForRead(initializeProgress)) }
 function seedDomainForRead(initializeProgress = true): void {
   if (isProductionCreationSourceStage()) return
   if (printPersistenceReadError) throw new Error(printPersistenceReadError)
@@ -2810,23 +2818,18 @@ function seedDomainForRead(initializeProgress = true): void {
     }
   }
   const templates = ['PWO-PRINT-001','PWO-PRINT-002'].map(id => workOrderStore.get(id)!)
-  const factoryDemos = [...buildPrintingFactoryDemoOrders(templates), ...buildWashingPrintDemoOrders(templates)]
+  const factoryDemos = buildPrintingFactoryDemoOrders(templates)
   for (const order of factoryDemos) {
     workOrderStore.set(order.printOrderId, order)
-    if(order.printOrderId.startsWith('PWO-WASH-DEMO-'))washingDemoBaselines.set(order.printOrderId,JSON.stringify(order))
     nodeRecordStore.set(order.printOrderId, [])
     const view=order.businessView!
     const task=buildFreshPrintMobileTask({taskId:order.taskId,taskNo:order.taskNo,sourceType:order.sourceType,sourceSnapshot:order.sourceSnapshot,productionOrderId:order.sourceProductionOrderId,productionOrderNo:order.sourceProductionOrderNo,spuCode:view.product.spu,spuName:view.product.productName,requiredDeliveryDate:'2026-09-21',factoryId:order.printFactoryId,factoryName:order.printFactoryName,qty:order.plannedQty,qtyDisplayUnit:order.qtyUnit,processName:'印花',createdAt:order.createdAt})
     task.receiverKind='WAREHOUSE';task.receiverId='WH-FABRIC-001';task.receiverName='面料中央仓(GKP)'
-    if(order.printOrderId.startsWith('PWO-WASH-DEMO-')){
-      task.status='IN_PROGRESS';task.startedAt=view.productionStartedAt
-      task.receiverKind=order.receiverKind;task.receiverId=order.targetTransferWarehouseId;task.receiverName=order.receiverName
-    }
     registerPdaGenericProcessTask(task)
   }
   restoreFormalPrintExecution()
   bindPrintingDemoReceivingTargets()
-  pendingFactoryDemoOrders = factoryDemos.filter(order => !order.printOrderId.startsWith('PWO-WASH-DEMO-'))
+  pendingFactoryDemoOrders = factoryDemos
   if (initializeProgress) initializePendingFactoryDemoProgress()
 }
 
@@ -2839,12 +2842,12 @@ function initializeFactoryDemoProgress(factoryDemos: PrintWorkOrder[]): void {
     return !order.factoryDemoInitialized || !getFactoryReceivingSource(sourceId)?.handedOutAt
       || (Number(code.split('-')[1]) > 1 && !receiptSourceIds.has(sourceId))
       || (Number(code.split('-')[1]) > 2 && order.businessView!.actualInput.usedQty > 0 && !usedDemoOrderIds.has(order.printOrderId))
-      || order.businessView?.barcodes.some(roll => roll.handoverRecordId && !findPdaHandoverRecord(roll.handoverRecordId))
+      || order.businessView?.barcodes.some(roll => roll.handoverRecordId && (roll.handoverRecordId.startsWith('SHF-TRANSFER-') ? !getFactoryReceivingSource(roll.handoverRecordId)?.handedOutAt : !findPdaHandoverRecord(roll.handoverRecordId)))
   })
   if (pendingDemos.length) {
-    initializingPrintDemos = true; setReadingStaticPrintHistory(true)
+    initializingPrintDemos = true
     try { initializeFactoryReceivingDemoBatch(() => initializePrintingFactoryDemoProgress(pendingDemos), false) }
-    finally { initializingPrintDemos = false; setReadingStaticPrintHistory(false) }
+    finally { initializingPrintDemos = false }
   }
 }
 
@@ -4878,7 +4881,6 @@ export function handoverPrintingOutput(workOrderId: string, input: { qty: number
   if (input.barcodeIds.length === 0) throw new Error('至少选择一个产出卷条码')
   const selected = view.barcodes.filter((barcode) => input.barcodeIds.includes(barcode.id))
   if (selected.length !== input.barcodeIds.length || new Set(input.barcodeIds).size !== input.barcodeIds.length) throw new Error('存在无效或重复产出卷条码')
-  if (view.output.objectType === '面料' && !initializingPrintDemos) selected.forEach(roll => assertFabricWashingRelease(workOrderId, roll.id, 'HANDOUT'))
   if (listPrintingDispatchDocuments().some(doc => doc.status === '草稿' && doc.id !== input.dispatchId && doc.lines.some(line => line.workOrderId === workOrderId && line.barcodeIds.some(id => input.barcodeIds.includes(id))))) throw new Error('所选卷已加入交出草稿，请从交出单据确认交出')
   if (selected.some(roll => !isPrintablePrintingRoll(projectPrintingBusinessRecord(order), roll))) throw new Error('卷数量未维护或超过完成量')
   if (selected.some((barcode) => barcode.status === '已交出' || barcode.status === '已入库')) throw new Error('产出卷已交出，不能重复交出')
@@ -5423,7 +5425,7 @@ export function getPrintingWorkflowFacts(workOrderId:string){
  demandCreatedAt:demand?.createdAt,productionOrderCreatedAt:(production as unknown as {createdAt?:string})?.createdAt,sourceCreatedAt:sources.map(s=>s.createdAt).sort()[0],upstreamSentAt:sources.map(s=>s.handedOutAt).filter((t):t is string=>Boolean(t)).sort().at(-1),sourceQty,receivedQty:view.actualInput.receivedQty,receiptCount:receipts.length||dates.length,firstReceivedAt:dates[0],lastReceivedAt:dates.at(-1),preparedQty:view.actualInput.receivedQty,availableInputQty:Math.max(0,view.actualInput.receivedQty-view.actualInput.usedQty),inProcessQty,lossQty,reservedOutputQty,availableOutputQty:Math.max(0,view.output.completedQty-view.handover.handedOverQty-reservedOutputQty),dispatchCreatedAt:documents.map(d=>d.createdAt).sort()[0],scanCompletedAt:documents.map(d=>d.scanCompletedAt).filter((t):t is string=>Boolean(t)).sort().at(-1),downstreamReceivedAt:view.handover.receivedAt}
 }
 function assertPrintingProductionEditable(order:MutablePrintWorkOrder):void {
- if(order.status==='CANCELLED'||order.manuallyCompletedAt||order.businessView?.productionCompletedAt)throw new Error('本单已结束，不能新增生产记录。')
+ if(order.status==='CANCELLED'||order.manuallyCompletedAt||order.businessView?.productionCompletedAt)throw new Error('本单已结束，不能新增生产记录。加工单：'+order.printOrderNo)
 }
 export function startPrintingProduction(workOrderId:string,input:{id:string;qty:number;operatorName:string}):void {
  return runPrintProcessMutation(()=>{
@@ -5586,28 +5588,28 @@ registerDesignRevisionFcsCacheHooks('print', {
   hydrate() { if (seeded) restoreFormalPrintExecution() },
 })
 
-/** Actual washing transfer accounts for these print rolls once, without altering other receivers. */
-export function markPrintingWashingTransfer(printOrderId: string, rollIds: string[], recordId: string, actorName: string, at: string, received?: number): void {
+/** Actual handfeel transfer accounts for these print rolls once, without inventing receipt. */
+export function markPrintingHandfeelTransfer(printOrderId: string, rollIds: string[], recordId: string, actorName: string, at: string, received?: number): void {
   const order = getMutablePrintingBusinessOrder(printOrderId), view = order.businessView!
   const rolls = view.barcodes.filter(roll => rollIds.includes(roll.id))
-  if (rolls.length !== rollIds.length) throw new Error('洗水原印花卷不存在。')
+  if (!rollIds.length || new Set(rollIds).size !== rollIds.length || rolls.length !== rollIds.length) throw new Error('手感处理的来源印花卷不存在或重复。')
   if (received === undefined) {
-    if (rolls.some(roll => ['已交出','已入库'].includes(roll.status))) throw new Error('原卷已经交出，不能重复发往洗水。')
+    if (rolls.some(roll => ['已交出','已入库'].includes(roll.status))) throw new Error('原卷已经交出，不能重复发往手感处理。')
     if (listPrintingDispatchDocuments().some(doc => doc.status === '草稿' && doc.lines.some(line => line.workOrderId === printOrderId && line.barcodeIds.some(id => rollIds.includes(id))))) throw new Error('所选卷在原交出草稿中，请先解除草稿。')
     rolls.forEach(roll => { roll.status = '已交出'; roll.handoverRecordId = recordId })
     view.handover.handedOverQty += rolls.reduce((n, roll) => n + roll.lengthY, 0)
     view.handover.handedOverAt = at
-    addPrintingBusinessOperation(order, '按卷交给洗水染厂', actorName, recordId)
+    addPrintingBusinessOperation(order, '按卷交给GTG做手感', actorName, recordId)
   } else {
     view.handover.receivedQty += received
     view.handover.receivedAt = at
-    addPrintingBusinessOperation(order, '洗水染厂实际接收', actorName, recordId + '；实收 ' + received + ' ' + view.output.qtyUnit)
+    addPrintingBusinessOperation(order, 'GTG实际接收手感面料', actorName, recordId + '；实收 ' + received + ' ' + view.output.qtyUnit)
   }
   view.handover.diffQty = view.handover.handedOverQty - view.handover.receivedQty
   view.pendingWritebackQty = Math.max(0, view.handover.handedOverQty - view.handover.receivedQty)
   saveFormalPrintExecution()
 }
-registerWashingLedgerSnapshot(PRINT_EXECUTION_STORAGE_KEY, () => serializePrintExecution({ version: 1, state: capturePrintProcessMutationState(), tasks: [...workOrderStore.values()].flatMap(order => { const task = getPrintingTaskById(order.taskId); return task ? [task] : [] }), designRevisionHandovers: [] }))
+registerFactoryProcessSnapshot(PRINT_EXECUTION_STORAGE_KEY, printExecutionSnapshot)
 
 /** Rehydrate a fixed demo task from its already saved real usage, without consuming again. */
 export function restoreStaticPrintingDemoStart(printOrderId:string):void {

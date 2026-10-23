@@ -235,7 +235,7 @@ test('SCENE-11 / 12: sample date is pickup plus three; failed or unsubmitted sam
   }
 })
 
-test('SCENE-14: stock 600 meters advances before the independent 900-meter purchase batch, with three work/handover records each', () => {
+test('SCENE-14: stock 600 meters advances before the independent 900-meter purchase batch, with the retained dye and print work/handover records each', () => {
   const record = getTimingCaseByScene('materialBatches'), b = branch('materialBatches'), fabric = b.materials.find(material => material.id === 'F01')!
   assert.equal(record.purchases.length, 1, 'the merchandise purchase remains unsplit')
   assert.equal(record.purchases[0].qty, 1500)
@@ -245,7 +245,7 @@ test('SCENE-14: stock 600 meters advances before the independent 900-meter purch
   assert.equal(b.docs[fabric.po].quantity, 900)
   const workIds = new Set<string>()
   for (const batch of fabric.batches) {
-    assert.equal(batch.process.length, 3)
+    assert.equal(batch.process.length, 2)
     for (const process of batch.process) {
       assert.ok(!workIds.has(process.work), 'independent batches must not share processing documents')
       workIds.add(process.work)
@@ -332,7 +332,7 @@ test('SCENE-01: completed preparation/material delays remain history while sleev
   assert.match(html, /600袖片不换算为600件成衣/, 'sleeve pieces must not become garment quantity')
 })
 
-test('PREP / CRAFT: auxiliary work is three days each; bulk dye/print/wash and handovers have no invented SLA', () => {
+test('PREP / CRAFT: auxiliary work is three days each; bulk dye/print and handovers have no invented SLA', () => {
   const b = branch('live')
   const front = b.parts.find(part => part.part === '前片'), back = b.parts.find(part => part.part === '后片'), sleeves = b.parts.find(part => part.part === '袖片'), collar = b.parts.find(part => part.part === '领片')
   assert.deepEqual([front.process.length, back.process.length, sleeves.process.length, collar.process.length], [2, 1, 2, 0])

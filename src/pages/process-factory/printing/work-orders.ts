@@ -1,5 +1,5 @@
 import { createPrintingOrderDisplayColumns } from '../../process-work-orders/order-list-columns.ts'
-import { withProcessOrderTaskRelationRead } from '../../../data/fcs/process-order-task-links.ts'
+import { withProcessOrderTaskRelationRead } from '../../../data/fcs/process-order-task-link-core.ts'
 import { buildUnifiedPrintPreviewLink } from '../../../data/fcs/print-service.ts'
 import { listPrintingFactoryOptions } from '../../../data/fcs/printing-factories.ts'
 import { renderPrintingObjectImage } from './presentation.ts'
@@ -46,8 +46,8 @@ import { renderPrintingRelations, printingUpstreamNames, printingPatternLabel, p
 import { escapeHtml } from '../../../utils.ts'
 import { ensureProductionDemandEarlyProcessAcceptanceData } from '../../../data/fcs/production-demand-early-process-work-orders.ts'
 import { renderPrintingDialog } from './dialogs.ts'
-import { canInitiateFabricWashing, washingInitiationOrderIds } from '../../../data/fcs/fabric-washing.ts'
-import { printingWashingOrders, printingDownstreamNames, withPrintingWashingRead } from '../../../data/fcs/fabric-washing-views.ts'
+import { printingHandfeelOrders, printingDownstreamNames as handfeelDownstreamNames, withPrintingHandfeelRead } from '../../../data/fcs/factory-qc-views.ts'
+import { listFactoryQcOrders, qcProgress, type FactoryQcOrder } from '../../../data/fcs/factory-qc.ts'
 
 const EVENT_PREFIX = 'printing-work-orders'
 const PREFERENCE_KEY = '/fcs/craft/printing/work-orders:input-output-v4'
@@ -126,14 +126,14 @@ function renderBatchPrintAction(): string {
   return `<a class="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-sm text-white" href="${escapeHtml(href)}" data-nav="${escapeHtml(href)}" data-printing-preview-link data-skip-page-rerender="true">${label}</a>`
 }
 
-let washingListEligibility = new Set<string>()
-function renderActions(order: PrintingWorkOrderBusinessRecord, eligible = washingListEligibility.has(order.workOrderId)): string {
-  const washes=printingWashingOrders(order.workOrderId)
+const printingDownstreamNames = (order: PrintingWorkOrderBusinessRecord) => handfeelDownstreamNames(order.workOrderId, order.receivingTargetName)
+let qcListRecords = new Map<string, FactoryQcOrder>()
+function renderActions(order: PrintingWorkOrderBusinessRecord): string {
+  const handfeelOrders = printingHandfeelOrders(order.workOrderId), qc = qcListRecords.get(order.workOrderId), progress = qc ? qcProgress(qc) : undefined
   return `<div class="grid w-full grid-cols-2 gap-x-1 gap-y-0.5" data-printing-row-actions="${escapeHtml(order.workOrderId)}">
-    ${washes.length?`<span class="col-span-2 rounded bg-blue-50 px-2 py-1 text-center text-xs text-blue-800" data-printing-washing-status>已发起洗水 · ${washes.length} 单</span>`:''}
+    ${qc && progress ? `<a class="col-span-2 rounded bg-blue-50 px-2 py-1 text-center text-xs text-blue-800 hover:underline" href="/fcs/craft/printing/qc-orders/${encodeURIComponent(qc.id)}" data-nav="/fcs/craft/printing/qc-orders/${encodeURIComponent(qc.id)}" data-printing-qc-progress>印花QC · 已检 ${progress.checked} / 应检 ${progress.total} 卷</a>` : ''}
     <a class="inline-flex min-h-7 w-full items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" href="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}" data-printing-row-action data-nav="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}">查看</a>
-    ${eligible ? actionButton('发起洗水', 'initiate-washing', order) : ''}
-    ${washes.map(wash=>`<a class="col-span-2 inline-flex min-h-7 items-center justify-center rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" href="/fcs/craft/dyeing/washing/work-orders/${encodeURIComponent(wash.id)}" target="_blank" rel="noopener" data-printing-washing-link="${escapeHtml(wash.id)}" title="${escapeHtml(wash.no+' · '+wash.handFeel)}">查看洗水加工单${washes.length>1?` (${escapeHtml(wash.no)})`:''}</a>`).join('')}
+    ${handfeelOrders.map(handfeel => `<a class="col-span-2 inline-flex min-h-7 items-center justify-center rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" href="/fcs/craft/dyeing/stenter-handfeel/work-orders/${encodeURIComponent(handfeel.id)}" data-nav="/fcs/craft/dyeing/stenter-handfeel/work-orders/${encodeURIComponent(handfeel.id)}" data-printing-handfeel-link="${escapeHtml(handfeel.id)}" title="${escapeHtml(handfeel.no + ' · ' + (handfeel.handFeel || '目标待补充'))}">查看定型机手感单</a>`).join('')}
     ${actionButton('调整投入', 'change-input', order, order.output.completedQty > 0 ? '已有加工产出，不能调整投入' : '')}
     ${printAction('打印印花信息单', 'PRINTING_INFO_SHEET', order)}
     ${printAction('打印印花确认单', 'PRINTING_CONFIRMATION', order)}
@@ -216,7 +216,7 @@ const listController = createProcessOrderListController({
 })
 
 function refreshList(options?: Parameters<typeof listController.refresh>[0]): boolean {
-  return withPrintingWashingRead(()=>withProcessOrderTaskRelationRead(() => listController.refresh(options)))
+  return withPrintingHandfeelRead(()=>withProcessOrderTaskRelationRead(() => listController.refresh(options)))
 }
 
 
@@ -301,11 +301,14 @@ function renderFactoryTabs(): string {
 }
 
 function renderWorkspace(): string {
- return withPrintingWashingRead(()=>{
+  return withPrintingHandfeelRead(() => withProcessOrderTaskRelationRead(renderWorkspaceContents))
+}
+
+function renderWorkspaceContents(): string {
   listController.ensurePreferencesLoaded()
   const rows = filteredRows()
-  washingListEligibility = washingInitiationOrderIds(rows)
-  const view = withProcessOrderTaskRelationRead(() => listController.getView(rows))
+  qcListRecords = new Map(listFactoryQcOrders('PRINTING').map(order => [order.source.id, order]))
+  const view = listController.getView(rows)
   return renderStandardListPage({
     title: '印花加工单',
     showHeader: false,
@@ -318,7 +321,6 @@ function renderWorkspace(): string {
     paginationHtml: `<div data-printing-work-orders-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-printing-work-orders-overlays-surface>${listController.renderColumnSettings()}</div>`,
   })
- })
 }
 
 function rootElement(): HTMLElement | null {
@@ -348,32 +350,17 @@ export function refreshPrintingWorkOrderListPage(reloadFacts = true): void {
   if (workspace) { workspace.innerHTML = renderWorkspace(); hydrateIcons(workspace); syncProcessSelectionHeader(workspace) }
 }
 
-export function refreshPrintingWashingActions(workOrderId: string): void {
- return withPrintingWashingRead(()=>{
-  const actions = rootElement()?.querySelector<HTMLElement>(`[data-printing-row-actions="${CSS.escape(workOrderId)}"]`)
-  const order = listRows().find(row => row.workOrderId === workOrderId)
-  if (!actions || !order) return
-  const downstream=actions.closest('tr')?.querySelector<HTMLElement>('[data-printing-downstream]')
-  actions.outerHTML = renderActions(order, canInitiateFabricWashing(workOrderId))
-  if(downstream)downstream.outerHTML=renderPrintingRelations(order,'downstream')
-  const receiver=rootElement()?.querySelector<HTMLSelectElement>('[data-printing-work-orders-field="receiver"]')
-  if(receiver)receiver.innerHTML=uniqueOptions([...listRows().flatMap(row=>printingDownstreamNames(row)),state.receiver]).map(([key,label])=>option(key,label,state.receiver)).join('')
-  const updated = rootElement()?.querySelector<HTMLElement>(`[data-printing-row-actions="${CSS.escape(workOrderId)}"]`)
-  ;(updated?.querySelector<HTMLButtonElement>('[data-printing-action="initiate-washing"]') || updated?.querySelector<HTMLAnchorElement>('a[data-printing-row-action]'))?.focus()
- })
-}
-
 export function getSelectedPrintingWorkOrderIds(): string[] {
   return [...selectedWorkOrderIds]
 }
 
 export function selectFilteredPrintingWorkOrders(): void {
-  withPrintingWashingRead(()=>filteredRows().forEach((order) => selectedWorkOrderIds.add(order.workOrderId)))
+  withPrintingHandfeelRead(()=>filteredRows().forEach((order) => selectedWorkOrderIds.add(order.workOrderId)))
   refreshPrintingWorkOrderListPage(false)
 }
 
 export function getFilteredPrintingWorkOrders(): PrintingWorkOrderBusinessRecord[] {
-  return withPrintingWashingRead(filteredRows)
+  return withPrintingHandfeelRead(filteredRows)
 }
 
 function readFilterFields(root: HTMLElement): void {
@@ -421,7 +408,7 @@ export function handlePrintingWorkOrderListEvent(target: HTMLElement): boolean {
     const scope = field.value
     if (!scope) return true
     if (scope === 'clear') selectedWorkOrderIds.clear()
-    else if (scope === 'all') withPrintingWashingRead(()=>filteredRows().forEach(row => selectedWorkOrderIds.add(row.workOrderId)))
+    else if (scope === 'all') withPrintingHandfeelRead(()=>filteredRows().forEach(row => selectedWorkOrderIds.add(row.workOrderId)))
     else root.querySelectorAll<HTMLInputElement>('tbody [data-printing-action="toggle-select"]').forEach(box => selectedWorkOrderIds.add(box.dataset.workOrderId || ''))
     refreshPrintingWorkOrderListPage(false); return true
   }

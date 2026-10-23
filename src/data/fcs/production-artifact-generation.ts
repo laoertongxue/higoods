@@ -1,4 +1,4 @@
-import { removePredeterminedWashing } from '../tech-pack-process-route.ts'
+import { removeRetiredProcessRouteEntries, SITE_HAND_FEEL_PROCESS_CODE } from '../tech-pack-process-route.ts'
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
 import {
   productionOrders,
@@ -871,7 +871,7 @@ function shouldGenerateExternalTask(context: ResolvedEntryContext): boolean {
 }
 
 function resolveTechPackEntriesByOrder(orderId: string): TechPackProcessEntry[] {
-  return removePredeterminedWashing(getProductionOrderProcessEntries(orderId))
+  return removeRetiredProcessRouteEntries(getProductionOrderProcessEntries(orderId))
 }
 
 function dedupeBomDrivenArtifacts(
@@ -900,8 +900,8 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
   const taskContexts: ResolvedEntryContext[] = []
 
   entries.forEach((entry, index) => {
-    // Actual washing is created by a physical post-print judgment, never by breakdown.
-    if (entry.processCode === 'WASH' || entry.processCode === 'craft-wash') return
+    // This site decision creates its own processing order after final physical output.
+    if (entry.processCode === SITE_HAND_FEEL_PROCESS_CODE) return
     const context = resolveEntryContext(orderId, entry, index)
     context.techPackId = techPackId
 

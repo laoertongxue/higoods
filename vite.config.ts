@@ -350,7 +350,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ]), [], '^' + path + '$']),
           ['/fcs/craft/dyeing/reports', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/dyeing/reports.ts', ...craftRouteRegistry, ...craftReadInitialization,
-            '/src/data/fcs/fabric-washing.ts', '/src/data/fcs/fabric-washing-repository.ts',
+            '/src/data/fcs/factory-qc.ts', '/src/data/fcs/factory-qc-records.ts',
           ]), [], '^/fcs/craft/dyeing/reports$', baselineData],
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/special-craft/task-orders.ts', ...craftReadInitialization,

@@ -1,5 +1,5 @@
-import { readWashingState } from '../../data/fcs/fabric-washing-repository.ts'
-import { WASHING_ROUTE } from '../../data/fcs/fabric-washing.ts'
+import { readFactoryQcState } from '../../data/fcs/factory-qc-records.ts'
+import { STENTER_ROUTE } from '../process-factory/dyeing/stenter-handfeel/presentation.ts'
 import { renderButton } from '../../components/ui/button.ts'
 import {
   escapeHtml,
@@ -1177,8 +1177,8 @@ export function renderProductionOrderDetailPage(orderId: string): string {
     `
   }
 
-  const washingActual = readWashingState().orders.filter(item=>item.source.productionOrderId===order.productionOrderId)
-  const washingRelations = washingActual.length ? `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">印花后实际追加洗水</h2><ul class="mt-2 space-y-2">${washingActual.map(item=>`<li><a class="text-blue-700" href="${WASHING_ROUTE}/${encodeURIComponent(item.id)}" data-nav="${WASHING_ROUTE}/${encodeURIComponent(item.id)}">${escapeHtml(item.no)}</a> · ${escapeHtml(item.handFeel)} · ${item.rolls.length} 卷${item.cancelledAt?' · 已作废':''}</li>`).join('')}</ul></section>` : ''
+  const handfeelActual = readFactoryQcState().handfeelOrders.filter(item=>item.source.productionOrderId===order.productionOrderId)
+  const handfeelRelations = handfeelActual.length ? `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">现场实际追加定型机手感</h2><ul class="mt-2 space-y-2">${handfeelActual.map(item=>`<li><a class="text-blue-700" href="${STENTER_ROUTE}/${encodeURIComponent(item.id)}" data-nav="${STENTER_ROUTE}/${encodeURIComponent(item.id)}">${escapeHtml(item.no)}</a> · ${escapeHtml(item.handFeel || '目标手感待补充')} · ${item.rolls.length} 卷</li>`).join('')}</ul></section>` : ''
   const isKolGotoOrder = isKolGotoProductionOrder(order)
 
   const techPack = getOrderTechPackInfo(order)
@@ -1193,7 +1193,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   const detailMaterialStatus = getOrderMaterialStatusDisplay(order)
 
   return `
-    <div class="space-y-4">${washingRelations}
+    <div class="space-y-4">${handfeelRelations}
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div class="mb-1 flex items-center gap-2">

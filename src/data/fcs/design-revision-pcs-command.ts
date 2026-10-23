@@ -9,9 +9,8 @@ export async function runDesignRevisionFcsCommand<T>(target: unknown, recipe: ()
     ? value === WOOL_DOMAIN_STORE_KEY || value.startsWith('WSC:') || !!getSpecialCraftTaskOrderById(value)?.woolFinalInputOrderIds?.length || Object.values(readWoolStore().workOrders).some(order => [order.woolOrderId, order.sourceTaskId, order.taskId].includes(value))
     : Array.isArray(value) ? value.some(matchesWool) : !!value && typeof value === 'object' && Object.values(value).some(matchesWool)
   if (matchesWool(target)) return runWoolRecordCommand(recipe)
-  const { ensureWashingRecords, runWashingRecordCommand } = await import('./fabric-washing-repository.ts')
-  const { isWashingStorageTarget } = await import('./fabric-washing-storage-bridge.ts')
-  await ensureWashingRecords()
-  if (isWashingStorageTarget(target)) return runWashingRecordCommand(recipe, crypto.randomUUID(), JSON.stringify(target))
+  const { runFactoryQcProcessCommand } = await import('./factory-qc.ts')
+  const handled = await runFactoryQcProcessCommand(target, recipe)
+  if (handled.handled) return handled.result as T
   return isDesignRevisionFcsTarget(target) ? runPcsRecordCommand(recipe) : recipe()
 }

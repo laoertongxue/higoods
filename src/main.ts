@@ -34,6 +34,8 @@ const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-ha
 const getPcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pcs-handlers'))
 const getPmsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pms-handlers'))
 const getPdaHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pda-handlers'))
+const getFactoryQcPageModule = createRetryableModuleLoader(() => import('./pages/process-factory/shared/factory-qc.ts'))
+const getStenterHandfeelPageModule = createRetryableModuleLoader(() => import('./pages/process-factory/dyeing/stenter-handfeel/work-orders.ts'))
 const getRealQrModule = createRetryableModuleLoader(() => import('./components/real-qr'))
 
 function hydrateRealQRCodes(host: ParentNode): void {
@@ -367,9 +369,11 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(accessoryRecovery, event)
   }
   const eventTarget = target as HTMLElement
-  if (target.closest('[data-fabric-washing-action], [data-washing-context-role], [data-washing-context-factory], [data-washing-judgment-root], [data-washing-detail-root], [data-washing-list-root]')) {
-    const page = await import('./pages/process-factory/dyeing/washing/work-orders.ts')
-    return page.handleFabricWashingEvent(eventTarget, event)
+  if (target.closest('[data-factory-qc-root], [data-factory-qc-action], [data-factory-qc-image-overlay]')) {
+    return (await getFactoryQcPageModule()).handleFactoryQcEvent(eventTarget, event)
+  }
+  if (target.closest('[data-stenter-list-root], [data-stenter-detail-root], [data-stenter-handfeel-action], [data-stenter-handfeel-field]')) {
+    return (await getStenterHandfeelPageModule()).handleStenterHandfeelEvent(eventTarget, event)
   }
   if (target.closest('[data-post-finishing-action="storage-migrate"], [data-post-finishing-action="storage-retry"]')) {
     const page = await import('./pages/process-factory/post-finishing/storage-notice.ts')
@@ -743,6 +747,23 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     console.error('页面事件处理器加载失败，已降级为不处理', error)
     return false
   }
+}
+
+function isFactoryPhysicalUiTarget(target: Element): boolean {
+  return !!target.closest('[data-factory-qc-root], [data-factory-qc-action], [data-factory-qc-image-overlay], [data-stenter-list-root], [data-stenter-detail-root], [data-stenter-handfeel-action], [data-stenter-handfeel-field]')
+}
+
+async function confirmFactoryQcShellLeave(actionNode: HTMLElement): Promise<boolean> {
+  if (!root.querySelector('[data-factory-qc-root]')) return true
+  const action = actionNode.dataset.action, current = appStore.getState()
+  let changesRoute = action === 'switch-system' || action === 'close-all-tabs'
+  if (action === 'open-tab') changesRoute = !!actionNode.dataset.tabHref && actionNode.dataset.tabHref !== current.pathname
+  if (action === 'activate-tab') {
+    const tab = Object.values(current.allTabs).flatMap(group => group.tabs).find(item => item.key === actionNode.dataset.tabKey)
+    changesRoute = !!tab && tab.href !== current.pathname
+  }
+  if (action === 'close-tab') changesRoute = Object.values(current.allTabs).some(group => group.activeKey === actionNode.dataset.tabKey)
+  return !changesRoute || (await getFactoryQcPageModule()).confirmFactoryQcLeave()
 }
 
 async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
@@ -1253,6 +1274,17 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
   if (authorizedCostCleanupError) return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(authorizedCostCleanupError)
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // These direct consumers must read the same committed QC/source/handfeel
+    // records before importing pages that project them at module evaluation.
+    const factoryQcReadEntry = /^\/fcs\/(?:craft\/(?:printing|dyeing)(?:\/|$)|production\/orders\/|pda\/(?:handover|warehouse|stenter-handfeel)(?:\/|$)|pda\/exec\/TASK-(?:PRINT|DYE|WATER)-)/.test(normalizedPathname)
+      || /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(normalizedPathname)
+      || ['/wls/inbound', '/wls/raw/inbound-list'].includes(normalizedPathname)
+    if (factoryQcReadEntry) {
+      const records = await import('./data/fcs/factory-qc.ts')
+      const shippedReadOnly = normalizedPathname === '/fcs/pda/handover' && new URLSearchParams(pathname.split('?')[1] || '').get('tab') === 'shipped'
+      if (shippedReadOnly || normalizedPathname.startsWith('/fcs/pda/handover/HOH-POST-')) await records.ensureFactoryQcViewRecords()
+      else await records.ensureFactoryQcRecords()
+    }
     // These page owners read no production/cutting sources. Keep their direct
     // entries independent; later business navigation still prepares its records.
     if (/^\/fcs\/craft\/workbench\/overview\/?$/.test(normalizedPathname)) {
@@ -1340,7 +1372,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // These physical entries hydrate their own committed records in the route
     // renderer. The generic entry below also initializes unrelated procurement
     // and workshop demos, and its direct handover branch bypasses that guard.
-    if (/^\/fcs\/(?:craft\/dyeing\/washing\/work-orders(?:\/[^/]+)?|pda\/washing(?:\/[^/]+)?|craft\/printing\/work-orders\/[^/]+|craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse|pda\/exec\/(?:TASK-PRINT-[^/]+|TASK-PWO-WASH-[^/]+)|pda\/handover|pda\/warehouse\/(?:wait-process|wait-handover))$/.test(normalizedPathname)) {
+    if (/^\/fcs\/(?:craft\/(?:printing|dyeing)\/qc-orders(?:\/[^/]+)?|craft\/dyeing\/stenter-handfeel\/work-orders(?:\/[^/]+)?|pda\/stenter-handfeel(?:\/[^/]+)?|craft\/printing\/work-orders\/[^/]+|craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse|pda\/exec\/TASK-PRINT-[^/]+|pda\/handover|pda\/warehouse\/(?:wait-process|wait-handover))$/.test(normalizedPathname)) {
       // Keep the existing PCS/FCS read contract ready before any later adjacent
       // navigation starts its handlers or shared catalogue module evaluation.
       try { await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState() } catch(error) {
@@ -1376,9 +1408,12 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
       || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     const factoryReceiptReadEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/pending-receipts$/.test(normalizedPathname)
+    // These source lists already prepare QC/PCS/FCS facts. Unrelated supplier
+    // archive module evaluation can otherwise race their scoped PCS hydration.
+    const factorySourceListEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/work-orders\/?$/.test(normalizedPathname)
     // Onboarding retains the existing PCS/FCS preparation and PDA handlers;
     // its form does not consume procurement initialization.
-    if (!normalizedPathname.startsWith('/fcs/quality-management/') && !isQualityInventoryEntry(normalizedPathname) && normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
+    if (!normalizedPathname.startsWith('/fcs/quality-management/') && !isQualityInventoryEntry(normalizedPathname) && normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !factorySourceListEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }
@@ -1452,7 +1487,11 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       isGeneratedIndependentSewing = Boolean(generatedTask && isRuntimeIndependentSewingTask(generatedTask))
       if (!isGeneratedIndependentSewing) {
         const printing = await import('./data/fcs/printing-task-domain.ts')
-        if (printing.getPrintWorkOrderByTaskId(decodeURIComponent(generatedPdaTask[1]))) return await resolvePage(pathname)
+        if (printing.getPrintWorkOrderByTaskId(decodeURIComponent(generatedPdaTask[1]))) {
+          await (await import('./data/fcs/factory-qc.ts')).ensureFactoryQcRecords()
+          return await resolvePage(pathname)
+        }
+        if (generatedTask && ['DYE', 'WATER_SOLUBLE'].includes(generatedTask.processCode)) await (await import('./data/fcs/factory-qc.ts')).ensureFactoryQcRecords()
         startPmsInitialization()
       }
     }
@@ -1656,7 +1695,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>采购资料未能读取，当前不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">原记录没有被覆盖。恢复浏览器存储权限后重新读取。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-pms-record-retry>重新读取</button></section>`
     }
     const sourceReportEntry = /^\/fcs\/(?:settlement\/(?:adjustments|statements)|quality\/deduction-analysis|craft\/dyeing\/reports)$/.test(pathname.split('?')[0].split('#')[0])
-    if (sourceReportEntry || pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
+    const factoryPhysicalEntry = /^\/fcs\/(?:craft\/(?:printing|dyeing)(?:\/|$)|production\/orders\/|pda\/(?:handover|warehouse|stenter-handfeel)(?:\/|$)|pda\/exec\/TASK-(?:PRINT|DYE|WATER)-)/.test(pathname)
+      || /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(pathname)
+      || ['/wls/inbound', '/wls/raw/inbound-list'].includes(pathname.split('?')[0])
+    if (sourceReportEntry || factoryPhysicalEntry || pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
       const reason = error instanceof Error ? error.message : String(error)
       const recoveryHint = sourceReportEntry ? '请核对原记录，修正后重新读取；原记录没有被覆盖，请勿清除网站数据。' : '请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。'
       return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">${recoveryHint}</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-cutting-record-retry>重新读取</button></section>`
@@ -1673,11 +1715,15 @@ async function render(): Promise<void> {
   const pageContentPromise = renderCurrentPageContent(state.pathname)
   const isDirectWoolPda = state.pathname.startsWith('/fcs/pda/wool/')
     || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
+  // This page owns its execution handlers. Shell actions and navigation still
+  // use the existing lazy dispatcher when invoked; other PDA tabs are not its
+  // first-screen dependencies.
+  const isDirectStenterPda = /^\/fcs\/pda\/stenter-handfeel(?:\/[^/]+)?$/.test(normalizePathname(state.pathname))
   const pageContent = await pageContentPromise
   const postFinishingEntryFailed = pageContent.includes('data-post-finishing-entry-storage-failure')
   // PDA处理器含读取业务记录的模块，必须等同一页面的记录初始化完成。
   const isPdaLogin = state.pathname.split('?')[0].split('#')[0] === '/fcs/pda/auth/login'
-  if (isPdaPath(state.pathname) && !isDirectWoolPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
+  if (isPdaPath(state.pathname) && !isDirectWoolPda && !isDirectStenterPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
   if (currentSerial !== renderSerial) {
     return
   }
@@ -1688,7 +1734,7 @@ async function render(): Promise<void> {
     pmsSurface.hydratePmsSurface(root, { icons: false })
   }
   if (isPdaPath(state.pathname)) {
-    if (!isPdaLogin && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
+    if (!isPdaLogin && !isDirectStenterPda && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
       schedulePdaMainTabPreload()
     }
     queueMicrotask(() => hydrateIcons(root))
@@ -2099,9 +2145,10 @@ function closeMobileSidebar(): void {
   }
 }
 
-function navigateWithImmediateSidebar(pathname: string): void {
+async function navigateWithImmediateSidebar(pathname: string): Promise<void> {
   if (appStore.getState().pathname.startsWith('/fcs/quality-management/') && qualityNavigationDirty?.() && !window.confirm('质检配置尚未保存，确定离开并丢弃本页输入？')) return
   const currentPathname = appStore.getState().pathname
+  if (currentPathname !== pathname && root.querySelector('[data-factory-qc-root]') && !(await getFactoryQcPageModule()).confirmFactoryQcLeave()) return
   if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
     preloadPdaMainTabModule(pathname)
     appStore.navigate(pathname)
@@ -2283,6 +2330,7 @@ function resolveSharedFieldRerenderDecision(target: Element, eventKind: Rerender
 }
 
 function shouldSkipInputRerender(target: Element): boolean {
+  if (target.closest('[data-factory-qc-root], [data-stenter-list-root], [data-stenter-detail-root]')) return true
   if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
   if (target.closest<HTMLElement>('[data-review-ui-field]')) return true
 
@@ -2305,6 +2353,7 @@ function shouldSkipInputRerender(target: Element): boolean {
 }
 
 function shouldSkipChangeRerender(target: Element): boolean {
+  if (target.closest('[data-factory-qc-root], [data-stenter-list-root], [data-stenter-detail-root]')) return true
   if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
 
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
@@ -2523,6 +2572,15 @@ root.addEventListener('dragover', dispatchListColumnDragEvent)
 root.addEventListener('drop', dispatchListColumnDragEvent)
 root.addEventListener('dragend', dispatchListColumnDragEvent)
 
+// QC large-image overlays live beside the app root, so their close controls
+// need the same delegated handler without rebuilding the underlying page.
+document.addEventListener('click', async event => {
+  const target = resolveEventElementTarget(event.target)
+  if (!target?.closest('[data-factory-qc-image-overlay]') || root.contains(target)) return
+  event.preventDefault()
+  await (await getFactoryQcPageModule()).handleFactoryQcEvent(target, event)
+})
+
 root.addEventListener('click', async (event) => {
   const retryTarget = resolveEventElementTarget(event.target)
   if (retryTarget?.closest('[data-pms-record-retry]')) {
@@ -2532,6 +2590,12 @@ root.addEventListener('click', async (event) => {
   }
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target) && !target.closest('[data-nav]')) {
+    const nativeControl = target.closest('input,select,textarea,label,summary')
+    if (!nativeControl && target.closest('[data-factory-qc-action], [data-stenter-handfeel-action]')) event.preventDefault()
+    await dispatchPageEvent(target, event)
+    return
+  }
   if (target.closest('[data-qc-shipping-print]')) {
     event.preventDefault()
     await (await import('./pages/print/templates/post-finishing-qc-print-template.ts')).handleQcShippingPriorityPrint(target)
@@ -2616,6 +2680,7 @@ root.addEventListener('click', async (event) => {
   }
 
   const shellActionNode = target.closest<HTMLElement>('[data-action]')
+  if (shellActionNode && !(await confirmFactoryQcShellLeave(shellActionNode))) { event.preventDefault(); return }
   if (shellActionNode && handleShellAction(shellActionNode)) {
     event.preventDefault()
     return
@@ -2670,14 +2735,14 @@ root.addEventListener('click', async (event) => {
   const fieldDrivenPath = fieldDrivenNavNode ? buildNavigationFromFields(fieldDrivenNavNode) : null
   if (fieldDrivenPath) {
     event.preventDefault()
-    navigateWithImmediateSidebar(fieldDrivenPath)
+    await navigateWithImmediateSidebar(fieldDrivenPath)
     return
   }
 
   const directNavNode = target.closest<HTMLElement>('[data-nav]')
   if (directNavNode?.dataset.nav && !hasDatasetAction(directNavNode)) {
     event.preventDefault()
-    navigateWithImmediateSidebar(directNavNode.dataset.nav)
+    await navigateWithImmediateSidebar(directNavNode.dataset.nav)
     return
   }
 
@@ -2689,6 +2754,11 @@ root.addEventListener('click', async (event) => {
       && ((target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) || Boolean(target.closest('summary')))
     if (!preserveNativeClick && !pmsNativeControl) event.preventDefault()
     if (postFinishingEventNavigated(previousPathname)) return
+    // These factory handlers navigate after a committed action (or login).
+    // The store subscription already renders that destination; a second render
+    // races source hydration and repeats the completed page work.
+    if (appStore.getState().pathname !== previousPathname
+      && /^\/fcs\/(?:craft\/(?:printing|dyeing)|pda\/login)(?:\/|\?|$)/.test(previousPathname)) return
     if ((skipPageRerender || target.closest('[data-post-finishing-preserve-input="true"]')) && appStore.getState().pathname === previousPathname) {
       return
     }
@@ -2725,7 +2795,7 @@ root.addEventListener('click', async (event) => {
   const navNode = target.closest<HTMLElement>('[data-nav]')
   if (navNode?.dataset.nav) {
     event.preventDefault()
-    navigateWithImmediateSidebar(navNode.dataset.nav)
+    await navigateWithImmediateSidebar(navNode.dataset.nav)
     return
   }
 
@@ -2749,6 +2819,7 @@ root.addEventListener('input', async (event) => {
   if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target)) { await dispatchPageEvent(target, event); return }
   // 工程成果文件只在 change 中读取。首次操作即选文件时，避免异步加载处理器期间
   // input 与 change 竞争，导致文件控件被提前重绘或同一文件被保存两次。
   if (target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]')) return
@@ -2784,6 +2855,11 @@ root.addEventListener('input', async (event) => {
 root.addEventListener('compositionend', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target)) {
+    // IME completion is an input update, not a route/page render.
+    await dispatchPageEvent(target, new Event('input', { bubbles: true }))
+    return
+  }
   if (target.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(target)) return
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
@@ -2811,6 +2887,7 @@ root.addEventListener('change', async (event) => {
   if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target)) { await dispatchPageEvent(target, event); return }
   const skipChangeRerender = shouldSkipChangeRerender(target)
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
@@ -2850,8 +2927,12 @@ document.addEventListener('keydown', async (event) => {
     const scanResult = await handleActivePdaCuttingEvent(cuttingScanTarget, event)
     return
   }
-  if(event.key==='Enter'&&target?.closest('[data-washing-scan]')){event.preventDefault();await (await import('./pages/process-factory/dyeing/washing/work-orders.ts')).handleFabricWashingEvent(target,event);return}
-  if(event.key==='Escape'&&document.querySelector('[data-washing-image-overlay]'))return
+  if (target && (isFactoryPhysicalUiTarget(target) || document.querySelector('[data-factory-qc-image-overlay]'))) {
+    if (event.key === 'Enter' && target.closest('[data-factory-qc-filter], [data-factory-qc-field="rollQuery"]')) event.preventDefault()
+    if (document.querySelector('[data-factory-qc-image-overlay]')) await (await getFactoryQcPageModule()).handleFactoryQcEvent(target, event)
+    else await dispatchPageEvent(target, event)
+    return
+  }
   const scanEnterTarget =
     event.key === 'Enter'
       ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')
@@ -2913,7 +2994,11 @@ document.addEventListener('keydown', async (event) => {
   }
 })
 
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', async () => {
+  if (root.querySelector('[data-factory-qc-root]') && !(await getFactoryQcPageModule()).confirmFactoryQcLeave()) {
+    history.pushState(null, '', appStore.getState().pathname)
+    return
+  }
   const leave = new Event('higood:before-history-navigation', { cancelable: true })
   window.dispatchEvent(leave)
   if (leave.defaultPrevented) return

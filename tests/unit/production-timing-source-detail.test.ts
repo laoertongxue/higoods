@@ -28,8 +28,9 @@ test('timing documents resolve directly at their native route with the same shar
       count++
     }
   }
+  assert.ok(!kinds.has('水洗加工单') && !kinds.has('洗水加工单'), '退役洗水业务不得作为有效原生单据复活')
   assert.ok(count > 1500, `Expected all scenario documents, got ${count}`)
-  for (const type of ['生产准备单', 'BOM物料明细', '商品采购单', '物料采购单', '原料入库单', '原料调拨单', '大货染色加工单', '大货印花加工单', '水洗加工单', '裁剪单', '绣花加工单', '交出记录', '接收记录', '质检交接记录', '交接单', '车缝任务分配合同', '工厂产前版样衣']) assert.ok(kinds.has(type), `Missing document type: ${type}`)
+  for (const type of ['生产准备单', 'BOM物料明细', '商品采购单', '物料采购单', '原料入库单', '原料调拨单', '大货染色加工单', '大货印花加工单', '裁剪单', '绣花加工单', '交出记录', '接收记录', '质检交接记录', '交接单', '车缝任务分配合同', '工厂产前版样衣']) assert.ok(kinds.has(type), `Missing document type: ${type}`)
 })
 
 test('source detail does not resolve unrelated records or a registered record at a wrong module path', () => {

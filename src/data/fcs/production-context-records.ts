@@ -357,6 +357,7 @@ let current: CuttingRecordSnapshot | null = null
 let preparedKeys = new Set<string>()
 let stage: Map<string, string | null> | null = null
 let locked = false
+let pendingReadHydration: Promise<void> | undefined
 const listeners = new Map<string, Set<() => void>>()
 const serialized = new Map<string, string | null>()
 // The original samples JSON is only a synchronous compatibility view of the
@@ -518,10 +519,20 @@ async function hydrate(snapshot?: CuttingRecordSnapshot, forceNotify = false, re
   try { for (const key of changed) for (const callback of listeners.get(key) || []) callback() }
   catch (error) { current = null; serialized.clear();materializedSampleRows.clear();sampleSerializationDirty=false; initializationRecords = []; throw error }
 }
-export async function hydrateProductionContextRecords(snapshot?: CuttingRecordSnapshot): Promise<void> {
-  if (locked) throw new Error('生产来源正在保存或迁移，请等待当前动作完成。')
+export function hydrateProductionContextRecords(snapshot?: CuttingRecordSnapshot): Promise<void> {
+  if (snapshot === undefined && pendingReadHydration) return pendingReadHydration
+  if (locked) return Promise.reject(new Error('生产来源正在保存或迁移，请等待当前动作完成。'))
   locked = true
-  try { await hydrate(snapshot?.readScope ? undefined : snapshot) } catch (error) { current = null; throw error } finally { locked = false }
+  const loading = (async () => {
+    try { await hydrate(snapshot?.readScope ? undefined : snapshot) }
+    catch (error) { current = null; throw error }
+    finally {
+      locked = false
+      if (snapshot === undefined) pendingReadHydration = undefined
+    }
+  })()
+  if (snapshot === undefined) pendingReadHydration = loading
+  return loading
 }
 /** A bounded read view for original finishing pages. A sample consumer or any
  * production command upgrades to the complete original source before use. */

@@ -1,5 +1,4 @@
-import { withWashingRecords } from '../data/fcs/fabric-washing-repository.ts'
-import { renderFabricWashingListPage, renderFabricWashingDetailPage } from './route-renderers.ts'
+import { renderFactoryQcListPage, renderFactoryQcDetailPage, renderStenterHandfeelListPage, renderStenterHandfeelDetailPage } from './route-renderers.ts'
 import { renderWoolPendingReceiptsPage } from '../pages/process-factory/wool/pending-receipts'
 import {renderPrintingPendingHandoverPage,renderPrintingHandoverDocumentsPage} from '../pages/process-factory/printing/dispatch.ts'
 import {renderDyeYarnShipmentsPage} from '../pages/process-factory/dyeing/yarn-shipments.ts'
@@ -238,13 +237,15 @@ const specialCraftMenuExactRoutes = buildSpecialCraftMenuExactRoutes()
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/craft/printing/qc-orders': () => renderFactoryQcListPage('PRINTING'),
+    '/fcs/craft/dyeing/qc-orders': () => renderFactoryQcListPage('DYEING'),
+    '/fcs/craft/dyeing/stenter-handfeel/work-orders': () => renderStenterHandfeelListPage(false),
     '/fcs/quality-management/basic-standards': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
     '/fcs/quality-management/additional-standards': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
     '/fcs/quality-management/inspection-rules': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
     '/fcs/quality-management/records': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
     '/fcs/quality-management/audits': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
     '/fcs/quality-management/statistics': async pathname => (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname),
-    '/fcs/craft/dyeing/washing/work-orders': () => renderFabricWashingListPage(false),
     ...specialCraftMenuExactRoutes,
     '/fcs/history/retired-process-records': () => renderRetiredProcessHistoryPage(),
     '/fcs/craft/cutting/cut-piece-orders': () => renderRetiredProcessHistoryLegacyPage('CUT_PIECE'),
@@ -388,7 +389,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/statistics/ab-material': () => renderCraftCuttingAbMaterialStatisticsPage(),
     '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
     '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
-    '/fcs/craft/printing/pending-receipts': () => withWashingRecords(() => renderPrintingPendingReceiptsPage()),
+    '/fcs/craft/printing/pending-receipts': async () => { await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords(); return renderPrintingPendingReceiptsPage() },
     '/fcs/craft/printing/pending-handover': () => renderPrintingPendingHandoverPage(),
     '/fcs/craft/printing/handover-documents': () => renderPrintingHandoverDocumentsPage(),
     '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
@@ -409,7 +410,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/printing/dashboards': () => renderCraftPrintingDashboardsPage(),
     '/fcs/craft/dyeing': () => renderCraftDyeingWorkOrdersPage(),
     '/fcs/craft/dyeing/yarn-shipments': () => renderDyeYarnShipmentsPage(),
-    '/fcs/craft/dyeing/pending-receipts': () => withWashingRecords(() => renderFactoryPendingReceiptsPage()),
+    '/fcs/craft/dyeing/pending-receipts': async () => { await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords(); return renderFactoryPendingReceiptsPage() },
     '/fcs/craft/wool/pending-receipts': () => renderWoolPendingReceiptsPage(),
     '/fcs/craft/dyeing/work-orders': () => renderCraftDyeingWorkOrdersPage(),
     '/fcs/craft/dyeing/water-soluble-pending-handover': () => renderWaterSolublePendingHandoverPage(),
@@ -476,7 +477,8 @@ export const routes: RouteRegistry = {
     '/fcs/trace/unit-price': () => renderTraceUnitPricePage(),
   },
   dynamicRoutes: [
-    {pattern: /^\/fcs\/craft\/dyeing\/washing\/work-orders\/([^/]+)$/, render: match => renderFabricWashingDetailPage(decodeURIComponent(match[1]),false)},
+    { pattern: /^\/fcs\/craft\/(printing|dyeing)\/qc-orders\/([^/]+)$/, render: match => renderFactoryQcDetailPage(decodeURIComponent(match[2])) },
+    { pattern: /^\/fcs\/craft\/dyeing\/stenter-handfeel\/work-orders\/([^/]+)$/, render: match => renderStenterHandfeelDetailPage(decodeURIComponent(match[1]), false) },
     { pattern: /^\/fcs\/process\/material-plans\/new$/, render: () => renderFcsMaterialProcessPlanCreatePage() },
     { pattern: /^\/fcs\/process\/material-plans\/([^/]+)\/edit$/, render: match => renderFcsMaterialProcessPlanEditPage(decodeURIComponent(match[1])) },
     { pattern: /^\/fcs\/process\/material-plans\/([^/]+)$/, render: match => renderFcsMaterialProcessPlanDetailPage(decodeURIComponent(match[1])) },
@@ -546,7 +548,7 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)\/tech-pack$/,
       render: async (match) => {
-        await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingViewRecords()
+        await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords()
         return renderFcsProductionTechPackSnapshotPage(match[1])
       },
     },

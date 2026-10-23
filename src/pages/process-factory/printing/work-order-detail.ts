@@ -1,4 +1,5 @@
-import { renderWashingJudgmentPanel } from '../dyeing/washing/work-orders.ts'
+import { getFactoryQcOrder, qcIdForSource, qcProgress } from '../../../data/fcs/factory-qc.ts'
+import { printingHandfeelOrders, printingHandfeelLogs, withPrintingHandfeelRead } from '../../../data/fcs/factory-qc-views.ts'
 import { buildUnifiedPrintPreviewLink } from '../../../data/fcs/print-service.ts'
 import { renderPrintingObjectImage } from './presentation.ts'
 import { getPrintingWorkflowFacts } from '../../../data/fcs/printing-task-domain.ts'
@@ -125,7 +126,14 @@ function renderHistory(order: PrintingWorkOrderBusinessRecord): string {
 }
 
 function renderLogs(order: PrintingWorkOrderBusinessRecord): string {
-  return `<div class="space-y-2">${order.operationLogs.map((log) => `<div class="grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-[150px_150px_1fr_160px]"><strong>${escapeHtml(log.action)}</strong><span>${escapeHtml(log.operatorName)}</span><span>${escapeHtml(log.remark || '—')}</span><span class="text-xs text-slate-500">${escapeHtml(log.operatedAt)}</span></div>`).join('')}</div>`
+  return `<div class="space-y-2">${[...order.operationLogs, ...printingHandfeelLogs(order.workOrderId)].sort((left, right) => (Date.parse(left.operatedAt) || 0) - (Date.parse(right.operatedAt) || 0)).map((log) => `<div class="grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-[150px_150px_1fr_160px]"><strong>${escapeHtml(log.action)}</strong><span>${escapeHtml(log.operatorName)}</span><span>${escapeHtml(log.remark || '—')}</span><span class="text-xs text-slate-500">${escapeHtml(log.operatedAt)}</span></div>`).join('')}</div>`
+}
+
+function renderPrintingQcSummary(order: PrintingWorkOrderBusinessRecord): string {
+  const qc = getFactoryQcOrder(qcIdForSource({ kind: 'PRINTING', id: order.workOrderId }))
+  const handfeelOrders = printingHandfeelOrders(order.workOrderId), progress = qc ? qcProgress(qc) : undefined
+  const href = '/fcs/craft/printing/qc-orders' + (qc ? '/' + encodeURIComponent(qc.id) : '')
+  return section('印花QC单', `<div class="space-y-3" data-printing-qc-summary>${qc && progress ? `<p>${escapeHtml(qc.no)} · ${escapeHtml(progress.status)}</p><a class="text-blue-700 hover:underline" href="${href}" data-nav="${href}">已检 ${progress.checked} / 应检 ${progress.total} 卷，查看逐卷质检详情</a>` : '<p class="text-sm text-slate-500">尚无已创建的印花QC单。</p>'}<p class="text-sm text-slate-500">质检进度和是否做手感均不限制印花交出。整单手感决定在印花QC单记录。</p>${handfeelOrders.map(handfeel => `<p><a class="text-blue-700 hover:underline" href="/fcs/craft/dyeing/stenter-handfeel/work-orders/${encodeURIComponent(handfeel.id)}" data-nav="/fcs/craft/dyeing/stenter-handfeel/work-orders/${encodeURIComponent(handfeel.id)}">定型机手感单 ${escapeHtml(handfeel.no)}</a> · ${escapeHtml(handfeel.handFeel || '目标手感待补充')} · GTG</p>`).join('')}</div>`, `<a class="text-sm text-blue-700 hover:underline" href="${href}" data-nav="${href}">${qc ? '查看印花QC单' : '查看印花QC列表'}</a>`)
 }
 
 function renderDetail(order: PrintingWorkOrderBusinessRecord): string {
@@ -146,7 +154,7 @@ function renderDetail(order: PrintingWorkOrderBusinessRecord): string {
     ${section('3. 加工要求', renderRequirement(order))}
     ${section('4. 加工记录', `<div class="mb-4 grid gap-4 sm:grid-cols-2">${field('实际使用投入', `${formatPrintingQty(order.actualInput.usedQty)} ${inputUnit}`)}${field('使用卷数', order.historicalRollQuantitiesUnknown ? '历史未记录' : `${order.actualInput.usedRollCount} 卷`)}${printingNeedsTransfer(order) ? field('转印完成（工序进度）', `${formatPrintingQty(order.transferCompletedQty)} ${outputUnit}`) : ''}${field('当前生产环节', printingProductionStage(order))}</div><div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">${field('打印机', order.printerNo)}${field('最近批次完成', order.completedAt || '尚未完成')}${field('整单加工完成', getPrintingWorkflowFacts(order.workOrderId).completedAt || '尚未完成')}</div><details class="mt-4"><summary class="cursor-pointer text-blue-700">加工批次记录</summary>${renderProcessingBatches(order)}</details>`)}
     ${section('5. 加工产出／下游', `<div class="grid gap-6 lg:grid-cols-2">${renderOutputIdentity(order)}<div class="grid gap-4 sm:grid-cols-2">${field('计划完成', `${formatPrintingQty(order.output.plannedQty)} ${outputUnit}`)}${field('实际完成', `${formatPrintingQty(order.output.completedQty)} ${outputUnit}`)}${field('完成卷数', order.historicalRollQuantitiesUnknown ? '历史未记录' : `${order.output.completedRollCount} 卷`)}</div></div><div class="mt-4">${renderPrintingRelations(order, 'downstream')}${renderHandoverBatches(order)}<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">${field('交出单', (order.dispatchDocuments || []).filter(doc => doc.status !== '已作废').map(doc => doc.id).join('、') || '尚无实际交出单据')}${field('交出时间', order.handover.handedOverAt || '—')}${field('累计交出', `${formatPrintingQty(order.handover.handedOverQty)} ${outputUnit}`)}${field('下游实收', `${formatPrintingQty(order.handover.receivedQty)} ${outputUnit}`)}${field('下游接收时间', order.handover.receivedAt || '—')}${field('差异说明', order.handover.differenceReason || '无')}</div>${field('下游待接收', `${formatPrintingQty(order.pendingWritebackQty)} ${outputUnit}`)}${field('差异／异议', `${order.confirmedReceiptDifference ? formatPrintingQty(order.handover.diffQty) : '无已确认差异'} / ${order.handover.objectionQty} 条异议`)}</div><details class="mt-4"><summary class="cursor-pointer text-blue-700">卷记录（含草稿）${order.barcodes.length} 条</summary>${renderBarcodes(order)}${actionButton('管理卷记录／草稿', 'open-barcodes', order)}</details>`)}
-    ${renderWashingJudgmentPanel(order.workOrderId)}
+    ${renderPrintingQcSummary(order)}
     ${section('6. 日志与单据', `<details><summary class="cursor-pointer text-blue-700">打印历史</summary>${renderHistory(order)}</details><details class="mt-4"><summary class="cursor-pointer text-blue-700">操作日志</summary>${renderLogs(order)}</details><p class="mt-4 text-sm">备注：${escapeHtml(order.remark || '无')}</p>`)}
   </div>`
 }
@@ -155,12 +163,12 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
   currentWorkOrderId = printOrderId
   const order = getPrintingWorkOrderById(printOrderId)
   if (!order) return `<div class="space-y-4 p-4"><h1 class="text-xl font-semibold">印花加工单详情</h1><p class="rounded-lg border bg-white p-6 text-sm text-slate-500">未找到对应印花加工单。</p><a class="inline-flex rounded-md border px-3 py-2 text-sm" href="/fcs/craft/printing/work-orders" data-nav="/fcs/craft/printing/work-orders">返回列表</a></div>`
-  return `<div data-printing-work-order-detail-root data-work-order-id="${escapeHtml(order.workOrderId)}" data-skip-page-rerender="true"><div data-printing-detail-surface>${renderDetail(order)}</div><div data-printing-dialog-surface>${renderPrintingDialog()}</div></div>`
+  return withPrintingHandfeelRead(() => `<div data-printing-work-order-detail-root data-work-order-id="${escapeHtml(order.workOrderId)}" data-skip-page-rerender="true"><div data-printing-detail-surface>${renderDetail(order)}</div><div data-printing-dialog-surface>${renderPrintingDialog()}</div></div>`)
 }
 
 export function refreshPrintingWorkOrderDetailPage(): void {
   if (typeof document === 'undefined') return
   const order = getPrintingWorkOrderById(currentWorkOrderId)
   const surface = document.querySelector<HTMLElement>('[data-printing-detail-surface]')
-  if (order && surface) surface.innerHTML = renderDetail(order)
+  if (order && surface) surface.innerHTML = withPrintingHandfeelRead(() => renderDetail(order))
 }
