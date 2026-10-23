@@ -24,6 +24,18 @@ export interface InstructionRuleBinding {
   evidenceFields: InstructionReceiptField[]
 }
 
+const DELEGATED_RULE_PATHS = [
+  'docs/agent-rules/storage.md',
+  'docs/agent-rules/interface.md',
+  'docs/agent-rules/verification.md',
+] as const
+
+interface DelegatedInstructionSource {
+  path: typeof DELEGATED_RULE_PATHS[number]
+  algorithm: 'sha256'
+  contentHash: string
+}
+
 export interface InstructionContextReceipt {
   taskBoundary: string
   source: {
@@ -31,6 +43,7 @@ export interface InstructionContextReceipt {
     algorithm: 'sha256'
     contentHash: string
   }
+  delegatedSources?: DelegatedInstructionSource[]
   ruleBindings: InstructionRuleBinding[]
 }
 
@@ -142,43 +155,55 @@ function assertSameRegularFile(
   )
 }
 
-function readRootAgentsFile(workspace: string): Buffer {
-  const agentsPath = resolve(workspace, 'AGENTS.md')
-  let workspaceDescriptor: number | undefined
-  let agentsDescriptor: number | undefined
+function readInstructionFile(workspace: string, relativePath: string, label: string): Buffer {
+  const path = resolve(workspace, relativePath)
+  const directories: { path: string; label: string; descriptor: number; identity: BigIntStats }[] = []
+  let fileDescriptor: number | undefined
   try {
-    workspaceDescriptor = openWithoutFollowingLinks(workspace, '工作区根目录')
-    const openedWorkspace = fstatSync(workspaceDescriptor, { bigint: true })
-    assertSameDirectory(
-      openedWorkspace,
-      currentPathIdentity(workspace, '工作区根目录'),
-      '工作区根目录',
-    )
+    const directoryPaths = [workspace]
+    for (const segment of relativePath.split('/').slice(0, -1)) {
+      directoryPaths.push(resolve(directoryPaths.at(-1)!, segment))
+    }
+    for (const directoryPath of directoryPaths) {
+      const directoryLabel = directoryPath === workspace ? '工作区根目录' : `专项规则目录 ${directoryPath}`
+      const descriptor = openWithoutFollowingLinks(directoryPath, directoryLabel)
+      const identity = fstatSync(descriptor, { bigint: true })
+      directories.push({ path: directoryPath, label: directoryLabel, descriptor, identity })
+      assertSameDirectory(identity, currentPathIdentity(directoryPath, directoryLabel), directoryLabel)
+    }
 
-    agentsDescriptor = openWithoutFollowingLinks(agentsPath, '根 AGENTS.md')
-    const openedAgents = fstatSync(agentsDescriptor, { bigint: true })
+    fileDescriptor = openWithoutFollowingLinks(path, label)
+    const openedFile = fstatSync(fileDescriptor, { bigint: true })
     assertSameRegularFile(
-      openedAgents,
-      currentPathIdentity(agentsPath, '根 AGENTS.md'),
-      '根 AGENTS.md',
+      openedFile,
+      currentPathIdentity(path, label),
+      label,
     )
+    for (const directory of directories) {
+      assertSameDirectory(directory.identity, currentPathIdentity(directory.path, directory.label), directory.label)
+    }
 
-    const bytes = readFileSync(agentsDescriptor)
+    const bytes = readFileSync(fileDescriptor)
     assertSameRegularFile(
-      openedAgents,
-      currentPathIdentity(agentsPath, '根 AGENTS.md'),
-      '根 AGENTS.md',
+      openedFile,
+      currentPathIdentity(path, label),
+      label,
     )
-    assertSameDirectory(
-      openedWorkspace,
-      currentPathIdentity(workspace, '工作区根目录'),
-      '工作区根目录',
-    )
+    for (const directory of directories) {
+      assertSameDirectory(directory.identity, currentPathIdentity(directory.path, directory.label), directory.label)
+    }
     return bytes
   } finally {
-    if (agentsDescriptor !== undefined) closeSync(agentsDescriptor)
-    if (workspaceDescriptor !== undefined) closeSync(workspaceDescriptor)
+    if (fileDescriptor !== undefined) closeSync(fileDescriptor)
+    for (const directory of directories.reverse()) closeSync(directory.descriptor)
   }
+}
+
+function declaredDelegatedRulePaths(source: string): DelegatedInstructionSource['path'][] {
+  return DELEGATED_RULE_PATHS.filter((path) => {
+    const target = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(?<!!)\\[[^\\]\\r\\n]+\\]\\(\\s*(?:${target}|<${target}>)(?:\\s+"[^"\\r\\n]*")?\\s*\\)`).test(source)
+  })
 }
 
 function instructionContextJson(receipt: InstructionContextReceipt): string {
@@ -192,10 +217,17 @@ export function captureInstructionContext(
   assert(taskBoundary, '任务边界 trim 后不能为空')
 
   const workspace = realpathSync(resolve(options.workspace))
-  const bytes = readRootAgentsFile(workspace)
+  const bytes = readInstructionFile(workspace, 'AGENTS.md', '根 AGENTS.md')
   const ruleBindings = requiredBindings(options.requireStageTrace === true)
   const source = bytes.toString('utf8')
   for (const binding of ruleBindings) assertExactHeading(source, binding.ruleRef)
+  const delegatedSources = declaredDelegatedRulePaths(source).map((path): DelegatedInstructionSource => ({
+    path,
+    algorithm: 'sha256',
+    contentHash: createHash('sha256')
+      .update(readInstructionFile(workspace, path, `专项规则 ${path}`))
+      .digest('hex'),
+  }))
 
   return {
     taskBoundary,
@@ -204,6 +236,7 @@ export function captureInstructionContext(
       algorithm: 'sha256',
       contentHash: createHash('sha256').update(bytes).digest('hex'),
     },
+    ...(delegatedSources.length ? { delegatedSources } : {}),
     ruleBindings,
   }
 }
@@ -211,6 +244,36 @@ export function captureInstructionContext(
 function parseObject(value: unknown, name: string): Record<string, unknown> {
   assert(value && typeof value === 'object' && !Array.isArray(value), `${name} 必须是对象`)
   return value as Record<string, unknown>
+}
+
+function parseDelegatedSources(value: unknown): DelegatedInstructionSource[] {
+  assert(Array.isArray(value) && value.length > 0, 'delegatedSources 必须是非空数组')
+  const paths = new Set<string>()
+  const sources = value.map((rawSource): DelegatedInstructionSource => {
+    const source = parseObject(rawSource, '专项规则来源')
+    assert(
+      typeof source.path === 'string' && (DELEGATED_RULE_PATHS as readonly string[]).includes(source.path),
+      'delegatedSources.path 必须是已知的专项规则路径',
+    )
+    assert(!paths.has(source.path), `专项规则来源重复：${source.path}`)
+    paths.add(source.path)
+    assert.equal(source.algorithm, 'sha256', 'delegatedSources.algorithm 必须是 sha256')
+    assert(
+      typeof source.contentHash === 'string' && /^[a-f0-9]{64}$/.test(source.contentHash),
+      'delegatedSources.contentHash 必须是小写 SHA-256',
+    )
+    return {
+      path: source.path as DelegatedInstructionSource['path'],
+      algorithm: 'sha256',
+      contentHash: source.contentHash,
+    }
+  })
+  assert.deepEqual(
+    sources.map((source) => source.path),
+    DELEGATED_RULE_PATHS.filter((path) => paths.has(path)),
+    '专项规则来源顺序必须与约定一致',
+  )
+  return sources
 }
 
 function parseRuleBindings(value: unknown): InstructionRuleBinding[] {
@@ -278,6 +341,9 @@ export function parseInstructionContext(value: unknown): InstructionContextRecei
       algorithm: 'sha256',
       contentHash: source.contentHash,
     },
+    ...(receipt.delegatedSources === undefined
+      ? {}
+      : { delegatedSources: parseDelegatedSources(receipt.delegatedSources) }),
     ruleBindings: parseRuleBindings(receipt.ruleBindings),
   }
 }

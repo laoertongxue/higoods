@@ -107,6 +107,62 @@ function replaceTechnicalVerification(record: ReviewRecordSource, command: strin
   }
 }
 
+function compactReviewRecord(technical = false): ReviewRecordSource {
+  return {
+    path: 'docs/prototype-review-records/compact-example.md',
+    source: `# 简要验证
+## 简要记录
+- 记录模式：${technical ? '无用户可见影响声明' : '轻量可见变更'}
+- 对象 / 路由：/example 保存按钮
+- 改动与边界：缩短文案；数量、状态、事件、存储及路由契约不变
+- 契约变化：无
+- 版本：main / HEAD + 文件哈希，本机服务，1366×768，2026-10-23
+- 验证人：Codex 专项验证执行者
+- 证据：/example 实际保存后回读一致，evidence/example.png
+${technical ? '' : '- 性能：不适用（只改文案，布局成本和事件链不变）\n'}- 结果：通过
+## 受管文件
+- \`src/pages/example.ts\`
+${technical ? '## 验证命令\n- `node --test tests/example.test.ts`：通过\n' : ''}`,
+  }
+}
+
+test('简要轻量记录用实际页面证据交付，不强制完整表和格式命令', () => {
+  const result = validatePrototypeReviewCoverage(['src/pages/example.ts'], [compactReviewRecord()])
+  assert.deepEqual(result.lightweightPaths, ['src/pages/example.ts'])
+})
+
+test('简要无可见影响声明保留直接技术证明', () => {
+  const result = validatePrototypeReviewCoverage(['src/pages/example.ts'], [compactReviewRecord(true)])
+  assert.deepEqual(result.technicalOnlyPaths, ['src/pages/example.ts'])
+})
+
+for (const [name, from, to, error] of [
+  ['契约变化', '- 契约变化：无', '- 契约变化：有', /契约变化/],
+  ['完整业务降级', '记录模式：轻量可见变更', '记录模式：完整产品审查', /仅适用/],
+  ['缺真实证据', '- 证据：/example 实际保存后回读一致，evidence/example.png', '- 证据：已检查', /证据/],
+  ['缺版本', '- 版本：main / HEAD + 文件哈希，本机服务，1366×768，2026-10-23', '', /版本/],
+  ['缺性能依据', '- 性能：不适用（只改文案，布局成本和事件链不变）', '', /性能/],
+  ['性能失败', '- 性能：不适用（只改文案，布局成本和事件链不变）', '- 性能：不通过：超过一秒', /性能/],
+  ['未通过结果', '- 结果：通过', '- 结果：有条件通过', /未通过/],
+  ['重复证据', '- 证据：/example 实际保存后回读一致，evidence/example.png', '- 证据：页面已完成验收\n- 证据：另一份矛盾证据', /重复/],
+  ['混合旧式判定', '## 受管文件', '## 影响判定\n- 记录模式：完整产品审查\n## 受管文件', /不能混用/],
+  ['夹带失败自查', '## 受管文件', '## 自查结论\n| 检查项 | 结论 | 证据 |\n| --- | --- | --- |\n| 保存行为 | 不通过 | 点击后结果错误 |\n## 受管文件', /自查结论/],
+] as const) {
+  test(`简要记录拒绝${name}`, () => {
+    const record = compactReviewRecord()
+    record.source = record.source.replace(from, to)
+    assert.throws(() => validatePrototypeReviewCoverage(['src/pages/example.ts'], [record]), error)
+  })
+}
+
+test('简要技术声明不能只用治理命令自证或推迟直接技术证明', () => {
+  const record = compactReviewRecord(true)
+  record.source = record.source.replace('node --test tests/example.test.ts', 'npm run check:prototype-design-governance')
+  assert.throws(() => validatePrototypeReviewCoverage(['src/pages/example.ts'], [record]), /直接技术验证/)
+  record.source = record.source.replace('`npm run check:prototype-design-governance`：通过', '`npm run check:prototype-design-governance`：未运行')
+  assert.throws(() => validatePrototypeReviewCoverage(['src/pages/example.ts'], [record]), /验证未通过/)
+})
+
 test('受管文件没有影响声明或审查记录时失败', () => {
   assert.throws(
     () => validatePrototypeReviewCoverage(['src/pages/example.ts'], []),

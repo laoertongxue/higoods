@@ -40,11 +40,14 @@ const slotMarkers = {
 const mainSource = fs.readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
 const fcsHandlerSource = fs.readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
 const agentsSource = fs.readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8')
+const interfaceRulesPath = 'docs/agent-rules/interface.md'
+assert(agentsSource.includes(`](${interfaceRulesPath})`), '根 AGENTS.md 必须明确委托界面专项规则')
+const interfaceRulesSource = fs.readFileSync(new URL(`../${interfaceRulesPath}`, import.meta.url), 'utf8')
 const supplementPageSource = fs.readFileSync(new URL('../src/pages/process-factory/cutting/supplement-management.ts', import.meta.url), 'utf8')
 
 function extractStandardListGovernanceSection(source: string): string {
   const headingMatch = /^\*\*LIST-01：.*$/m.exec(source)
-  assert(headingMatch, 'AGENTS.md 必须定义稳定规则 LIST-01')
+  assert(headingMatch, '界面专项必须定义稳定规则 LIST-01')
   const sectionStart = headingMatch.index
   const contentStart = sectionStart + headingMatch[0].length
   const remainingSource = source.slice(contentStart)
@@ -72,10 +75,14 @@ function assertStandardListGovernanceSection(section: string): void {
   }
 }
 
-const standardListGovernanceSection = extractStandardListGovernanceSection(agentsSource)
+const standardListGovernanceSection = extractStandardListGovernanceSection(interfaceRulesSource)
 assertStandardListGovernanceSection(standardListGovernanceSection)
 assert.match(agentsSource, /npm run check:list-page-governance/, 'AGENTS.md 必须要求统一列表页治理命令')
-assert.match(agentsSource, /历史页面身份和原始哈希.*不新增或修改哈希绕过门禁/, 'AGENTS.md 必须禁止修改历史列表页基线哈希')
+assert.match(standardListGovernanceSection, /历史页面身份和原始哈希.*不新增或修改哈希绕过门禁/, '界面专项必须禁止修改历史列表页基线哈希')
+if (process.argv.includes('--policy-only')) {
+  console.log('standard list delegated policy contract passed (not product acceptance)')
+  process.exit(0)
+}
 assert.match(supplementPageSource, /@page-pattern:\s*list/, '补料管理页面必须声明列表页模式')
 
 for (const token of [

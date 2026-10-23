@@ -25,6 +25,7 @@ interface ParsedReviewRecord {
   impact: ImpactKind
   mode: ReviewMode
   verification: Array<{ command: string; passed: boolean }>
+  compact?: boolean
 }
 
 function normalizePath(path: string): string {
@@ -142,10 +143,41 @@ function hasCurrentGovernanceReference(record: ParsedReviewRecord): boolean {
   return false
 }
 
+function parseCompactRecord(record: ReviewRecordSource, source: string, sections: Section[]): ParsedReviewRecord {
+  for (const title of ['基本信息', '影响判定', '自查结论', '轻量变更', '技术证据', '页面证据', '性能结论', '最终结论']) {
+    assert(!readSection(sections, title), `${record.path} 简要记录不能混用 ${title}，避免两套结论`)
+  }
+  const summary = readSection(sections, '简要记录')
+  const mode = readField(summary, '记录模式')
+  assert(mode === '轻量可见变更' || mode === '无用户可见影响声明', `${record.path} 简要记录仅适用契约不变的轻量或无可见影响任务`)
+  for (const name of ['对象 / 路由', '改动与边界', '版本', '验证人', '证据']) {
+    assertUseful(readField(summary, name), `${record.path} 简要记录 ${name}`)
+  }
+  assert.equal(readField(summary, '契约变化'), '无', `${record.path} 简要记录不能承载契约变化`)
+  assert.equal(readField(summary, '结果'), '通过', `${record.path} 简要记录结果未通过`)
+  const visible = readField(summary, '用户可见影响')
+  if (visible) assert.equal(visible, mode === '轻量可见变更' ? '有' : '无', `${record.path} 记录模式与用户可见影响不一致`)
+  if (mode === '轻量可见变更' || readField(summary, '性能')) {
+    const performance = /^(?:通过|不适用)[：:（(](.+?)[）)]?$/.exec(readField(summary, '性能'))
+    assert(performance, `${record.path} 简要记录性能须有通过证据或不适用依据`)
+    assertUseful(performance[1], `${record.path} 简要记录性能依据`)
+  }
+  const managedFiles = readCodeList(readSection(sections, '受管文件'))
+  assert(managedFiles.length > 0, `${record.path} 缺少受管文件`)
+  assert.equal(new Set(managedFiles).size, managedFiles.length, `${record.path} 受管文件重复`)
+  const commands = readSection(sections, '验证命令')
+  return {
+    path: normalizePath(record.path), source, sections, managedFiles, mode,
+    impact: mode === '无用户可见影响声明' ? 'technical-only' : 'user-visible',
+    verification: commands ? parseVerification(commands, record.path) : [], compact: true,
+  }
+}
+
 function parseCurrentRecord(record: ReviewRecordSource): ParsedReviewRecord {
   const source = withoutCodeBlocks(record.source)
   const sections = parseSections(source)
   for (const section of sections) readSection(sections, section.title)
+  if (sections.some((section) => section.title === '简要记录')) return parseCompactRecord(record, source, sections)
   for (const [title, fields] of Object.entries({
     影响判定: ['记录模式', '用户可见影响', '判定依据', '契约变化'],
     页面证据: ['版本', '证据'], 性能结论: ['结论', '依据'], 技术证据: ['对象与结果', '证据'],
@@ -209,7 +241,16 @@ function assertVisibleEvidence(record: ParsedReviewRecord): void {
   assertUseful(readField(page, '证据'), `${record.path} 页面证据`)
 }
 
+function assertDirectTechnicalVerification(record: ParsedReviewRecord): void {
+  const governanceOrFormatting = /(?:governance|workflow:|\bgit[ \t]+(?:diff|status|show)\b|\b(?:prettier|eslint)\b|(?:run[ \t]+|:)(?:lint|format)(?:\b|:))/i
+  assert(record.verification.some(({ command, passed }) => passed && !governanceOrFormatting.test(command)), `${record.path} 缺少证明渲染、数据、路由或交互结果不变的直接技术验证，不能只用格式或治理自证`)
+}
+
 function assertCurrentRecord(record: ParsedReviewRecord): void {
+  if (record.compact) {
+    if (record.mode === '无用户可见影响声明') assertDirectTechnicalVerification(record)
+    return
+  }
   const full = record.mode === '完整产品审查'
   assertFinalConclusion(record, full)
   assertSelfCheck(record, full)
@@ -223,8 +264,7 @@ function assertCurrentRecord(record: ParsedReviewRecord): void {
     const technical = readSection(record.sections, '技术证据')
     assertUseful(readField(technical, '对象与结果'), `${record.path} 直接技术验证对象与结果`)
     assertUseful(readField(technical, '证据'), `${record.path} 直接技术验证证据`)
-    const governanceOrFormatting = /(?:governance|workflow:|\bgit[ \t]+(?:diff|status|show)\b|\b(?:prettier|eslint)\b|(?:run[ \t]+|:)(?:lint|format)(?:\b|:))/i
-    assert(record.verification.some(({ command, passed }) => passed && !governanceOrFormatting.test(command)), `${record.path} 缺少证明渲染、数据、路由或交互结果不变的直接技术验证，不能只用格式或治理自证`)
+    assertDirectTechnicalVerification(record)
   }
   if (record.mode === '轻量可见变更') {
     assert.equal(readField(readSection(record.sections, '影响判定'), '契约变化'), '无', `${record.path} 轻量可见变更必须声明契约变化：无`)

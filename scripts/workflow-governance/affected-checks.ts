@@ -149,6 +149,7 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const fullChecks = new Set<string>()
   const unknownPaths: string[] = []
   const escalationReasons = new Set<string>()
+  let scopedPrototypeGovernance: string | undefined
 
   for (const path of changedPaths) {
     if (path === 'tests/browser-contracts/accessory-cutting-change-mock.test.ts') {
@@ -355,7 +356,8 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
     let handled = false
     const isPrototype = isPrototypePath(path)
     if (isPrototype) {
-      add(governanceChecks, taskScope('npm run check:prototype-design-governance', changedPaths))
+      scopedPrototypeGovernance = taskScope('npm run check:prototype-design-governance', changedPaths)
+      add(governanceChecks, scopedPrototypeGovernance)
     }
 
     if (path.startsWith('src/pages/')) {
@@ -489,6 +491,13 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       add(fullChecks, 'npm run build')
       escalationReasons.add('未知路径需要升级到安全的完整检查')
     }
+  }
+
+  // The list aggregate runs product governance for this same frozen task scope.
+  // Keep self-tests and the independent standard-list runtime check separate.
+  if (scopedPrototypeGovernance
+    && governanceChecks.has(taskScope('npm run check:list-page-governance', changedPaths))) {
+    governanceChecks.delete(scopedPrototypeGovernance)
   }
 
   return {
