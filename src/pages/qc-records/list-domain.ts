@@ -149,9 +149,13 @@ export function renderQcRecordsPage(): string {
 
   return `
     <div class="flex flex-col gap-5 p-6">
+      <nav class="flex flex-wrap items-center gap-2" aria-label="质检记录视图">
+        <button type="button" data-action="open-tab" data-tab-key="quality-records" data-tab-title="质检记录汇总" data-tab-href="/fcs/quality-management/records" class="inline-flex h-9 items-center rounded-md border bg-background px-4 text-sm font-medium text-foreground hover:bg-muted">质检记录汇总</button>
+        <button type="button" data-action="open-tab" data-tab-key="quality-inspection" data-tab-title="平台质检工作台" data-tab-href="/fcs/quality/qc-records" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white">平台质检工作台</button>
+      </nav>
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">质检记录</h1>
-        <p class="mt-1 text-sm text-muted-foreground">覆盖回货质检与后道复检，只看具体质检事实：质检了多少、合格多少、返工多少、瑕疵多少、返工交给谁。</p>
+        <h1 class="text-2xl font-bold tracking-tight">平台质检工作台</h1>
+        <p class="mt-1 text-sm text-muted-foreground">平台质检审核、返工扣款依据与责任处理工作台；只看具体质检事实，检查结果仍以原质检事实为准，不在本页修改。</p>
       </div>
 
       ${renderFilters(allRows)}

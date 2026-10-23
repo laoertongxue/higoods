@@ -375,15 +375,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           ],
         },
         {
-          key: 'fcs-platform-quality',
-          title: '质量与扣款',
-          icon: 'ClipboardCheck',
-          children: [
-            { key: 'quality-inspection', title: '质检记录', icon: 'ClipboardCheck', href: '/fcs/quality/qc-records' },
-            { key: 'quality-deduction-analysis', title: '扣款记录', icon: 'BarChart3', href: '/fcs/quality/deduction-analysis' },
-          ],
-        },
-        {
           key: 'fcs-platform-settlement',
           title: '对账与结算',
           icon: 'FileText',
@@ -391,6 +382,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'settlement-statements', title: '对账单', icon: 'FileText', href: '/fcs/settlement/statements' },
             { key: 'settlement-adjustments', title: '预结算流水', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
             { key: 'settlement-material-statements', title: '车缝接收对账', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
+            { key: 'quality-deduction-analysis', title: '扣款记录', icon: 'BarChart3', href: '/fcs/quality/deduction-analysis' },
             { key: 'settlement-batches', title: '预付款批次', icon: 'Layers', href: '/fcs/settlement/batches' },
           ],
         },

@@ -518,6 +518,8 @@ function findMenuItemByPath(pathname: string): MenuItem | null {
   const groups = menusBySystem[systemId] ?? []
   const item = flattenMenus(groups).find((menu) => menu.href === normalizedPathname)
   if (item) return item
+  // The platform QC workbench is reached from the 质检记录汇总 tab, not the sidebar.
+  if (normalizedPathname === '/fcs/quality/qc-records') return { key: 'quality-inspection', title: '平台质检工作台', href: normalizedPathname }
   if (normalizedPathname === '/dds/supply-chain/production-fulfillment/pending-purchases') return { key: 'production-fulfillment-pending-purchases', title: '采购待关联', href: normalizedPathname }
   const timingDetail = /^\/dds\/supply-chain\/production-fulfillment\/(orders|pending-purchases)\/([^/]+)$/.exec(normalizedPathname)
   if (timingDetail) {
