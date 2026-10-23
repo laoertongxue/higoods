@@ -1,69 +1,19 @@
 {
-  "capturedAt": "2026-10-23T07:50:01.637Z",
+  "capturedAt": "2026-10-23T09:44:00.000Z",
   "environment": "production preview, Chromium headless, 1366x768, local 127.0.0.1",
   "definitions": {
-    "stationSwitch": "from loaded work-orders route to material-transfers until first row/images ready",
-    "reload": "full page.goto until first row/images ready",
-    "createDialog": "create button → BOM preview/images ready",
-    "save": "confirm → success status + manual row ready",
-    "coldDirectUrl": "fresh browser context page.goto until first row/images ready"
+    "stationSwitch": "from the already-loaded PFOS work-orders page, route change to /fcs/craft/post-finishing/material-transfers until the first row and its images are decoded",
+    "reload": "same browser, full page.goto to the route until the first row and its images are decoded",
+    "createDialog": "open create button, read PO-AW-202610-H04 BOM until the preview and its images are decoded (fresh browser context per sample)",
+    "save": "confirm create until success status, new manual row and its images are decoded (fresh browser context per sample)",
+    "coldDirectUrl": "fresh browser context, direct page.goto until the first row and its images are decoded"
   },
-  "stationSwitch": {
-    "samples": [
-      396,
-      355,
-      365,
-      338,
-      459
-    ],
-    "max": 459,
-    "pass": true
-  },
-  "reload": {
-    "samples": [
-      883,
-      895,
-      876,
-      888,
-      882
-    ],
-    "max": 895,
-    "pass": true
-  },
-  "createDialog": {
-    "samples": [
-      203,
-      150,
-      179,
-      154,
-      158
-    ],
-    "max": 203,
-    "pass": true
-  },
-  "save": {
-    "samples": [
-      295,
-      251,
-      254,
-      301,
-      285
-    ],
-    "max": 301,
-    "pass": true
-  },
-  "coldDirectUrl": {
-    "samples": [
-      969,
-      972,
-      957,
-      971,
-      1050
-    ],
-    "max": 1050,
-    "pass": false
-  },
-  "applicablePath": "station switch and reload",
-  "applicablePass": true,
-  "boundary": "Direct-URL cold boot in a fresh browser context is dominated by shared application boot/source hydration; existing work-orders route has comparable cold values. Station switch, reload and this feature operations are within 1s."
+  "stationSwitch": { "samples": [243, 220, 237, 202, 222], "max": 243, "pass": true },
+  "reload": { "samples": [549, 554, 574, 583, 602], "max": 602, "pass": true },
+  "createDialog": { "samples": [147, 110, 111, 110, 110], "max": 147, "pass": true },
+  "save": { "samples": [189, 175, 189, 187, 231], "max": 231, "pass": true },
+  "coldDirectUrl": { "samples": [708, 638, 640, 653, 637], "max": 708, "pass": true },
+  "applicationPathPass": true,
+  "previousColdRun": "The earlier build of the same feature (with the removed creator field) recorded one 1050ms cold sample; the current rebuilt version passes all five cold samples.",
+  "errors": []
 }

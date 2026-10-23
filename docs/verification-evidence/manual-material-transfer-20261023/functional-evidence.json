@@ -1,28 +1,8 @@
 {
-  "capturedAt": "2026-10-23T07:43:16.173Z",
-  "preview": "PO-AW-202610-H04 · HILON 辅料流转 · 待领料\n技术包 V1\n\n已排除 5 项：面料 1 项、品牌/价格吊牌、吊粒 3 项、车缝线 1 项\n\n物料\t编码\t规格\t单位\t调拨数量\n\n拉链\n\tAW-SCENE-H04-ZIPPER\t金属拉链（演示）\t条\t\n\n纽扣\n\tAW-SCENE-H04-BUTTON\t标准纽扣（演示）\t粒\t",
-  "excludedInBomRows": [
-    {
-      "name": "主身面料",
-      "inBomRows": false
-    },
-    {
-      "name": "价格吊牌",
-      "inBomRows": false
-    },
-    {
-      "name": "品牌吊牌",
-      "inBomRows": false
-    },
-    {
-      "name": "吊粒",
-      "inBomRows": false
-    },
-    {
-      "name": "车缝线",
-      "inBomRows": false
-    }
-  ],
+  "capturedAt": "2026-10-23T09:42:47.991Z",
+  "currentActor": "PF-USER-QC-MGR / 林质检主管",
+  "actorFieldCount": 0,
+  "hasCreatorLabel": false,
   "bomRows": [
     "拉链\n\tAW-SCENE-H04-ZIPPER\t金属拉链（演示）\t条\t",
     "纽扣\n\tAW-SCENE-H04-BUTTON\t标准纽扣（演示）\t粒\t"
@@ -33,24 +13,29 @@
       "status": "待出库",
       "kind": "GTP_TO_POST",
       "source": "PRODUCTION_ORDER",
+      "createdBy": "林质检主管",
       "history": [
-        "人工创建调拨单",
-        "自动审核通过"
+        {
+          "action": "人工创建调拨单",
+          "by": "林质检主管"
+        },
+        {
+          "action": "自动审核通过",
+          "by": "辅料中央仓系统"
+        }
       ],
       "lines": [
         {
           "name": "拉链",
           "code": "AW-SCENE-H04-ZIPPER",
           "qty": 10,
-          "unit": "条",
-          "from": "WH-FITTING-001-LOCATION-A-1"
+          "unit": "条"
         },
         {
           "name": "纽扣",
           "code": "AW-SCENE-H04-BUTTON",
           "qty": 20,
-          "unit": "粒",
-          "from": "WH-FITTING-001-LOCATION-A-2"
+          "unit": "粒"
         }
       ]
     },
@@ -59,24 +44,30 @@
       "status": "待出库",
       "kind": "GTP_TO_POST",
       "source": "GENERAL",
+      "createdBy": "林质检主管",
       "history": [
-        "人工创建调拨单",
-        "自动审核通过"
+        {
+          "action": "人工创建调拨单",
+          "by": "林质检主管"
+        },
+        {
+          "action": "自动审核通过",
+          "by": "辅料中央仓系统"
+        }
       ],
       "lines": [
         {
           "name": "纽扣",
           "code": "AW-SCENE-H04-BUTTON",
           "qty": 8,
-          "unit": "粒",
-          "from": "WH-FITTING-001-LOCATION-A-2"
+          "unit": "粒"
         }
       ]
     }
   ],
   "logEntriesNewestFirst": [
-    "自动审核通过\n待调拨\n2026/10/23 15:43:13\n\n辅料中央仓自动审核通过，等待整单出库\n\n辅料中央仓系统",
-    "人工创建调拨单\n待调拨\n2026/10/23 15:43:13\n\n按通用物料搜索人工创建\n\n后道计划员"
+    "自动审核通过\n待调拨\n2026/10/23 17:42:45\n\n辅料中央仓自动审核通过，等待整单出库\n\n辅料中央仓系统",
+    "人工创建调拨单\n待调拨\n2026/10/23 17:42:45\n\n按通用物料搜索人工创建\n\n林质检主管"
   ],
   "detailHasOperationHistory": 0,
   "listBodyOverflowPx": 0,

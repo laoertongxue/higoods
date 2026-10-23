@@ -3,7 +3,7 @@ import { renderStandardListPage, renderStandardListStats } from '../../../compon
 import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { paginateStandardListRows } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
-import { listPostFinishingMaterialTransferOrders, getPostFinishingMaterialTransferOrder, type PostFinishingMaterialTransferOrder } from '../../../data/fcs/post-finishing-full-flow.ts'
+import { listPostFinishingMaterialTransferOrders, getPostFinishingMaterialTransferOrder, getCurrentPostFinishingActor, POST_FINISHING_ACCEPTANCE_ACTORS, type PostFinishingMaterialTransferOrder } from '../../../data/fcs/post-finishing-full-flow.ts'
 import { prepareAccessoryPostFinishing, isManagedAccessoryPostTransfer, receiveAccessoryPostTransfer, listAccessoryPostLocations } from '../../../data/wls/accessory-warehouse-post-finishing.ts'
 import {
   createManualAccessoryPostTransfer,
@@ -25,7 +25,7 @@ let createOpen = false, createMode: ManualTransferSource = 'PRODUCTION_ORDER'
 let createOrderNo = '', createPreview: ManualTransferProductionPreview | null = null
 let createProductionQty = new Map<string, string>()
 let createGeneralQuery = '', createGeneralSelected = new Map<string, ManualTransferMaterialRow>(), createGeneralQty = new Map<string, string>()
-let createActor = '后道计划员', createError = '', createBusy = false, createDirty = false, createCommandId = '', createAt = ''
+let createError = '', createBusy = false, createDirty = false, createCommandId = '', createAt = ''
 let generalCatalog: ManualTransferMaterialRow[] | null = null
 const root = () => document.querySelector<HTMLElement>('[data-post-material-root]')
 const query = () => new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
@@ -95,7 +95,7 @@ function closeDetail(): void { if (busy || (dirty && !window.confirm('实收和�
 function closeLog(): void { if (!root()?.querySelector('[data-post-material-log]')?.childElementCount) return; logId = ''; root()?.querySelector('[data-post-material-log]')?.replaceChildren(); restoreAccessoryFocus() }
 function resetCreatePending(): void { createCommandId = ''; createAt = ''; clearCreateError() }
 function clearCreateError(): void { createError = ''; const host = root()?.querySelector<HTMLElement>('[data-post-material-create-error]'); if (host) host.textContent = '' }
-function resetCreateState(): void { createOpen = false; createMode = 'PRODUCTION_ORDER'; createOrderNo = ''; createPreview = null; createProductionQty.clear(); createGeneralQuery = ''; createGeneralSelected.clear(); createGeneralQty.clear(); createActor = '后道计划员'; createError = ''; createBusy = false; createDirty = false; createCommandId = ''; createAt = '' }
+function resetCreateState(): void { createOpen = false; createMode = 'PRODUCTION_ORDER'; createOrderNo = ''; createPreview = null; createProductionQty.clear(); createGeneralQuery = ''; createGeneralSelected.clear(); createGeneralQty.clear(); createError = ''; createBusy = false; createDirty = false; createCommandId = ''; createAt = '' }
 function openCreate(): void { if (busy) return; resetCreateState(); createOpen = true; refreshCreateHost(); focusAccessoryOverlay(); requestAnimationFrame(() => root()?.querySelector<HTMLInputElement>('[data-post-material-create-order]')?.focus()) }
 function closeCreate(): void { if (createBusy) return; if (createDirty && !window.confirm('调拨单内容尚未提交。关闭将丢弃输入，是否关闭？')) return; resetCreateState(); refreshCreateHost(); restoreAccessoryFocus() }
 function openLog(id: string): void { const record = getPostFinishingMaterialTransferOrder(id); if (!record) return; logId = id; refreshLogHost(); focusAccessoryOverlay() }
@@ -119,7 +119,7 @@ function createGeneralSection(): string {
 }
 function renderCreateModal(): string {
   const modeButton = (mode: ManualTransferSource, label: string) => `<button type="button" class="rounded px-3 py-2 text-sm ${createMode === mode ? 'bg-blue-600 font-medium text-white' : 'border hover:bg-muted'}" data-${prefix}-action="create-mode" data-mode="${mode}">${escapeHtml(label)}</button>`
-  const body = `<fieldset class="space-y-4" ${createBusy ? 'disabled' : ''}><div class="flex flex-wrap items-end justify-between gap-3"><div class="flex flex-wrap gap-2" role="group" aria-label="调拨创建方式">${modeButton('PRODUCTION_ORDER', '按生产单')} ${modeButton('GENERAL', '不按生产单（通用物料）')}</div><label class="grid w-56 gap-1 text-sm">创建人<input class="h-10 rounded border px-3" data-post-material-create-actor value="${escapeHtml(createActor)}"></label></div><p role="alert" class="whitespace-pre-wrap text-sm text-red-600" data-post-material-create-error>${escapeHtml(createError)}</p><p class="rounded bg-blue-50 p-3 text-sm">提交后先在辅料中央仓创建调拨单并自动审核通过；中央仓保存失败时，后道列表不会生成记录。</p>${createMode === 'PRODUCTION_ORDER' ? createProductionSection() : createGeneralSection()}</fieldset>`
+  const body = `<fieldset class="space-y-4" ${createBusy ? 'disabled' : ''}><div class="flex flex-wrap gap-2" role="group" aria-label="调拨创建方式">${modeButton('PRODUCTION_ORDER', '按生产单')} ${modeButton('GENERAL', '不按生产单（通用物料）')}</div><p role="alert" class="whitespace-pre-wrap text-sm text-red-600" data-post-material-create-error>${escapeHtml(createError)}</p><p class="rounded bg-blue-50 p-3 text-sm">提交后先在辅料中央仓创建调拨单并自动审核通过；中央仓保存失败时，后道列表不会生成记录。</p>${createMode === 'PRODUCTION_ORDER' ? createProductionSection() : createGeneralSection()}</fieldset>`
   return accessoryOverlay('新增辅料调拨单', body, `${button('取消', 'create-cancel', '', createBusy)}${button(createBusy ? '正在同步辅料中央仓…' : '确认创建', 'create-submit', '', createBusy, true)}`, 'post-material-close-create')
 }
 function collectCreateLines(): Array<{ materialKey: string; qty: number }> {
@@ -147,9 +147,9 @@ async function submitCreate(): Promise<void> {
   try {
     const lines = collectCreateLines()
     if (!lines.length) throw new Error('至少填写一项要调拨的物料数量。')
-    if (!createActor.trim()) throw new Error('请填写创建人。')
+    const actor = getCurrentPostFinishingActor(POST_FINISHING_ACCEPTANCE_ACTORS.postOperator.actorId)
     createCommandId ||= crypto.randomUUID(); createAt ||= new Date().toISOString(); createBusy = true; createError = ''; refreshCreateHost()
-    await createManualAccessoryPostTransfer({ source: createMode, productionOrderNo: createMode === 'PRODUCTION_ORDER' ? createPreview!.productionOrderNo : undefined, actorName: createActor.trim(), lines, commandId: createCommandId, at: createAt })
+    await createManualAccessoryPostTransfer({ source: createMode, productionOrderNo: createMode === 'PRODUCTION_ORDER' ? createPreview!.productionOrderNo : undefined, actorName: actor.actorName, lines, commandId: createCommandId, at: createAt })
     createBusy = false; createDirty = false; message = '辅料中央仓已创建调拨单并自动审核通过，列表已更新。'; resetCreateState(); refreshCreateHost(); restoreAccessoryFocus(); refreshList()
   } catch (value) { createBusy = false; createError = value instanceof Error ? value.message : String(value); refreshCreateHost() }
 }
@@ -204,8 +204,6 @@ export function handlePostFinishingMaterialTransfersEvent(target: HTMLElement, e
   }
   const generalSearch = target.closest<HTMLInputElement>('[data-post-material-create-search]')
   if (generalSearch && (event?.type === 'input' || event?.type === 'change')) { createGeneralQuery = generalSearch.value; refreshGeneralResults(); return true }
-  const createActorInput = target.closest<HTMLInputElement>('[data-post-material-create-actor]')
-  if (createActorInput && (event?.type === 'input' || event?.type === 'change')) { if (createBusy) return true; createActor = createActorInput.value; createDirty = true; resetCreatePending(); return true }
   const input = target.closest<HTMLInputElement | HTMLSelectElement>('[data-post-material-qty],[data-post-material-location],[data-post-material-actor]')
   if (input && (event?.type === 'input' || event?.type === 'change')) {
     if (busy) return true

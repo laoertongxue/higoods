@@ -17,6 +17,7 @@ async function selectRow(page: Page, text: string) {
 
 test('人工调拨单按生产单创建：BOM/单位/排除项、中央仓同步门禁、物料列和日志', async ({ page }, testInfo) => {
   test.setTimeout(120000)
+  await page.addInitScript(() => localStorage.setItem('higood-fcs-post-finishing-current-actor-v1', 'PF-USER-QC-MGR'))
   await page.setViewportSize({ width: 1366, height: 768 })
   await openPage(page)
   await expect(page.getByRole('heading', { name: '后道辅料调拨单', exact: true })).toBeVisible()
@@ -34,6 +35,8 @@ test('人工调拨单按生产单创建：BOM/单位/排除项、中央仓同步
   await page.getByRole('button', { name: '新增辅料调拨单', exact: true }).click()
   const create = page.getByRole('dialog', { name: '新增辅料调拨单', exact: true })
   await expect(create).toBeVisible()
+  await expect(create).not.toContainText('创建人')
+  await expect(create.locator('[data-post-material-create-actor]')).toHaveCount(0)
   await create.locator('[data-post-material-create-order]').fill('PO-AW-202610-H04')
   await create.getByRole('button', { name: '读取 BOM', exact: true }).click()
   const preview = create.locator('[data-post-material-create-preview]')
@@ -80,9 +83,9 @@ test('人工调拨单按生产单创建：BOM/单位/排除项、中央仓同步
   await expect(row).toContainText('20 粒')
   const manual = await page.evaluate(async () => {
     const record = (await import('/src/data/wls/accessory-warehouse-records.ts')).listAccessoryRecords<any>('transfer').find(row => row.creationMode === 'MANUAL')
-    return { status: record?.status, kind: record?.kind, history: record?.history?.map((item: any) => item.action), lineCount: record?.lines?.length }
+    return { status: record?.status, kind: record?.kind, history: record?.history?.map((item: any) => item.action), historyBy: record?.history?.map((item: any) => item.by), createdBy: record?.createdBy, lineCount: record?.lines?.length }
   })
-  expect(manual).toEqual({ status: '待出库', kind: 'GTP_TO_POST', history: ['人工创建调拨单', '自动审核通过'], lineCount: 2 })
+  expect(manual).toEqual({ status: '待出库', kind: 'GTP_TO_POST', history: ['人工创建调拨单', '自动审核通过'], historyBy: ['林质检主管', '辅料中央仓系统'], createdBy: '林质检主管', lineCount: 2 })
 
   await row.locator('[data-post-material-list-line]').first().locator('[data-accessory-action="image"]').click()
   const image = page.getByRole('dialog', { name: '拉链', exact: true })
@@ -97,6 +100,7 @@ test('人工调拨单按生产单创建：BOM/单位/排除项、中央仓同步
   await expect(entries).toHaveCount(2)
   await expect(entries.nth(0)).toContainText('自动审核通过')
   await expect(entries.nth(1)).toContainText('人工创建调拨单')
+  await expect(entries.nth(1)).toContainText('林质检主管')
   await log.getByRole('button', { name: '关闭', exact: true }).click()
 
   await row.getByRole('button', { name: '查看详情', exact: true }).click()
