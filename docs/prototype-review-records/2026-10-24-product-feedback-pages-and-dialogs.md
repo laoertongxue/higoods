@@ -46,7 +46,7 @@
 - E03：`interactions.json` 共 17 项业务/呈现检查及 25 个操作耗时；`batch-basic-final.png`、`comment-final.png`、`classification-rules-final.png` 保存实际悬停/弹窗结果。该次检查后只将工作台两处四字指标名改为“到期应采”、缩短一条说明并去掉空字符串；分析、评论、批次、列设置和筛选交互实现及样式未改变，操作证据按 EVIDENCE-01 复用。最终五页截图、冷启动和全部 35 弹窗已在最终构建复验。
 - E04：`route-before.log`、`route-after.log`、`unit.log`；新增 `tests/unit/product-feedback-route-entry.test.ts` 提取实际入口函数，验证六个反馈入口避开无关失败、自己的读取错误仍可见、相邻 PCS 页面原准备和错误处理不变。合并反馈模型及主档直接契约共 55 项通过。
 - E05：原 IAB 同源现场核验。先发现无关生产初始化错误，再发现旧本地渠道种子 `CP-603005-01` 指向已退役 SKU。外部只读重建历史仓库 `f62108bd4^:src/data/pcs-channel-product-project-repository.ts` 固定种子，23 条 / 69742 字节，与浏览器键 `higood-pcs-project-channel-product-store-v2` 原值 SHA256 均为 `edeacc9b648c93ea8dbdb210493de2337da052cb7f7962fd361c2adeae42bd49`。匹配原值保存在同目录 `retired-channel-demo.json`；仅在摘要及数量再次匹配后移除该键，设置有界完成标记 `higood-feedback-retired-demo-20261024`。未动反馈业务库、其他本地键及 IndexedDB。最终在原 IAB 刷新检查：标题“采集工作台”，店铺任务 9 条，错误提示消失，指标为 9 / 4 / 4 / 5 / 6。此清理是已核实固定演示残留的一次现场处理，不表示其他浏览器资料已被清理。
-- E06：原 [V1.3 实施及业务、产品审查](2026-10-23-product-feedback-phase1.md) 的数据/去重/原子保存/回读/直接上下游结果，在未变化范围复用；本轮页面及弹窗证据替代原记录和 [上一轮界面精简](2026-10-24-product-feedback-ui-cleanup.md) 对应呈现部分。旧收据保留原始版本身份，不代表本轮源文件摘要。
+- E06：原 [V1.3 实施及业务、产品审查](2026-10-23-product-feedback-phase1.md) 的数据/去重/原子保存/回读/直接上下游结果，在未变化范围复用；本轮页面及弹窗证据替代原记录和 [上一轮界面精简](../product-design/review-history/2026-10-24-product-feedback-ui-cleanup.md) 对应呈现部分。旧收据保留原始版本身份，不代表本轮源文件摘要。
 - 实际命令输出见同目录 `build.log`、`types.log`、`unit.log`。范围内类型错误 0，范围外 19 项既有错误未纳入本次修复；未宣称全站类型检查通过。审查中一次时间可信枚举误写被范围检查阻断并已修正，原失败保存在 `types-before-enum-fix.log`。首次弹窗脚本对同一个原生弹窗重复接受属于脚本问题，修正监听后重做相关样本，保留 `browser-attempt-1.txt`，未伪造通过。
 
 ## 性能结论

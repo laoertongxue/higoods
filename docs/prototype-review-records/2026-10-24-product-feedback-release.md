@@ -1,5 +1,7 @@
 # 商品反馈管理一期发布集成审查
 
+依据 `AGENTS.md` REVIEW-01、RELEASE-01、RECEIPT-01。
+
 ## 基本信息
 
 - 日期：2026-10-24
@@ -46,8 +48,12 @@
 
 ## 验证命令
 
-- 发布集成使用 `npm run workflow:verify -- --base fa2e82324eb0d503cd08d2b0b5a13dea76de5ba8 --output <独立输出>/task-receipt.json --task-boundary 商品反馈管理一期发布集成`，按实际范围选择检查，结果独立保存，不回填已绑定记录。
-- 既有58项直接反馈契约、全量构建与产品治理结果分别保留其原版本；本轮以新收据的退出值确认集成版本技术校验。
+- `npm run build`：通过，发布集成首次校验实际完成全量工程检查、单元测试及构建，原始输出保留 verification-attempt-1.log。
+- `npm run check:fcs-end-to-end`：通过，入口及主处理器的受影响检查实际完成。
+- `npm run check:menu-routes`：通过，五页菜单路由契约实际完成。
+- `npm run check:standard-list-page-template`：通过，公共列表运行契约实际完成。
+
+首份版本绑定收据因本记录把尚待执行的命令列作无结果项目而失败，业务构建已通过。修正记录格式并保留失败日志；原轻量界面审查归档为历史资料，保持其版本与证据，当前全量产品覆盖采用完整审查。本轮重新绑定最终文件的技术结果独立留存，不回填绑定记录。
 
 ## 例外
 
