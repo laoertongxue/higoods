@@ -1,0 +1,92 @@
+{
+  "capturedAt": "2026-10-23T07:43:16.173Z",
+  "preview": "PO-AW-202610-H04 · HILON 辅料流转 · 待领料\n技术包 V1\n\n已排除 5 项：面料 1 项、品牌/价格吊牌、吊粒 3 项、车缝线 1 项\n\n物料\t编码\t规格\t单位\t调拨数量\n\n拉链\n\tAW-SCENE-H04-ZIPPER\t金属拉链（演示）\t条\t\n\n纽扣\n\tAW-SCENE-H04-BUTTON\t标准纽扣（演示）\t粒\t",
+  "excludedInBomRows": [
+    {
+      "name": "主身面料",
+      "inBomRows": false
+    },
+    {
+      "name": "价格吊牌",
+      "inBomRows": false
+    },
+    {
+      "name": "品牌吊牌",
+      "inBomRows": false
+    },
+    {
+      "name": "吊粒",
+      "inBomRows": false
+    },
+    {
+      "name": "车缝线",
+      "inBomRows": false
+    }
+  ],
+  "bomRows": [
+    "拉链\n\tAW-SCENE-H04-ZIPPER\t金属拉链（演示）\t条\t",
+    "纽扣\n\tAW-SCENE-H04-BUTTON\t标准纽扣（演示）\t粒\t"
+  ],
+  "manualRecords": [
+    {
+      "number": "HD-PO-AW-202610-H04-M01",
+      "status": "待出库",
+      "kind": "GTP_TO_POST",
+      "source": "PRODUCTION_ORDER",
+      "history": [
+        "人工创建调拨单",
+        "自动审核通过"
+      ],
+      "lines": [
+        {
+          "name": "拉链",
+          "code": "AW-SCENE-H04-ZIPPER",
+          "qty": 10,
+          "unit": "条",
+          "from": "WH-FITTING-001-LOCATION-A-1"
+        },
+        {
+          "name": "纽扣",
+          "code": "AW-SCENE-H04-BUTTON",
+          "qty": 20,
+          "unit": "粒",
+          "from": "WH-FITTING-001-LOCATION-A-2"
+        }
+      ]
+    },
+    {
+      "number": "HD-GEN-0001",
+      "status": "待出库",
+      "kind": "GTP_TO_POST",
+      "source": "GENERAL",
+      "history": [
+        "人工创建调拨单",
+        "自动审核通过"
+      ],
+      "lines": [
+        {
+          "name": "纽扣",
+          "code": "AW-SCENE-H04-BUTTON",
+          "qty": 8,
+          "unit": "粒",
+          "from": "WH-FITTING-001-LOCATION-A-2"
+        }
+      ]
+    }
+  ],
+  "logEntriesNewestFirst": [
+    "自动审核通过\n待调拨\n2026/10/23 15:43:13\n\n辅料中央仓自动审核通过，等待整单出库\n\n辅料中央仓系统",
+    "人工创建调拨单\n待调拨\n2026/10/23 15:43:13\n\n按通用物料搜索人工创建\n\n后道计划员"
+  ],
+  "detailHasOperationHistory": 0,
+  "listBodyOverflowPx": 0,
+  "failureGate": {
+    "error": "manual post abort",
+    "qty": "10",
+    "manualBefore": 0,
+    "manualAfter": 0,
+    "retryStatus": "辅料中央仓已创建调拨单并自动审核通过，列表已更新。",
+    "retryManualCount": 1
+  },
+  "errors": []
+}

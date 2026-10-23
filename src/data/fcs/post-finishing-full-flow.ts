@@ -632,6 +632,7 @@ export interface PostFinishingMaterialTransferLine {
 
 export interface PostFinishingMaterialTransferHistory {
   status: PostFinishingMaterialTransferStatus
+  action?: string
   operatedAt: string
   operatorName: string
   remark: string
@@ -652,6 +653,8 @@ export interface PostFinishingMaterialTransferOrder {
   targetAreaName: string
   targetLocationCode: string
   status: PostFinishingMaterialTransferStatus
+  creationMode?: 'SYSTEM' | 'MANUAL'
+  manualSource?: 'PRODUCTION_ORDER' | 'GENERAL'
   lines: PostFinishingMaterialTransferLine[]
   statusHistory: PostFinishingMaterialTransferHistory[]
   createdAt: string

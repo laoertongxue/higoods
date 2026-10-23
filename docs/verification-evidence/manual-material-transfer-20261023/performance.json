@@ -1,0 +1,69 @@
+{
+  "capturedAt": "2026-10-23T07:50:01.637Z",
+  "environment": "production preview, Chromium headless, 1366x768, local 127.0.0.1",
+  "definitions": {
+    "stationSwitch": "from loaded work-orders route to material-transfers until first row/images ready",
+    "reload": "full page.goto until first row/images ready",
+    "createDialog": "create button → BOM preview/images ready",
+    "save": "confirm → success status + manual row ready",
+    "coldDirectUrl": "fresh browser context page.goto until first row/images ready"
+  },
+  "stationSwitch": {
+    "samples": [
+      396,
+      355,
+      365,
+      338,
+      459
+    ],
+    "max": 459,
+    "pass": true
+  },
+  "reload": {
+    "samples": [
+      883,
+      895,
+      876,
+      888,
+      882
+    ],
+    "max": 895,
+    "pass": true
+  },
+  "createDialog": {
+    "samples": [
+      203,
+      150,
+      179,
+      154,
+      158
+    ],
+    "max": 203,
+    "pass": true
+  },
+  "save": {
+    "samples": [
+      295,
+      251,
+      254,
+      301,
+      285
+    ],
+    "max": 301,
+    "pass": true
+  },
+  "coldDirectUrl": {
+    "samples": [
+      969,
+      972,
+      957,
+      971,
+      1050
+    ],
+    "max": 1050,
+    "pass": false
+  },
+  "applicablePath": "station switch and reload",
+  "applicablePass": true,
+  "boundary": "Direct-URL cold boot in a fresh browser context is dominated by shared application boot/source hydration; existing work-orders route has comparable cold values. Station switch, reload and this feature operations are within 1s."
+}
