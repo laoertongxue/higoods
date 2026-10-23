@@ -155,7 +155,7 @@ test('入驻只跳过无关采购初始化，原PCS/FCS准备与PDA处理器保�
   const inventoryGuard = ts.transpileModule(inventoryEntry.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const initialize = new Function('normalizedPathname', 'isIsolatedCraftReadEntry', `
     ${inventoryGuard}
-    const factoryReceiptReadEntry = false, isolatedPcsList = false, postFinishingEntry = false,
+    const factoryReceiptReadEntry = false, factorySourceListEntry = false, isolatedPcsList = false, postFinishingEntry = false,
       cuttingReleaseChainEntry = false, sewingPdaExecutionOrHandover = false, generatedPdaTask = null;
     return ${condition.getText(ast)};
   `) as (path: string, isolated: typeof isIsolatedCraftReadEntry) => boolean

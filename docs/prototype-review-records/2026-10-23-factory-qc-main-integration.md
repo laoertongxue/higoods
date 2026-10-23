@@ -53,6 +53,7 @@
 - `src/router/routes-fcs.ts`
 - `tests/browser-contracts/pcs-record-db.test.ts`
 - `tests/unit/craft-entry-initialization.test.ts`
+- `tests/unit/craft-read-entry.test.ts`
 - `tests/unit/production-context-hydration-concurrency.test.ts`
 - `tests/unit/pda-shipped-factory-process-read-scope.test.ts`
 - `tests/unit/pda-shipped-washing-read-scope.test.ts`
@@ -77,10 +78,13 @@
 
 原线上异常及堆栈保留在 `output/qc-main-publication-20261023/focused-upstream.json`；最小失败在 `qc-main-upstream-before-r2.log`，修复后 22 项契约在 `qc-main-upstream-fixed-unit.log`。`npx vite build` 成功（1m2s）；固定产物、源文件及资产哈希在 `upstream-runtime-manifest.json`，真实 4 项页面在 `upstream-local-audit.json`。未动供应商资料、采购代码或持久事实，未将此页面复核当作 1 秒性能验收。
 
+71c190fa 的云端全量单测为 1671 通过／1 失败，失败来自入驻条件隔离测试的局部夹具没有声明新增的 `factorySourceListEntry`；运行时代码及本地生产页面验证不受该夹具影响，失败未发布覆盖正式站。现仅在该既有夹具补齐局部值，保留全部原有断言；与两个来源列表实际入口、后续采购、来源读取相邻契约共 32 项重新通过（`qc-main-upstream-fixture-fixed.log`）。失败云端日志 `actions-39880898425-failed.log` 原样保留，不将失败改写为通过；后续云端完整结果单列回执。本次夹具修正不改变 `src/`、产物或页面，继续复用原本地固定资产页面证据。
+
 ### 验证命令
 
 - `npm run build`：通过
 - `npx vite build`：通过
+- `node --import tsx --test tests/unit/craft-read-entry.test.ts tests/unit/craft-entry-initialization.test.ts tests/unit/factory-qc-scoped-source.test.ts tests/unit/factory-qc-lazy-static-read.test.ts`：通过
 - `node --import tsx --test tests/unit/craft-entry-initialization.test.ts tests/unit/factory-qc-scoped-source.test.ts tests/unit/factory-qc-lazy-static-read.test.ts`：通过
 - `npx playwright test tests/post-finishing-main-integration.spec.ts tests/quality-management-print-ready.spec.ts tests/quality-inventory-generic-print-entry.spec.ts tests/quality-management-list-contract.spec.ts --workers=1 --reporter=json`：通过
 - `node --import tsx --test tests/unit/factory-qc-scoped-source.test.ts tests/unit/factory-qc-lazy-static-read.test.ts`：通过
