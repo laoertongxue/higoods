@@ -24,6 +24,7 @@ function runtime() {
   const dependencies: Record<string, any> = {
     locked: false, pendingReadHydration: undefined, current: null, stage: null,
     preparedKeys: new Set(), materializedSampleRows: new Map(), sampleSerializationDirty: false,
+    PRODUCTION_CONTEXT_KEYS: { samples: 'samples' }, migratableKeys: ['source'],
     keys: ['source'], prefix: 'production-context:', serialized: new Map(), initializationRecords: [],
     listeners: new Map([['source', new Set([() => { calls.notifications++ }])]]),
     readCuttingRecords: () => { calls.reads++; return read.promise },
