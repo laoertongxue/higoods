@@ -175,34 +175,6 @@ test('PFN-011/038/040/048：多SKU本次选择0不占用，实际出货摘要不
   assert.equal(summary.totalCompletedQty,20);assert.equal(summary.availableForOutboundQty,10)
 })
 
-test('PFN-048/058/059：明确旧表示unknown和H400/N600主管承接，以及公开demo摘要保持完整getter口径', () => {
-  const { task, source } = createTask(['装扣子', '包装'])
-  // Declared old-format input only: encode the public QC task without the new
-  // execution marker. No completion, receipt or private flow state is injected.
-  mapPostFinishingRepositoryValues(value => value === 'ITEMS_V1' ? undefined : value)
-  assert.equal(flow.getPostFinishingProcessProgress(task.postTaskId).legacyPending, true)
-  assert.equal(compareSummaries('declared-legacy-unknown')[0].totalCompletedQty, 0)
-  flow.confirmPostFinishingLegacyCarryover({
-    postTaskId: task.postTaskId, processItems: ['装扣子', '包装'],
-    history: task.lines.map(line => ({ skuId: line.sku.skuId, completedQty: line.sku.skuId === source.skus[0].skuId ? 400 : 0 })),
-    baselines: [{ processItem: '装扣子', quantities: [{ skuId: source.skus[0].skuId, quantity: 200 }] }, { processItem: '包装', quantities: [{ skuId: source.skus[0].skuId, quantity: 100 }] }],
-    actor: actors.postSupervisor, reason: '隔离旧表示契约：主管核对历史H及剩余N', nowMs: now + 60000,
-  })
-  assert.equal(compareSummaries('legacy-H400-N600-C200-100')[0].totalCompletedQty, 500)
-  submit(task, [{ skuId: source.skus[0].skuId, quantity: 400 }], 'SUMMARY-CARRYOVER-NEW-RC')
-  assert.equal(compareSummaries('legacy-carryover-after-explicit-new-400-reservation')[0].availableForOutboundQty, 100)
-  append(task, '包装', [{ skuId: source.skus[0].skuId, quantity: 100 }], 'SUMMARY-CARRYOVER-PACK')
-  assert.equal(compareSummaries('legacy-carryover-new-increment')[0].totalCompletedQty, 600)
-  flow.loadPostFinishingDemoData()
-  const demo = compareSummaries('original-public-demo')
-  assert.ok(demo.length > 1)
-  // The current public demo uses ITEMS_V1. Re-encoding only that marker is an
-  // explicit legacy/unknown compatibility control, not a claimed factory action.
-  mapPostFinishingRepositoryValues(value => value === 'ITEMS_V1' ? undefined : value)
-  assert.ok(flow.listPostFinishingFullFlowPostTasks().some(row => flow.getPostFinishingProcessProgress(row).legacyPending))
-  compareSummaries('declared-old-marker-demo-unknown')
-})
-
 test('PFN-033/039/044/046/057：历史复检/当前出货/待交出两过滤交集等于完整后过滤，且不暴露可变源引用', () => {
   const fixtures = [createTask(['包装'], [10, 0, 0, 0, 0], 0, 1), createTask(['包装'], [20, 0, 0, 0, 0], 0, 2), createTask(['包装'], [30, 0, 0, 0, 0], 1, 1)]
   for (const [index, fixture] of fixtures.entries()) {

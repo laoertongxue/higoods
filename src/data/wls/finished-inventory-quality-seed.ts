@@ -3,7 +3,7 @@ import { KOL_GOTO_FACTORY_ID, GOTO_GLOBAL_FACTORY_NAME } from '../fcs/factory-mo
 import { warehouseSeed } from './seed/shared-seed.ts'
 import type { FinishedInventoryState, FinishedInventoryLot } from './finished-inventory-quality-types.ts'
 
-export const FINISHED_INVENTORY_SEED_VERSION = '2026-10-22-quality-v1'
+export const FINISHED_INVENTORY_SEED_VERSION = '2026-10-23-quality-v2'
 // 取正式静态仓库ID，不以“成衣仓”/F&M等相似名称猜测合并。
 const original = (() => { const value = warehouseSeed.find(row => row.businessType === 'FINISHED'); if (!value) throw new Error('成衣仓静态身份缺失，不能建立库存演示。'); return value })()
 export const FINISHED_INVENTORY_NORMAL_WAREHOUSE = { id: original.code, name: original.name }

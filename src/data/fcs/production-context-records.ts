@@ -15,6 +15,7 @@ export const PRODUCTION_CONTEXT_KEYS = {
   responsibility:'higood.sewing-task-responsibility-transfers.v1',
 } as const
 const keys: string[] = Object.values(PRODUCTION_CONTEXT_KEYS)
+const migratableKeys = keys.filter(key => key !== PRODUCTION_CONTEXT_KEYS.samples)
 const prefix = 'production-context:'
 const migrationCollection = 'production-context-migrations'
 function isBrowserContext(): boolean { return typeof window !== 'undefined' && typeof document !== 'undefined' }
@@ -125,7 +126,7 @@ function decodeProductionContextData(key:string,data:unknown):CuttingStoredRecor
     sequence(data.sequence)
     result = list(data.records).map(value => {
       if (!object(value) || !text(value.assignmentId) || !object(value.sample) || value.sample.assignmentId !== value.assignmentId || !text(value.sample.sampleId) || !Array.isArray(value.suggestionVersions)) fail('样衣身份或版本记录错误')
-      if(value.qualitySchemaVersion !== undefined) {
+      {
         if(value.qualitySchemaVersion !== 1 || !text(value.sample.factoryId) || !text(value.sample.runtimeTaskId) || !text(value.sample.productionOrderId)
           || !['WAITING_PPIC_RECEIVE','PPIC_RECEIVED','HANDED_TO_APPROVER','APPROVAL_IN_PROGRESS','SUGGESTION_UPLOADED','FEEDBACK_SENT'].includes(String(value.sample.status))) fail('样衣当前格式身份或状态不完整')
         const aliases=value.assignmentAliases
@@ -143,7 +144,7 @@ function decodeProductionContextData(key:string,data:unknown):CuttingStoredRecor
             const issues=suggestion.issues
             if(issues!==undefined && (!Array.isArray(issues)||issues.some(issue=>!object(issue)||!itemIds.has(issue.itemId)||!text(issue.note))
               ||new Set(issues.map(issue=>issue.itemId)).size!==issues.length)) fail('样衣问题未对应本次标准项目')
-            if(!value.legacyHistory && suggestion.conclusion==='HAS_PROBLEM' && (!Array.isArray(issues)||!issues.length)) fail('样衣有问题结论缺少具体项目')
+            if(suggestion.conclusion==='HAS_PROBLEM' && (!Array.isArray(issues)||!issues.length)) fail('样衣有问题结论缺少具体项目')
           }
         }
         if(value.sample.approverReceivedInstant!==undefined && (!text(value.sample.approverReceivedInstant)||!/(Z|[+-]\d{2}:?\d{2})$/.test(value.sample.approverReceivedInstant)||!Number.isFinite(Date.parse(value.sample.approverReceivedInstant)))) fail('样衣领取时间点无效')
@@ -440,11 +441,13 @@ export function validateProductionContextRecords(records: CuttingStoredRecord[])
   }
 }
 function legacyValue(key: string): string | null {
+  if (key === PRODUCTION_CONTEXT_KEYS.samples) return null // Retired demo source; never migrate it into current sample records.
   try { return localStorage.getItem(key) } catch { throw new ProductionContextReadError('旧生产来源无法检查，请允许读取本机旧数据后迁移；未将无法读取当作空数据。') }
 }
 /** 单来源只读入口复用原迁移标记；普通读取不执行迁移，也不信任“旧键曾经为空”的缓存。 */
 export function assertProductionContextSourceReadable(key: string, migrationRecord?: CuttingStoredRecord): void {
   assertKey(key)
+  if (key === PRODUCTION_CONTEXT_KEYS.samples) return
   let saved: MigrationMarker | undefined
   try {
     if (migrationRecord && (migrationRecord.id !== `source-migration:${key}` || migrationRecord.collection !== migrationCollection)) throw new Error('生产来源迁移身份不一致')
@@ -468,7 +471,7 @@ export function assertProductionContextSourceReadable(key: string, migrationReco
 export interface ProductionContextMigrationStatus { key: string; phase: 'PENDING' | 'COPYING' | 'VERIFIED' | 'COMPLETE' | 'EMPTY' | 'UNAVAILABLE'; count: number; copied: number; message: string }
 export async function listProductionContextMigrationStatus(): Promise<ProductionContextMigrationStatus[]> {
   const snapshot = await readCuttingRecords()
-  return keys.map(key => {
+  return migratableKeys.map(key => {
     const saved = marker(snapshot, key)
     if (saved?.phase === 'COMPLETE') return { key, phase: 'COMPLETE', count: saved.count, copied: saved.copied, message: '旧源已核对并清理，使用本机记录库。' }
     try {
@@ -479,7 +482,7 @@ export async function listProductionContextMigrationStatus(): Promise<Production
 }
 function assertLegacyReady(snapshot: CuttingRecordSnapshot): void {
   if (!isBrowserContext()) return
-  for (const key of keys) {
+  for (const key of migratableKeys) {
     const saved = marker(snapshot, key)
     if (saved?.phase === 'COMPLETE') continue
     if (saved) throw new ProductionContextReadError('生产来源迁移尚未完成，请在数据管理中继续迁移；未使用部分记录。')
@@ -501,7 +504,7 @@ async function hydrate(snapshot?: CuttingRecordSnapshot, forceNotify = false, re
   if (current?.revision === next.revision && requestedKeys.every(key=>preparedKeys.has(key)) && !forceNotify) return
   const visibleRecords=await materializeContextFiles(next.records.filter(item=>item.collection.startsWith(prefix)))
   const values = new Map(requestedKeys.map(key => [key, encodeProductionContextRecords(key, visibleRecords)]))
-  const unmarked = requestedKeys.filter(key => !marker(next, key))
+  const unmarked = requestedKeys.filter(key => key !== PRODUCTION_CONTEXT_KEYS.samples && !marker(next, key))
   const fingerprint = unmarked.length ? await cuttingRecordFingerprint('null') : ''
   const targetFingerprint = unmarked.length ? await recordsFingerprint([]) : ''
   initializationRecords = unmarked.map(key => markerRow({ key, fingerprint, targetFingerprint, phase: 'COMPLETE', count: 0, copied: 0, ids: [] }))
@@ -578,7 +581,7 @@ export async function saveProductionContextAction<T>(input: {
     const persistedResult=prepared.records.pop()!.value as T
     const change = {...diffCuttingRecords(snapshot.records.filter(item => item.collection.startsWith(prefix)),prepared.records),files:prepared.files}
     change.puts.push(...additional.puts);change.deletes=[...(change.deletes || []),...(additional.deletes || [])];change.files.push(...(additional.files || []))
-    const unmarked = keys.filter(key => !marker(snapshot, key))
+    const unmarked = migratableKeys.filter(key => !marker(snapshot, key))
     change.puts.push(...productionContextInitializationRecords())
     const saved = await commitCuttingRecords({ revision: snapshot.revision, change, command: { id, intent, result:persistedResult, at: new Date().toISOString() },
       assertSourcesCurrent: () => { input.assertAdditionalSourcesCurrent?.();if (isBrowserContext()) for (const key of unmarked) if (legacyValue(key) !== null) throw new ProductionContextReadError('旧页面写入了生产来源，请先迁移，本次未保存。') } })
@@ -618,8 +621,6 @@ export async function saveProductionSampleContextAction<T>(input:{id:string;inte
     if(!isProductionContextReady())await hydrate()
     const snapshot=current!
     assertLegacyReady(snapshot)
-    const migrationRecord=snapshot.records.find(item=>item.id===`source-migration:${PRODUCTION_CONTEXT_KEYS.samples}`)
-    assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples,migrationRecord)
     if(!input.id || !input.commandId || !input.intent.trim())throw new Error('本次样衣确认标识缺失。')
     const intent=`production-source:${await cuttingRecordFingerprint(input.intent)}`
     const [previous,revision]=await Promise.all([readCuttingCommand(input.id),readCuttingRecordRevision()])
@@ -645,9 +646,8 @@ export async function saveProductionSampleContextAction<T>(input:{id:string;inte
     managedIds.add(`production-context:sample-commands:${input.commandId}`);managedIds.add('production-context:sample-meta:sequence')
     const change=diffCuttingRecords(snapshot.records.filter(item=>managedIds.has(item.id)),prepared.records)
     change.files=prepared.files;change.puts.push(...productionContextInitializationRecords())
-    const unmarked=keys.filter(key=>!marker(snapshot,key))
+    const unmarked=migratableKeys.filter(key=>!marker(snapshot,key))
     const saved=await commitCuttingRecords({revision:snapshot.revision,change,command:{id:input.id,intent,result:persistedResult,at:new Date().toISOString()},assertSourcesCurrent:()=>{
-      assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples,migrationRecord)
       if(isBrowserContext())for(const key of unmarked)if(legacyValue(key)!==null)throw new ProductionContextReadError('旧页面写入了生产来源，请先迁移，本次未保存。')
     }})
     committed=true
@@ -688,7 +688,7 @@ export async function migrateProductionContextRecords(input: { otherPagesClosed:
   current = null
   let count = 0
   try {
-    for (const key of keys) {
+    for (const key of migratableKeys) {
       let snapshot = await readCuttingRecords()
       let saved = marker(snapshot, key)
       const raw = legacyValue(key)

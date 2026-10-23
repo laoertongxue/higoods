@@ -572,7 +572,7 @@ test('原型全功能清理只接入明确消费者，旧演示夹具必须逐�
 
 
 test('质检明确新增原生及原页面套件有真实执行路由，未知同名前缀不获豁免', () => {
-  const native=routeAffectedChecks(['tests/browser-contracts/post-quality-storage.test.ts','tests/helpers/post-finishing-legacy-fixture.ts'])
+  const native=routeAffectedChecks(['tests/browser-contracts/post-quality-storage.test.ts','src/data/fcs/quality-demo-rebuild.ts','tests/browser-contracts/production-context-quality-migration.test.ts','tests/helpers/post-finishing-legacy-fixture.ts'])
   assert.deepEqual(native.unknownPaths,[])
   assert.deepEqual(native.fullChecks,['node scripts/verification/run-quality-native-contracts.mjs'])
   const ui=routeAffectedChecks(['tests/quality-management-rules.spec.ts','tests/finished-inventory-quality-flow.spec.ts'])

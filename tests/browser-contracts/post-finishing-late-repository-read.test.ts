@@ -16,7 +16,7 @@ test('后道原生读取：后登记关联集合沿用同版本已读资料、�
       const ns = 'higood-fcs-post-finishing-records', revisionId = `${ns}/revision`
       let early: any = { record: { marker: 'static-early' } }, late: any = { record: { marker: 'static-late' }, obsolete: { count: 9 } }
       let additional: any = { record: { labels: [] } }
-      storage.registerPostFinishingRepository('probe-early', 'quality-contract-early', () => early, value => { early = value })
+      storage.registerPostFinishingRepository('probe-early', () => early, value => { early = value })
       const initialBlob = new Blob(['original shared late-repository attachment'], { type: 'text/plain' })
       const labels = Object.assign(['原值'], { originalMetadata: { owner: 'native-original', quantity: 7 } })
       await pcs.commitPcsRecords({ puts: [
@@ -38,8 +38,8 @@ test('后道原生读取：后登记关联集合沿用同版本已读资料、�
       try {
         await storage.ensurePostFinishingRecordState()
         const earlyIdentity = early.record, before = { recordReads, writes }
-        storage.registerPostFinishingRepository('probe-late', 'quality-contract-late', () => late, value => { late = value })
-        storage.registerPostFinishingRepository('probe-additional', 'quality-contract-additional', () => additional, value => { additional = value })
+        storage.registerPostFinishingRepository('probe-late', () => late, value => { late = value })
+        storage.registerPostFinishingRepository('probe-additional', () => additional, value => { additional = value })
         await storage.ensurePostFinishingRecordState()
         if (storage.getPostFinishingStorageFailure()) throw Error(storage.getPostFinishingStorageFailure())
         const sameRevision = { recordReads: recordReads - before.recordReads, writes: writes - before.writes, existingIdentityKept: early.record === earlyIdentity, lateMarker: late.record.marker, obsoleteAbsent: late.obsolete === undefined, originalBlobText: await (await fetch(late.record.photo)).text(), additionalMetadata: additional.record.labels.originalMetadata }
@@ -57,7 +57,7 @@ test('后道原生读取：后登记关联集合沿用同版本已读资料、�
         const restoredMarker = early.record.marker
         let replacement: any = { record: { marker: 'replacement-static' } }
         const replacementBefore = { recordReads, writes }
-        storage.registerPostFinishingRepository('probe-early', 'quality-contract-early', () => replacement, value => { replacement = value })
+        storage.registerPostFinishingRepository('probe-early', () => replacement, value => { replacement = value })
         await storage.ensurePostFinishingRecordState()
         return { sameRevision, changedRevision, replacementAfterFailure: { rejected, restoredMarker, marker: replacement.record.marker, recordReads: recordReads - replacementBefore.recordReads, writes: writes - replacementBefore.writes }, failure: storage.getPostFinishingStorageFailure() }
       } finally { IDBObjectStore.prototype.getAll = originalGetAll; IDBDatabase.prototype.transaction = originalTransaction }

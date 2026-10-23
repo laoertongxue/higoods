@@ -7,7 +7,7 @@ import {
   captureSewingSampleState, restoreSewingSampleState, resetSewingSampleApprovalSuggestionsForTests,
   initializeSewingSampleApprovalSuggestionForAssignment, getSewingSampleApprovalRecord, listSewingSampleApprovalRecords,
   receivePreProductionSampleByPpic, handoffPreProductionSampleToApprover, startSampleApproval, submitSampleApprovalSuggestion,
-  recordSampleApprovalFeedbackToFactory, convertLegacySampleApproval, supplementLegacySampleStandard, getSampleApprovalTiming,
+  recordSampleApprovalFeedbackToFactory,   getSampleApprovalTiming,
 } from '../../src/data/fcs/sewing-sample-approval-suggestion.ts'
 import { PRODUCTION_CONTEXT_KEYS, decodeProductionContextRecords, encodeProductionContextRecords, saveProductionContextAction } from '../../src/data/fcs/production-context-records.ts'
 import { readCuttingRecords, readCuttingRecordFile } from '../../src/data/fcs/cutting/cutting-record-repository.ts'
@@ -45,43 +45,6 @@ test('连续48小时跨周末，绝对时间不受运行机时区影响，工厂
  assert.equal(getSampleApprovalTiming(record,'2026-10-18T08:15:01Z').overdue,true)
  assert.equal(getSampleApprovalTiming(record).deadlineAt,'2026-10-18 15:15:00')
  assert.equal(getSampleApprovalTiming(record).timeZone,'Asia/Jakarta')
-})
-test('显式转换旧领取记录保留人和原时间，补定记录缺失原因，不伪造当时快照',()=>{
- resetSewingSampleApprovalSuggestionsForTests();ready('legacy');const state=captureSewingSampleState(),legacy=state.records[0][1]
- delete legacy.qualitySchemaVersion;delete legacy.inspectionStandardSnapshot;delete legacy.sample.approverReceivedInstant;legacy.sample.approverReceivedAt='2026-10-16 15:15:00';legacy.sample.roundNo=1
- restoreSewingSampleState(state)
- const converted=convertLegacySampleApproval({assignmentId:'legacy',commandId:'C-L',at:'2026-10-22T01:00:00Z',by:'记录核对人'})
- assert.equal(converted.currentApproverId,approver.actorId);assert.equal(converted.sample.approverReceivedAt,'2026-10-16 15:15:00');assert.equal(converted.sample.approverReceivedInstant,undefined);assert.equal(getSampleApprovalTiming(converted).timeVerified,false);assert.ok(converted.legacyHistory)
- assert.equal(converted.inspectionStandardSnapshot,undefined)
- const supplemented=supplementLegacySampleStandard({assignmentId:'legacy',commandId:'L-S',at:'2026-10-22T01:05:00Z',by:approver.actorName,reason:'旧记录原无快照，本次明确补定',snapshot:snapshot()})
- assert.equal(supplemented.sample.approverReceivedAt,converted.sample.approverReceivedAt);assert.equal(supplemented.currentApproverId,approver.actorId);assert.match(supplemented.standardSupplement!.reason,/原无快照/)
-})
-test('旧未发生再批归档，已有下一件保留状态；多件真实实收冲突不合并',()=>{
- resetSewingSampleApprovalSuggestionsForTests();ready('old-plan');const state=captureSewingSampleState(),record=state.records[0][1];delete record.qualitySchemaVersion
- record.suggestionVersions=[{suggestionVersionId:'OLD-S',suggestionNo:'OLD',assignmentId:record.assignmentId,runtimeTaskId:record.sample.runtimeTaskId,sampleId:record.sample.sampleId,roundNo:1,conclusion:'HAS_PROBLEM',structuredComments:{fabricApprovalComment:'',processComment:'旧意见',materialUsageComment:'',otherComment:''},approvalSheetPhotoUrls:['/shirt-sample.jpg'],referenceSnapshots:[],requiresAnotherApproval:true,uploadedAt:'2026-10-16 15:20:00',uploadedById:approver.actorId,uploadedByName:approver.actorName,feedbackSentAt:'2026-10-16 15:30:00'}]
- record.sample.roundNo=2;record.sample.status='WAITING_FACTORY_PRODUCTION';delete record.sample.ppicReceivedAt;delete record.sample.approverReceivedAt
- restoreSewingSampleState(state);const converted=convertLegacySampleApproval({assignmentId:record.assignmentId,commandId:'OLD-PLAN',at:'2026-10-22T01:00:00Z',by:'核对人'});assert.equal(converted.sample.status,'FEEDBACK_SENT');assert.equal(converted.suggestionVersions.length,1);assert.ok(converted.legacyHistory!.original)
- const conflict=captureSewingSampleState(),other=structuredClone(conflict.records[0][1]);delete other.qualitySchemaVersion;other.assignmentId='old-other';other.sample.assignmentId='old-other';other.sample.ppicReceivedAt='2026-10-17 09:00:00';conflict.records[0][1].sample.ppicReceivedAt='2026-10-16 15:00:00';conflict.records.push(['old-other',other]);restoreSewingSampleState(conflict)
- assert.throws(()=>convertLegacySampleApproval({assignmentId:'old-other',commandId:'CONFLICT',at:'2026-10-22T01:00:00Z',by:'核对人'}),/多件真实样衣/)
-})
-test('旧再批下一件已经实收或领取时保留当前件，旧轮意见只归档且当前意见指针不能悬空',()=>{
- for(const status of ['PPIC_RECEIVED','APPROVAL_IN_PROGRESS'] as const){
-  resetSewingSampleApprovalSuggestionsForTests();ready(`legacy-physical-${status}`)
-  const state=captureSewingSampleState(),record=state.records[0][1]
-  delete record.qualitySchemaVersion;delete record.inspectionStandardSnapshot;delete record.sample.approverReceivedInstant
-  record.sample.roundNo=2;record.sample.status=status;record.sample.ppicReceivedAt='2026-10-17 09:00:00'
-  if(status==='PPIC_RECEIVED'){delete record.sample.approverReceivedAt;delete record.sample.approverReceivedBy;delete record.currentApproverId;delete record.currentApproverName}
-  else record.sample.approverReceivedAt='2026-10-17 09:15:00'
-  record.suggestionVersions=[{suggestionVersionId:'OLD-ROUND-1',suggestionNo:'OLD-ROUND-1',assignmentId:record.assignmentId,runtimeTaskId:record.sample.runtimeTaskId,sampleId:record.sample.sampleId,roundNo:1,conclusion:'HAS_PROBLEM',structuredComments:{fabricApprovalComment:'',processComment:'第一轮旧意见',materialUsageComment:'',otherComment:''},approvalSheetPhotoUrls:['/shirt-sample.jpg'],referenceSnapshots:[],requiresAnotherApproval:true,uploadedAt:'2026-10-16 15:20:00',uploadedById:approver.actorId,uploadedByName:approver.actorName,feedbackSentAt:'2026-10-16 15:30:00'}]
-  record.latestSuggestionVersionId='OLD-ROUND-1';restoreSewingSampleState(state)
-  const result=convertLegacySampleApproval({assignmentId:record.assignmentId,commandId:`C-PHYSICAL-${status}`,at:'2026-10-22T01:00:00Z',by:'旧资料核对人'})
-  assert.equal(result.sample.status,status);assert.equal(result.sample.ppicReceivedAt,'2026-10-17 09:00:00');assert.equal(result.sample.roundNo,undefined)
-  assert.equal(result.suggestionVersions.length,0);assert.equal(result.latestSuggestionVersionId,undefined)
-  assert.equal((result.legacyHistory!.original as typeof record).suggestionVersions[0].suggestionVersionId,'OLD-ROUND-1')
-  assert.equal((result.legacyHistory!.original as typeof record).suggestionVersions[0].approvalSheetPhotoUrls[0],'/shirt-sample.jpg')
-  if(status==='APPROVAL_IN_PROGRESS'){assert.equal(result.currentApproverId,approver.actorId);assert.equal(result.sample.approverReceivedAt,'2026-10-17 09:15:00')}
-  assert.equal(listSewingSampleApprovalRecords().length,1,'只保留本件当前样衣，不派生下一轮')
- }
 })
 test('原库一次提交样衣与标准、Blob，事务中止不半套且可原命令重试',async()=>{
  const memory=installPmsMemoryIdb();const open=indexedDB.open.bind(indexedDB);const wrapped=new WeakSet<object>()

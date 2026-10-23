@@ -3,15 +3,18 @@
 // contexts. Never depend on a developer's open service or write real user data.
 import { createServer } from 'node:net'
 import { spawn } from 'node:child_process'
-import { mkdtempSync, openSync, closeSync } from 'node:fs'
+import { mkdtempSync, openSync, closeSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
+for (const path of ['tests/browser-contracts/production-context-quality-migration.test.ts','tests/helpers/post-finishing-legacy-fixture.ts']) {
+  if (existsSync(path)) throw Error('Retired quality demo migration fixture must not remain active: ' + path)
+}
 const paths = [
   'tests/browser-contracts/pcs-record-db.test.ts',
   'tests/browser-contracts/post-quality-storage.test.ts',
   'tests/browser-contracts/quality-management-storage.test.ts',
-  'tests/browser-contracts/production-context-quality-migration.test.ts',
+  'tests/browser-contracts/quality-demo-rebuild.test.ts',
   'tests/browser-contracts/production-context-revision-read.test.ts',
   'tests/browser-contracts/post-finishing-late-repository-read.test.ts',
   'tests/browser-contracts/sample-bounded-action-storage.test.ts',
@@ -41,7 +44,7 @@ try {
       QUALITY_SAMPLE_BOUNDED_REPORT_PATH: join(output, 'sample-bounded-action-native-results.json'),
       QUALITY_SAMPLE_GATE_REPORT_PATH: join(output, 'sample-source-gate-native-results.json'),
       QUALITY_SEWING_EXECUTION_REPORT_PATH: join(output, 'sewing-execution-native-results.json'),
-      QUALITY_PRODUCTION_MIGRATION_REPORT_PATH: join(output, 'production-context-quality-migration-results.json') },
+ },
   })
   exitCode = await new Promise((done, fail) => { child.once('error', fail); child.once('exit', code => done(code ?? 1)) })
 } finally {

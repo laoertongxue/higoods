@@ -124,11 +124,9 @@ export async function buildQualityPerformanceFixture() {
         basicStandard: { id: basic.id, version: 1, name: basic.name }, additionalStandards: [], items: itemPrototype, references: [], ruleSnapshot: null } })
     Object.assign(record.sample, { sampleId, sampleNo: sampleId, assignmentId: id, runtimeTaskId, productionOrderId, productionOrderNo: productionOrderId, taskNo: runtimeTaskId,
       styleCode, styleName: `隔离性能衬衫${i % 150}`, factoryName: `性能车缝厂${i % 10}`, status: 'FEEDBACK_SENT', approverReceivedInstant: openedIso, factoryTimeZone: 'Asia/Jakarta' })
-    delete record.sample.roundNo
     const suggestion = { ...record.suggestionVersions[0], suggestionVersionId: `QPERF-SUGGESTION-${i}`, suggestionNo: `QPERF-SUGGESTION-${i}`,
       assignmentId: id, runtimeTaskId, sampleId, conclusion: i % 2 ? 'NO_PROBLEM' : 'HAS_PROBLEM', issues: i % 2 ? [] : [{ itemId: basic.items[0].id, note: '隔离性能问题项' }],
       uploadedAt: iso, uploadedInstant: iso, feedbackSentAt: iso, feedbackNote: '隔离性能反馈' }
-    delete suggestion.roundNo; delete suggestion.requiresAnotherApproval
     record.suggestionVersions = [suggestion]; record.latestSuggestionVersionId = suggestion.suggestionVersionId
     sampleRecords.push(record)
     assignmentRecords.push([id, { ...clone(assignmentTemplate), assignmentId: id, runtimeTaskId, productionOrderId, productionOrderNo: productionOrderId, taskNo: runtimeTaskId, factoryId: record.sample.factoryId, factoryName: record.sample.factoryName, status: 'EFFECTIVE' }])

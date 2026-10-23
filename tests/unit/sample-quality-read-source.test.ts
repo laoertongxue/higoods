@@ -10,33 +10,12 @@ import { assertProductionContextSourceReadable, PRODUCTION_CONTEXT_KEYS } from '
 const prefix = 'production-context:samples:'
 const row = (record: ReturnType<typeof getDefaultSewingSampleApprovalRecords>[number]) => ({ id: `${prefix}${record.assignmentId}`, collection: 'production-context:samples', value: record })
 
-test('单样衣来源门禁复用原迁移格式：未完成或损坏拒绝，完成仍检查旧键重现，仅确认完成可容忍LS不可读', () => {
-  const descriptors = new Map(['window', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]))
-  const key = PRODUCTION_CONTEXT_KEYS.samples
-  let raw: string | null = null, unavailable = false
-  const marker = (phase: 'COPYING' | 'VERIFIED' | 'COMPLETE') => ({ id: `source-migration:${key}`, collection: 'production-context-migrations', value: {
-    key, phase, fingerprint: 'a'.repeat(64), targetFingerprint: 'b'.repeat(64), count: 0, copied: 0, ids: [],
-  } })
-  try {
-    Object.defineProperty(globalThis, 'window', { configurable: true, value: {} })
-    Object.defineProperty(globalThis, 'document', { configurable: true, value: {} })
-    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => { if (unavailable) throw new Error('storage disabled'); return raw } } })
-    assert.doesNotThrow(() => assertProductionContextSourceReadable(key))
-    raw = ''
-    assert.throws(() => assertProductionContextSourceReadable(key), /发现旧生产来源/)
-    assert.throws(() => assertProductionContextSourceReadable(key, marker('COMPLETE')), /又发现旧生产来源/)
-    raw = null
-    for (const phase of ['COPYING', 'VERIFIED'] as const) assert.throws(() => assertProductionContextSourceReadable(key, marker(phase)), /迁移尚未完成/)
-    const broken = marker('COMPLETE'); broken.value.fingerprint = 'invalid'
-    assert.throws(() => assertProductionContextSourceReadable(key, broken), /迁移进度无法核对/)
-    assert.throws(() => assertProductionContextSourceReadable(key, { ...marker('COMPLETE'), value: undefined }), /迁移进度无法核对/)
-    assert.throws(() => assertProductionContextSourceReadable(key, { ...marker('COMPLETE'), collection: 'other' }), /迁移进度无法核对/)
-    unavailable = true
-    assert.throws(() => assertProductionContextSourceReadable(key), /无法检查/)
-    assert.doesNotThrow(() => assertProductionContextSourceReadable(key, marker('COMPLETE')))
-  } finally {
-    for (const [key, descriptor] of descriptors) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key) }
-  }
+test('当前样衣读取不读取旧演示键，也不依赖旧迁移标记', () => {
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage')
+  let reads=0
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem(){reads++;throw Error('旧存储禁用')}}})
+  try { assert.doesNotThrow(()=>assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples)); assert.equal(reads,0) }
+  finally {if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage')}
 })
 
 test('只读静态三件与原demo的完整样衣事实一致，不捕获或改写live记录', () => {

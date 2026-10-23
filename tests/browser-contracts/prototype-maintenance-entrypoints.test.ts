@@ -91,43 +91,32 @@ test('伪造已退役维护事件不会导入导出、写库或导航', { timeou
   evidence['retired-handlers'] = { passed: true, ...result }
 }))
 
-test('后道仅真实旧资料出现恢复；取消、事务故障保留原源，重试核对后清理', { timeout: 90000 }, async () => run('post-legacy-recovery', async page => {
+test('后道旧演示键不再形成恢复门槛，当前保存和读取失败重试仍正常', { timeout: 90000 }, async () => run('post-current-recovery', async page => {
   const result = await page.evaluate(async () => {
     const records = await import('/src/data/fcs/post-finishing-records.ts'), notice = await import('/src/pages/process-factory/post-finishing/storage-notice.ts')
     let values: any[] = [{ logId: 'STATIC-LOG', message: '静态示例' }]
-    records.registerPostFinishingRepository('logs', 'cleanup-post-legacy', () => values, next => { values = next })
-    const raw = JSON.stringify([{ logId: 'USER-LOG', message: '用户原资料' }]); localStorage.setItem('cleanup-post-legacy', raw); localStorage.setItem('cleanup-unrelated', 'keep')
+    records.registerPostFinishingRepository('logs', () => values, next => { values = next })
+    const raw = JSON.stringify([{ logId: 'OLD-DEMO', message: '本轮已退役格式' }])
+    localStorage.setItem('cleanup-post-legacy', raw); localStorage.setItem('cleanup-unrelated', 'keep')
     await records.ensurePostFinishingRecordState()
-    let businessBlocked = ''; try { await records.runPostFinishingCommand(() => values.push({ logId: 'SHOULD-NOT-SAVE' })) } catch (cause) { businessBlocked = String(cause) }
-    document.body.innerHTML = notice.renderPostFinishingStorageNotice()
-    const button = document.querySelector<HTMLElement>('[data-post-finishing-action="storage-migrate"]')!
-    const store = (await import('/src/state/store.ts')).appStore, navigate = store.navigate, confirm = window.confirm
-    let navigations = 0; store.navigate = () => { navigations++ }; window.confirm = () => false
+    const noticeBefore = notice.renderPostFinishingStorageNotice()
+    await records.runPostFinishingCommand(() => values.push({ logId: 'NEW-LOG', message: '当前动作' }))
+    const saved = await (await import('/src/data/pcs-record-db.ts')).readPcsRecords(['higood-fcs-post-finishing-records'])
     const transaction = IDBDatabase.prototype.transaction
     try {
-      await notice.handlePostFinishingStorageEvent(button, new MouseEvent('click'))
-      const cancelKept = localStorage.getItem('cleanup-post-legacy') === raw && navigations === 0
-      window.confirm = () => true
-      IDBDatabase.prototype.transaction = function(...args: Parameters<typeof transaction>) { if (args[1] === 'readwrite') throw new Error('专项验收事务故障'); return transaction.apply(this, args) }
-      await notice.handlePostFinishingStorageEvent(button, new MouseEvent('click'))
-      const failureKept = localStorage.getItem('cleanup-post-legacy') === raw && document.body.textContent!.includes('专项验收事务故障') && navigations === 0
-      IDBDatabase.prototype.transaction = transaction
-      await notice.handlePostFinishingStorageEvent(document.querySelector<HTMLElement>('[data-post-finishing-action="storage-migrate"]')!, new MouseEvent('click'))
-      await records.ensurePostFinishingRecordState()
-      const db = await (await import('/src/data/pcs-record-db.ts')).readPcsRecords(['higood-fcs-post-finishing-records'])
-      const clearedAfterMigration = notice.renderPostFinishingStorageNotice() === ''
       IDBDatabase.prototype.transaction = function(...args: Parameters<typeof transaction>) { if (args[1] === 'readonly') throw new Error('专项验收读取故障'); return transaction.apply(this, args) }
       await records.ensurePostFinishingRecordState()
       document.body.innerHTML = notice.renderPostFinishingStorageNotice()
       const rereadVisible = Boolean(document.querySelector('[data-post-finishing-action="storage-retry"]')) && document.body.textContent!.includes('专项验收读取故障')
+      const migrationAbsent = !document.querySelector('[data-post-finishing-action="storage-migrate"]')
       IDBDatabase.prototype.transaction = transaction
       await notice.handlePostFinishingStorageEvent(document.querySelector<HTMLElement>('[data-post-finishing-action="storage-retry"]')!, new MouseEvent('click'))
-      return { businessBlocked, cancelKept, failureKept, clearedAfterMigration, rereadVisible, navigations, legacyRemoved: localStorage.getItem('cleanup-post-legacy') === null, unrelatedKept: localStorage.getItem('cleanup-unrelated') === 'keep', userRecordKept: db.records.some(row => (row.value as any)?.logId === 'USER-LOG'), noticeAfter: notice.renderPostFinishingStorageNotice() }
-    } finally { IDBDatabase.prototype.transaction = transaction; store.navigate = navigate; window.confirm = confirm }
+      return { noticeBefore, rereadVisible, migrationAbsent, currentSaved: saved.records.some(row => (row.value as any)?.logId === 'NEW-LOG'), oldNotImported: !saved.records.some(row => (row.value as any)?.logId === 'OLD-DEMO'), oldKeyUntouched: localStorage.getItem('cleanup-post-legacy') === raw, unrelatedKept: localStorage.getItem('cleanup-unrelated') === 'keep', noticeAfter: notice.renderPostFinishingStorageNotice() }
+    } finally { IDBDatabase.prototype.transaction = transaction }
   })
-  assert.match(result.businessBlocked, /旧后道资料/); assert.ok(result.cancelKept); assert.ok(result.failureKept); assert.equal(result.navigations, 0, 'main已由shell单次重绘，恢复处理器不再额外导航'); assert.ok(result.clearedAfterMigration); assert.ok(result.rereadVisible)
-  assert.ok(result.legacyRemoved); assert.ok(result.unrelatedKept); assert.ok(result.userRecordKept); assert.equal(result.noticeAfter, '')
-  evidence['post-legacy-recovery'] = { passed: true, ...result }
+  assert.equal(result.noticeBefore, ''); assert.ok(result.currentSaved); assert.ok(result.oldNotImported)
+  assert.ok(result.oldKeyUntouched); assert.ok(result.unrelatedKept); assert.ok(result.rereadVisible); assert.ok(result.migrationAbsent); assert.equal(result.noticeAfter, '')
+  evidence['post-current-recovery'] = { passed: true, ...result }
 }))
 
 test('换片布真实旧生产资料由既有全局恢复承接，未确认不迁移，确认后读回继续', { timeout: 90000 }, async () => run('replacement-global-recovery', async page => {

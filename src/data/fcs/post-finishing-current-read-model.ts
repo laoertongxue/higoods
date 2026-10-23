@@ -614,8 +614,8 @@ function buildQcSkuResults(task: PostFinishingQcTask, delivery: DeliverySnapshot
   return task.lines.map((line) => {
     const result = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
     const actual = inspection?.lines.find(row=>row.skuId===line.sku.skuId)
-    const qualifiedQty = actual?.passedQty ?? result?.passedQty ?? 0
-    const unqualifiedQty = actual ? actual.returnQty + actual.defectQty : (result?.returnQty || 0) + (result?.defectQty || 0)
+    const qualifiedQty = actual?.passedQty ?? 0
+    const unqualifiedQty = actual ? actual.returnQty + actual.defectQty : 0
     const receiver = result?.returnReceiver
       ? factories.find((factory) => factory.name === result.returnReceiver)
       : undefined
@@ -656,8 +656,8 @@ function buildQcSkuResults(task: PostFinishingQcTask, delivery: DeliverySnapshot
       releasedQty:result?.releasedQty??result?.passedQty??0,
       qualifiedQty,
       unqualifiedQty,
-      reworkQty: actual?.returnQty ?? result?.returnQty ?? 0,
-      defectAcceptedQty: actual?.defectQty ?? result?.defectQty ?? 0,
+      reworkQty: actual?.returnQty ?? 0,
+      defectAcceptedQty: actual?.defectQty ?? 0,
       platformReasonQty,
       factoryReasonQty: Math.max(unqualifiedQty - platformReasonQty, 0),
       reworkReceiveFactoryId: receiver?.id,
@@ -739,7 +739,7 @@ function toQcAction(task: PostFinishingQcTask, snapshot: QcProjectionSnapshot): 
     sourceFactoryName: delivery?.sewingFactoryName || '',
     qcQty: inspectedQty,
   }]
-  action.diffGarmentQty = 0 // Unknown legacy inspection is not a quantity shortfall.
+  action.diffGarmentQty = 0 // QC records inspection outcomes; receipt differences belong to receipt confirmation.
   action.inspectedGarmentQty = inspectedQty
   action.passedGarmentQty = passedQty
   action.defectiveGarmentQty = unqualifiedQty
@@ -769,7 +769,7 @@ function toReceiveAction(task: PostFinishingPostTask, skuLines: PostFinishingSku
 function toPostAction(task: PostFinishingPostTask, skuLines: PostFinishingSkuLine[], progress: ProcessProgress): PostFinishingActionRecord {
   const action = blankAction({ id: task.postTaskId, no: task.postTaskNo, type: '后道', status: task.status, lines: skuLines,
     submitted: sum(task.lines.map((line) => line.expectedQty)), accepted: progress.totalCompletedQty,
-    operator: [...new Set(progress.records.map(row => row.responsible.actorName))].join('、') || (task.executionModel ? undefined : '历史合并记录'), startedAt: task.startedAt, finishedAt: task.completedAt })
+    operator: [...new Set(progress.records.map(row => row.responsible.actorName))].join('、') || undefined, startedAt: task.startedAt, finishedAt: task.completedAt })
   action.completedPostGarmentQty = progress.totalCompletedQty
   return action
 }

@@ -14,10 +14,10 @@ let sequence=0
 async function fixture(history=24){
  const key='__postRecordPerformanceContract'+(++sequence),base=buildInspectionSnapshotFromConfigurations({sourceKind:'PRODUCTION_RETURN'})
  base.items=Array.from({length:40},(_,index)=>({...nativeClone(base.items[index%base.items.length]),id:'fixed-item-'+index}))
- let state:any={schemaVersion:4,qcTasks:[]}
+ let state:any={schemaVersion:5,qcTasks:[]}
  const rows=new Map<string,any>()
  rows.set(revisionId,{id:revisionId,collection:'revision',value:{format:1},version:1})
- rows.set(namespace+'/flow/schemaVersion/value',{id:namespace+'/flow/schemaVersion/value',collection:'flow/schemaVersion',value:4,version:1})
+ rows.set(namespace+'/flow/schemaVersion/value',{id:namespace+'/flow/schemaVersion/value',collection:'flow/schemaVersion',value:5,version:1})
  for(let index=0;index<history;index++){
   const id='QC-STORE-'+index,snapshot={...nativeClone(base),id:'fixed-snapshot-'+index}
   rows.set(namespace+'/flow/qcTasks/'+id,{id:namespace+'/flow/qcTasks/'+id,collection:'flow/qcTasks',value:{qcTaskId:id,status:'质检中',inspection:{snapshot,rounds:[]},independentChecks:[]},version:1})
@@ -43,12 +43,12 @@ async function fixture(history=24){
  const code=ts.transpileModule(original.replace("'../pcs-record-db.ts'",JSON.stringify(stubUrl)),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText
  const api=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'))
  let validations=0
- api.registerPostFinishingRepository('flow','legacy-post-store-contract',()=>state,(next:any)=>{state=next})
- api.registerPostFinishingRecordValidator(()=>{validations++;assert.equal(state.schemaVersion,4)})
+ api.registerPostFinishingRepository('flow',()=>state,(next:any)=>{state=next})
+ api.registerPostFinishingRecordValidator(()=>{validations++;assert.equal(state.schemaVersion,5)})
  return {api,boundary,get state(){return state},get validations(){return validations},restore(){if(oldWindow)Object.defineProperty(globalThis,'window',oldWindow);else Reflect.deleteProperty(globalThis,'window');if(oldStorage)Object.defineProperty(globalThis,'localStorage',oldStorage);else Reflect.deleteProperty(globalThis,'localStorage');Reflect.deleteProperty(globalThis,key)}}
 }
 
-test('同revision重复准备仅读版本；外部版本变化才重读，并保持旧来源转换门禁',async()=>{
+test('同revision重复准备仅读版本；外部版本变化才重读，旧演示键不再阻断当前记录保存',async()=>{
  const f=await fixture()
  try{
   await f.api.ensurePostFinishingRecordState();await f.api.ensurePostFinishingRecordState();await f.api.ensurePostFinishingRecordState()
@@ -56,8 +56,8 @@ test('同revision重复准备仅读版本；外部版本变化才重读，并保
   f.boundary.rows.get(namespace+'/flow/qcTasks/QC-STORE-0').value.note='另一标签已保存';f.boundary.rows.get(revisionId).version++
   await f.api.ensurePostFinishingRecordState();assert.equal(f.boundary.fullReads,2);assert.equal(f.state.qcTasks[0].note,'另一标签已保存');assert.equal(f.validations,2)
   f.boundary.legacy.set('legacy-post-store-contract','{"old":"retained"}');await f.api.ensurePostFinishingRecordState()
-  await assert.rejects(f.api.runPostFinishingCommand(()=>{f.state.qcTasks[0].note='不能绕过旧来源'}),/转换/)
-  assert.equal(f.boundary.commits.length,0)
+  await f.api.runPostFinishingCommand(()=>{f.state.qcTasks[0].note='当前记录正常保存'})
+  assert.equal(f.boundary.commits.length,1)
  }finally{f.restore()}
 })
 
@@ -141,38 +141,6 @@ test('免固定树复制仍保留事务失败与revision CAS回滚，重读后�
   await assert.rejects(f.api.runPostFinishingCommand(()=>{f.state.qcTasks[0].note='陈旧标签不可覆盖'}),/version conflict/);assert.deepEqual(f.state,before)
   await f.api.ensurePostFinishingRecordState();await f.api.runPostFinishingCommand(()=>{f.state.qcTasks[0].note='重读后重试成功'})
   assert.equal(f.boundary.rows.get(namespace+'/flow/qcTasks/QC-STORE-0').value.note,'重读后重试成功')
- }finally{f.restore()}
-})
-
-test('显式格式转换使用完整可变候选，仍全量验证并在提交后重新保护固定标准',async()=>{
- const f=await fixture()
- try{
-  await f.api.ensurePostFinishingRecordState();const original=f.state.qcTasks[0].inspection.snapshot,oldCriterion=original.items[0].criterion,validations=f.validations
-  f.api.registerPostFinishingMigrationNormalizer(()=>{
-   assert.notEqual(f.state.qcTasks[0].inspection.snapshot,original)
-   assert.equal(Object.isFrozen(f.state.qcTasks[0].inspection.snapshot),false)
-   f.state.qcTasks[0].inspection.snapshot.items[0].criterion='显式格式转换后保留的旧检查要求'
-  })
-  await f.api.migratePostFinishingLegacyData()
-  assert.equal(f.validations,validations+1)
-  assert.equal(original.items[0].criterion,oldCriterion)
-  assert.equal(f.state.qcTasks[0].inspection.snapshot.items[0].criterion,'显式格式转换后保留的旧检查要求')
-  assert.equal(Object.isFrozen(f.state.qcTasks[0].inspection.snapshot.items[0]),true)
-  assert.equal(f.boundary.rows.get(namespace+'/flow/qcTasks/QC-STORE-0').value.inspection.snapshot.items[0].criterion,'显式格式转换后保留的旧检查要求')
- }finally{f.restore()}
-})
-
-test('显式转换提交失败仍恢复原冻结树和原持久版本，不把未保存候选当完成',async()=>{
- const f=await fixture()
- try{
-  await f.api.ensurePostFinishingRecordState();const original=f.state.qcTasks[0].inspection.snapshot,before=nativeClone(f.state),persisted=nativeClone([...f.boundary.rows])
-  f.api.registerPostFinishingMigrationNormalizer(()=>{f.state.qcTasks[0].inspection.snapshot.items[0].criterion='不能留下失败转换'})
-  f.boundary.failWrite=true
-  await assert.rejects(f.api.migratePostFinishingLegacyData(),/transaction abort/)
-  assert.equal(f.state.qcTasks[0].inspection.snapshot,original)
-  assert.deepEqual(f.state,before);assert.deepEqual([...f.boundary.rows],persisted)
-  f.boundary.failWrite=false;await f.api.migratePostFinishingLegacyData()
-  assert.equal(f.state.qcTasks[0].inspection.snapshot.items[0].criterion,'不能留下失败转换')
  }finally{f.restore()}
 })
 

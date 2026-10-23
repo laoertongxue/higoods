@@ -15,9 +15,6 @@ export type SewingOutsourcingTaskKind =
 
 export type PreProductionSampleStatus =
   | 'WAITING_PPIC_RECEIVE'
-  /** Old states are read-only until explicit conversion. */
-  | 'WAITING_FACTORY_PRODUCTION'
-  | 'WAITING_RETURN_TO_PPIC'
   | 'PPIC_RECEIVED'
   | 'HANDED_TO_APPROVER'
   | 'APPROVAL_IN_PROGRESS'
@@ -27,7 +24,7 @@ export type PreProductionSampleStatus =
 export type SampleApprovalConclusion = 'NO_PROBLEM' | 'HAS_PROBLEM'
 
 export const sampleApprovalStatusLabels: Record<PreProductionSampleStatus, string> = {
-  WAITING_PPIC_RECEIVE: '待PPIC接收', WAITING_FACTORY_PRODUCTION: '待转换旧记录', WAITING_RETURN_TO_PPIC: '待转换旧记录',
+  WAITING_PPIC_RECEIVE: '待PPIC接收',
   PPIC_RECEIVED: '待转交批版', HANDED_TO_APPROVER: '待领取批版', APPROVAL_IN_PROGRESS: '批版中',
   SUGGESTION_UPLOADED: '待反馈工厂', FEEDBACK_SENT: '已反馈工厂',
 }
@@ -79,8 +76,6 @@ export interface PreProductionSamplePhysicalRecord {
   styleCode: string
   styleName: string
   styleImageUrl: string
-  /** Legacy history only; never drives a new approval. */
-  roundNo?: number
   samplePhotoUrls: string[]
   ppicReceivedSamplePhotoUrls: string[]
   status: PreProductionSampleStatus
@@ -104,14 +99,10 @@ export interface SampleApprovalSuggestionVersion {
   assignmentId: string
   runtimeTaskId: string
   sampleId: string
-  /** Legacy history only; never drives a new approval. */
-  roundNo?: number
   conclusion: SampleApprovalConclusion
   structuredComments: SampleApprovalStructuredComments
   approvalSheetPhotoUrls: string[]
   referenceSnapshots: SampleApprovalReferenceSnapshot[]
-  /** Legacy history only. */
-  requiresAnotherApproval?: boolean
   uploadedAt: string
   uploadedInstant?: string
   issues?: InspectionIssue[]
@@ -134,8 +125,6 @@ export interface SewingSampleApprovalRecord {
   assignmentAliases?: Array<{assignmentId:string;runtimeTaskId:string}>
   qualitySchemaVersion?: 1
   inspectionStandardSnapshot?: InspectionSnapshot
-  legacyHistory?: { original: unknown; convertedAt: string; convertedBy: string; timeZoneEvidence?: string; unverifiedTime: boolean; note: string }
-  standardSupplement?: { at: string; by: string; reason: string }
 }
 
 export interface SewingSampleActor {
@@ -542,7 +531,7 @@ export function submitSampleApprovalSuggestion(input: {
   }
   assertApprover(input.actor)
   assertCurrentFormat(record)
-  if (!record.inspectionStandardSnapshot) throw new Error('旧记录原无标准快照，请先明确补定本次要求')
+  if (!record.inspectionStandardSnapshot) throw new Error('本次检查要求缺失，请重新读取后核对')
   if (record.sample.status !== 'APPROVAL_IN_PROGRESS') throw new Error('当前产前版样衣不在批版中，不能上传批版建议')
   if (record.currentApproverId && record.currentApproverId !== input.actor.actorId) {
     throw new Error('当前批版建议已由其他批版人员领取')
@@ -616,59 +605,11 @@ export function transferSewingSampleApprovalSuggestionPpic(input: {
 }
 
 function assertCurrentFormat(record: SewingSampleApprovalRecord): void {
-  if (record.qualitySchemaVersion !== 1) throw new Error('此为旧样衣记录，请先核对并转换；原照片、意见和领取人保留')
+  if (record.qualitySchemaVersion !== 1) throw new Error('样衣格式不符合当前要求，请重新读取')
 }
 function assertSampleSnapshot(snapshot: InspectionSnapshot): void {
   if (!snapshot || !Array.isArray(snapshot.items) || !snapshot.items.length || snapshot.ruleSnapshot !== null || snapshot.context.sourceKind !== 'PRE_PRODUCTION_SAMPLE' || snapshot.context.objectType !== 'GARMENT') throw new Error('产前版须使用有效成衣检查要求，不配置抽检规则')
 }
-/** Explicit, single-record conversion. The enclosing original-store command makes copy+marker+files atomic. */
-export function convertLegacySampleApproval(input:{assignmentId:string;commandId:string;at:string;by:string;knownLegacyTimeZone?:string;timeZoneEvidence?:string}):SewingSampleApprovalRecord {
-  const record=requireRecord(input.assignmentId)
-  if(record.qualitySchemaVersion===1) return clone(record)
-  if(input.knownLegacyTimeZone && !input.timeZoneEvidence?.trim()) throw new Error('转换旧时间须说明可验证的来源依据')
-  const original=clone(record),sample=record.sample
-  const siblings=[...records.values()].filter(item=>item.assignmentId!==record.assignmentId && item.sample.factoryId===sample.factoryId && item.sample.productionOrderId===sample.productionOrderId && item.sample.styleCode===sample.styleCode)
-  if(siblings.some(item=>item.sample.ppicReceivedAt || item.sample.approverReceivedAt)) throw new Error('同厂同款同单存在多件真实样衣，请逐条核对冲突，未合并或删除原记录')
-  const hadNextPhysical=!!(sample.ppicReceivedAt || sample.approverReceivedAt)
-  const latest=record.suggestionVersions.at(-1)
-  const nextPlanned=(sample.roundNo || 1)>1 && !hadNextPhysical
-  if(nextPlanned && !latest?.feedbackSentAt) throw new Error('旧再批计划缺少已反馈事实，请核对后再转换，未覆盖原记录')
-  record.legacyHistory={original,convertedAt:text(input.at,'转换时间'),convertedBy:text(input.by,'转换人'),unverifiedTime:!input.knownLegacyTimeZone,
-    timeZoneEvidence:input.timeZoneEvidence,note:nextPlanned?'未发生的后续计划归档，以最近已反馈结论结束':'旧记录原无检查快照；已发生意见、照片与转交原文保留'}
-  if(input.knownLegacyTimeZone && !input.timeZoneEvidence?.trim()) throw new Error('转换旧时间须说明可验证的来源依据')
-  if(input.knownLegacyTimeZone) {
-    sample.factoryTimeZone=getFactoryById(sample.factoryId)?.timezone
-    if(sample.approverReceivedAt) sample.approverReceivedInstant=sampleTimeToInstant(sample.approverReceivedAt,input.knownLegacyTimeZone)
-    record.suggestionVersions.forEach(version=>{version.uploadedInstant=sampleTimeToInstant(version.uploadedAt,input.knownLegacyTimeZone)})
-  }
-  if(nextPlanned) sample.status='FEEDBACK_SENT'
-  else if(sample.status==='WAITING_FACTORY_PRODUCTION' || sample.status==='WAITING_RETURN_TO_PPIC') sample.status='WAITING_PPIC_RECEIVE'
-  // If the next physical garment really exists, earlier opinions stay in the immutable archive only.
-  if((sample.roundNo || 1)>1 && hadNextPhysical) {
-    record.suggestionVersions=record.suggestionVersions.filter(version=>version.roundNo===sample.roundNo)
-    const latestCurrent=record.suggestionVersions.at(-1)
-    if(latestCurrent) record.latestSuggestionVersionId=latestCurrent.suggestionVersionId
-    else delete record.latestSuggestionVersionId
-  }
-  delete sample.roundNo
-  record.suggestionVersions.forEach(version=>{delete version.roundNo;delete version.requiresAnotherApproval})
-  record.assignmentAliases=[...new Map([{assignmentId:record.assignmentId,runtimeTaskId:sample.runtimeTaskId},...siblings.flatMap(item=>item.assignmentAliases || [{assignmentId:item.assignmentId,runtimeTaskId:item.sample.runtimeTaskId}])].map(alias=>[alias.assignmentId,alias])).values()]
-  if(siblings.length){(record.legacyHistory!.original as Record<string,unknown>).pendingAliasHistory=siblings.map(clone);siblings.forEach(item=>records.delete(item.assignmentId))}
-  record.qualitySchemaVersion=1
-  rememberCommand(input.commandId,input.assignmentId,'CONVERT_LEGACY')
-  return clone(record)
-}
-export function supplementLegacySampleStandard(input:{assignmentId:string;commandId:string;at:string;by:string;reason:string;snapshot:InspectionSnapshot}):SewingSampleApprovalRecord {
-  const record=requireRecord(input.assignmentId)
-  assertCurrentFormat(record)
-  if(record.sample.status!=='APPROVAL_IN_PROGRESS' || record.inspectionStandardSnapshot || !record.legacyHistory) throw new Error('当前记录不需要补定检查要求')
-  assertSampleSnapshot(input.snapshot)
-  record.inspectionStandardSnapshot=clone(input.snapshot)
-  record.standardSupplement={at:text(input.at,'补定时刻'),by:text(input.by,'补定人'),reason:text(input.reason,'补定原因')}
-  rememberCommand(input.commandId,input.assignmentId,'SUPPLEMENT_STANDARD')
-  return clone(record)
-}
-
 export function getSewingSampleApprovalRecord(assignmentId: string): SewingSampleApprovalRecord | null {
   ensureSamplesLoaded()
   const record = records.get(assignmentId) || [...records.values()].find(item=>item.assignmentAliases?.some(alias=>alias.assignmentId===assignmentId))
@@ -709,8 +650,7 @@ export function captureSewingSampleState() {
   return structuredClone({records:[...records],commands:[...commandResults],sequence:suggestionSequence})
 }
 
-/** The original PP page changes one physical sample. Pending aliases of that
- * same factory/order/style belong to its explicit legacy conversion only.
+/** The original PP page changes one physical sample. Aliases of the same physical sample belong to the same action scope.
  * All other samples and command history stay in their existing maps. */
 export function createSewingSampleActionScope(assignmentId:string,commandId:string) {
   const canonical=requireRecord(assignmentId)

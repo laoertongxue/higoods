@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises'
 /**
  * 原 PPIC 批版页面专项。每例使用 Playwright 隔离 browser context。
  * 正常流程和重试均通过真实页面动作保存；读取模块仅核对同库结果。
- * 旧数据用例显式以原 production-context 事务预装旧记录，不能作为现场已发生步骤。
+ * 当前单次批版样本；旧演示转换用例已于2026-10-23退役。
  * 上传照片来自当前款式已绑定的静态图，仅为上传/Blob/预览的隔离素材，不能冒称现场实拍。
  * PDF 是浏览器对原建议卡页面的打印采证，不声称产品另有 PDF 导出或纸签功能。
  */
@@ -182,60 +182,6 @@ async function cardEvidence(page: Page, testInfo: TestInfo, id = independent) {
   await dialog(page, '批版建议卡').getByRole('button', { name: '关闭', exact: true }).click()
 }
 
-// Legacy scenarios explicitly preinstall original facts. Conversion/supplement/feedback remains genuine UI work.
-async function legacyFixture(page: Page, kind: 'UNRECEIVED' | 'CLAIMED' | 'SUGGESTION' | 'NEXT_RECEIVED' | 'NEXT_CLAIMED') {
-  return page.evaluate(async ({ paths, kind, id }) => {
-    const samples = await import(paths.samples), context = await import(paths.context), actions = await import(paths.actions)
-    const original = samples.getSewingSampleApprovalRecord(id)
-    const record = structuredClone(original)
-    delete record.qualitySchemaVersion
-    delete record.inspectionStandardSnapshot
-    record.sample.roundNo = 1
-    record.sample.factoryTimeZone = 'Asia/Jakarta'
-    if (kind === 'UNRECEIVED') {
-      record.sample.status = 'WAITING_FACTORY_PRODUCTION'
-      record.suggestionVersions = []
-    } else {
-      record.sample.ppicReceivedAt = '2026-10-16 15:00:00'
-      record.sample.ppicReceivedBy = record.sample.currentPpicName
-      record.sample.ppicReceivedSamplePhotoUrls = [record.sample.styleImageUrl]
-      record.sample.handedToApproverAt = '2026-10-16 15:10:00'
-      record.sample.handedToApproverBy = record.sample.currentPpicName
-      record.sample.approverReceivedAt = '2026-10-16 15:15:00'
-      delete record.sample.approverReceivedInstant
-      record.currentApproverId = 'LEGACY-APPROVER-ISOLATED'
-      record.currentApproverName = '遗留批版人员'
-      record.sample.status = kind === 'CLAIMED' || kind === 'NEXT_CLAIMED' ? 'APPROVAL_IN_PROGRESS' : kind === 'NEXT_RECEIVED' ? 'PPIC_RECEIVED' : 'SUGGESTION_UPLOADED'
-      record.suggestionVersions = kind === 'CLAIMED' ? [] : [{
-        suggestionVersionId: 'LEGACY-OPINION-ISOLATED', suggestionNo: 'LEGACY-OPINION-NO', assignmentId: id,
-        runtimeTaskId: record.sample.runtimeTaskId, sampleId: record.sample.sampleId, roundNo: 1, conclusion: 'HAS_PROBLEM',
-        structuredComments: { fabricApprovalComment: '旧面料意见原文', processComment: '旧工艺意见原文', materialUsageComment: '', otherComment: '' },
-        approvalSheetPhotoUrls: [record.sample.styleImageUrl], referenceSnapshots: structuredClone(record.referenceSnapshots), requiresAnotherApproval: true,
-        uploadedAt: '2026-10-16 16:00:00', uploadedById: record.currentApproverId, uploadedByName: record.currentApproverName,
-      }]
-      if(kind==='NEXT_RECEIVED' || kind==='NEXT_CLAIMED') {
-        record.sample.roundNo=2
-        record.sample.ppicReceivedAt='2026-10-17 09:00:00'
-        record.suggestionVersions[0].feedbackSentAt='2026-10-16 17:00:00'
-        record.latestSuggestionVersionId=record.suggestionVersions[0].suggestionVersionId
-        if(kind==='NEXT_RECEIVED') {
-          delete record.sample.approverReceivedAt;delete record.sample.approverReceivedBy
-          delete record.sample.handedToApproverAt;delete record.sample.handedToApproverBy
-          delete record.currentApproverId;delete record.currentApproverName
-        } else record.sample.approverReceivedAt='2026-10-17 09:15:00'
-      }
-    }
-    await actions.saveProductionSourceAction({ id: `ISOLATED-LEGACY-SAMPLE:${kind}`, intent: JSON.stringify({kind,id}), action: () => {
-      const state = samples.captureSewingSampleState()
-      state.records = state.records.map(([key, value]: any) => [key, key === id ? record : value])
-      samples.restoreSewingSampleState(state)
-      context.productionContextStorage.setItem(context.PRODUCTION_CONTEXT_KEYS.samples, JSON.stringify({version:3, records:state.records.map(([,value]:any)=>value), commands:state.commands, sequence:state.sequence}))
-      return record
-    } })
-    return record
-  }, { paths: await livePaths(page), kind, id: independent })
-}
-
 test('PPIC原页接收→转交→领取→固定标准问题→一次意见→原反馈，附件刷新后回读及三尺寸布局', async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date(claimAt))
   await open(page)
@@ -351,71 +297,6 @@ test('接收照片与意见补充照片保存失败均不半套，保留输入�
   await attachJson(testInfo,'sample-file-failure-atomic-retry',{before,beforeOpinion,saved,afterReload})
 })
 
-test('旧未领取记录显式转换后才进入PPIC实收，不补造工厂完成',async({page},testInfo)=>{
-  await open(page);const original=await legacyFixture(page,'UNRECEIVED');await page.reload()
-  await expect(sampleAction(page,'convert')).toBeVisible()
-  await expect(sampleAction(page,'receive-sample')).toHaveCount(0)
-  await sampleAction(page,'convert').click()
-  await dialog(page,'核对并转换旧样衣记录').getByRole('button',{name:'确认转换并保留历史'}).click();await expect(dialog(page,'核对并转换旧样衣记录')).toHaveCount(0)
-  await expect(sampleAction(page,'receive-sample')).toBeVisible()
-  const converted=await read(page)
-  expect(converted.qualitySchemaVersion).toBe(1);expect(converted.sample.status).toBe('WAITING_PPIC_RECEIVE')
-  expect(converted.legacyHistory.original).toEqual(original)
-  expect(converted.sample.ppicReceivedAt).toBeUndefined()
-  await page.reload();expect((await read(page)).legacyHistory.original).toEqual(original)
-  await attachJson(testInfo,'legacy-unreceived-explicit-conversion',{fixture:'通过原库事务预装旧未领取格式，不代表真实工厂完成或收样',original,converted,persisted:await storage(page)})
-})
-
-test('旧已领取无快照显式补定，原领取人/墙上时间保留，不能把旧时间推定为新时效',async({page},testInfo)=>{
-  await page.clock.setFixedTime(new Date('2026-10-22T01:00:00Z'));await open(page)
-  const original=await legacyFixture(page,'CLAIMED');await page.reload();await tab(page,'PENDING_APPROVAL')
-  await sampleAction(page,'convert').click();await dialog(page,'核对并转换旧样衣记录').getByRole('button',{name:'确认转换并保留历史'}).click();await expect(dialog(page,'核对并转换旧样衣记录')).toHaveCount(0)
-  const converted=await read(page)
-  expect(converted.currentApproverId).toBe(original.currentApproverId)
-  expect(converted.sample.approverReceivedAt).toBe('2026-10-16 15:15:00')
-  expect(converted.sample.approverReceivedInstant).toBeUndefined()
-  await expect(row(page)).toContainText('旧时间来源待核对')
-  await sampleAction(page,'supplement-standard').click()
-  const form=dialog(page,'补定本次检查要求')
-  await field(form,'supplementReason').fill('')
-  await form.getByRole('button',{name:'明确补定本次要求'}).click();await expect(form.getByRole('alert')).toContainText('原因')
-  await field(form,'supplementReason').fill('旧单无检查快照，本次依据有效标准补定并保留原领取事实')
-  await form.getByRole('button',{name:'明确补定本次要求'}).click();await expect(form).toHaveCount(0)
-  const supplemented=await read(page)
-  expect(supplemented.inspectionStandardSnapshot.context.sourceKind).toBe('PRE_PRODUCTION_SAMPLE')
-  expect(supplemented.currentApproverId).toBe(original.currentApproverId)
-  expect(supplemented.sample.approverReceivedAt).toBe(original.sample.approverReceivedAt)
-  expect(supplemented.standardSupplement.reason).toContain('旧单无检查快照')
-  const opinion=await fillOpinion(page,independent,'遗留批版人员')
-  await field(opinion,'conclusion').selectOption('NO_PROBLEM')
-  await opinion.getByRole('button',{name:'提交批版建议',exact:true}).click();await expect(opinion).toHaveCount(0)
-  await page.reload();await tab(page,'PENDING_FEEDBACK')
-  const final=await read(page)
-  expect(final.currentApproverId).toBe(original.currentApproverId);expect(final.suggestionVersions).toHaveLength(1)
-  expect(final.legacyHistory.original).toEqual(original)
-  await attachJson(testInfo,'legacy-claimed-standard-supplement',{fixture:'原库事务隔离旧已领取事实；转换、补定及意见由页面完成',original,converted,supplemented,final,persisted:await storage(page)})
-})
-
-test('旧已有意见保留原文/图片并仅沿原反馈结束，不产生再次批版',async({page},testInfo)=>{
-  await open(page);const original=await legacyFixture(page,'SUGGESTION');await page.reload();await tab(page,'PENDING_FEEDBACK')
-  await sampleAction(page,'convert').click();await dialog(page,'核对并转换旧样衣记录').getByRole('button',{name:'确认转换并保留历史'}).click();await expect(dialog(page,'核对并转换旧样衣记录')).toHaveCount(0)
-  const converted=await read(page)
-  expect(converted.suggestionVersions).toHaveLength(1)
-  expect(converted.suggestionVersions[0].structuredComments).toEqual(original.suggestionVersions[0].structuredComments)
-  expect(converted.suggestionVersions[0].approvalSheetPhotoUrls).toEqual(original.suggestionVersions[0].approvalSheetPhotoUrls)
-  expect(converted.suggestionVersions[0].requiresAnotherApproval).toBeUndefined()
-  expect(converted.legacyHistory.original.suggestionVersions[0].requiresAnotherApproval).toBe(true)
-  await sampleAction(page,'show-card').click()
-  const card=page.locator('[data-sample-approval-screenshot-card]')
-  await expect(card).toContainText('旧工艺意见原文');await expect(card.getByText('转换前历史原文与附件')).toBeVisible()
-  await dialog(page,'批版建议卡').getByRole('button',{name:'关闭',exact:true}).click()
-  await sampleAction(page,'feedback-factory').click();await expect(page.getByRole('status')).toContainText('已登记截图反馈时间和责任人');await tab(page,'COMPLETED')
-  await expect(row(page)).toContainText('已反馈工厂')
-  await expect(sampleAction(page,'start-approval')).toHaveCount(0);await expect(sampleAction(page,'open-approval')).toHaveCount(0)
-  const final=await read(page);expect(final.suggestionVersions).toHaveLength(1);expect(final.sample.roundNo).toBeUndefined()
-  await attachJson(testInfo,'legacy-opinion-single-feedback',{fixture:'原库事务隔离旧意见与再批标记；不假称历史照片为新上传',original,converted,final,persisted:await storage(page)})
-})
-
 test('连续48h跨周末边界和工厂时区显示：到期不超时，超过1秒标红',async({page},testInfo)=>{
   await page.clock.setFixedTime(new Date(claimAt));await open(page)
   // 此单的实收与转交来自页面公开静态场景；本例只验实际UI领取与时效，不冒称执行前两步。
@@ -498,36 +379,4 @@ test('原配置页发布正式类别附加标准后产前版领取固定，三�
   expect(saved.inspectionStandardSnapshot.id).toBe(snapshot.id)
   expect(saved.suggestionVersions[0].issues).toEqual([{itemId:addedId,note:'按本类别额外加固要求发现本件加固不足'}])
   await attachJson(testInfo,'sample-published-category-standard-real-ui',{fixture:'原配置页面真实新增/编辑/保存/明确生效；原PP页实收、转交、领取和意见；三入口只读标准API核对不冒充另两执行UI',formal,published,claimed,threeEntries,saved,persisted:await storage(page)})
-})
-
-for(const kind of ['NEXT_RECEIVED','NEXT_CLAIMED'] as const)test(`旧再批下一件${kind==='NEXT_RECEIVED'?'已实收':'已领取'}原页转换保留当前件，旧意见只归档且无悬空指针`,async({page},testInfo)=>{
-  await open(page)
-  const original=await legacyFixture(page,kind);await page.reload();await tab(page,'PENDING_APPROVAL')
-  await sampleAction(page,'convert').click()
-  await dialog(page,'核对并转换旧样衣记录').getByRole('button',{name:'确认转换并保留历史'}).click()
-  await expect(dialog(page,'核对并转换旧样衣记录')).toHaveCount(0)
-  const converted=await read(page)
-  expect(converted.sample.status).toBe(kind==='NEXT_RECEIVED'?'PPIC_RECEIVED':'APPROVAL_IN_PROGRESS')
-  expect(converted.sample.ppicReceivedAt).toBe(original.sample.ppicReceivedAt)
-  expect(converted.sample.ppicReceivedSamplePhotoUrls).toEqual(original.sample.ppicReceivedSamplePhotoUrls)
-  expect(converted.sample.roundNo).toBeUndefined();expect(converted.latestSuggestionVersionId).toBeUndefined()
-  expect(converted.suggestionVersions).toHaveLength(0)
-  expect(converted.legacyHistory.original).toEqual(original)
-  expect(converted.legacyHistory.original.suggestionVersions[0].approvalSheetPhotoUrls).toEqual(original.suggestionVersions[0].approvalSheetPhotoUrls)
-  if(kind==='NEXT_CLAIMED'){
-    expect(converted.currentApproverId).toBe(original.currentApproverId);expect(converted.currentApproverName).toBe(original.currentApproverName)
-    expect(converted.sample.approverReceivedAt).toBe(original.sample.approverReceivedAt)
-    await expect(sampleAction(page,'supplement-standard')).toBeVisible();await expect(sampleAction(page,'start-approval')).toHaveCount(0)
-  }else{
-    expect(converted.currentApproverId).toBeUndefined();await expect(sampleAction(page,'handoff-approver')).toBeVisible()
-  }
-  await sampleAction(page,'show-card').click();await expect(page.locator('[data-sample-approval-screenshot-card]')).toContainText('转换前历史原文与附件')
-  await expect(page.locator('[data-sample-approval-screenshot-card]')).toContainText('尚未提交批版意见')
-  await dialog(page,'批版建议卡').getByRole('button',{name:'关闭',exact:true}).click()
-  await page.reload();await tab(page,'PENDING_APPROVAL')
-  const refreshed=await read(page)
-  expect(refreshed.sample.sampleId).toBe(original.sample.sampleId);expect(refreshed.sample.status).toBe(converted.sample.status)
-  expect(refreshed.latestSuggestionVersionId).toBeUndefined();expect(refreshed.suggestionVersions).toHaveLength(0)
-  expect(refreshed.legacyHistory.original).toEqual(original)
-  await attachJson(testInfo,`legacy-${kind.toLowerCase()}-current-physical`,{fixture:'原库显式预装旧round2已发生实物/领取；只转换动作通过真实原页；不是重新送样或工厂操作现场证明',original,converted,refreshed,persisted:await storage(page)})
 })

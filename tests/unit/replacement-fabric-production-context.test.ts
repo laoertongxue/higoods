@@ -87,7 +87,7 @@ test('四类静态运行任务的删除标记完整往返，拒绝混入业务�
 
 test('分配副产物按实体保存；合同、样衣及PPIC责任保留独立序号',()=>{
  const fixtures:[string,unknown][]=[
-  [PRODUCTION_CONTEXT_KEYS.samples,{version:3,records:[{assignmentId:'A',sample:{sampleId:'S',assignmentId:'A'},suggestionVersions:[]}],commands:[['C',{assignmentId:'A',action:'RECEIVE'}]],sequence:2}],
+  [PRODUCTION_CONTEXT_KEYS.samples,{version:3,records:[{assignmentId:'A',qualitySchemaVersion:1,sample:{sampleId:'S',assignmentId:'A',factoryId:'F',runtimeTaskId:'T',productionOrderId:'P',status:'WAITING_PPIC_RECEIVE'},suggestionVersions:[]}],commands:[['C',{assignmentId:'A',action:'RECEIVE'}]],sequence:2}],
   [PRODUCTION_CONTEXT_KEYS.contracts,{contracts:[{contractId:'C',assignmentId:'A',scans:[],skuLines:[],processNames:[],returnRuleSnapshot:{fulfillmentRuleCode:'SEWING_TO_IRON_PACK'},status:'EFFECTIVE'}],auditLogs:[],contractSeq:1,scanSeq:0,auditSeq:0}],
   [PRODUCTION_CONTEXT_KEYS.effects,{version:1,entries:[['material-context:A',{assignmentId:'A'}],['sla-current:T','S'],['return-sequence:value',1],['tender:TD',{tenderId:'TD'}]]}],
   [PRODUCTION_CONTEXT_KEYS.responsibility,{version:1,sequence:1,records:[{responsibilityVersionId:'R',runtimeTaskId:'T',assignmentId:'A',commandId:'C',ppicId:'P',effectiveAt:'2026-09-25',remainingItems:[]}]}],

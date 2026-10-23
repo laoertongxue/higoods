@@ -105,17 +105,24 @@ async function fixture(page: Page, completeMaterials: boolean | string = true): 
       sewingTaskNo: 'QPRINT-ISOLATED-SEW', executionTaskId: 'QPRINT-ISOLATED-EXECUTION',
       lines: skus.map((sku: any) => ({ sku, registeredQty: quantity, firstCountQty: quantity, confirmedQty: quantity, differenceQty: 0, differenceRate: 0 })),
       evidenceImageUrls: [skus[0].imageUrl], registeredAt: now, confirmedAt: now }
+    const quality=await import('/src/data/fcs/quality-management-records.ts'), engine=await import('/src/data/fcs/post-finishing-quality.ts')
+    await quality.ensureQualityManagementRecords()
+    const standard=quality.readPreparedInspectionSnapshot({sourceKind:'PRODUCTION_RETURN',styleId:order.techPackSnapshot.styleId,styleCode:skus[0].spuCode})
+    standard.skuSnapshots=skus.map((sku:any)=>({skuId:sku.skuId,snapshot:quality.readPreparedInspectionSnapshot({...standard.context,attributes:{size:sku.sizeName,color:sku.colorName}})}))
+    const inspection=engine.createPostQcInspection(standard,['隔离打印夹具全检'])
+    engine.submitPostQcRound(inspection,skus.map((sku:any)=>({skuId:sku.skuId,quantity})),{operationId:'QPRINT-CURRENT-ROUND',actorId:flow.POST_FINISHING_ACCEPTANCE_ACTORS.qcSupervisor.actorId,submittedAt:now,lines:skus.map((sku:any)=>({skuId:sku.skuId,passedQty:quantity,defectQty:0,returnQty:0}))})
+    inspection.papers.push({id:'QPRINT-DEMO-PAPER',version:inspection.paperVersion,name:'隔离打印演示纸单（非现场凭证）',url:'/images/post-finishing/demo-signed-qc.svg',uploadedAt:now})
     const task = { ...structuredClone(qc), qcTaskId: qcId, qcTaskNo: qcNo, deliveryId, deliveryOrderNo: deliveryNo,
       productionOrderId: order.productionOrderId, productionOrderNo: order.productionOrderNo, styleId: order.techPackSnapshot.styleId,
       sourceKind: 'PRODUCTION_RETURN', returnIndex: 1, status: '质检完成', createdAt: now, completedAt: now,
-      inspection: undefined, referenceIds: [], independentChecks: [], postTaskId: postId, postTaskNo: postNo, outboundOrderId: undefined, outboundOrderNo: undefined,
+      inspection, referenceIds: [], independentChecks: [], postTaskId: postId, postTaskNo: postNo, outboundOrderId: undefined, outboundOrderNo: undefined,
       recheckOrderId: undefined, recheckOrderNo: undefined, frozenProcessItems: ['熨烫', '包装'],
       lines: skus.map((sku: any) => ({ sku, expectedQty: quantity })),
       results: skus.map((sku: any) => ({ sku, expectedQty: quantity, passedQty: quantity, defectQty: 0, returnQty: 0, uninspectedQty: 0, releasedQty: quantity })) }
     const post = { ...structuredClone(originalPost), postTaskId: postId, postTaskNo: postNo, deliveryId, deliveryOrderNo: deliveryNo,
       productionOrderNo: order.productionOrderNo, qcTaskId: qcId, qcTaskNo: qcNo, returnIndex: 1, executionModel: 'ITEMS_V1',
       processItems: ['熨烫', '包装'], status: '后道完成', startedAt: now, completedAt: now, lines: skus.map((sku: any) => ({ sku, expectedQty: quantity })),
-      draftLines: undefined, results: undefined, legacyCarryover: undefined, recheckOrderId: undefined, recheckOrderNo: undefined }
+      draftLines: undefined, results: undefined, recheckOrderId: undefined, recheckOrderNo: undefined }
     const prepared = { ...structuredClone(outbound), outboundOrderId: outId, outboundOrderNo: outNo, deliveryId, deliveryOrderNo: deliveryNo,
       productionOrderNo: order.productionOrderNo, qcTaskId: qcId, qcTaskNo: qcNo, postTaskId: postId, postTaskNo: postNo, returnIndex: 1,
       executionModel: 'DIRECT_V2', operationId: 'QPRINT-ISOLATED-PREPARED', status: '待出货', createdAt: now, dispatchedAt: undefined,
@@ -148,14 +155,14 @@ async function fixture(page: Page, completeMaterials: boolean | string = true): 
         for (const row of rows) store.add({ id: `${ns}/flow/${row.col}/${encodeURIComponent(row.id)}`, collection: `flow/${row.col}`, value: row.value, version: 1 })
         const schema = store.get(`${ns}/flow/schemaVersion/value`)
         schema.onsuccess = () => {
-          if (schema.result && schema.result.value !== 4) { tx.abort(); return }
-          if (!schema.result) store.add({ id: `${ns}/flow/schemaVersion/value`, collection: 'flow/schemaVersion', value: 4, version: 1 })
+          if (schema.result && schema.result.value !== 5) { tx.abort(); return }
+          if (!schema.result) store.add({ id: `${ns}/flow/schemaVersion/value`, collection: 'flow/schemaVersion', value: 5, version: 1 })
         }
       }
     })
     return { qcId, qcNo, productionOrderNo: order.productionOrderNo, postId, outboundId: outId, outboundNo: outNo, moduleUrl,
       outboundQuantities: skus.map((sku: any) => ({ skuId: sku.skuId, quantity })), fixture: {
-        meaning: '声明的隔离历史格式QC/逐项加工/待出货事实；不代表该生产单真实发生质检或出货，不证明标准和物流业务验收',
+        meaning: '声明的隔离当前格式QC/逐项加工/待出货事实；不代表该生产单真实发生质检或出货，不证明标准和物流业务验收',
         sourceProductionOrderId: order.productionOrderId, sourceStyleId: order.techPackSnapshot.styleId, sourceVersionId: order.techPackSnapshot.sourceTechPackVersionId,
         originalTemplateQc: original, skuIds: skus.map((sku: any) => sku.skuId), rows: rows.map(row => `${row.col}/${row.id}`),
         materialBindings: snapshot.bomSnapshot.map((row: any) => ({ material: row.materialSku, name: row.materialName, image: row.materialImageUrl })),

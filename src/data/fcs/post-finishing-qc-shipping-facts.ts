@@ -9,7 +9,7 @@ export interface QcShippingRules extends PriorityRules { operator?: string; reas
 let facts: { rules: QcShippingRules; destinations: QcShippingDestination[]; changes: Array<{ id: string; sourceId: string; version: number; operator: string; reason: string; at: string }> } = {
   rules: { ...DEFAULT_QC_SHIPPING_PRIORITY_RULES }, destinations: structuredClone(QC_SHIPPING_DESTINATION_SEEDS), changes: [],
 }
-registerPostFinishingRepository('qcShippingPriority', '', () => facts, value => { facts = value })
+registerPostFinishingRepository('qcShippingPriority', () => facts, value => { facts = value })
 
 export function readQcShippingPriorityRules(): QcShippingRules { return structuredClone(facts.rules) }
 export function isQcShippingWarehouseId(id: string): boolean { return QC_SHIPPING_WAREHOUSES.some(row => row.id === id) || warehouseSeed.some(row => row.code === id && row.enabled && row.businessType === 'FINISHED') }

@@ -40,6 +40,12 @@ async function seedUpstream(page: Page, items = processItems, stopAtQc = false):
     const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
     const records = await import('/src/data/fcs/post-finishing-records.ts')
     await records.ensurePostFinishingRecordState()
+    // Isolated fixture only: remove static garment examples before exercising
+    // new public commands. A business command cannot delete frozen QC standards.
+    const db=await import('/src/data/pcs-record-db.ts')
+    const staticRows=records.projectPostFinishingStaticRecords('flow',row=>row).filter(row=>!['flow/schemaVersion','flow/materialStocks','flow/materialTransferOrders'].includes(row.collection))
+    await db.commitPcsRecords({operationId:'PARTIAL-ISOLATED-RESET',intent:'isolated empty garment input fixture',puts:[{id:'higood-fcs-post-finishing-records/revision',collection:'revision',value:{format:1},expectedVersion:0}],deletes:staticRows.map(row=>({id:row.id,expectedVersion:0}))})
+    await records.ensurePostFinishingRecordState()
     await (await import('/src/data/fcs/quality-management-records.ts')).ensureQualityManagementRecords()
     const source = flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]
     const originalPlans = source.skus.map(sku => sku.plannedQty)
@@ -48,7 +54,6 @@ async function seedUpstream(page: Page, items = processItems, stopAtQc = false):
     source.skus[0].plannedQty = 1000
     try {
       return await records.runPostFinishingCommand(() => {
-        flow.resetPostFinishingFullFlow()
         const actors = flow.POST_FINISHING_ACCEPTANCE_ACTORS
         const now = Date.parse('2026-10-19T08:00:00+08:00')
         const delivery = flow.registerPostFinishingFactoryReturn({
@@ -466,6 +471,7 @@ test('PFN-A19：两个标签同revision竞争时第二次拒绝，保留输入�
 })
 
 test('PFN-067样本：五次完整增量保存及五次预热后刷新加载，含持久读回', async ({ page }, info) => {
+  test.skip(process.env.QUALITY_FUNCTIONAL_ONLY === '1', '本轮用户明确停止性能测试；保存、刷新回读及上下游功能仍由其余用例验收。')
   test.setTimeout(120000)
   const seed = await seedUpstream(page, ['开扣眼'])
   await detail(page, seed)

@@ -3,15 +3,14 @@ import type { QualityInspectionRecordView } from './quality-management-types.ts'
 import { sampleApprovalStatusLabels, type SewingSampleApprovalRecord } from './sewing-sample-approval-suggestion.ts'
 import { getDefaultSewingSampleApprovalRecords } from './sewing-outsourcing-demo.ts'
 import { getFactoryById } from './indonesia-factories.ts'
-import { assertProductionContextSourceReadable, decodeProductionContextRecords, PRODUCTION_CONTEXT_KEYS } from './production-context-records.ts'
+import { decodeProductionContextRecords, PRODUCTION_CONTEXT_KEYS } from './production-context-records.ts'
 import {
-  readCuttingRecord, readCuttingRecordFile, readCuttingRecordsByPrefix,
+  readCuttingRecord, readCuttingRecordRevision, readCuttingRecordFile, readCuttingRecordsByPrefix,
   type CuttingStoredRecord,
 } from './cutting/cutting-record-repository.ts'
 
 const sampleCollection = 'production-context:samples'
 const samplePrefix = `${sampleCollection}:`
-const sampleMigrationId = `source-migration:${PRODUCTION_CONTEXT_KEYS.samples}`
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown): value is string => typeof value === 'string' && !!value.trim()
 const instant = (value: unknown): value is string => text(value) && /(Z|[+-]\d{2}:?\d{2})$/.test(value) && Number.isFinite(Date.parse(value))
@@ -84,18 +83,10 @@ let summaryIndex: SampleSummaryIndex | undefined
 let preparing: Promise<void> | undefined
 let detailCache: { id: string; revision: number; view?: QualityInspectionRecordView } | undefined
 let detailUrls = new Map<string, string>()
-let sourceMigrationRecord: CuttingStoredRecord | undefined
-
-function assertSampleSource(records: readonly CuttingStoredRecord[]): void {
-  const marker = records.find(record => record.id === sampleMigrationId)
-  assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples, marker)
-  sourceMigrationRecord = marker
-}
 function clearSampleReadCache(): void {
   summaryIndex = undefined
   listRevision = undefined
   detailCache = undefined
-  sourceMigrationRecord = undefined
   for (const url of detailUrls.values()) URL.revokeObjectURL(url)
   detailUrls = new Map()
 }
@@ -104,12 +95,10 @@ async function prepareSamples(): Promise<void> {
   if (preparing) return preparing
   preparing = (async () => {
     if (summaryIndex) {
-      const current = await readCuttingRecord(sampleMigrationId)
-      assertSampleSource(current.record ? [current.record] : [])
-      if (current.revision === listRevision) return
+      const revision = await readCuttingRecordRevision()
+      if (revision === listRevision) return
     }
-    const source = await readCuttingRecordsByPrefix(samplePrefix, [sampleMigrationId])
-    assertSampleSource(source.relatedRecords)
+    const source = await readCuttingRecordsByPrefix(samplePrefix)
     const next = buildSampleQualitySummaryIndex(getDefaultSewingSampleApprovalRecords(), source.records)
     // Publish only after the complete original readonly transaction and successful projection.
     summaryIndex = next
@@ -159,17 +148,15 @@ async function prepareSampleDetail(id: string): Promise<void> {
 async function readSampleDetail(id: string): Promise<void> {
   if (!id) throw new Error('请选择原产前版样衣记录。')
   if (detailCache?.id === id) {
-    const current = await readCuttingRecord(sampleMigrationId)
-    assertSampleSource(current.record ? [current.record] : [])
-    if (detailCache.revision === current.revision) return
+    const revision = await readCuttingRecordRevision()
+    if (detailCache.revision === revision) return
   }
   const defaults = getDefaultSewingSampleApprovalRecords()
   let assignmentId = summaryIndex?.assignmentsBySampleId.get(id) || defaults.find(record => record.sample.sampleId === id)?.assignmentId
   let raw: SewingSampleApprovalRecord | undefined
   let readRevision: number
   if (assignmentId) {
-    const source = await readCuttingRecord(`${samplePrefix}${assignmentId}`, [sampleMigrationId])
-    assertSampleSource(source.relatedRecords)
+    const source = await readCuttingRecord(`${samplePrefix}${assignmentId}`)
     readRevision = source.revision
     raw = source.record ? sampleValue(source.record) : defaults.find(record => record.assignmentId === assignmentId)
     // A changed identity in the original row must not revive the old static sample.
@@ -177,8 +164,7 @@ async function readSampleDetail(id: string): Promise<void> {
   } else {
     // Cold detail has no sampleId index in the original database. Scan only the sample prefix once,
     // retain thin identity summaries and the matching full record, and discard all other full trees.
-    const source = await readCuttingRecordsByPrefix(samplePrefix, [sampleMigrationId])
-    assertSampleSource(source.relatedRecords)
+    const source = await readCuttingRecordsByPrefix(samplePrefix)
     const index = buildSampleQualitySummaryIndex(defaults, source.records)
     assignmentId = index.assignmentsBySampleId.get(id)
     readRevision = source.revision
@@ -206,13 +192,11 @@ export const sampleQualityReadSource: QualityInspectionSourceAdapter = {
   prepare: prepareSamples,
   list: () => {
     if (!summaryIndex) throw new Error('原产前版记录尚未完成读取。')
-    assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples, sourceMigrationRecord)
     return summaryIndex.summaries
   },
   prepareDetail: prepareSampleDetail,
   get: id => {
     if (!detailCache) return undefined
-    assertProductionContextSourceReadable(PRODUCTION_CONTEXT_KEYS.samples, sourceMigrationRecord)
     return detailCache.id === id ? detailCache.view : undefined
   },
 }

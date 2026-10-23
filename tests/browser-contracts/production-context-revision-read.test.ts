@@ -124,7 +124,7 @@ test('后道七类生产来源与样衣明确隔离：范围快照不能冒充�
   const result=await page.evaluate(async()=>{
    const p=await import('/src/data/fcs/production-context-records.ts'),r=await import('/src/data/fcs/cutting/cutting-record-repository.ts')
    const runtimeKey=p.PRODUCTION_CONTEXT_KEYS.runtime,sampleKey=p.PRODUCTION_CONTEXT_KEYS.samples
-   const sample={assignmentId:'KEEP-ASSIGNMENT',sample:{assignmentId:'KEEP-ASSIGNMENT',sampleId:'KEEP-SAMPLE'},suggestionVersions:[],untouched:{note:'原样衣及历史全文不可删'}}
+   const sample={assignmentId:'KEEP-ASSIGNMENT',qualitySchemaVersion:1,sample:{assignmentId:'KEEP-ASSIGNMENT',sampleId:'KEEP-SAMPLE',factoryId:'KEEP-FACTORY',runtimeTaskId:'KEEP-TASK',productionOrderId:'KEEP-ORDER',status:'WAITING_PPIC_RECEIVE'},suggestionVersions:[],untouched:{note:'原样衣及历史全文不可删'}}
    const records=[...p.decodeProductionContextRecords(runtimeKey,JSON.stringify({version:1,taskOverrides:[],splitPlans:[],mergedPlans:[],reassignedTasks:[],auditSeq:7})),...p.decodeProductionContextRecords(sampleKey,JSON.stringify({version:3,records:[sample],commands:[],sequence:12})),{id:'unrelated:keep',collection:'unrelated',value:{unchanged:true}}]
    await r.commitCuttingRecords({revision:0,change:{puts:records},command:{id:'finishing-scope-seed',intent:'隔离范围验证原数据',result:null,at:'2026-10-22T00:00:00Z'}})
    let writes=0;const original=IDBDatabase.prototype.transaction

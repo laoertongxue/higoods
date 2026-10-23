@@ -228,10 +228,10 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       sectionId: 'qc',
       title: '质检区',
       fields: [
-        { label: '实际检查成衣件数', value: order.qcAction.qcSkuResults?.every(row=>row.inspectionKnown)?formatPrintQty(order.qcAction.inspectedGarmentQty, order.qcAction.qtyUnit):'历史未记录', emphasis: true },
+        { label: '实际检查成衣件数', value: order.qcAction.qcSkuResults?.every(row=>row.inspectionKnown)?formatPrintQty(order.qcAction.inspectedGarmentQty, order.qcAction.qtyUnit):'尚未开检', emphasis: true },
         { label: '实检合格成衣件数', value: formatPrintQty(order.qcAction.passedGarmentQty ?? order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
         { label: '质检不合格成衣件数', value: formatPrintQty(order.qcAction.defectiveGarmentQty ?? order.qcAction.rejectedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
-        { label: '未抽随批放行', value: order.qcAction.qcSkuResults?.every(row=>row.inspectionKnown)?formatPrintQty(order.qcAction.qcSkuResults.reduce((n,row)=>n+(row.uninspectedReleaseQty || 0),0),'件'):'历史未记录' },
+        { label: '未抽随批放行', value: order.qcAction.qcSkuResults?.every(row=>row.inspectionKnown)?formatPrintQty(order.qcAction.qcSkuResults.reduce((n,row)=>n+(row.uninspectedReleaseQty || 0),0),'件'):'尚未开检' },
         { label: '正常放行成衣件数', value: formatPrintQty(order.plannedGarmentQty,'件') },
         { label: '质检人', value: valueOrDash(order.qcAction.operatorName) },
         { label: '质检时间', value: valueOrDash(order.qcAction.finishedAt) },
@@ -243,7 +243,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       sectionId: 'post',
       title: '后道处理区',
       fields: getPostActionFields(order),
-      note: '各加工项分别登记完成量与责任；历史合并量不冒充逐项加工记录。',
+      note: '各加工项分别登记完成量与责任，可出货量以全部项目均完成的数量为准。',
     },
     {
       sectionId: 'handover',

@@ -162,124 +162,6 @@ test('同PCS库存QC完成事务故障：QC/申请/三类交接一起回滚，�
   assert.equal(result.noBusinessFallback, true)
 }))
 
-test('显式schema3旧未完复检转待出货，已完历史保留；普通读取不转换，刷新和重试不重复', { timeout: 120000 }, () => isolated(async page => {
-  const initial = await page.evaluate(async () => {
-    const bridgePath = '/src/data/fcs/post-finishing-inventory-bridge.ts', dbPath = '/src/data/pcs-record-db.ts'
-    const f = await import(bridgePath), r = f, db = await import(dbPath)
-    const sources = f.listPostFinishingFullFlowOutboundOrders().filter((row: any) => !row.postTaskId && row.sourceType === '质检直达').slice(0, 2)
-    if (sources.length !== 2) throw Error('历史隔离fixture缺少两条已完成QC来源')
-    const qcTasks = sources.map((row: any) => f.getPostFinishingFullFlowQcTask(row.qcTaskId))
-    const deliveryIds = new Set(sources.map((row: any) => row.deliveryId)), deliveries = f.listPostFinishingFactoryReturns().filter((row: any) => deliveryIds.has(row.deliveryId))
-    const rechecks = sources.map((source: any, index: number) => ({
-      recheckOrderId: index ? 'LEGACY-COMPLETED-RC' : 'LEGACY-PENDING-RC', recheckOrderNo: source.qcTaskNo + '-FJ',
-      deliveryId: source.deliveryId, deliveryOrderNo: source.deliveryOrderNo, productionOrderNo: source.productionOrderNo,
-      qcTaskId: source.qcTaskId, qcTaskNo: source.qcTaskNo, responsibility: source.responsibility, sourceType: source.sourceType,
-      returnIndex: source.returnIndex, createdAt: source.createdAt, status: index ? '复检完成' : '待复检',
-      completedAt: index ? source.createdAt : undefined,
-      lines: source.lines.map((line: any) => ({ sku: line.sku, expectedQty: line.outboundQty,
-        handoverQty: index ? line.outboundQty : undefined, barcodeStatus: index ? '正确' : '待扫描', barcodeEvents: [] })),
-    }))
-    for (let i = 0; i < qcTasks.length; i++) {
-      qcTasks[i].outboundOrderId = undefined; qcTasks[i].outboundOrderNo = undefined
-      qcTasks[i].recheckOrderId = rechecks[i].recheckOrderId; qcTasks[i].recheckOrderNo = rechecks[i].recheckOrderNo
-    }
-    const legacy = { schemaVersion: 3, deliveries, qcTasks, recheckOrders: rechecks, fullCoverages: [], processCompletions: [],
-      waitProcessWarehouseRecords: [], waitProcessWarehouseMovements: [], waitHandoverWarehouseRecords: [], waitHandoverWarehouseMovements: [],
-      returnConfirmationVersions: f.listPostFinishingReturnConfirmationVersions().filter((row: any) => deliveryIds.has(row.deliveryId)),
-      postTasks: [], outboundOrders: [], warehouseReceipts: [], defects: [], materialTransferOrders: [], materialStocks: [] }
-    const legacyKey = 'higood-fcs-post-finishing-full-flow-v1', original = JSON.stringify(legacy)
-    localStorage.setItem(legacyKey, original)
-    let writes = 0; const put = IDBObjectStore.prototype.put
-    IDBObjectStore.prototype.put = function (...args: Parameters<typeof put>) { writes++; return put.apply(this, args) }
-    try { await r.ensurePostFinishingRecordState() } finally { IDBObjectStore.prototype.put = put }
-    const initialRows = await db.readPcsRecords(['higood-fcs-post-finishing-records'])
-    const ordinaryRead = { writes, records: initialRows.records.length, gated: r.hasPostFinishingLegacyData(), sourceUnchanged: localStorage.getItem(legacyKey) === original }
-    await r.migratePostFinishingLegacyData()
-    const migrated = f.listPostFinishingFullFlowOutboundOrders().filter((row: any) => row.retiredRecheckId === 'LEGACY-PENDING-RC')
-    const archived = f.listPostFinishingFullFlowRecheckOrders()
-    const beforeRetry = JSON.stringify((await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records)
-    await r.migratePostFinishingLegacyData()
-    const afterRetry = JSON.stringify((await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records)
-    return { ordinaryRead, migrated, archived, sourceRemoved: localStorage.getItem(legacyKey) === null,
-      retryUnchanged: beforeRetry === afterRetry, expectedLines: rechecks[0].lines.map((row: any) => ({ skuId: row.sku.skuId, quantity: row.expectedQty })),
-      completedHistory: rechecks[1], retiredExports: ['submitPostFinishingForRecheck', 'claimPostFinishingRecheckOrder', 'completePostFinishingRecheckOrder'].filter(key => key in f) }
-  })
-  assert.deepEqual(initial.ordinaryRead, { writes: 0, records: 0, gated: true, sourceUnchanged: true })
-  assert.equal(initial.migrated.length, 1); assert.equal(initial.migrated[0].status, '待出货'); assert.equal(initial.migrated[0].executionModel, 'DIRECT_V2')
-  assert.equal(initial.migrated[0].dispatchedAt, undefined); assert.equal(initial.migrated[0].receivedAt, undefined)
-  assert.equal(initial.migrated[0].recheckOrderId, undefined); assert.equal(initial.migrated[0].retiredRecheck.status, '待复检')
-  assert.deepEqual(initial.migrated[0].lines.map((row: any) => ({ skuId: row.sku.skuId, quantity: row.outboundQty })), initial.expectedLines)
-  assert.deepEqual(initial.archived, [initial.completedHistory]); assert.equal(initial.sourceRemoved, true); assert.equal(initial.retryUnchanged, true); assert.deepEqual(initial.retiredExports, [])
-  await page.reload()
-  const refreshed = await page.evaluate(async () => {
-    const bridgePath = '/src/data/fcs/post-finishing-inventory-bridge.ts', dbPath = '/src/data/pcs-record-db.ts'
-    const f = await import(bridgePath), r = f, db = await import(dbPath)
-    await r.ensurePostFinishingRecordState(); if (r.getPostFinishingStorageFailure()) throw Error(r.getPostFinishingStorageFailure())
-    const rows = await db.readPcsRecords(['higood-fcs-post-finishing-records'])
-    return { outbounds: f.listPostFinishingFullFlowOutboundOrders().map((row: any) => ({ id: row.outboundOrderId, status: row.status, original: row.retiredRecheckId })),
-      completedIds: f.listPostFinishingFullFlowRecheckOrders().map((row: any) => row.recheckOrderId),
-      schema: rows.records.find((row: any) => row.id.endsWith('/flow/schemaVersion/value'))?.value, gated: r.hasPostFinishingLegacyData() }
-  })
-  assert.deepEqual(refreshed, { outbounds: [{ id: initial.migrated[0].outboundOrderId, status: '待出货', original: 'LEGACY-PENDING-RC' }], completedIds: ['LEGACY-COMPLETED-RC'], schema: 4, gated: false })
-}))
-
-test('同一旧回货超过100条关联事实：出货保存故障整组撤回，原源保留；重试编号与实物只一套', { timeout: 120000 }, () => isolated(async page => {
-  const result = await page.evaluate(async () => {
-    const bridgePath = '/src/data/fcs/post-finishing-inventory-bridge.ts', dbPath = '/src/data/pcs-record-db.ts'
-    const f = await import(bridgePath), db = await import(dbPath)
-    const outbound = f.listPostFinishingFullFlowOutboundOrders().find((row: any) => !row.postTaskId && row.sourceType === '质检直达')
-    const qc = f.getPostFinishingFullFlowQcTask(outbound.qcTaskId)
-    const delivery = f.listPostFinishingFactoryReturns().find((row: any) => row.deliveryId === outbound.deliveryId)
-    const baseConfirmation = f.listPostFinishingReturnConfirmationVersions({ deliveryId: delivery.deliveryId })[0]
-    if (!baseConfirmation) throw Error('隔离历史fixture缺少真实格式的回货核数版本')
-    const rcId = 'LEGACY-LARGE-PENDING-RC', recheck = {
-      recheckOrderId: rcId, recheckOrderNo: qc.qcTaskNo + '-FJ', deliveryId: delivery.deliveryId, deliveryOrderNo: delivery.deliveryOrderNo,
-      productionOrderNo: delivery.productionOrderNo, qcTaskId: qc.qcTaskId, qcTaskNo: qc.qcTaskNo, responsibility: outbound.responsibility,
-      sourceType: outbound.sourceType, returnIndex: delivery.returnIndex, status: '待复检', createdAt: outbound.createdAt,
-      lines: outbound.lines.map((line: any) => ({ sku: line.sku, expectedQty: line.outboundQty, barcodeStatus: '待扫描', barcodeEvents: [] })),
-    }
-    qc.outboundOrderId = undefined; qc.outboundOrderNo = undefined; qc.recheckOrderId = rcId; qc.recheckOrderNo = recheck.recheckOrderNo
-    // One source group has 120 retained count-confirmation revisions, not 120
-    // duplicated physical batches. Only its final version remains ACTIVE.
-    const confirmations = Array.from({ length: 120 }, (_, index) => ({ ...structuredClone(baseConfirmation),
-      confirmationVersionId: `LEGACY-LARGE-CONF-${index}`, status: index === 119 ? 'ACTIVE' : 'SUPERSEDED' }))
-    const legacy = { schemaVersion: 3, fullCoverages: [], processCompletions: [], deliveries: [delivery], qcTasks: [qc], recheckOrders: [recheck],
-      returnConfirmationVersions: confirmations, waitProcessWarehouseRecords: [], waitProcessWarehouseMovements: [], waitHandoverWarehouseRecords: [],
-      waitHandoverWarehouseMovements: [], postTasks: [], outboundOrders: [], warehouseReceipts: [], defects: [], materialTransferOrders: [], materialStocks: [] }
-    const legacyKey = 'higood-fcs-post-finishing-full-flow-v1', original = JSON.stringify(legacy), ns = 'higood-fcs-post-finishing-records'
-    localStorage.setItem(legacyKey, original); await f.ensurePostFinishingRecordState()
-    const put = IDBObjectStore.prototype.put; let requestsBeforeAbort = 0, rejected = false
-    IDBObjectStore.prototype.put = function (...args: Parameters<typeof put>) {
-      const value = args[0]
-      if (this.name === 'records' && value?.value?.deliveryId === delivery.deliveryId) requestsBeforeAbort++
-      if (this.name === 'records' && value?.collection === 'flow/outboundOrders' && value?.value?.retiredRecheckId === rcId) throw new DOMException('isolated large conversion failure', 'QuotaExceededError')
-      return put.apply(this, args)
-    }
-    try { await f.migratePostFinishingLegacyData() } catch { rejected = true } finally { IDBObjectStore.prototype.put = put }
-    const failed = await db.readPcsRecords([ns])
-    const groupRows = (rows: any[]) => rows.filter(row => !row.deleted && (row.value?.deliveryId === delivery.deliveryId || row.value?.sourceObjectId === rcId))
-    const failedGroupRows = groupRows(failed.records), sourcePreserved = localStorage.getItem(legacyKey) === original
-    await f.migratePostFinishingLegacyData(); const saved = await db.readPcsRecords([ns])
-    const outbounds = f.listPostFinishingFullFlowOutboundOrders().filter((row: any) => row.retiredRecheckId === rcId)
-    const numbered = saved.records.filter((row: any) => !row.deleted && row.value?.sourceObjectId === rcId && row.value?.kind === 'OUTBOUND')
-    const stock = saved.records.filter((row: any) => !row.deleted && row.collection === 'flow/waitHandoverWarehouseRecords' && row.value?.outboundOrderId === outbounds[0]?.outboundOrderId)
-    const beforeRepeat = JSON.stringify(saved.records); await f.migratePostFinishingLegacyData()
-    const afterRepeat = JSON.stringify((await db.readPcsRecords([ns])).records)
-    return { rejected, requestsBeforeAbort, failedGroupCount: failedGroupRows.length, sourcePreserved, sourceRemoved: localStorage.getItem(legacyKey) === null,
-      outbounds, numberCount: numbered.length, numberNo: numbered[0]?.value?.documentNo, stockCount: stock.length,
-      confirmations: f.listPostFinishingReturnConfirmationVersions({ deliveryId: delivery.deliveryId }).length,
-      pendingCount: f.listPostFinishingFullFlowRecheckOrders().filter((row: any) => row.recheckOrderId === rcId).length,
-      savedGroupCount: groupRows(saved.records).length, unchangedRepeat: beforeRepeat === afterRepeat }
-  })
-  assert.equal(result.rejected, true); assert.ok(result.requestsBeforeAbort > 100, '故障发生前同组已有超过100个真实put请求')
-  assert.equal(result.failedGroupCount, 0, '当前回货不能留下核数、编号、出货或待出实物的半套事实')
-  assert.equal(result.sourcePreserved, true); assert.equal(result.sourceRemoved, true)
-  assert.equal(result.outbounds.length, 1); assert.equal(result.outbounds[0].status, '待出货')
-  assert.equal(result.numberCount, 1); assert.equal(result.numberNo, result.outbounds[0].outboundOrderNo)
-  assert.equal(result.stockCount, 1); assert.equal(result.confirmations, 120); assert.equal(result.pendingCount, 0)
-  assert.ok(result.savedGroupCount > 100); assert.equal(result.unchangedRepeat, true)
-}))
-
 test('同范围新全检覆盖先固化再上传当前纸单，仅一次v2；图文实际参照和两打印始终冻结',{timeout:120000},()=>isolated(async page=>{
  await prepare(page)
  const result=await page.evaluate(async()=>{
@@ -519,27 +401,6 @@ test('独立追检保存后原项被新版删除，同操作同意图仍返回�
  assert.equal(result.freshHasItem,false);assert.deepEqual(result.retried,result.first);assert.equal(result.after.independentChecks.length,1);assert.equal(result.persisted.independentChecks.length,1)
  assert.ok(result.persisted.independentChecks[0].snapshot.items.some((item:any)=>item.id===result.itemId),'原已保存追检继续保留当时项目及依据')
  assert.match(result.newError,/本次有效标准/);assert.equal(result.after.status,'质检完成');assert.deepEqual(result.after.results,result.before.results);assert.deepEqual(result.after.inspection,result.before.inspection);assert.deepEqual(result.outboundAfter,result.outboundBefore)
-}))
-
-test('旧后道localStorage不可读且版本未核实则拒绝，原生schema4确证后只读正常且不写种子',{timeout:120000},()=>isolated(async page=>{
- const result=await page.evaluate(async()=>{
-  const db=await import('/src/data/pcs-record-db.ts'),adapter=await import('/src/data/fcs/quality-post-read-source.ts'),source=adapter.postQualityReadSource('PRODUCTION_RETURN')
-  await source.prepare();const count=source.list().length,getItem=Storage.prototype.getItem,put=IDBObjectStore.prototype.put,add=IDBObjectStore.prototype.add,del=IDBObjectStore.prototype.delete
-  let writes=0,unknownError=''
-  const observe=()=>{IDBObjectStore.prototype.put=function(...args:Parameters<typeof put>){writes++;return put.apply(this,args)};IDBObjectStore.prototype.add=function(...args:Parameters<typeof add>){writes++;return add.apply(this,args)};IDBObjectStore.prototype.delete=function(...args:Parameters<typeof del>){writes++;return del.apply(this,args)}}
-  const restoreWrites=()=>{IDBObjectStore.prototype.put=put;IDBObjectStore.prototype.add=add;IDBObjectStore.prototype.delete=del}
-  Storage.prototype.getItem=function(){throw new DOMException('isolated inaccessible legacy source','SecurityError')}
-  try{
-   observe();try{await source.prepare()}catch(error){unknownError=String(error)}finally{restoreWrites()}
-   const unknownWrites=writes,retained=source.list().length===count
-   // Explicit isolated current-schema evidence, not an ordinary-read migration.
-   await db.commitPcsRecords({puts:[{id:'higood-fcs-post-finishing-records/flow/schemaVersion/value',collection:'flow/schemaVersion',value:4,expectedVersion:0}],deletes:[],operationId:'isolated-verified-current-schema',intent:'declared current record format for inaccessible legacy storage contract'})
-   writes=0;observe();await source.prepare();restoreWrites()
-   return {unknownError,unknownWrites,retained,knownWrites:writes,count,knownCount:source.list().length}
-  }finally{Storage.prototype.getItem=getItem;restoreWrites()}
- })
- assert.match(result.unknownError,/旧后道资料无法核查|读取权限/);assert.equal(result.unknownWrites,0);assert.equal(result.retained,true)
- assert.ok(result.count>0);assert.equal(result.knownCount,result.count);assert.equal(result.knownWrites,0)
 }))
 
 test('初始本厂覆盖与全生产单覆盖真实跨两厂：已完不追检，在检抵扣，未开及未来持续全检',{timeout:120000},()=>isolated(async page=>{
@@ -806,7 +667,7 @@ test('同SKU两标签并发准备出货：原生CAS只一笔占15/20，重读超
  await second.close()
 }))
 
-test('QC025原历史财务/处罚读取不删：真实旧复检转换及新QC完成前后原数组/结论和无关PCS保护记录均保持',{timeout:120000},()=>isolated(async page=>{
+test('QC025原历史财务/处罚读取不删：定向清理及新QC完成前后原数组/结论和无关PCS保护记录均保持',{timeout:120000},()=>isolated(async page=>{
  await prepare(page)
  const bootstrapFinance=async()=>page.evaluate(async()=>{
   const chain=await import('/src/data/fcs/quality-chain-adapter.ts'),repo=await import('/src/data/fcs/quality-deduction-repository.ts'),shared=await import('/src/data/fcs/quality-deduction-shared-facts.ts'),legacy=await import('/src/data/fcs/store-domain-quality-seeds.ts')
@@ -834,14 +695,9 @@ test('QC025原历史财务/处罚读取不删：真实旧复检转换及新QC完
   await db.commitPcsRecords({puts:[{id:sentinelId,collection:'unrelated-preservation-control',value:control,expectedVersion:0}],deletes:[],operationId:'isolated-old-financial-control',intent:'explicit exact old financial facts preservation control; not a financial source'})
   const controlBefore=(await db.readPcsRecords(['unrelated-preservation-control'])).records
   const pending=f.listPostFinishingFullFlowQcTasks().find((row:any)=>row.status==='待质检'&&row.lines.reduce((n:number,line:any)=>n+line.expectedQty,0)===100),pendingDelivery=f.listPostFinishingFactoryReturns().find((row:any)=>row.deliveryId===pending.deliveryId)
-  const source=f.listPostFinishingFullFlowOutboundOrders().find((row:any)=>!row.postTaskId&&row.sourceType==='质检直达'),oldQc=f.getPostFinishingFullFlowQcTask(source.qcTaskId),delivery=f.listPostFinishingFactoryReturns().find((row:any)=>row.deliveryId===source.deliveryId)
-  if(!pending || !pendingDelivery || !source || !oldQc || !delivery)throw Error('历史保护契约必须保留原未检回货和原已完成QC/出货的合法资料')
-  const rc={recheckOrderId:'FINANCE-PRESERVE-LEGACY-RC',recheckOrderNo:source.qcTaskNo+'-OLD-RC',deliveryId:source.deliveryId,deliveryOrderNo:source.deliveryOrderNo,productionOrderNo:source.productionOrderNo,qcTaskId:source.qcTaskId,qcTaskNo:source.qcTaskNo,responsibility:source.responsibility,sourceType:source.sourceType,returnIndex:source.returnIndex,createdAt:source.createdAt,status:'待复检',lines:source.lines.map((line:any)=>({sku:line.sku,expectedQty:line.outboundQty,barcodeStatus:'待扫描',barcodeEvents:[]}))}
-  oldQc.outboundOrderId=undefined;oldQc.outboundOrderNo=undefined;oldQc.recheckOrderId=rc.recheckOrderId;oldQc.recheckOrderNo=rc.recheckOrderNo
-  const legacyPayload={schemaVersion:3,deliveries:[delivery],qcTasks:[oldQc],recheckOrders:[rc],fullCoverages:[],processCompletions:[],waitProcessWarehouseRecords:[],waitProcessWarehouseMovements:[],waitHandoverWarehouseRecords:[],waitHandoverWarehouseMovements:[],returnConfirmationVersions:f.listPostFinishingReturnConfirmationVersions({deliveryId:delivery.deliveryId}),postTasks:[],outboundOrders:[],warehouseReceipts:[],defects:[],materialTransferOrders:[],materialStocks:[]}
-  const key='higood-fcs-post-finishing-full-flow-v1';localStorage.setItem(key,JSON.stringify(legacyPayload))
-  await r.ensurePostFinishingRecordState();await r.migratePostFinishingLegacyData()
-  const afterMigration=structuredClone(finance.read()),migrated=f.listPostFinishingFullFlowOutboundOrders().filter((row:any)=>row.retiredRecheckId===rc.recheckOrderId)
+  const key='higood-fcs-post-finishing-full-flow-v1';localStorage.setItem(key,JSON.stringify({qcTasks:[{qcTaskId:'OLD-DEMO'}]}))
+  await (await import('/src/data/fcs/quality-demo-rebuild.ts')).rebuildQualityPostFinishingDemo()
+  const afterMigration=structuredClone(finance.read())
   const ns='higood-fcs-post-finishing-records',rows=(await db.readPcsRecords([ns])).records,revision=rows.find((row:any)=>row.id===ns+'/revision')
   // A separate declared pending-return fixture permits the new QC workflow
   // after the migration of the selected old workspace, without resurrecting
@@ -856,39 +712,14 @@ test('QC025原历史财务/处罚读取不删：真实旧复检转换及新QC完
   await r.runPostFinishingCommand(()=>f.attachPostFinishingQcSignedPaper({qcTaskId:opened.qcTaskId,actor,url:paper,name:'历史保护后新QC测试纸单.png'}))
   const completed=await r.runPostFinishingCommand(()=>f.completePostFinishingQcTask({qcTaskId:opened.qcTaskId,actor,processItems:[]}))
   const afterQc=structuredClone(finance.read()),controlAfter=(await db.readPcsRecords(['unrelated-preservation-control'])).records
-  return {afterMigration,afterQc,controlBefore,controlAfter,migrated:migrated.map((row:any)=>({status:row.status,retired:row.retiredRecheckId})),legacyRemoved:localStorage.getItem(key)===null,newQcId:completed.qcTaskId,newQcStatus:completed.status,newFinancialCase:finance.repo.getQualityDeductionCaseFactByQcId(completed.qcTaskId),newLegacyFinancialChain:finance.chain.getQcChainFact(completed.qcTaskId)}
+  return {afterMigration,afterQc,controlBefore,controlAfter,legacyRemoved:localStorage.getItem(key)===null,newQcId:completed.qcTaskId,newQcStatus:completed.status,newFinancialCase:finance.repo.getQualityDeductionCaseFactByQcId(completed.qcTaskId),newLegacyFinancialChain:finance.chain.getQcChainFact(completed.qcTaskId)}
  },before)
  assert.deepEqual(result.afterMigration,before);assert.deepEqual(result.afterQc,before);assert.deepEqual(result.controlAfter,result.controlBefore);assert.equal(result.controlBefore.length,1);assert.equal(result.controlBefore[0].version,1)
- assert.deepEqual(result.migrated,[{status:'待出货',retired:'FINANCE-PRESERVE-LEGACY-RC'}]);assert.equal(result.legacyRemoved,true);assert.equal(result.newQcStatus,'质检完成');assert.equal(result.newFinancialCase,null);assert.equal(result.newLegacyFinancialChain,null)
+ assert.equal(result.legacyRemoved,true);assert.equal(result.newQcStatus,'质检完成');assert.equal(result.newFinancialCase,null);assert.equal(result.newLegacyFinancialChain,null)
  await page.reload();await prepare(page);const refreshed=await bootstrapFinance()
  assert.deepEqual(refreshed,before)
- const persistent=await page.evaluate(async()=>{const {f,db}=(window as any).__postContract;return {control:(await db.readPcsRecords(['unrelated-preservation-control'])).records,qc:f.getPostFinishingFullFlowQcTask('FINANCE-PRESERVE-NEW-QC')?.status,outbound:f.listPostFinishingFullFlowOutboundOrders().filter((row:any)=>row.retiredRecheckId==='FINANCE-PRESERVE-LEGACY-RC').length}})
+ const persistent=await page.evaluate(async()=>{const {f,db}=(window as any).__postContract;return {control:(await db.readPcsRecords(['unrelated-preservation-control'])).records,qc:f.getPostFinishingFullFlowQcTask('FINANCE-PRESERVE-NEW-QC')?.status,outbound:f.listPostFinishingFullFlowOutboundOrders().filter((row:any)=>row.qcTaskId==='FINANCE-PRESERVE-NEW-QC').length}})
  assert.deepEqual(persistent.control,result.controlBefore);assert.equal(persistent.qc,'质检完成');assert.equal(persistent.outbound,1)
-}))
-
-test('旧复检有加工/无加工迁移：复用已有出货，已完复检及实际仓收原样保留且重试不重复',{timeout:120000},()=>isolated(async page=>{
- const result=await page.evaluate(async()=>{
-  const path='/src/data/fcs/post-finishing-full-flow.ts',recordPath='/src/data/fcs/post-finishing-records.ts',dbPath='/src/data/pcs-record-db.ts',f={...await import(path),...await import(recordPath)},db=await import(dbPath)
-  const all=f.listPostFinishingFullFlowOutboundOrders(),sources=[all.find((row:any)=>!row.postTaskId&&!row.receivedAt),all.find((row:any)=>row.postTaskId&&!row.receivedAt),all.find((row:any)=>row.receivedAt)]
-  if(sources.some(row=>!row))throw Error('隔离旧格式用例缺少三种明确来源')
-  const deliveryIds=new Set(sources.map((row:any)=>row.deliveryId)),postIds=new Set(sources.map((row:any)=>row.postTaskId).filter(Boolean))
-  const rechecks=sources.map((source:any,i:number)=>({recheckOrderId:`FINAL-LEGACY-RC-${i}`,recheckOrderNo:source.qcTaskNo+'-FJ',deliveryId:source.deliveryId,deliveryOrderNo:source.deliveryOrderNo,productionOrderNo:source.productionOrderNo,qcTaskId:source.qcTaskId,qcTaskNo:source.qcTaskNo,postTaskId:source.postTaskId,postTaskNo:source.postTaskNo,responsibility:source.responsibility,sourceType:source.sourceType,returnIndex:source.returnIndex,createdAt:source.createdAt,status:i===2?'复检完成':'待复检',completedAt:i===2?source.dispatchedAt:undefined,lines:source.lines.map((line:any)=>({sku:line.sku,expectedQty:line.outboundQty,handoverQty:i===2?line.outboundQty:undefined,barcodeStatus:i===2?'正确':'待扫描',barcodeEvents:[]}))}))
-  const qcs=sources.map((source:any,i:number)=>{const qc=f.getPostFinishingFullFlowQcTask(source.qcTaskId);qc.recheckOrderId=rechecks[i].recheckOrderId;qc.recheckOrderNo=rechecks[i].recheckOrderNo;if(i!==2){qc.outboundOrderId=undefined;qc.outboundOrderNo=undefined}return qc})
-  const posts=[...postIds].map((id:any)=>f.listPostFinishingFullFlowPostTasks().find((post:any)=>post.postTaskId===id)),completions=posts.flatMap((post:any)=>f.getPostFinishingProcessProgress(post).records)
-  for(const post of posts){const rc=rechecks.find((row:any)=>row.postTaskId===post.postTaskId)!;post.recheckOrderId=rc.recheckOrderId;post.recheckOrderNo=rc.recheckOrderNo}
-  const existing={...sources[0],recheckOrderId:rechecks[0].recheckOrderId,recheckOrderNo:rechecks[0].recheckOrderNo},completed={...sources[2],recheckOrderId:rechecks[2].recheckOrderId,recheckOrderNo:rechecks[2].recheckOrderNo}
-  const receipts=f.listPostFinishingWarehouseReceipts().filter((row:any)=>row.outboundOrderId===completed.outboundOrderId)
-  if(receipts.length!==1)throw Error('隔离已完来源缺少唯一真实格式仓收')
-  const old={schemaVersion:3,deliveries:f.listPostFinishingFactoryReturns().filter((row:any)=>deliveryIds.has(row.deliveryId)),qcTasks:qcs,postTasks:posts,recheckOrders:rechecks,outboundOrders:[existing,completed],warehouseReceipts:receipts,fullCoverages:[],processCompletions:completions,returnConfirmationVersions:f.listPostFinishingReturnConfirmationVersions().filter((row:any)=>deliveryIds.has(row.deliveryId)),waitProcessWarehouseRecords:[],waitProcessWarehouseMovements:[],waitHandoverWarehouseRecords:[],waitHandoverWarehouseMovements:[],defects:[],materialTransferOrders:[],materialStocks:[]}
-  const key='higood-fcs-post-finishing-full-flow-v1';localStorage.setItem(key,JSON.stringify(old));await f.ensurePostFinishingRecordState();await f.migratePostFinishingLegacyData()
-  const ns=['higood-fcs-post-finishing-records'],first=await db.readPcsRecords(ns);await f.migratePostFinishingLegacyData();const second=await db.readPcsRecords(ns)
-  const outs=f.listPostFinishingFullFlowOutboundOrders(),history=f.listPostFinishingFullFlowRecheckOrders()
-  return {existingExpected:existing,completedExpected:completed,receiptExpected:receipts,completedActual:outs.find((row:any)=>row.outboundOrderId===completed.outboundOrderId),receiptActual:f.listPostFinishingWarehouseReceipts(),existingActual:outs.find((row:any)=>row.outboundOrderId===existing.outboundOrderId),createdActual:outs.find((row:any)=>row.retiredRecheckId===rechecks[1].recheckOrderId),history,historyExpected:JSON.parse(JSON.stringify(rechecks[2])),total:outs.length,retryUnchanged:JSON.stringify(first.records)===JSON.stringify(second.records),removed:localStorage.getItem(key)===null}
- })
- assert.equal(result.total,3);assert.equal(result.removed,true);assert.equal(result.retryUnchanged,true)
- assert.equal(result.existingActual.outboundOrderId,result.existingExpected.outboundOrderId);assert.equal(result.existingActual.outboundOrderNo,result.existingExpected.outboundOrderNo);assert.deepEqual(result.existingActual.lines,result.existingExpected.lines)
- assert.equal(result.existingActual.retiredRecheckId,'FINAL-LEGACY-RC-0');assert.equal(result.existingActual.status,'待出货');assert.equal(result.createdActual.retiredRecheckId,'FINAL-LEGACY-RC-1');assert.ok(result.createdActual.postTaskId);assert.equal(result.createdActual.status,'待出货')
- assert.deepEqual(result.completedActual,result.completedExpected);assert.deepEqual(result.receiptActual,result.receiptExpected);assert.deepEqual(result.history,[result.historyExpected])
 }))
 
 
@@ -901,9 +732,9 @@ test('抽检30实检合格29而正常出货99，两套SKU条码及吊牌都按�
  await config.ensureQualityManagementRecords()
  const rule=config.buildQualityConfigurationDraft('RULE','production-return-rule-v1');rule.initialFullInspection=null;await config.saveQualityConfigurationDraft(rule);await config.publishQualityConfiguration(rule.id)
  const recordsPath='/src/data/fcs/post-finishing-records.ts',records=await import(recordsPath)
- return records.runPostFinishingCommand(()=>{flow.resetPostFinishingFullFlow()
+ return records.runPostFinishingCommand(()=>{
  const actors=flow.POST_FINISHING_ACCEPTANCE_ACTORS,source=flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]
- const delivery=flow.registerPostFinishingFactoryReturn({productionOrderNo:source.productionOrderNo,executionTaskId:source.executionTaskId,returnIndex:1,triggerSource:'车缝正常交出',idempotencyKey:'sampled-label-99',quantities:source.skus.map(sku=>({skuId:sku.skuId,registeredQty:20})),deliveryPersonName:'隔离交出人',deliveryPersonPhone:'',evidenceImageUrls:[source.skus[0].imageUrl],actor:actors.factoryCourier})
+ const delivery=flow.listPostFinishingFactoryReturns().find(row=>row.productionOrderNo===source.productionOrderNo && row.returnIndex===1)!
  flow.confirmPostFinishingFactoryReturn({deliveryId:delivery.deliveryId,firstCounts:delivery.lines.map(line=>({skuId:line.sku.skuId,actualQty:line.registeredQty})),actor:actors.returnConfirmer})
  const pending=flow.sendPostFinishingFactoryReturnToQc({deliveryId:delivery.deliveryId,actor:actors.sender}),qc=flow.claimPostFinishingQcTask({qcTaskNo:pending.qcTaskNo,actor:actors.qcSupervisor})
  const itemId=qc.inspection!.snapshot.items[0].id;const target=flow.getPostFinishingQcInspectionSummary(qc)!.target

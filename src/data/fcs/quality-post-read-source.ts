@@ -1,7 +1,7 @@
 import type { InspectionSourceKind, QualityInspectionRecordView } from './quality-management-types.ts'
 import type { PostFinishingQcTask, PostFinishingFactoryReturnDelivery } from './post-finishing-full-flow.ts'
 import './post-finishing-full-flow.ts'
-import { projectPostFinishingStaticRecords, hasPostFinishingLegacyData } from './post-finishing-records.ts'
+import { projectPostFinishingStaticRecords } from './post-finishing-records.ts'
 import { readPcsRecordProjection, readPcsFiles, pcsFileReferences, type PcsStoredRecord } from '../pcs-record-db.ts'
 import { getPostQcSummary, applyPostQcFullCoverage } from './post-finishing-quality.ts'
 import { finishedInventoryApplicationStatus, finishedInventoryTransferStatus } from '../wls/finished-inventory-quality.ts'
@@ -32,6 +32,7 @@ function view(task:PostFinishingQcTask,delivery:PostFinishingFactoryReturnDelive
  for(const round of task.inspection?.rounds || [])for(const line of round.lines){numeric(line.passedQty);numeric(line.defectQty);numeric(line.returnQty);if(!task.lines.some(row=>row.sku.skuId===line.skuId))throw new Error('质检轮次包含非本批SKU。')}
  const quantity=task.lines.reduce((n,row)=>n+numeric(row.expectedQty),0)
  let inspection=task.inspection
+ if(!inspection&&!['待送检','待质检'].includes(task.status))throw new Error('质检来源缺少本次开检标准，请重新读取后核对。')
  if(inspection && task.status!=='质检完成' && kind!=='WAREHOUSE_STOCK'){
   const matched=coverages.filter(row=>row.productionOrderId===task.productionOrderId && (row.scope==='PRODUCTION_ORDER' || row.factoryId===delivery?.sewingFactoryId))
   if(matched.length){inspection={...inspection,fullReasons:[...inspection.fullReasons],audits:inspection.audits.map(row=>({...row}))};applyPostQcFullCoverage(inspection,matched.map(row=>row.label),matched.map(row=>row.createdAt).sort()[0])}
@@ -76,12 +77,6 @@ async function materialize(rows:QualityInspectionRecordView[]):Promise<QualityIn
  return rows.map(visit)
 }
 async function read(detailId?:string):Promise<void> {
- let legacy:boolean
- try{legacy=hasPostFinishingLegacyData()}catch{
-  const [schema]=await readPcsRecordProjection([{id:`${post}/flow/schemaVersion/value`}],row=>row.deleted?null:Number(row.value))
-  legacy=hasPostFinishingLegacyData({verifiedSchemaVersion:schema})
- }
- if(legacy)throw new Error('后道旧资料尚未转换，请先从原后道业务入口明确转换，再查看质检汇集。')
  const deliveries=new Map<string,PostFinishingFactoryReturnDelivery>(),apps=new Map<string,FinishedInventoryApplication>(),transfers=new Map<string,FinishedInventoryTransfer>(),coverage=new Map<string,any>()
  const transferGroups=new Map<string,FinishedInventoryTransfer[]>()
  const baseline=projectPostFinishingStaticRecords('flow',(row)=>row).filter(row=>['flow/qcTasks','flow/deliveries','flow/fullCoverages'].includes(row.collection))
@@ -114,7 +109,7 @@ async function read(detailId?:string):Promise<void> {
   return view(task,deliveries.get(task.deliveryId),task.inventoryApplicationId?apps.get(task.inventoryApplicationId):undefined,task.inventoryApplicationId?transferGroups.get(task.inventoryApplicationId) || []:[],[...coverage.values()],!!detailId)
  }
  await readPcsRecordProjection(selectors,row=>{
-  if(row.id===`${post}/flow/schemaVersion/value`){if(!row.deleted&&![2,3,4].includes(Number(row.value)))throw new Error('后道来源资料格式暂不支持，原记录保留。');if(!row.deleted&&Number(row.value)<4)throw new Error('后道旧资料尚未转换，请先从原后道业务入口明确转换，原记录保留。');return null}
+  if(row.id===`${post}/flow/schemaVersion/value`){if(!row.deleted&&Number(row.value)!==5)throw new Error('后道来源不是当前演示版本，请完成本次定向重建后重新打开。');return null}
   if(row.collection==='flow/qcTasks' || row.id.startsWith(`${post}/flow/qcTasks/`)){
    const id=decodeURIComponent(row.id.split('/').at(-1)!);tasks.delete(id)
    if(!row.deleted){if(row.collection!=='flow/qcTasks' || !id || (row.value as PostFinishingQcTask)?.qcTaskId!==id)throw new Error('质检原记录身份与保存位置不一致，请保留原记录并核对。');projected.set(id,projectTask(row.value as PostFinishingQcTask))}

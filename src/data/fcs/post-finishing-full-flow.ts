@@ -2,11 +2,11 @@ import { resolveQualityStyleContext } from './quality-management-style-context.t
 import { resolveProductionInspectionSource, evaluateProductionInitialFullInspection, type InitialFullInspectionReason } from './quality-management-source.ts'
 import type { InspectionSnapshot, InspectionIssue } from './quality-management-types.ts'
 import { validateInspectionIssues } from './quality-management-rules.ts'
-import { readPreparedInspectionSnapshot } from './quality-management-records.ts'
+import { readPreparedInspectionSnapshot, buildInspectionSnapshotFromConfigurations } from './quality-management-records.ts'
 import { createPostQcInspection, getPostQcSummary, submitPostQcRound, upgradePostQcInspection, applyPostQcFullCoverage, assertPostQcCompletable, type PostQcInspection, type PostQcCount } from './post-finishing-quality.ts'
-import { assertPostFinishingWrite, registerPostFinishingRepository, withPostFinishingDemo, registerPostFinishingMigrationNormalizer, registerPostFinishingRecordValidator, registerPostFinishingReadOnlyMaterialCheck, mapPostFinishingRepositoryValues } from './post-finishing-records.ts'
+import { assertPostFinishingWrite, registerPostFinishingRepository, withPostFinishingDemo, registerPostFinishingRecordValidator, registerPostFinishingReadOnlyMaterialCheck, mapPostFinishingRepositoryValues } from './post-finishing-records.ts'
 import { ppicInstant } from './ppic-daily-return.ts'
-import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES, migratePostFinishingMockImages } from './post-finishing-production-source-fixtures.ts'
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
 import {
   beginPostFinishingAuthorizationDemoBatch,
   buildPostFinishingDifferenceFingerprint,
@@ -147,27 +147,6 @@ export function resolvePostFinishingResponsibility(
     frozenAt,
     defaultProcessItems: handledByPostFactory ? [...POST_FINISHING_PROCESS_ITEMS] : [],
     processItemsEditable: true,
-  }
-}
-
-function normalizeResponsibilitySnapshot(
-  snapshot: PostFinishingResponsibilitySnapshot | undefined,
-  sewingTaskType: PostFinishingSewingTaskType,
-  frozenAt?: string,
-  historicalUnmarked = false,
-): PostFinishingResponsibilitySnapshot {
-  const fallback = resolvePostFinishingResponsibility(sewingTaskType, frozenAt)
-  if (!snapshot && historicalUnmarked) {
-    return { ...fallback, taskTypeLabel: '历史责任未标记', responsibilityLabel: '历史责任未标记', historicalUnmarked: true }
-  }
-  return {
-    ...fallback,
-    ...(snapshot || {}),
-    source: snapshot?.source || fallback.source,
-    frozenAt: snapshot?.frozenAt || fallback.frozenAt,
-    defaultProcessItems: snapshot?.defaultProcessItems
-      ? snapshot.defaultProcessItems.map(normalizePostFinishingProcessItem).filter((item): item is PostFinishingProcessItem => Boolean(item))
-      : fallback.defaultProcessItems,
   }
 }
 
@@ -517,13 +496,6 @@ export interface PostFinishingPostTask {
   status: PostFinishingPostTaskStatus
   processItems: PostFinishingProcessItem[]
   executionModel?: 'ITEMS_V1'
-  legacyCarryover?: {
-    confirmedBy: PostFinishingActor
-    confirmedAt: string
-    reason: string
-    history: Array<{ skuId: string; completedQty: number }>
-    baselines: Array<{ processItem: PostFinishingProcessItem; quantities: Array<{ skuId: string; quantity: number }> }>
-  }
   lines: Array<{ sku: PostFinishingAcceptanceSku; expectedQty: number }>
   startedBy?: PostFinishingActor
   startedAt?: string
@@ -606,9 +578,6 @@ export interface PostFinishingOutboundOrder {
   sequence?: number
   dispatchedAt?: string
   dispatchedBy?: PostFinishingActor
-  retiredRecheckId?: string
-  /** Read-only original retained by the explicit retirement migration. */
-  retiredRecheck?: PostFinishingRecheckOrder
   targetWarehouseId?: string
   outboundOrderId: string
   outboundOrderNo: string
@@ -726,14 +695,7 @@ interface PostFinishingFullCoverage extends InitialFullInspectionReason { covera
 
 interface PostFinishingFullFlowState {
   fullCoverages: PostFinishingFullCoverage[]
-  schemaVersion?: 2 | 3 | 4
-  migration?: {
-    requirementId: 'CLEAN-008'
-    sourceSchemaVersion: 'unversioned' | 1
-    completedAt: string
-    /** 只读旧原串，保留被规范化字段及未识别历史字段；不作为当前业务事实读取。 */
-    legacyRaw: string
-  }
+  schemaVersion: 5
   deliveries: PostFinishingFactoryReturnDelivery[]
   waitProcessWarehouseRecords: PostFinishingWaitProcessWarehouseRecord[]
   waitProcessWarehouseMovements: PostFinishingWaitProcessWarehouseMovement[]
@@ -778,14 +740,6 @@ export interface PostFinishingAuthorizationInput {
   nowMs?: number
 }
 
-// CLEAN-008：保留原 storage key；值格式升级为 schema 2，当前格式不再进入旧派生分支。
-// 删除旧读取器条件：所有需保留浏览器存储均已保存 schema 2 + migration 成功标记，
-// 无版本/v1 历史入口全部完成迁移或明确退役，且历史回归通过后，移除旧格式分支并拒绝旧输入。
-const STORAGE_KEY = 'higood-fcs-post-finishing-full-flow-v1'
-let needsLegacyStateMigration = false
-let hasPersistedFullFlowState = false
-const LEGACY_OUTBOUND_STORAGE_KEY = 'higood-fcs-post-finishing-outbound-orders-v1'
-const LEGACY_OUTBOUND_MIGRATION_MARKER_KEY = 'higood-fcs-post-finishing-outbound-migration-v2'
 const RETURN_TOLERANCE_RATE = 0.05
 export const POST_FINISHING_RETURN_DIFFERENCE_POLICY = Object.freeze({
   toleranceRate: RETURN_TOLERANCE_RATE,
@@ -897,7 +851,7 @@ export const POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS: PostFinishingAcceptanc
 
 function emptyState(): PostFinishingFullFlowState {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     fullCoverages: [],
     processCompletions: [],
     deliveries: [],
@@ -914,242 +868,6 @@ function emptyState(): PostFinishingFullFlowState {
     defects: [],
     materialTransferOrders: [],
     materialStocks: [],
-  }
-}
-
-function backfillDeliveryExecutionIdentity(delivery: PostFinishingFactoryReturnDelivery): PostFinishingFactoryReturnDelivery {
-  const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === delivery.productionOrderNo)
-  if (!order) return delivery
-  return {
-    ...delivery,
-    executionTaskId: delivery.executionTaskId || order.executionTaskId,
-    sewingTaskNo: delivery.sewingTaskNo || order.sewingTaskNo,
-    assignmentId: delivery.assignmentId || order.assignmentId,
-    sewingTaskType: delivery.sewingTaskType || order.sewingTaskType,
-    sewingFactoryId: order.sewingFactoryId,
-    sewingFactoryName: order.sewingFactoryName,
-  }
-}
-
-function deriveLegacyConfirmationVersions(deliveries: PostFinishingFactoryReturnDelivery[]): PostFinishingReturnConfirmationVersion[] {
-  return deliveries.filter((delivery) => delivery.confirmedAt && delivery.confirmedBy).map((delivery) => ({
-    confirmationVersionId: `PF-RET-CONF-LEGACY-${delivery.deliveryId}`,
-    deliveryId: delivery.deliveryId,
-    deliveryOrderNo: delivery.deliveryOrderNo,
-    productionOrderId: delivery.productionOrderId,
-    productionOrderNo: delivery.productionOrderNo,
-    executionTaskId: delivery.executionTaskId,
-    sewingTaskNo: delivery.sewingTaskNo,
-    assignmentId: delivery.assignmentId,
-    factoryId: delivery.sewingFactoryId,
-    factoryName: delivery.sewingFactoryName,
-    sewingTaskType: delivery.sewingTaskType,
-    registeredQty: total(delivery.lines.map((line) => line.registeredQty)),
-    confirmedQty: total(delivery.lines.map((line) => line.confirmedQty || 0)),
-    confirmedAt: delivery.confirmedAt!,
-    versionCreatedAt: delivery.confirmedAt!,
-    confirmedBy: { ...delivery.confirmedBy! },
-    versionKind: 'FINAL_CONFIRMATION',
-    status: 'ACTIVE',
-    lines: delivery.lines.map((line) => ({
-      skuId: line.sku.skuId,
-      skuCode: line.sku.skuCode,
-      colorName: line.sku.colorName,
-      sizeName: line.sku.sizeName,
-      registeredQty: line.registeredQty,
-      confirmedQty: line.confirmedQty || 0,
-    })),
-  }))
-}
-
-function readPersistedState(sourceRaw: string | null): PostFinishingFullFlowState {
-  try {
-    const parsed = sourceRaw ? JSON.parse(sourceRaw) as Partial<Omit<PostFinishingFullFlowState, 'schemaVersion'>> & { schemaVersion?: number } : undefined
-    if (sourceRaw && (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))) {
-      throw new Error('保存内容不是后道数据对象')
-    }
-    const sourceSchemaVersion = parsed?.schemaVersion
-    if (sourceSchemaVersion !== undefined && sourceSchemaVersion !== 1 && sourceSchemaVersion !== 2 && sourceSchemaVersion !== 3 && sourceSchemaVersion !== 4) {
-      throw new Error(`不支持后道数据格式 schema ${sourceSchemaVersion}，原始保存内容未修改`)
-    }
-    if ((sourceSchemaVersion === 2 || sourceSchemaVersion === 3 || sourceSchemaVersion === 4) && Object.keys(emptyState()).some((key) => key !== 'schemaVersion' && (key !== 'fullCoverages' || sourceSchemaVersion === 4) && (sourceSchemaVersion === 3 || sourceSchemaVersion === 4 || key !== 'processCompletions') && !Array.isArray(parsed?.[key as keyof PostFinishingFullFlowState]))) {
-      throw new Error('后道 schema 2 缺少必要事实集合，原始保存内容未修改')
-    }
-
-    if (!parsed || !sourceRaw) return emptyState()
-    migratePostFinishingMockImages(parsed)
-    hasPersistedFullFlowState = true
-    if (sourceSchemaVersion === 2 || sourceSchemaVersion === 3 || sourceSchemaVersion === 4) return { ...parsed, fullCoverages: parsed.fullCoverages || [], processCompletions: parsed.processCompletions || [] } as PostFinishingFullFlowState
-    needsLegacyStateMigration = true
-    const deliveries = (Array.isArray(parsed.deliveries) ? parsed.deliveries : []).map(backfillDeliveryExecutionIdentity)
-    return {
-      schemaVersion: 2,
-      fullCoverages: [],
-      processCompletions: [],
-      migration: {
-        requirementId: 'CLEAN-008',
-        sourceSchemaVersion: sourceSchemaVersion === 1 ? 1 : 'unversioned',
-        completedAt: '',
-        legacyRaw: sourceRaw,
-      },
-      deliveries,
-      waitProcessWarehouseRecords: Array.isArray(parsed.waitProcessWarehouseRecords) ? parsed.waitProcessWarehouseRecords : [],
-      waitProcessWarehouseMovements: Array.isArray(parsed.waitProcessWarehouseMovements) ? parsed.waitProcessWarehouseMovements : [],
-      waitHandoverWarehouseRecords: Array.isArray(parsed.waitHandoverWarehouseRecords)
-        ? parsed.waitHandoverWarehouseRecords.map((record) => {
-            const delivery = deliveries.find((item) => item.deliveryId === record.deliveryId)
-            return {
-              ...record,
-              responsibility: normalizeResponsibilitySnapshot(
-                record.responsibility,
-                delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
-                record.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
-                !record.responsibility && !delivery,
-              ),
-              sourceType: record.sourceType || (record.postTaskId ? '后道加工后' : '质检直达'),
-              areaName: '处理后待交出区',
-            }
-          })
-        : [],
-      waitHandoverWarehouseMovements: Array.isArray(parsed.waitHandoverWarehouseMovements) ? parsed.waitHandoverWarehouseMovements : [],
-      returnConfirmationVersions: Array.isArray(parsed.returnConfirmationVersions)
-        ? parsed.returnConfirmationVersions.map((version) => ({
-            ...version,
-            versionCreatedAt: version.versionCreatedAt || version.confirmedAt,
-          }))
-        : deriveLegacyConfirmationVersions(deliveries),
-      qcTasks: Array.isArray(parsed.qcTasks)
-        ? parsed.qcTasks.map((task) => {
-            const {
-              needPostFinishing: _legacyNeedPostFinishing,
-              ...taskWithoutLegacyNeedPostFinishing
-            } = task as PostFinishingQcTask & { needPostFinishing?: boolean }
-            const delivery = deliveries.find((item) => item.deliveryId === task.deliveryId)
-            const responsibility = normalizeResponsibilitySnapshot(
-              task.responsibility,
-              delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
-              task.createdAt || task.sentAt || delivery?.confirmedAt || delivery?.registeredAt,
-              !task.responsibility && !delivery,
-            )
-            return {
-              ...taskWithoutLegacyNeedPostFinishing,
-              responsibility,
-              frozenProcessItems: task.frozenProcessItems?.map(normalizePostFinishingProcessItem).filter((item): item is PostFinishingProcessItem => Boolean(item)),
-              createdBy: task.createdBy || task.sentBy || delivery?.confirmedBy || POST_FINISHING_ACCEPTANCE_ACTORS.returnConfirmer,
-              createdAt: task.createdAt || task.sentAt || delivery?.confirmedAt || delivery?.registeredAt || nowIso(),
-            }
-          })
-        : [],
-      postTasks: Array.isArray(parsed.postTasks)
-        ? parsed.postTasks.map((task) => {
-            const delivery = deliveries.find((item) => item.deliveryId === task.deliveryId)
-            const legacyTask = task as unknown as {
-              draftLines?: Array<PostFinishingPostDraftLine & {
-                completedQty?: number
-                defectQty?: number
-                returnQty?: number
-              }>
-              results?: Array<PostFinishingPostResultLine & {
-                completedQty?: number
-                passedQty?: number
-                defectQty?: number
-                returnQty?: number
-              }>
-            }
-            const responsibility = normalizeResponsibilitySnapshot(
-              task.responsibility,
-              delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
-              (task as PostFinishingPostTask & { createdAt?: string }).createdAt || delivery?.confirmedAt || delivery?.registeredAt,
-              !task.responsibility && !delivery,
-            )
-            return {
-              ...task,
-              responsibility,
-              sourceType: task.sourceType || (responsibility.responsibilityMode === 'POST_FACTORY' ? '任务后道' : '质检补加工'),
-              processItems: task.processItems.map(normalizePostFinishingProcessItem).filter((item): item is PostFinishingProcessItem => Boolean(item)),
-              draftLines: legacyTask.draftLines?.map((draft) => {
-                const expectedQty = task.lines.find((line) => line.sku.skuId === draft.skuId)?.expectedQty || 0
-                const legacyExceptionQty = (draft.defectQty || 0) + (draft.returnQty || 0)
-                const processedQty = draft.processedQty
-                  ?? Math.max(0, (draft.completedQty || 0) - legacyExceptionQty)
-                return {
-                  skuId: draft.skuId,
-                  processedQty,
-                  unprocessedQty: draft.unprocessedQty
-                    ?? (task.status === '后道完成' ? Math.max(0, expectedQty - processedQty) : 0),
-                  unprocessedReason: draft.unprocessedReason
-                    ?? (legacyExceptionQty > 0 ? '历史后道异常记录已保留在操作日志中' : undefined),
-                  updatedBy: draft.updatedBy,
-                  updatedAt: draft.updatedAt,
-                }
-              }),
-              results: legacyTask.results?.map((result) => {
-                const processedQty = result.processedQty
-                  ?? result.passedQty
-                  ?? Math.max(0, (result.completedQty || 0) - (result.defectQty || 0) - (result.returnQty || 0))
-                const legacyExceptionQty = (result.defectQty || 0) + (result.returnQty || 0)
-                return {
-                  sku: result.sku,
-                  expectedQty: result.expectedQty,
-                  processedQty,
-                  unprocessedQty: result.unprocessedQty ?? Math.max(0, result.expectedQty - processedQty),
-                  unprocessedReason: result.unprocessedReason
-                    ?? (legacyExceptionQty > 0 ? '历史后道异常记录已保留在操作日志中' : undefined),
-                }
-              }),
-            }
-          })
-        : [],
-      recheckOrders: Array.isArray(parsed.recheckOrders)
-        ? parsed.recheckOrders.map((record) => {
-            const delivery = deliveries.find((item) => item.deliveryId === record.deliveryId)
-            return {
-              ...record,
-              responsibility: normalizeResponsibilitySnapshot(
-                record.responsibility,
-                delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
-                (record as PostFinishingRecheckOrder & { createdAt?: string }).createdAt || delivery?.confirmedAt || delivery?.registeredAt,
-                !record.responsibility && !delivery,
-              ),
-              sourceType: record.sourceType || (record.postTaskId ? '后道加工后' : '质检直达'),
-              lines: record.lines.map((line) => {
-                const legacyLine = line as PostFinishingRecheckLine & { passedQty?: number }
-                return {
-                  sku: line.sku,
-                  expectedQty: line.expectedQty,
-                  handoverQty: line.handoverQty ?? legacyLine.passedQty,
-                  barcodeStatus: line.barcodeStatus,
-                  lastScannedBarcode: line.lastScannedBarcode,
-                  barcodeEvents: line.barcodeEvents,
-                }
-              }),
-            }
-          })
-        : [],
-      outboundOrders: Array.isArray(parsed.outboundOrders)
-        ? parsed.outboundOrders.map((record) => {
-            const delivery = deliveries.find((item) => item.deliveryId === record.deliveryId)
-            return {
-              ...record,
-              responsibility: normalizeResponsibilitySnapshot(
-                record.responsibility,
-                delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
-                record.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
-                !record.responsibility && !delivery,
-              ),
-              sourceType: record.sourceType || (record.postTaskId ? '后道加工后' : '质检直达'),
-            }
-          })
-        : [],
-      warehouseReceipts: Array.isArray(parsed.warehouseReceipts) ? parsed.warehouseReceipts : [],
-      defects: Array.isArray(parsed.defects) ? parsed.defects : [],
-      materialTransferOrders: Array.isArray(parsed.materialTransferOrders) ? parsed.materialTransferOrders : [],
-      materialStocks: Array.isArray(parsed.materialStocks) ? parsed.materialStocks : [],
-    }
-  } catch (error) {
-    // 已存在的未知/损坏数据不能当空库启动并被演示数据覆盖。
-    if (sourceRaw) throw new Error(`后道历史数据读取失败：${error instanceof Error ? error.message : String(error)}`)
-    return emptyState()
   }
 }
 
@@ -1832,12 +1550,6 @@ function findPostTask(postTaskIdOrNo: string): PostFinishingPostTask {
   const task = state.postTasks.find((item) => item.postTaskId === postTaskIdOrNo || item.postTaskNo === postTaskIdOrNo)
   if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到后道加工单 ${postTaskIdOrNo}。`)
   return task
-}
-
-function findRecheck(recheckIdOrNo: string): PostFinishingRecheckOrder {
-  const record = state.recheckOrders.find((item) => item.recheckOrderId === recheckIdOrNo || item.recheckOrderNo === recheckIdOrNo)
-  if (!record) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到复检单 ${recheckIdOrNo}。`)
-  return record
 }
 
 function findOutbound(outboundIdOrNo: string): PostFinishingOutboundOrder {
@@ -2630,7 +2342,7 @@ export function claimPostFinishingQcTask(input: {
   if (active) {
     if (active.qcTaskNo === input.qcTaskNo.trim()) {
       const current = findQcTask(active.qcTaskId)
-      if (!current.inspection && !buildingDemoData) initializePostFinishingQcInspection(current, input.nowMs)
+      if (!current.inspection) initializePostFinishingQcInspection(current, input.nowMs)
       return clone(current)
     }
     throw new PostFinishingFlowGateError('CLAIM_CONFLICT', `请先完成当前质检单 ${active.qcTaskNo}，再领取下一张。`)
@@ -2664,7 +2376,7 @@ export function claimPostFinishingQcTask(input: {
   if (exact.status !== '待质检') {
     throw new PostFinishingFlowGateError('INVALID_STATUS', `该质检单当前为${exact.status}，只有待质检且未被领取的单据才能领取。`)
   }
-  if (!buildingDemoData) initializePostFinishingQcInspection(exact, input.nowMs)
+  initializePostFinishingQcInspection(exact, input.nowMs)
   exact.claimedBy = clone(input.actor)
   exact.claimedAt = now
   exact.status = '质检中'
@@ -2682,17 +2394,12 @@ export function releasePostFinishingQcTask(_input: { qcTaskId: string; actor: Po
 
 function calculatePostFinishingProcessProgress(taskOrId: string | PostFinishingPostTask, includeDetails: boolean, copyDetails = true) {
   const task = typeof taskOrId === 'string' ? findPostTask(taskOrId) : taskOrId
-  const legacy = task.executionModel !== 'ITEMS_V1'
-  const records = (state.processCompletions || []).filter(row => row.postTaskId === task.postTaskId && !(legacy && row.operationId.startsWith('DEMO:')))
-  const children = state.recheckOrders.filter(row => row.postTaskId === task.postTaskId)
-  const directOutbounds = state.outboundOrders.filter(row => row.postTaskId === task.postTaskId && row.executionModel === 'DIRECT_V2')
-  const history = task.legacyCarryover?.history || (legacy && task.results
-    ? task.results.map(row => ({ skuId: row.sku.skuId, completedQty: row.processedQty })) : [])
+  const records = state.processCompletions.filter(row => row.postTaskId === task.postTaskId)
+  const directOutbounds = state.outboundOrders.filter(row => row.postTaskId === task.postTaskId)
   const itemLines = (processItem: PostFinishingProcessItem) => task.lines.map(line => {
-    const historyCompletedQty = history.find(row => row.skuId === line.sku.skuId)?.completedQty || 0
+    const historyCompletedQty = 0
     const expectedQty = line.expectedQty - historyCompletedQty
-    const baseline = task.legacyCarryover?.baselines.find(row => row.processItem === processItem)?.quantities.find(row => row.skuId === line.sku.skuId)?.quantity || 0
-    const completedQty = baseline + total(records.filter(row => row.processItem === processItem).flatMap(row => row.quantities.filter(q => q.skuId === line.sku.skuId).map(q => q.quantity)))
+    const completedQty = total(records.filter(row => row.processItem === processItem).flatMap(row => row.quantities.filter(q => q.skuId === line.sku.skuId).map(q => q.quantity)))
     return { sku: includeDetails && copyDetails ? clone(line.sku) : line.sku, expectedQty, completedQty, availableQty: 0, historyCompletedQty }
   })
   const selected = POST_FINISHING_PROCESS_ITEMS.filter(item => task.processItems.includes(item))
@@ -2707,14 +2414,12 @@ function calculatePostFinishingProcessProgress(taskOrId: string | PostFinishingP
   const last = includeDetails ? processes.find(row => row.processItem === selected.at(-1))
     : selected.length ? { lines: itemLines(selected.at(-1)!) } : undefined
   const lines = task.lines.map((line, i) => {
-    const historyCompletedQty = history.find(row => row.skuId === line.sku.skuId)?.completedQty || 0
+    const historyCompletedQty = 0
     const completedQty = historyCompletedQty + (last?.lines[i].completedQty || 0)
-    const reservedQty = total(children.flatMap(row => row.lines.filter(q => q.sku.skuId === line.sku.skuId).map(q => Math.max(q.expectedQty, q.handoverQty ?? q.expectedQty))))
-      + total(directOutbounds.flatMap(row => row.lines.filter(q => q.sku.skuId === line.sku.skuId).map(q => q.outboundQty)))
+    const reservedQty = total(directOutbounds.flatMap(row => row.lines.filter(q => q.sku.skuId === line.sku.skuId).map(q => q.outboundQty)))
     return { sku: includeDetails && copyDetails ? clone(line.sku) : line.sku, expectedQty: line.expectedQty, completedQty, reservedQty, historyCompletedQty, availableForOutboundQty: completedQty - reservedQty }
   })
-  const legacyPending = legacy && !task.legacyCarryover && lines.some(row => row.historyCompletedQty !== row.expectedQty || row.availableForOutboundQty < 0)
-  return { processes, lines, records: includeDetails ? copyDetails ? clone(records) : records : [], legacyPending,
+  return { processes, lines, records: includeDetails ? copyDetails ? clone(records) : records : [],
     totalExpectedQty: total(lines.map(row => row.expectedQty)), totalCompletedQty: total(lines.map(row => row.completedQty)),
     totalReservedQty: total(lines.map(row => row.reservedQty)), availableForOutboundQty: total(lines.map(row => row.availableForOutboundQty)) }
 }
@@ -2794,7 +2499,6 @@ export function appendPostFinishingProcessCompletion(input: {
     return clone(task)
   }
   const progress = getPostFinishingProcessProgress(task)
-  if (progress.legacyPending) throw new PostFinishingFlowGateError('INVALID_STATUS', '历史在制数量尚未核对，不能直接登记新加工。')
   const process = progress.processes.find(row => row.processItem === input.processItem && row.applicable)
   if (!process) throw new PostFinishingFlowGateError('INVALID_STATUS', '当前加工项不在质检确认范围内。')
   for (const line of quantities) {
@@ -2807,7 +2511,7 @@ export function appendPostFinishingProcessCompletion(input: {
     processItem: input.processItem, quantities, responsible: clone(input.responsible), recordedBy: clone(input.actor), recordedAt: at })
   task.startedAt ||= at
   task.startedBy ||= clone(input.actor)
-  state.schemaVersion = 4
+  state.schemaVersion = 5
   syncPostProcessStatus(task, at)
   appendBusinessLog({ stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
     action: `登记${input.processItem}完成`, actor: input.actor, operatedAt: at, afterStatus: task.status,
@@ -2845,41 +2549,6 @@ export function correctPostFinishingProcessCompletion(input: {
   syncPostProcessStatus(task, record.recordedAt)
   appendBusinessLog({ stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
     action: `订正${original.processItem}记录`, actor: input.actor, operatedAt: record.recordedAt, differenceQuantity: total(quantities.map(row => row.quantity)), remark: input.reason.trim() })
-  persist()
-  return clone(task)
-}
-
-export function confirmPostFinishingLegacyCarryover(input: {
-  postTaskId: string; processItems: PostFinishingProcessItem[]; history: Array<{ skuId: string; completedQty: number }>
-  baselines: Array<{ processItem: PostFinishingProcessItem; quantities: Array<{ skuId: string; quantity: number }> }>
-  actor: PostFinishingActor; reason: string; nowMs?: number
-}): PostFinishingPostTask {
-  assertPostFinishingWrite()
-  assertPostProcessActor(input.actor)
-  const task = findPostTask(input.postTaskId)
-  if (!input.actor.roleName.includes('主管') || !input.reason?.trim() || task.executionModel === 'ITEMS_V1' || task.legacyCarryover) throw new PostFinishingFlowGateError('INVALID_STATUS', '仅后道主管可核对未承接的历史加工单，须填写原因。')
-  const items = POST_FINISHING_PROCESS_ITEMS.filter(item => input.processItems.includes(item))
-  if (!items.length || new Set(input.history.map(row => row.skuId)).size !== task.lines.length || input.history.length !== task.lines.length) throw new PostFinishingFlowGateError('INVALID_QUANTITY', '历史承接须确认加工项和全部SKU。')
-  for (const line of task.lines) {
-    const h = input.history.find(row => row.skuId === line.sku.skuId)?.completedQty
-    const known = task.results?.find(row => row.sku.skuId === line.sku.skuId)?.processedQty
-    if (!Number.isSafeInteger(h) || h! < 0 || h! > line.expectedQty || (known !== undefined && h !== known)) throw new PostFinishingFlowGateError('INVALID_QUANTITY', '历史完成量必须有原记录依据，且不超过原应加工量。')
-  }
-  if (new Set(input.baselines.map(row => row.processItem)).size !== input.baselines.length || input.baselines.some(row => !items.includes(row.processItem))) throw new PostFinishingFlowGateError('INVALID_QUANTITY', '历史分项承接项目重复或不在实际范围。')
-  for (const baseline of input.baselines) {
-    if (new Set(baseline.quantities.map(row => row.skuId)).size !== baseline.quantities.length || baseline.quantities.some(row => !task.lines.some(line => line.sku.skuId === row.skuId) || !Number.isSafeInteger(row.quantity) || row.quantity < 0)) throw new PostFinishingFlowGateError('INVALID_QUANTITY', '历史分项核对数量无效。')
-  }
-  const before = clone(task)
-  task.processItems = items
-  task.legacyCarryover = { confirmedBy: clone(input.actor), confirmedAt: nowIso(input.nowMs), reason: input.reason.trim(), history: clone(input.history), baselines: clone(input.baselines) }
-  const progress = getPostFinishingProcessProgress(task)
-  if (progress.processes.some(row => row.applicable && row.lines.some(line => line.completedQty > line.expectedQty || line.availableQty < 0)) || progress.lines.some(line => line.availableForOutboundQty < 0)) {
-    Object.assign(task, before); delete task.legacyCarryover
-    throw new PostFinishingFlowGateError('INVALID_QUANTITY', '承接数量与前后序或既有复检占用不符，原记录保留。')
-  }
-  syncPostProcessStatus(task, task.legacyCarryover.confirmedAt)
-  appendBusinessLog({ stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
-    action: '核对历史合并承接', actor: input.actor, operatedAt: task.legacyCarryover.confirmedAt, remark: input.reason.trim() })
   persist()
   return clone(task)
 }
@@ -2961,6 +2630,7 @@ function initialInspectionSource(task: PostFinishingQcTask) {
   return { productionOrderId: task.productionOrderId, productionOrderNo: task.productionOrderNo, taskId: delivery.executionTaskId, factoryId: delivery.sewingFactoryId }
 }
 function rememberInitialFullCoverage(task: PostFinishingQcTask, nowMs?: number): void {
+  if(buildingDemoData)return
   if (!task.inspection || task.status === '质检完成') return
   const sourceInput = initialInspectionSource(task)
   if (!sourceInput) return
@@ -2975,13 +2645,22 @@ function rememberInitialFullCoverage(task: PostFinishingQcTask, nowMs?: number):
   else if (evaluated.unresolved.length && task.inspection.snapshot.ruleSnapshot?.initialFullInspection) throw new Error(`初始全检来源未能确定：${evaluated.unresolved.join('；')}。请先核对来源，不能推测为抽检。`)
 }
 function initializePostFinishingQcInspection(task: PostFinishingQcTask, nowMs?: number): void {
+  if(buildingDemoData) {
+    // Fixed new-format demonstration; no browser source reads or seed writes.
+    const snapshot=buildInspectionSnapshotFromConfigurations({sourceKind:'PRODUCTION_RETURN',styleId:task.styleId,styleCode:task.lines[0]?.sku.spuCode})
+    snapshot.id=`DEMO-STANDARD:${task.qcTaskId}`; snapshot.selectedAt=nowIso(nowMs)
+    snapshot.skuSnapshots=task.lines.map(line=>({skuId:line.sku.skuId,snapshot:{...buildInspectionSnapshotFromConfigurations({...snapshot.context,attributes:{size:line.sku.sizeName,color:line.sku.colorName}}),id:`${snapshot.id}:${line.sku.skuId}`,selectedAt:snapshot.selectedAt}}))
+    task.inspection=createPostQcInspection(snapshot,['演示样本：工厂首次车缝任务全检'])
+    return
+  }
   if (task.inspection) { rememberInitialFullCoverage(task,nowMs); return }
   const sourceInput = initialInspectionSource(task)
   const source = sourceInput ? resolveProductionInspectionSource(sourceInput) : undefined
   const context = { sourceKind: task.sourceKind || 'PRODUCTION_RETURN' as const, ...resolveQualityStyleContext({styleId:task.styleId || source?.styleId,styleCode:source?.styleCode || task.lines[0]?.sku.spuCode}),
     references: listPostFinishingQcReferences().filter(row => task.referenceIds.includes(row.referenceId)).map(row => ({ id: `${row.referenceId}:v${row.version}`, name: row.title, kind: 'DOCUMENT' as const, sourceId:row.referenceId, sourceVersion:row.version, description:row.description, imageUrl:row.imageUrl, value:row.imageUrl || row.description })) }
-  const snapshot = readPreparedInspectionSnapshot(context)
-  snapshot.skuSnapshots = task.lines.map(line => ({ skuId: line.sku.skuId,snapshot:readPreparedInspectionSnapshot({...context,attributes:{size:line.sku.sizeName,color:line.sku.colorName}}) }))
+  const buildSnapshot = readPreparedInspectionSnapshot
+  const snapshot = buildSnapshot(context)
+  snapshot.skuSnapshots = task.lines.map(line => ({ skuId: line.sku.skuId,snapshot:buildSnapshot({...context,attributes:{size:line.sku.sizeName,color:line.sku.colorName}}) }))
   task.inspection = createPostQcInspection(snapshot)
   rememberInitialFullCoverage(task,nowMs)
 }
@@ -3002,7 +2681,7 @@ export function submitPostFinishingQcRound(input: { qcTaskId: string; actor: Pos
   assertPostFinishingWrite()
   const task = findQcTask(input.qcTaskId)
   if (task.status !== '质检中' || task.claimedBy?.actorId !== input.actor.actorId) throw new Error('只有当前领取人能提交尚未结束的QC。')
-  if (!task.inspection) throw new Error('旧在检记录尚未固定标准，请先确认本次要求后再检查。')
+  if (!task.inspection) throw new Error('本次质检要求缺失，请重新读取后核对。')
   rememberInitialFullCoverage(task,input.nowMs)
   const round = submitPostQcRound(task.inspection, qcSupply(task), { ...input, actorId: input.actor.actorId, submittedAt: nowIso(input.nowMs) })
   appendBusinessLog({ stage: '质检', delivery: task.sourceKind === 'WAREHOUSE_STOCK' ? undefined : findDelivery(task.deliveryId), objectType: '质检单', objectId: task.qcTaskId,
@@ -3026,7 +2705,7 @@ export function attachPostFinishingQcSignedPaper(input: { qcTaskId: string; acto
   if (task.status !== '质检中' || task.claimedBy?.actorId !== input.actor.actorId || !task.inspection) throw new Error('只有原领取人能上传当前在检QC纸单。')
   if (!input.url || !input.name.trim()) throw new Error('请选择真实纸单文件。')
   rememberInitialFullCoverage(task,input.nowMs)
-  task.inspection.papers.push({ id: crypto.randomUUID(), version: task.inspection.paperVersion, name: input.name, url: input.url, uploadedAt: nowIso(input.nowMs) })
+  task.inspection.papers.push({ id: buildingDemoData ? `DEMO-PAPER:${task.qcTaskId}:${task.inspection.paperVersion}` : crypto.randomUUID(), version: task.inspection.paperVersion, name: input.name, url: input.url, uploadedAt: nowIso(input.nowMs) })
   persist(); return clone(task)
 }
 export function clarifyPostFinishingQcBasis(input:{qcTaskId:string;actor:PostFinishingActor;itemId:string;conflictDescription:string;adoptedBasis:string;clarificationNote:string;operationId:string;nowMs?:number}):PostFinishingQcTask {
@@ -3083,10 +2762,10 @@ export function completePostFinishingQcTask(input: { qcTaskId: string; actor: Po
       defectReason: issues.map(issue => task.inspection!.snapshot.items.find(item => item.id === issue.itemId)?.name || issue.itemId).join('、'), returnReason: row.returnQty ? '按本次标准发现返工问题' : undefined,
       returnReceiver: row.returnQty ? 'goto_global' : undefined }
   })
-  return completeLegacyPostFinishingQcTask({ ...input, results })
+  return completePostFinishingQcResults({ ...input, results })
 }
 
-function completeLegacyPostFinishingQcTask(input: {
+function completePostFinishingQcResults(input: {
   qcTaskId: string
   actor: PostFinishingActor
   results: Array<Omit<PostFinishingQualityResultLine, 'sku' | 'expectedQty'> & { skuId: string }>
@@ -3113,19 +2792,6 @@ function completeLegacyPostFinishingQcTask(input: {
     assertIntegerQuantity(submitted.passedQty, { label: `SKU ${line.sku.skuCode} 合格数量` })
     assertIntegerQuantity(submitted.defectQty, { label: `SKU ${line.sku.skuCode} 瑕疵数量` })
     assertIntegerQuantity(submitted.returnQty, { label: `SKU ${line.sku.skuCode} 返厂数量` })
-    const defectReasonQuantities = task.inspection ? undefined : normalizePostDefectReasonQuantities(
-      submitted.defectReasonQuantities
-        ?? (submitted.defectQty > 0 && submitted.defectReason?.trim()
-          ? [{ reason: submitted.defectReason.trim(), quantity: submitted.defectQty }]
-          : []),
-      `SKU ${line.sku.skuCode} 瑕疵数量`,
-    )
-    if (!task.inspection && total((defectReasonQuantities || []).map((item) => item.quantity)) !== submitted.defectQty) {
-      throw new PostFinishingFlowGateError(
-        'INVALID_QUANTITY',
-        `SKU ${line.sku.skuCode} 的瑕疵数量必须等于各瑕疵原因数量之和。`,
-      )
-    }
     if (submitted.returnQty > 0 && (!submitted.returnReason?.trim() || !submitted.returnReceiver?.trim())) {
       throw new Error(`SKU ${line.sku.skuCode} 有返工数量时必须选择返工工厂。`)
     }
@@ -3139,8 +2805,7 @@ function completeLegacyPostFinishingQcTask(input: {
       uninspectedQty: submitted.uninspectedQty, releasedQty: submitted.releasedQty, issues: submitted.issues,
       defectQty: submitted.defectQty,
       returnQty: submitted.returnQty,
-      defectReasonQuantities,
-      defectReason: task.inspection ? submitted.defectReason : defectReasonQuantities?.map((item) => item.reason).join('、') || undefined,
+      defectReason: submitted.defectReason,
       defectImageUrl: submitted.defectImageUrl,
       responsibleParty: submitted.responsibleParty,
       returnReason: submitted.returnReason?.trim(),
@@ -3152,16 +2817,6 @@ function completeLegacyPostFinishingQcTask(input: {
     expectedQty: line.expectedQty,
     actualQty: line.passedQty + line.defectQty + line.returnQty,
   }))
-  const hasDifference = quantities.some((line) => line.expectedQty !== line.actualQty)
-  let consumed: PostFinishingAuthorizationConsumption | undefined
-  if (hasDifference && !task.inspection) {
-    consumed = consumeRequiredAuthorization({
-      stage: '质检', delivery, objectId: task.qcTaskId, objectNo: task.qcTaskNo,
-      actor: input.actor, authorization: input.authorization, operatedAt: now, quantities,
-    })
-    task.qcAuthorizationId = consumed.authorizationId
-    task.qcAuthorizedBy = { authorizerId: consumed.authorizerId, authorizerName: consumed.authorizerName }
-  }
   task.results = results
   const responsibility = task.responsibility || resolvePostFinishingResponsibility(delivery.sewingTaskType)
   const selectedItems = submittedProcessItems as PostFinishingProcessItem[]
@@ -3191,9 +2846,7 @@ function completeLegacyPostFinishingQcTask(input: {
       action: '完成质检', actor: input.actor, operatedAt: now, beforeStatus: '质检中', afterStatus: task.status,
       beforeQuantity: total(task.lines.map((line) => line.expectedQty)),
       afterQuantity: total(quantities.map((line) => line.actualQty)),
-      differenceQuantity: task.inspection ? 0 : total(quantities.map((line) => line.actualQty)) - total(quantities.map((line) => line.expectedQty)),
-      differenceReason: input.authorization?.differenceReason,
-      authorization: consumed,
+      differenceQuantity: 0,
       remark: outbound
         ? `本次不需要我方后道处理；不生成后道加工单，生成待实际发出的后道出货单 ${outbound.outboundOrderNo}`
         : '本次没有合格可交数量；不生成后道加工单或空出货单',
@@ -3246,9 +2899,9 @@ function completeLegacyPostFinishingQcTask(input: {
     action: '完成质检', actor: input.actor, operatedAt: now, beforeStatus: '质检中', afterStatus: task.status,
     beforeQuantity: total(task.lines.map((line) => line.expectedQty)),
     afterQuantity: total(quantities.map((line) => line.actualQty)),
-    differenceQuantity: task.inspection ? 0 : total(quantities.map((line) => line.actualQty)) - total(quantities.map((line) => line.expectedQty)),
+    differenceQuantity: 0,
     differenceReason: input.authorization?.differenceReason,
-    authorization: consumed,
+
     remark: `${postTask.sourceType === '质检补加工' ? '发现三方工厂漏做，' : ''}生成唯一后道加工单；加工项目：${processItems.join('、')}`,
   })
   return clone(task)
@@ -3346,7 +2999,6 @@ export function startPostFinishingPostTask(input: { postTaskNo: string; actor: P
   assertPostProcessActor(input.actor)
   const task = state.postTasks.find(row => row.postTaskNo === input.postTaskNo.trim())
   if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到完整后道加工单号。')
-  if (getPostFinishingProcessProgress(task).legacyPending) throw new PostFinishingFlowGateError('INVALID_STATUS', '历史在制数量尚未核对。')
   return clone(task)
 }
 
@@ -3429,7 +3081,6 @@ export function submitPostFinishingForOutbound(input: {
   if (duplicate) { if (duplicate.operationIntent !== intent) throw new Error('此出货分配已经提交，不能改写。'); return clone(duplicate) }
   if (!input.operationId.trim() || !input.quantities.length || new Set(input.quantities.map(row => row.skuId)).size !== input.quantities.length) throw new Error('出货缺少提交身份或SKU重复。')
   const progress = calculatePostFinishingProcessProgress(task,true)
-  if (progress.legacyPending) throw new Error('历史加工分项尚未核对，请先保留原记录完成核对。')
   const lines = input.quantities.map(row => {
     assertIntegerQuantity(row.quantity,{ label: '本次出货数量' })
     const available = progress.lines.find(line => line.sku.skuId === row.skuId)
@@ -3469,47 +3120,6 @@ export function dispatchPostFinishingOutboundOrder(input: { outboundOrderId: str
   return clone(outbound)
 }
 
-function getOrCreateWaitHandoverWarehouseRecord(input: {
-  recheck: PostFinishingRecheckOrder
-  outbound: PostFinishingOutboundOrder
-  delivery: PostFinishingFactoryReturnDelivery
-  operator: PostFinishingActor
-  operatedAt: string
-}): PostFinishingWaitHandoverWarehouseRecord {
-  const existing = state.waitHandoverWarehouseRecords.find((item) => item.recheckOrderId === input.recheck.recheckOrderId)
-  if (existing) return existing
-  const record: PostFinishingWaitHandoverWarehouseRecord = {
-    warehouseRecordId: `PF-WHW-${input.recheck.recheckOrderId}`,
-    deliveryId: input.delivery.deliveryId,
-    deliveryOrderNo: input.delivery.deliveryOrderNo,
-    productionOrderNo: input.delivery.productionOrderNo,
-    returnIndex: input.delivery.returnIndex,
-    qcTaskId: input.recheck.qcTaskId,
-    qcTaskNo: input.recheck.qcTaskNo,
-    postTaskId: input.recheck.postTaskId,
-    postTaskNo: input.recheck.postTaskNo,
-    responsibility: clone(input.recheck.responsibility),
-    sourceType: input.recheck.sourceType,
-    recheckOrderId: input.recheck.recheckOrderId,
-    recheckOrderNo: input.recheck.recheckOrderNo,
-    outboundOrderId: input.outbound.outboundOrderId,
-    outboundOrderNo: input.outbound.outboundOrderNo,
-    areaName: '处理后待交出区',
-    locationCode: `WH-${input.delivery.productionOrderId}-${input.delivery.returnIndex}`,
-    status: '待交出',
-    lines: input.outbound.lines.map((line) => ({
-      sku: clone(line.sku),
-      inboundQty: line.outboundQty,
-      availableQty: line.outboundQty,
-      handedOverQty: 0,
-    })),
-    createdAt: input.operatedAt,
-    createdBy: clone(input.operator),
-  }
-  state.waitHandoverWarehouseRecords.push(record)
-  return record
-}
-
 function appendWaitHandoverWarehouseMovement(input: {
   record: PostFinishingWaitHandoverWarehouseRecord
   movementType: PostFinishingWaitHandoverWarehouseMovement['movementType']
@@ -3538,46 +3148,6 @@ function appendWaitHandoverWarehouseMovement(input: {
   }
   state.waitHandoverWarehouseMovements.push(movement)
   return movement
-}
-
-function backfillWaitHandoverWarehouseFacts(): void {
-  state.recheckOrders.filter((record) => record.status === '复检完成').forEach((recheck) => {
-    const outbound = state.outboundOrders.find((item) => item.recheckOrderId === recheck.recheckOrderId)
-    const delivery = state.deliveries.find((item) => item.deliveryId === recheck.deliveryId)
-    if (!outbound || !delivery) return
-    const inboundActor = recheck.claimedBy || POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA
-    const record = getOrCreateWaitHandoverWarehouseRecord({
-      recheck,
-      outbound,
-      delivery,
-      operator: inboundActor,
-      operatedAt: recheck.completedAt || outbound.createdAt,
-    })
-    appendWaitHandoverWarehouseMovement({
-      record,
-      movementType: '复检完成入仓',
-      operator: inboundActor,
-      operatedAt: recheck.completedAt || outbound.createdAt,
-    })
-    const receipt = state.warehouseReceipts.find((item) => item.outboundOrderId === outbound.outboundOrderId)
-    if (outbound.status !== '已接收入库' && !receipt) return
-    const handoverActor = outbound.receivedBy || receipt?.receivedBy || POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver
-    const handedOverAt = outbound.receivedAt || receipt?.receivedAt || outbound.createdAt
-    record.status = '已交出'
-    record.handedOverAt = handedOverAt
-    record.handedOverBy = clone(handoverActor)
-    record.lines.forEach((line) => {
-      const outboundLine = outbound.lines.find((item) => item.sku.skuId === line.sku.skuId)
-      line.handedOverQty = outboundLine?.outboundQty || 0
-      line.availableQty = 0
-    })
-    appendWaitHandoverWarehouseMovement({
-      record,
-      movementType: '后道出货交出',
-      operator: handoverActor,
-      operatedAt: handedOverAt,
-    })
-  })
 }
 
 export function receivePostFinishingOutboundOrder(input: {
@@ -3628,30 +3198,6 @@ export function receivePostFinishingOutboundOrder(input: {
     ? { authorizerId: consumed.authorizerId, authorizerName: consumed.authorizerName }
     : undefined
   exact.warehouseDifferenceReason = input.authorization?.differenceReason
-  if (exact.recheckOrderId) {
-    const recheck = findRecheck(exact.recheckOrderId)
-    const waitHandoverRecord = getOrCreateWaitHandoverWarehouseRecord({
-      recheck,
-      outbound: exact,
-      delivery,
-      operator: recheck.claimedBy || POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA,
-      operatedAt: recheck.completedAt || exact.createdAt,
-    })
-    waitHandoverRecord.status = '已交出'
-    waitHandoverRecord.handedOverAt = now
-    waitHandoverRecord.handedOverBy = clone(input.actor)
-    waitHandoverRecord.lines.forEach((line) => {
-      const outboundLine = exact.lines.find((item) => item.sku.skuId === line.sku.skuId)
-      line.handedOverQty = outboundLine?.outboundQty || 0
-      line.availableQty = 0
-    })
-    appendWaitHandoverWarehouseMovement({
-      record: waitHandoverRecord,
-      movementType: '后道出货交出',
-      operator: input.actor,
-      operatedAt: now,
-    })
-  }
   const receipt: PostFinishingWarehouseReceipt = {
     warehouseId: exact.targetWarehouseId,
     receiptId: `PF-WH-RCPT-${String(state.warehouseReceipts.length + 1).padStart(6, '0')}`,
@@ -3751,7 +3297,7 @@ export function listPostFinishingQcShippingFacts():PostFinishingQcTask[] {
     createdBy:row.createdBy?{...row.createdBy}:row.createdBy,createdAt:row.createdAt,qcAuthorizationId:row.qcAuthorizationId,referenceIds:[],
     lines:(row.lines||[]).map(line=>({sku:{...line.sku},expectedQty:line.expectedQty})),
     results:row.results?.map(line=>({sku:{...line.sku},expectedQty:line.expectedQty,passedQty:line.passedQty,defectQty:line.defectQty,returnQty:line.returnQty,
-      releasedQty:line.releasedQty,inspectedQty:line.inspectedQty,uninspectedQty:line.uninspectedQty})),
+      releasedQty:line.releasedQty,inspectedQty:line.passedQty+line.defectQty+line.returnQty,uninspectedQty:line.uninspectedQty})),
   }))
 }
 
@@ -3838,7 +3384,7 @@ export function isPostFinishingDeliveryComplete(deliveryId: string): boolean {
   const posts = state.postTasks.filter(row => row.deliveryId === deliveryId)
   const rechecks = state.recheckOrders.filter(row => row.deliveryId === deliveryId)
   const outbounds = state.outboundOrders.filter(row => row.deliveryId === deliveryId)
-  if (posts.some(task => { const p = getPostFinishingProcessProgress(task); return p.legacyPending || p.lines.some(line => line.completedQty !== line.expectedQty || line.reservedQty !== line.expectedQty) })) return false
+  if (posts.some(task => { const p = getPostFinishingProcessProgress(task); return p.lines.some(line => line.completedQty !== line.expectedQty || line.reservedQty !== line.expectedQty) })) return false
   if (rechecks.some(row => row.status !== '复检完成' || row.lines.some(line => line.handoverQty !== line.expectedQty))) return false
   return outbounds.length > 0 && outbounds.every(row => row.status === '已接收入库' && row.lines.every(line => line.receivedQty === line.outboundQty))
 }
@@ -3893,7 +3439,7 @@ export function loadPostFinishingDemoData(_options: { persist?: boolean } = {}):
 }
 
 function populatePostFinishingDemoData(): void {
-  const baseTime = Date.UTC(2026, 7, 25, 1, 0, 0)
+  const baseTime = Date.UTC(2026, 9, 22, 1, 0, 0)
   POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.forEach((order, orderIndex) => {
     for (let returnIndex = 1; returnIndex <= 5; returnIndex += 1) {
       const chainTime = baseTime + ((orderIndex * 5 + returnIndex) * 60 * 60 * 1000)
@@ -3937,45 +3483,27 @@ function populatePostFinishingDemoData(): void {
       if (returnIndex === 4 && orderIndex === 0) continue
 
       const isReworkDemo = orderIndex === 0 && returnIndex === 5
-      const completedQc = completeLegacyPostFinishingQcTask({
-        qcTaskId: claimedQc.qcTaskId,
-        actor: orderIndex === 0 && returnIndex <= 4 ? POST_FINISHING_ACCEPTANCE_ACTORS.qcA : POST_FINISHING_ACCEPTANCE_ACTORS.qcB,
-        results: claimedQc.lines.map((line, lineIndex) => {
-          if (isReworkDemo && lineIndex === 0) {
-            return {
-              skuId: line.sku.skuId,
-              passedQty: line.expectedQty - 10,
-              defectQty: 6,
-              returnQty: 4,
-              defectReasonQuantities: [
-                { reason: '做工原因', quantity: 4 },
-                { reason: '色差', quantity: 2 },
-              ],
-              returnReason: '到货质检确认做工问题，转另一家车缝工厂返工',
-              returnReceiver: 'goto_global',
-            }
-          }
-          if (isReworkDemo && lineIndex === 1) {
-            return {
-              skuId: line.sku.skuId,
-              passedQty: line.expectedQty - 6,
-              defectQty: 4,
-              returnQty: 2,
-              defectReasonQuantities: [
-                { reason: '抽纱', quantity: 3 },
-                { reason: '破洞', quantity: 1 },
-              ],
-              returnReason: '到货质检确认需转厂返工',
-              returnReceiver: 'goto_global',
-            }
-          }
-          return {
-            skuId: line.sku.skuId,
-            passedQty: line.expectedQty,
-            defectQty: 0,
-            returnQty: 0,
-          }
-        }),
+      const actor = claimedQc.claimedBy!
+      const inspection = claimedQc.inspection!
+      const summary = getPostFinishingQcInspectionSummary(claimedQc)!
+      let remaining = summary.target
+      const lines = claimedQc.lines.map((line, index) => {
+        const quantity = Math.min(remaining, line.expectedQty); remaining -= quantity
+        const defectQty = isReworkDemo ? Math.min(index === 0 ? 6 : index === 1 ? 4 : 0, quantity) : 0
+        const returnQty = isReworkDemo ? Math.min(index === 0 ? 4 : index === 1 ? 2 : 0, quantity - defectQty) : 0
+        return {skuId:line.sku.skuId,passedQty:quantity-defectQty-returnQty,defectQty,returnQty,
+          issues:defectQty+returnQty ? [{itemId:inspection.snapshot.items[0].id,note:'演示：按当前标准登记缝制问题'}] : []}
+      })
+      submitPostFinishingQcRound({qcTaskId:claimedQc.qcTaskId,actor,operationId:`DEMO-ROUND:${claimedQc.qcTaskId}:1`,lines,nowMs:chainTime+35*60*1000})
+      const checked = getPostFinishingQcInspectionSummary(claimedQc.qcTaskId)!
+      if(checked.pendingAudit) {
+        upgradePostFinishingQcInspection({qcTaskId:claimedQc.qcTaskId,actor,nextPercent:100,note:'演示：稽查决定本批全检',nowMs:chainTime+36*60*1000})
+        submitPostFinishingQcRound({qcTaskId:claimedQc.qcTaskId,actor,operationId:`DEMO-ROUND:${claimedQc.qcTaskId}:2`,
+          lines:checked.lines.map(line=>({skuId:line.skuId,passedQty:line.uninspectedQty,defectQty:0,returnQty:0})),nowMs:chainTime+37*60*1000})
+      }
+      attachPostFinishingQcSignedPaper({qcTaskId:claimedQc.qcTaskId,actor,url:'/images/post-finishing/demo-signed-qc.svg',name:'演示双签单（非真实业务凭证）',nowMs:chainTime+39*60*1000})
+      const completedQc = completePostFinishingQcTask({
+        qcTaskId: claimedQc.qcTaskId, actor,
         processItems: order.sewingTaskType === 'INDEPENDENT_SEWING'
           ? [...POST_FINISHING_PROCESS_ITEMS]
           : orderIndex === 2 ? ['熨烫', '包装'] : [],
@@ -4024,53 +3552,8 @@ function populatePostFinishingDemoData(): void {
   })
 }
 
-// 旧版空项目 QC 曾生成待复检单。升级时只迁移尚未执行完的记录，
-// 已完成复核、出货与实收历史保留原数量和单号，不能重算或再次出货。
-function migratePendingQcDirectRechecks(): void {
-  const migratedIds = new Set<string>()
-  for (const record of state.recheckOrders) {
-    if (record.status === '复检完成') continue
-    const qc = state.qcTasks.find(row => row.qcTaskId === record.qcTaskId)
-    const delivery = state.deliveries.find(row => row.deliveryId === record.deliveryId)
-    if (!qc || !delivery || qc.status !== '质检完成') throw new Error('原未完复检缺少已完成质检来源，保留原资料，请先核对关联。')
-    const createdAt=record.createdAt || qc.completedAt || delivery.confirmedAt || delivery.registeredAt
-    if (!Number.isFinite(Date.parse(createdAt))) throw new Error('原复检缺少可核对时间，保留原资料。')
-    let outbound = state.outboundOrders.find(row => row.recheckOrderId === record.recheckOrderId || row.retiredRecheckId === record.recheckOrderId)
-    if (outbound?.receivedAt || state.warehouseReceipts.some(row=>row.outboundOrderId===outbound?.outboundOrderId)) throw new Error('原未完复检已有实收冲突，保留原资料，请先核对，不能重复出货。')
-    if (!outbound) {
-      const lines = record.lines.filter(line=>line.expectedQty>0).map(line=>({sku:clone(line.sku),outboundQty:line.expectedQty}))
-      if (lines.length) {
-        const number = issuePostFinishingDocumentNumber({kind:'OUTBOUND',sourceDocumentNo:record.recheckOrderNo,productionOrderNo:delivery.productionOrderNo,
-          sourceObjectId:record.recheckOrderId,idempotencyKey:`RETIRE-RECHECK:${record.recheckOrderId}`,sequence:record.sequence || delivery.returnIndex},new Date(createdAt))
-        outbound = {outboundOrderId:`PF-OUT-RETIRED-${record.recheckOrderId}`,outboundOrderNo:number.documentNo,
-          deliveryId:record.deliveryId,deliveryOrderNo:record.deliveryOrderNo,productionOrderNo:record.productionOrderNo,
-          qcTaskId:record.qcTaskId,qcTaskNo:record.qcTaskNo,postTaskId:record.postTaskId,postTaskNo:record.postTaskNo,
-          responsibility:clone(record.responsibility),sourceType:record.sourceType,returnIndex:record.returnIndex,
-          status:'待出货',lines,createdAt,sequence:record.sequence}
-        state.outboundOrders.push(outbound!)
-      }
-    }
-    if (outbound) {
-      outbound.retiredRecheckId=record.recheckOrderId;outbound.retiredRecheck=clone(record)
-      outbound.executionModel='DIRECT_V2';outbound.recheckOrderId=undefined;outbound.recheckOrderNo=undefined
-      outbound.status='待出货';outbound.dispatchedAt=undefined;outbound.dispatchedBy=undefined
-      state.waitHandoverWarehouseRecords=state.waitHandoverWarehouseRecords.filter(row=>row.outboundOrderId!==outbound!.outboundOrderId)
-      ensureDirectOutboundWarehouseRecord(outbound,record.claimedBy || qc.claimedBy || POST_FINISHING_ACCEPTANCE_ACTORS.postSupervisor)
-    }
-    if (qc.recheckOrderId===record.recheckOrderId) {qc.recheckOrderId=undefined;qc.recheckOrderNo=undefined}
-    const post=state.postTasks.find(row=>row.postTaskId===record.postTaskId)
-    if (post?.recheckOrderId===record.recheckOrderId) {post.recheckOrderId=undefined;post.recheckOrderNo=undefined}
-    migratedIds.add(record.recheckOrderId)
-  }
-  state.recheckOrders=state.recheckOrders.filter(row=>!migratedIds.has(row.recheckOrderId))
-}
-
 loadPostFinishingDemoData({ persist: false })
-registerPostFinishingRepository('flow', STORAGE_KEY, () => state, value => { state = value }, raw => {
-  const parsed = readPersistedState(raw)
-  if (parsed.migration) parsed.migration.legacyRaw = ''
-  return parsed
-})
+registerPostFinishingRepository('flow', () => state, value => { state = value })
 registerPostFinishingReadOnlyMaterialCheck(row => {
   const stock = row.id.includes('/flow/materialStocks/')
   if (!stock && !row.id.includes('/flow/materialTransferOrders/')) return false
@@ -4082,30 +3565,13 @@ registerPostFinishingReadOnlyMaterialCheck(row => {
     || (stock && state.materialTransferOrders.some(transfer => transfer.transferOrderId === (material as PostFinishingMaterialStock).transferOrderId
       && (accessoryPostBridge?.ownsProduction(transfer.productionOrderId) || accessoryPostBridge?.ownsProduction(transfer.productionOrderNo)))))
 })
-registerPostFinishingMigrationNormalizer(() => {
-  // The old whole-workspace converter commits directly, without persist().
-  // Retained auxiliary originals must not become a second writable source.
-  if (typeof window !== 'undefined' && !accessoryPostBridge && (state.materialTransferOrders.length || state.materialStocks.length)) throw new Error('请先重新读取后道辅料资料，再转换含辅料的原后道资料；原资料已保留。')
-  const retired = managedLegacyMaterialState()
-  const hasGarmentFacts = state.deliveries.length || state.qcTasks.length || state.postTasks.length || state.recheckOrders.length || state.outboundOrders.length
-  if ((retired.materialTransferOrders.length || retired.materialStocks.length) && !hasGarmentFacts) throw new Error('本范围后道辅料不能通过原后道整包转换写回。请在后道辅料调拨中归档核验；原资料继续只读保留，其他后道记录未修改。')
-  // R archives the complete original and excludes managed material rows from
-  // active puts/deletions. Their new owner can still read that retained archive.
-  state.processCompletions ||= []
-  state.fullCoverages ||= []
-  migratePendingQcDirectRechecks()
-  state.schemaVersion = 4
-})
-
 // Validate a staged restore against the same quantity facts before committing it.
 registerPostFinishingRecordValidator(() => {
   const deliveries = new Map(state.deliveries.map(row => [row.deliveryId, row]))
   const qcTasks = new Map(state.qcTasks.map(row => [row.qcTaskId, row]))
   const postTasks = new Map(state.postTasks.map(row => [row.postTaskId, row]))
-  const rechecks = new Map(state.recheckOrders.map(row => [row.recheckOrderId, row]))
+  if (state.recheckOrders.length) throw new Error('当前后道不支持复检记录，请使用直接出货流程。')
   const outbounds = new Map(state.outboundOrders.map(row => [row.outboundOrderId, row]))
-  const isItemRecheck = (row: PostFinishingRecheckOrder) => Boolean(row.operationId || (row.postTaskId && postTasks.get(row.postTaskId)?.executionModel === 'ITEMS_V1'))
-  const isLegacyOutbound = (row: PostFinishingOutboundOrder) => Boolean(row.recheckOrderId && rechecks.has(row.recheckOrderId) && !isItemRecheck(rechecks.get(row.recheckOrderId)!))
   const sourceFields = ['deliveryId', 'deliveryOrderNo', 'productionOrderNo', 'qcTaskId', 'qcTaskNo', 'postTaskId', 'postTaskNo', 'returnIndex', 'sourceType'] as const
   type DownstreamSource = Pick<PostFinishingRecheckOrder, typeof sourceFields[number]>
   const sameSource = (left: DownstreamSource, right: DownstreamSource) => sourceFields.every(key => left[key] === right[key])
@@ -4125,8 +3591,7 @@ registerPostFinishingRecordValidator(() => {
       })
   }
   if (deliveries.size !== state.deliveries.length || qcTasks.size !== state.qcTasks.length || postTasks.size !== state.postTasks.length
-    || rechecks.size !== state.recheckOrders.length || outbounds.size !== state.outboundOrders.length
-    || new Set(state.recheckOrders.map(row => row.recheckOrderNo)).size !== rechecks.size
+    || outbounds.size !== state.outboundOrders.length
     || new Set(state.outboundOrders.map(row => row.outboundOrderNo)).size !== outbounds.size) throw new Error('回货、质检、加工、复检或出货身份重复，资料未恢复。')
   const ids = new Set<string>(), operations = new Set<string>()
   for (const record of state.processCompletions || []) {
@@ -4135,7 +3600,7 @@ registerPostFinishingRecordValidator(() => {
     const task = state.postTasks.find(row => row.postTaskId === record.postTaskId)
     if (!task) throw new Error('加工记录缺少来源加工单，资料未恢复。')
     // Static demo rows never substitute for an overridden historical parent.
-    if (task.executionModel !== 'ITEMS_V1' && record.operationId.startsWith('DEMO:')) continue
+    if (task.executionModel !== 'ITEMS_V1') throw new Error('加工单须使用当前分项登记格式。')
     if (!task.processItems.includes(record.processItem) || new Set(record.quantities.map(row => row.skuId)).size !== record.quantities.length || !record.quantities.length) throw new Error('加工记录项目或SKU重复，资料未恢复。')
     if (record.quantities.some(row => !task.lines.some(line => line.sku.skuId === row.skuId) || !Number.isSafeInteger(row.quantity) || (!record.correctionOf && row.quantity <= 0))) throw new Error('加工记录数量或来源SKU无效，资料未恢复。')
     if (record.correctionOf) {
@@ -4146,22 +3611,6 @@ registerPostFinishingRecordValidator(() => {
     }
   }
   const recheckOperations = new Set<string>()
-  for (const row of state.recheckOrders) {
-    if (row.operationId && recheckOperations.has(row.operationId)) throw new Error('复检提交标识重复，资料未恢复。')
-    if (row.operationId) recheckOperations.add(row.operationId)
-    const parent = row.postTaskId ? state.postTasks.find(task => task.postTaskId === row.postTaskId) : state.qcTasks.find(task => task.qcTaskId === row.qcTaskId)
-    if (!parent || !Array.isArray(row.lines) || !row.lines.length || new Set(row.lines.map(line => line.sku.skuId)).size !== row.lines.length
-      || row.lines.some(line => !parent.lines.some(source => source.sku.skuId === line.sku.skuId) || !Number.isSafeInteger(line.expectedQty) || line.expectedQty < 0 || (line.handoverQty !== undefined && (!Number.isSafeInteger(line.handoverQty) || line.handoverQty < 0)))
-      || total(row.lines.map(line => line.expectedQty)) <= 0) throw new Error('复检来源、SKU或数量无效，资料未恢复。')
-    const qc = qcTasks.get(row.qcTaskId)
-    if (!qc || row.deliveryId !== parent.deliveryId || row.deliveryOrderNo !== parent.deliveryOrderNo || row.productionOrderNo !== parent.productionOrderNo
-      || row.qcTaskNo !== qc.qcTaskNo || row.deliveryId !== qc.deliveryId || row.returnIndex !== qc.returnIndex || row.returnIndex !== parent.returnIndex
-      || (row.postTaskId && (row.postTaskNo !== postTasks.get(row.postTaskId)?.postTaskNo || row.qcTaskId !== postTasks.get(row.postTaskId)?.qcTaskId))
-      || (isItemRecheck(row) && !matchesSkuIdentity(row.lines, parent.lines))) throw new Error('复检与来源加工单或质检身份不一致，资料未恢复。')
-    if (row.status === '复检完成' && isItemRecheck(row) && (row.lines.some(line => !Number.isSafeInteger(line.handoverQty) || line.handoverQty! < 0)
-      || total(row.lines.map(line => line.handoverQty!)) <= 0
-      || row.lines.some(line => line.expectedQty > 0 && line.barcodeStatus !== '正确'))) throw new Error('已完成复检缺少有效实际数量或条码核对，资料未恢复。')
-  }
   for (const task of state.postTasks) {
     if (!Array.isArray(task.lines) || !task.lines.length || new Set(task.lines.map(row => row.sku.skuId)).size !== task.lines.length || task.lines.some(row => !Number.isSafeInteger(row.expectedQty) || row.expectedQty < 0)) throw new Error('加工单SKU或数量无效，资料未恢复。')
     const qc = qcTasks.get(task.qcTaskId)
@@ -4174,19 +3623,6 @@ registerPostFinishingRecordValidator(() => {
     if ((qc.results && (!matchesQuantities(task.lines, new Map(qc.results.map(line => [line.sku.skuId, line.releasedQty ?? line.passedQty])), line => line.expectedQty)
       || (task.executionModel === 'ITEMS_V1' && !matchesSkuIdentity(task.lines, qc.results))))
       || (!qc.results && task.executionModel === 'ITEMS_V1')) throw new Error('加工数量与来源质检合格量不一致，资料未恢复。')
-    if (task.legacyCarryover) {
-      const carry = task.legacyCarryover
-      if (task.executionModel === 'ITEMS_V1' || carry.confirmedBy?.roleName !== '后道主管' || !carry.reason?.trim() || !Number.isFinite(Date.parse(carry.confirmedAt))
-        || !Array.isArray(carry.history) || carry.history.length !== task.lines.length || new Set(carry.history.map(row => row.skuId)).size !== task.lines.length
-        || task.lines.some(line => {
-          const h = carry.history.find(row => row.skuId === line.sku.skuId)?.completedQty
-          const known = task.results?.find(row => row.sku.skuId === line.sku.skuId)?.processedQty
-          return !Number.isSafeInteger(h) || h! < 0 || h! > line.expectedQty || (known !== undefined && h !== known)
-        }) || !Array.isArray(carry.baselines) || new Set(carry.baselines.map(row => row.processItem)).size !== carry.baselines.length
-        || carry.baselines.some(row => !task.processItems.includes(row.processItem) || !Array.isArray(row.quantities) || new Set(row.quantities.map(line => line.skuId)).size !== row.quantities.length
-          || row.quantities.some(line => !task.lines.some(source => source.sku.skuId === line.skuId) || !Number.isSafeInteger(line.quantity) || line.quantity < 0))) throw new Error('历史承接与原记录或核对依据不一致，资料未恢复。')
-    }
-    if (task.executionModel !== 'ITEMS_V1' && !task.legacyCarryover) continue
     // Internal validation consumes quantities synchronously and never publishes detail references.
     const progress = calculatePostFinishingProcessProgress(task, true, false)
     if (!task.processItems.length || task.processItems.some(item => !POST_FINISHING_PROCESS_ITEMS.includes(item)) || progress.processes.some(row => row.applicable && row.lines.some(line => line.completedQty < 0 || line.completedQty > line.expectedQty || line.availableQty < 0)) || progress.lines.some(line => line.availableForOutboundQty < 0)) throw new Error('恢复后的加工链或出货占用不守恒，资料未恢复。')
@@ -4195,7 +3631,7 @@ registerPostFinishingRecordValidator(() => {
     || outbound.lines.some(line => !line.sku?.skuId || !Number.isSafeInteger(line.outboundQty) || line.outboundQty < 0
       || (line.receivedQty !== undefined && (!Number.isSafeInteger(line.receivedQty) || line.receivedQty < 0)))) throw new Error('出货SKU或数量格式无效，资料未恢复。')
   for (const qc of state.qcTasks) {
-    if (!qc.inspection) continue // Legacy actual inspection quantities remain unknown.
+    if (!qc.inspection) { if(!['待送检','待质检'].includes(qc.status)) throw new Error('在检或已完成QC缺少开检标准。'); continue }
     const inspection=qc.inspection
     if (!inspection.snapshot?.basicStandard || !inspection.snapshot.ruleSnapshot || inspection.snapshot.context.sourceKind !== (qc.sourceKind || 'PRODUCTION_RETURN')
       || !Number.isSafeInteger(inspection.paperVersion) || inspection.paperVersion<1 || ![...inspection.snapshot.ruleSnapshot.percentSteps,100].includes(inspection.percent)
@@ -4226,19 +3662,16 @@ registerPostFinishingRecordValidator(() => {
     if (!outbound || receiptsByOutbound.has(receipt.outboundOrderId) || outbound.status !== '已接收入库'
       || receipt.outboundOrderNo !== outbound.outboundOrderNo || receipt.productionOrderNo !== outbound.productionOrderNo
       || !matchesQuantities(receipt.lines, new Map(outbound.lines.map(line => [line.sku.skuId, line.outboundQty])), line => line.expectedQty)
-      || (isLegacyOutbound(outbound)
-        ? receipt.lines.some(line => !Number.isSafeInteger(line.receivedQty) || line.receivedQty < 0 || (outbound.lines.find(source => source.sku.skuId === line.sku.skuId)?.receivedQty !== undefined
-          && line.receivedQty !== outbound.lines.find(source => source.sku.skuId === line.sku.skuId)?.receivedQty))
-        : !matchesQuantities(receipt.lines, new Map(outbound.lines.map(line => [line.sku.skuId, line.receivedQty ?? -1])), line => line.receivedQty))
+      || !matchesQuantities(receipt.lines, new Map(outbound.lines.map(line => [line.sku.skuId, line.receivedQty ?? -1])), line => line.receivedQty)
       || !matchesSkuIdentity(receipt.lines, outbound.lines)) throw new Error('仓库实收与来源出货的身份或数量不一致，资料未恢复。')
     receiptsByOutbound.set(receipt.outboundOrderId, receipt)
   }
   const waitingByOutbound = new Map<string, PostFinishingWaitHandoverWarehouseRecord>()
   for (const record of state.waitHandoverWarehouseRecords) {
     const outbound = outbounds.get(record.outboundOrderId)
-    const handedOver = outbound?.executionModel === 'DIRECT_V2' ? Boolean(outbound.dispatchedAt) : outbound?.status === '已接收入库'
+    const handedOver = Boolean(outbound?.dispatchedAt)
     const quantities = new Map(outbound?.lines.map(line => [line.sku.skuId, line.outboundQty]))
-    if (!outbound || (outbound.executionModel !== 'DIRECT_V2' && !outbound.recheckOrderId) || waitingByOutbound.has(record.outboundOrderId) || !sameSource(record, outbound)
+    if (!outbound || outbound.executionModel !== 'DIRECT_V2' || waitingByOutbound.has(record.outboundOrderId) || !sameSource(record, outbound)
       || record.recheckOrderId !== outbound.recheckOrderId || record.recheckOrderNo !== outbound.recheckOrderNo || record.outboundOrderNo !== outbound.outboundOrderNo
       || record.status !== (handedOver ? '已交出' : '待交出') || !matchesQuantities(record.lines, quantities, line => line.inboundQty)
       || !matchesQuantities(record.lines, new Map([...quantities].map(([id, quantity]) => [id, handedOver ? 0 : quantity])), line => line.availableQty)
@@ -4252,27 +3685,11 @@ registerPostFinishingRecordValidator(() => {
     if (!qc || !delivery || outbound.deliveryId !== qc.deliveryId || outbound.qcTaskNo !== qc.qcTaskNo || outbound.deliveryOrderNo !== delivery.deliveryOrderNo
       || outbound.productionOrderNo !== delivery.productionOrderNo || outbound.returnIndex !== delivery.returnIndex
       || !Array.isArray(outbound.lines) || !outbound.lines.length || total(outbound.lines.map(line => line.outboundQty)) <= 0) throw new Error('出货单与来源回货或质检身份不一致，资料未恢复。')
-    const sourceKey = outbound.executionModel === 'DIRECT_V2' ? `direct:${outbound.outboundOrderId}` : outbound.recheckOrderId ? `recheck:${outbound.recheckOrderId}` : `qc:${outbound.qcTaskId}`
-    if (outboundSources.has(sourceKey)) throw new Error('同一复检或直达质检重复生成出货，资料未恢复。')
+    const sourceKey = `direct:${outbound.outboundOrderId}`
+    if (outboundSources.has(sourceKey)) throw new Error('出货单身份重复。')
     outboundSources.add(sourceKey)
-    if (outbound.recheckOrderId) {
-      const recheck = rechecks.get(outbound.recheckOrderId)
-      const legacy = recheck && !isItemRecheck(recheck)
-      // Old whole-order output retained zero-SKU lines. Missing historical
-      // links stay unknown; existing quantities still have to agree. New item
-      // output requires the complete atomic child/stock/receipt relationship.
-      const quantitiesMatch = recheck && (legacy
-        ? new Set(outbound.lines.map(line => line.sku.skuId)).size === outbound.lines.length
-          && outbound.lines.every(line => recheck.lines.some(source => source.sku.skuId === line.sku.skuId && (source.handoverQty === undefined || source.handoverQty === line.outboundQty)))
-          && recheck.lines.filter(line => (line.handoverQty || 0) > 0).every(line => outbound.lines.some(source => source.sku.skuId === line.sku.skuId))
-        : matchesQuantities(outbound.lines, new Map(recheck.lines.filter(line => (line.handoverQty || 0) > 0).map(line => [line.sku.skuId, line.handoverQty!])), line => line.outboundQty))
-      if (!recheck || recheck.status !== '复检完成' || !sameSource(outbound, recheck) || outbound.recheckOrderNo !== recheck.recheckOrderNo
-        || ((!legacy || recheck.outboundOrderId !== undefined) && recheck.outboundOrderId !== outbound.outboundOrderId)
-        || ((!legacy || recheck.outboundOrderNo !== undefined) && recheck.outboundOrderNo !== outbound.outboundOrderNo)
-        || !quantitiesMatch
-        || !matchesSkuIdentity(outbound.lines, recheck.lines)
-        || (!legacy && !waitingByOutbound.has(outbound.outboundOrderId))) throw new Error('出货与来源复检的身份、实际数量或待交出记录不一致，资料未恢复。')
-    } else if (outbound.executionModel === 'DIRECT_V2') {
+    if (outbound.executionModel !== 'DIRECT_V2' || outbound.recheckOrderId) throw new Error('出货单须使用当前直接出货格式。')
+    {
       if (qc.status !== '质检完成' || (outbound.postTaskId && !postTasks.has(outbound.postTaskId))) throw new Error('直接出货缺少已完成QC或来源加工单。')
       const parent=outbound.postTaskId ? postTasks.get(outbound.postTaskId)! : qc
       if (!matchesSkuIdentity(outbound.lines,parent.lines) || !waitingByOutbound.has(outbound.outboundOrderId)) throw new Error('直接出货SKU身份或待出货实物记录不完整。')
@@ -4280,11 +3697,8 @@ registerPostFinishingRecordValidator(() => {
 
       if (outbound.status === '待出货' && (outbound.dispatchedAt || outbound.lines.some(line => line.receivedQty !== undefined))) throw new Error('待出货不能伪造实际交出或接收。')
       if (outbound.status === '待仓库接收' && !outbound.dispatchedAt) throw new Error('待接收出货缺少真实交出事实。')
-    } else if (outbound.postTaskId || outbound.sourceType !== '质检直达' || qc.status !== '质检完成' || !qc.results
-      || !matchesQuantities(outbound.lines, new Map(qc.results.map(line => [line.sku.skuId, line.releasedQty ?? line.passedQty])), line => line.outboundQty)
-      || !matchesSkuIdentity(outbound.lines, qc.results)) throw new Error('直达出货与来源质检合格量不一致，资料未恢复。')
-    if (!['待出货', '待仓库接收', '已接收入库'].includes(outbound.status) || (!isLegacyOutbound(outbound) && (outbound.status === '已接收入库') !== receiptsByOutbound.has(outbound.outboundOrderId))
+    }
+    if (!['待出货', '待仓库接收', '已接收入库'].includes(outbound.status) || ((outbound.status === '已接收入库') !== receiptsByOutbound.has(outbound.outboundOrderId))
       || (outbound.status === '待仓库接收' && outbound.lines.some(line => line.receivedQty !== undefined))) throw new Error('出货状态与实际仓收记录不一致，资料未恢复。')
   }
-  for (const recheck of state.recheckOrders) if (recheck.status === '复检完成' && isItemRecheck(recheck) && !outboundSources.has(`recheck:${recheck.recheckOrderId}`)) throw new Error('已完成复检缺少对应出货，资料未恢复。')
 })

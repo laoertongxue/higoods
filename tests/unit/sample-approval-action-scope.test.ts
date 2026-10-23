@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {getDefaultSewingSampleApprovalRecords} from '../../src/data/fcs/sewing-outsourcing-demo.ts'
 import {createSewingSampleActionScope,captureSewingSampleState,restoreSewingSampleState,resetSewingSampleApprovalSuggestionsForTests,
-  receivePreProductionSampleByPpic,convertLegacySampleApproval,getSewingSampleApprovalRecord} from '../../src/data/fcs/sewing-sample-approval-suggestion.ts'
+  receivePreProductionSampleByPpic,getSewingSampleApprovalRecord} from '../../src/data/fcs/sewing-sample-approval-suggestion.ts'
 
 function history() {
   const template=getDefaultSewingSampleApprovalRecords()[0]
@@ -11,7 +11,6 @@ function history() {
     record.assignmentId=id;record.sample.assignmentId=id;record.sample.sampleId=`SAMPLE-${index}`;record.sample.productionOrderId=`ORDER-${index}`
     record.sample.runtimeTaskId=`TASK-${index}`;record.sample.status='WAITING_PPIC_RECEIVE';record.sample.ppicReceivedSamplePhotoUrls=[]
     record.assignmentAliases=[{assignmentId:id,runtimeTaskId:record.sample.runtimeTaskId}]
-    record.legacyHistory={original:{note:'原历史全文'.repeat(1000)},convertedAt:'2026-10-22T01:00:00Z',convertedBy:'原核对人',unverifiedTime:true,note:'保留1999件原历史'}
     return [id,record] as [string,typeof record]
   })
 }
@@ -48,22 +47,4 @@ test('2000件单件动作只capture当前件/本命令/序次，失败恢复及�
   assert.throws(()=>scope.run(()=>receivePreProductionSampleByPpic({commandId:'RECEIVE-ONE',assignmentId:unrelated.assignmentId,
     actor:{actorId:unrelated.sample.currentPpicId,actorName:unrelated.sample.currentPpicName,role:'PPIC'},receivedAt:'2026-10-22T02:00:00Z',receivedSamplePhotoUrls:['/tshirt-sample.jpg']})),/其他任务/)
   assert.deepEqual(getSewingSampleApprovalRecord(unrelated.assignmentId),unrelated)
-})
-
-test('旧待收重复分配仅把同逻辑身份别名纳入转换scope，删除旧候选后可完整回滚，其他厂/单不受影响',()=>{
-  resetSewingSampleApprovalSuggestionsForTests()
-  const records=history().slice(0,3),canonical=records[0][1],pending=records[1][1]
-  delete canonical.qualitySchemaVersion;delete canonical.legacyHistory
-  pending.sample.productionOrderId=canonical.sample.productionOrderId;pending.sample.styleCode=canonical.sample.styleCode
-  delete pending.qualitySchemaVersion;delete pending.legacyHistory
-  restoreSewingSampleState({records,commands:[],sequence:12})
-  const scope=createSewingSampleActionScope(canonical.assignmentId,'CONVERT-ONE'),before=scope.capture()
-  assert.deepEqual(scope.recordIds,[canonical.assignmentId,pending.assignmentId])
-  const converted=scope.run(()=>convertLegacySampleApproval({assignmentId:canonical.assignmentId,commandId:'CONVERT-ONE',at:'2026-10-22T02:00:00Z',by:'原核对人'}))
-  assert.equal(scope.capture().records.length,1);assert.equal(converted.assignmentAliases!.length,2)
-  assert.equal(getSewingSampleApprovalRecord(pending.assignmentId)!.assignmentId,canonical.assignmentId)
-  assert.equal(getSewingSampleApprovalRecord(records[2][0])!.assignmentId,records[2][0])
-  scope.restore(before)
-  assert.equal(getSewingSampleApprovalRecord(pending.assignmentId)!.assignmentId,pending.assignmentId)
-  assert.deepEqual(captureSewingSampleState(),{records,commands:[],sequence:12})
 })

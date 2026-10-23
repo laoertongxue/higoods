@@ -21,7 +21,7 @@ export {
   listPostFinishingFactoryReturns, listPostFinishingReturnConfirmationVersions, POST_FINISHING_ACCEPTANCE_ACTORS,
 } from './post-finishing-full-flow.ts'
 export { runPostFinishingCommand, ensurePostFinishingRecordState, ensurePostFinishingExecutionRecordState, ensurePreparedPostFinishingRecordState, registerPostFinishingFile,
-  migratePostFinishingLegacyData, getPostFinishingStorageFailure, hasPostFinishingLegacyData } from './post-finishing-records.ts'
+  getPostFinishingStorageFailure } from './post-finishing-records.ts'
 export { ensureQualityManagementRecords, buildQualityConfigurationDraft, saveQualityConfigurationDraft,
   publishQualityConfiguration, readPreparedInspectionSnapshot, readInspectionSnapshot, qualityConfigurationGuard } from './quality-management-records.ts'
 export { listFinishedInventoryLots, previewFinishedInventoryQuality, runFinishedInventoryCommand,

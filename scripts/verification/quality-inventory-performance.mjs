@@ -34,7 +34,7 @@ const plan = {
     imagePolicy: 'Synthetic performance-only SKU identities retain their source reviewed garment/color and image. Generated size labels are explicitly performance specifications, never represented as catalog/user stock. Source mapping is saved per SKU.',
     exclusions: 'One stable orderLine per SKU has order-reserved/picked/pending-outbound projections, 5 each; actual eligibility excludes only 5 once, not 15. All are persisted fixture facts.',
     preparation: 'Node public domain commands create application, actual receipt, real QC rounds/upgrade/completion, three transfers and actual receipts/putaway. Preparing fixture is not an interaction timing sample.',
-    portability: 'Native PCS IndexedDB version-2 rows are preinstalled into a new same-origin context before app assets. Production preview needs no /src imports, test API or cloud endpoint.' },
+    portability: 'Current-format rows in native PCS IndexedDB version 4 are preinstalled into a new same-origin context before app assets. Production preview needs no /src imports, test API or cloud endpoint.' },
   pageFamilies: [
     ['realtime','/wls/finished/stock/realtime','stock','即时库存查询 — 成衣'],
     ['location','/wls/finished/stock/location','stock','仓位库存查询'],

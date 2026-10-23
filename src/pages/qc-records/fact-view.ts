@@ -322,9 +322,9 @@ function mapPostDetail(record: PostFinishingActionRecord): QcFactDetail {
     evidenceAssets: (record.evidenceAssets ?? []).map(mapPostEvidence),
     rawFacts: [
       { label: task?.sourceKind==='WAREHOUSE_STOCK'?'库存申请单':'来源后道加工单', value: task?.inventoryApplicationId || record.postOrderNo || '—' },
-      { label: '实检口径', value: summary?`实检合格 ${summary.passedQty} / 瑕疵 ${summary.defectQty} / 返工 ${summary.returnQty}；未检 ${summary.uninspectedQty}`:'历史未记录实际实检量，不按批次数量补齐' },
-      { label: '固定标准', value:task?.inspection?`${task.inspection.snapshot.basicStandard.name} v${task.inspection.snapshot.basicStandard.version}；${task.inspection.snapshot.selectedAt}`:'历史未记录' },
-      { label: '本次检查比例', value:task?.inspection?`${task.inspection.percent}%`:'历史未记录' },
+      { label: '实检口径', value: summary?`实检合格 ${summary.passedQty} / 瑕疵 ${summary.defectQty} / 返工 ${summary.returnQty}；未检 ${summary.uninspectedQty}`:'尚未开检' },
+      { label: '固定标准', value:task?.inspection?`${task.inspection.snapshot.basicStandard.name} v${task.inspection.snapshot.basicStandard.version}；${task.inspection.snapshot.selectedAt}`:'尚未开检' },
+      { label: '本次检查比例', value:task?.inspection?`${task.inspection.percent}%`:'尚未开检' },
       { label: '问题项目', value:task?.inspection?.rounds.flatMap(round=>round.lines.flatMap(line=>(line.issues||[]).map(issue=>`${line.skuId} / ${task.inspection!.snapshot.items.find(item=>item.id===issue.itemId)?.name || issue.itemId}：${issue.note || '有问题'}`))).join('；') || '未记录问题项目' },
       { label: '上游工厂', value: record.sourceFactoryName || '—' },
       { label: '后道工厂', value: record.targetFactoryName || '—' },

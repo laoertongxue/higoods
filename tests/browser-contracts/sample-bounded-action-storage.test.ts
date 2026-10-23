@@ -18,10 +18,10 @@ async function connect(page:Page){
   ;(window as any).__bounded={p,s,a,db,demo,orders}
  })
 }
-test('原生单件PP动作：2000件历史保护、Blob/命令同事务、失败稳定重试、CAS、fast→原generic→冷读', {timeout:120000},async()=>{
+test('原生单件PP动作：2000件当前格式记录保护、Blob/命令同事务、失败稳定重试、CAS、fast→原generic→冷读', {timeout:120000},async()=>{
  const browser=await chromium.launch({headless:true}),context=await browser.newContext(),page=await context.newPage()
  await context.addInitScript(()=>{(globalThis as any).__name=(value:unknown)=>value})
- const evidence:any={base,passed:false,kind:'隔离原生公开样衣动作/原库事务契约；2000件合法历史夹具，不是现场事实、原页面或性能'}
+ const evidence:any={base,passed:false,kind:'隔离原生公开样衣动作/原库事务契约；2000件当前格式夹具，不是现场事实、原页面或性能'}
  const pageErrors:string[]=[];context.on('page',p=>p.on('pageerror',e=>pageErrors.push(e.message)));page.on('pageerror',e=>pageErrors.push(e.message))
  try{
   await connect(page)
@@ -38,7 +38,7 @@ test('原生单件PP动作：2000件历史保护、Blob/命令同事务、失败
     record.referenceSnapshots.forEach((ref:any)=>{if(ref.sourceObjectId===original.sample.productionOrderId)ref.sourceObjectId=orderId})
     record.suggestionVersions.forEach((v:any)=>{v.assignmentId=assignmentId;v.runtimeTaskId=record.sample.runtimeTaskId;v.sampleId=record.sample.sampleId;v.suggestionVersionId=`BOUND-OLD-${index}`})
     if(record.suggestionVersions.length)record.latestSuggestionVersionId=record.suggestionVersions.at(-1).suggestionVersionId
-    if(index>0){record.sample.ppicReceivedSamplePhotoUrls=[{$productionFile:`production-context-file:${sha}`}];record.legacyHistory={original:{history:`原完整历史${index}`,refs:[{$productionFile:`production-context-file:${sha}`}]},convertedAt:'2026-10-22T00:00:00Z',convertedBy:'原核对人',unverifiedTime:true,note:'原资料保留'}}
+    if(index>0)record.sample.ppicReceivedSamplePhotoUrls=[{$productionFile:`production-context-file:${sha}`}]
     records.push(record)
    }
    orders.validatePersistedProductionOrders(sourceOrders)
@@ -159,7 +159,7 @@ test('原生单件PP动作：2000件历史保护、Blob/命令同事务、失败
    finally{IDBObjectStore.prototype.put=put}
    return {writes,calls,error,code,legacyPreserved:localStorage.getItem(key)===legacy}
   })
-  assert.equal(evidence.reappearedLegacy.writes,0);assert.equal(evidence.reappearedLegacy.calls,0);assert.equal(evidence.reappearedLegacy.code,'PRODUCTION_CONTEXT_RECOVERY');assert.match(evidence.reappearedLegacy.error,/又发现旧|重现/);assert.equal(evidence.reappearedLegacy.legacyPreserved,true)
+  assert.equal(evidence.reappearedLegacy.calls,1);assert.equal(evidence.reappearedLegacy.error,'');assert.equal(evidence.reappearedLegacy.legacyPreserved,true)
 
   assert.deepEqual(pageErrors,[]);evidence.passed=true
  }catch(error){evidence.error=String(error);throw error}

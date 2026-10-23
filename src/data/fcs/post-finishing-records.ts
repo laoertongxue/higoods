@@ -4,7 +4,7 @@ import { commitPcsNewRecordGroups, commitPcsRecords, readPcsRecords, readPcsReco
 // or changed; PCS records and files are never reset by this module.
 const namespace = 'higood-fcs-post-finishing-records'
 const revisionId = `${namespace}/revision`
-interface Repository { legacyKey: string; read: () => unknown; replace: (value: any) => void; legacy: (raw: string) => unknown }
+interface Repository { read: () => unknown; replace: (value: any) => void }
 const repositories = new Map<string, Repository>()
 const seeds = new Map<string, unknown>()
 let stored = new Map<string, PcsStoredRecord>()
@@ -14,14 +14,12 @@ let cachedReadAvailable = false
 let cachedReferenceFreeValues: WeakSet<object> | undefined
 const pendingRepositoryScopes = new Set<string>()
 let failure = ''
-let migrationNeeded = false
 let preparing: Promise<void> | undefined
 let demoDepth = 0
 interface ExecutionReadScope { key:string; tokens:string[] }
 let requestedReadScope:ExecutionReadScope|null=null
 let cachedReadScopeKey='FULL'
 let preparingScopeKey='FULL'
-const normalizers: Array<() => void> = []
 const recordValidators: Array<() => void> = []
 type MaterialRecord = Pick<PcsStoredRecord, 'id' | 'collection' | 'value' | 'deleted'>
 const readOnlyMaterialChecks: Array<(row: MaterialRecord) => boolean> = []
@@ -127,12 +125,12 @@ function snapshots(cloneValues = true, shareFixed = true): Map<string, unknown> 
 // command still clones its rollback basis once before any domain mutation.
 function restore(values: Map<string, unknown>): void { for (const [scope, value] of values) repositories.get(scope)?.replace(value) }
 
-export function registerPostFinishingRepository(scope: string, legacyKey: string, read: () => unknown, replace: (value: any) => void, legacy = JSON.parse): void {
+export function registerPostFinishingRepository(scope: string, read: () => unknown, replace: (value: any) => void): void {
   const previous=repositories.get(scope)
   // Replacing an existing consumer must read native truth again: its previous
   // mutable value can share a version-cache alias with a failed candidate.
   if (previous && (previous.read!==read || previous.replace!==replace)) { ready=false; cachedReadAvailable=false }
-  repositories.set(scope, { legacyKey, read, replace, legacy })
+  repositories.set(scope, { read, replace })
   if (!seeds.has(scope) && (seeds.size || ready)) { seeds.set(scope, copy(read())); ready = false; pendingRepositoryScopes.add(scope) }
 }
 /** Read the original static baseline without hydrating or cloning saved execution history.
@@ -144,7 +142,6 @@ export function projectPostFinishingStaticRecords<T>(scope:string, project:(row:
 }
 /** 业务动作的必要关联结果在同一个PCS事务中提交，不在读取时写回。 */
 export function registerPostFinishingCommitProjection(recipe: () => void): void { commitProjections.push(recipe) }
-export function registerPostFinishingMigrationNormalizer(recipe: () => void): void { normalizers.push(recipe) }
 export function registerPostFinishingRecordValidator(recipe: () => void): void { recordValidators.push(recipe) }
 export function registerPostFinishingReadOnlyMaterialCheck(check: (row: MaterialRecord) => boolean): void { readOnlyMaterialChecks.push(check) }
 const isReadOnlyMaterial = (row: MaterialRecord) => readOnlyMaterialChecks.some(check => check(row))
@@ -164,7 +161,6 @@ function applyCandidateRecords(rows: Array<Pick<PcsStoredRecord, 'id' | 'collect
     for (const row of rows.filter(row => row.id.startsWith(`${namespace}/${scope}/`))) {
       // Deletion markers use the shared engine's `deleted` collection and
       // retain the original record identity in id. They must remain deletions.
-      if (scope === 'flow' && row.collection === 'flow/migration') value.migration ??= null
       if (!row.deleted && !Array.isArray(value) && !Object.keys(value).some(collection => row.collection === `${scope}/${collection}`)) throw new Error('备份含未知事实集合，未导入。')
       if (row.deleted) merged.delete(row.id)
       else merged.set(row.id, { collection: row.collection, value: row.value })
@@ -228,19 +224,6 @@ function visible(value: unknown): any {
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, visible(item)]))
   return value
 }
-function legacySources(): Map<string, string> {
-  const result = new Map<string, string>()
-  for (const repo of repositories.values()) {
-    if (!repo.legacyKey) continue // New record-only scopes have no legacy source.
-    const raw = globalThis.localStorage?.getItem(repo.legacyKey)
-    if (raw) result.set(repo.legacyKey, raw)
-  }
-  for (const key of ['higood-fcs-post-finishing-spu-technical-parameters-v1', 'higood-fcs-post-finishing-outbound-orders-v1', 'higood-fcs-post-finishing-outbound-orders-v1:archive']) {
-    const raw = globalThis.localStorage?.getItem(key)
-    if (raw) result.set(key, raw)
-  }
-  return result
-}
 export function getPostFinishingStorageFailure(): string { return failure }
 export async function assertPostFinishingReadVersion(): Promise<void> {
   if (typeof window === 'undefined') return
@@ -248,18 +231,9 @@ export async function assertPostFinishingReadVersion(): Promise<void> {
   const [freshVersion] = await readPcsRecordProjection([{id:revisionId}],row=>row.version)
   if ((freshVersion || 0) !== (stored.get(revisionId)?.version || 0)) throw new Error('读取期间后道资料已变化，请重新查看。')
 }
-export function hasPostFinishingLegacyData(options:{verifiedSchemaVersion?:number}={}): boolean {
-  try {return migrationNeeded || legacySources().size>0} catch {
-    // A verified current record store remains usable when preference storage is
-    // disabled. Without that evidence, an unreadable old source is not empty.
-    const schema=options.verifiedSchemaVersion ?? Number(stored.get(`${namespace}/flow/schemaVersion/value`)?.value)
-    if(!migrationNeeded && schema===4)return false
-    throw new Error('旧后道资料无法核查，请恢复本机旧资料的读取权限后重试；原记录已保留，未使用空资料替代。')
-  }
-}
 function validateFlowRecords(records: PcsStoredRecord[], validateRestoredActors = false): void {
   const schema = records.find(row => row.id === `${namespace}/flow/schemaVersion/value` && !row.deleted)
-  if (schema && ![2, 3, 4].includes(Number(schema.value))) throw new Error('后道资料版本暂不支持，原资料保留。')
+  if (schema && Number(schema.value) !== 5) throw new Error('后道资料版本暂不支持，原资料保留。')
   for (const row of records) {
     if (row.deleted || row.collection !== 'flow/processCompletions') continue
     const record = row.value as any
@@ -272,12 +246,6 @@ function validateFlowRecords(records: PcsStoredRecord[], validateRestoredActors 
       typeof actor?.actorId !== 'string' || !actor.actorId.trim() || typeof actor.actorName !== 'string' || !actor.actorName.trim()
       || !['后道操作员', '后道主管'].includes(actor.roleName))) throw new Error('加工责任人或录入人身份不完整，资料未导入。')
   }
-}
-function refreshMigrationGate():void {
-  const schema=stored.get(`${namespace}/flow/schemaVersion/value`)
-  const schemaUpgradeNeeded=!!schema && !schema.deleted && (schema.value===2 || schema.value===3)
-  try {migrationNeeded=legacySources().size>0 || schemaUpgradeNeeded}
-  catch {migrationNeeded ||=schemaUpgradeNeeded}
 }
 function restoreReadRepositories(records: PcsStoredRecord[], scopes: Iterable<string>, referenceFreeValues?: WeakSet<object>): void {
   for (const scope of scopes) {
@@ -372,7 +340,7 @@ async function readPostFinishingRecordState(scope:ExecutionReadScope|null=null):
     if (cachedReadAvailable && !failure && (cachedReadScopeKey==='FULL' || cachedReadScopeKey===scopeKey)) {
       const [revision]=await readPcsRecordProjection([{id:revisionId}],row=>row.version)
       if ((revision || 0)===(stored.get(revisionId)?.version || 0)) {
-        if (ready) {refreshMigrationGate();return}
+        if (ready) {return}
         // A later-imported PPIC collection belongs to the same namespace that
         // was already read and file-validated. Restore only those newly
         // registered consumers after checking the native revision again.
@@ -380,7 +348,6 @@ async function readPostFinishingRecordState(scope:ExecutionReadScope|null=null):
           restoreReadRepositories([...stored.values()], pendingRepositoryScopes, cachedReferenceFreeValues)
           recordValidators.forEach(validate => validate())
           protectInspectionSnapshots()
-          refreshMigrationGate()
           pendingRepositoryScopes.clear(); ready = true
           return
         }
@@ -400,7 +367,6 @@ async function readPostFinishingRecordState(scope:ExecutionReadScope|null=null):
     recordValidators.forEach(validate => validate())
     protectInspectionSnapshots()
     // Disabled/full localStorage cannot prevent new IndexedDB operations.
-    refreshMigrationGate()
     cachedReferenceFreeValues = read.referenceFreeValues
     cachedReadScopeKey=scopeKey
     cachedReadAvailable = true; pendingRepositoryScopes.clear(); ready = true; failure = ''
@@ -463,28 +429,22 @@ function assertFixedSnapshotIdentities(before:ReturnType<typeof allRows>,after:R
   }
 }
 export async function runPostFinishingCommand<T>(recipe: () => T, options: PostFinishingCommandOptions = {}): Promise<T> {
-  return runPostFinishingRecordCommand(recipe,options,'BUSINESS')
+  return runPostFinishingRecordCommand(recipe,options)
 }
-async function runPostFinishingRecordCommand<T>(recipe:()=>T,options:PostFinishingCommandOptions,mode:'BUSINESS'|'MIGRATION'):Promise<T> {
+async function runPostFinishingRecordCommand<T>(recipe:()=>T,options:PostFinishingCommandOptions):Promise<T> {
   if (typeof window === 'undefined') return recipe()
   const participants = options.participants || []
   if (new Set(participants.map(row => row.key)).size !== participants.length) throw new Error('关联业务重复提交，本次未保存。')
   for (const participant of participants) await participant.prepare()
-  if (mode==='MIGRATION' && (!ready || cachedReadScopeKey!=='FULL'))await ensurePostFinishingRecordState()
-  else if (!ready) await ensurePreparedPostFinishingRecordState()
+  if (!ready) await ensurePreparedPostFinishingRecordState()
   if (!ready || failure) throw new Error(failure || '请重新读取后道资料后重试。')
-  if (migrationNeeded) throw new Error('发现旧后道资料，请先完成页面提示的资料转换，再继续保存。')
   if (saving) throw new Error('上一笔操作尚未保存，请等待完成。')
-  const before = mode==='MIGRATION'?snapshots(false):snapshots()
+  const before = snapshots()
   const relatedBefore = participants.map(row => row.capture())
   saving = true
   let businessError: unknown
   let committed = false
   try {
-    // Explicit schema conversion works on a complete mutable candidate. It
-    // never edits the frozen original or opts an ordinary command out of its
-    // fixed-standard protection.
-    if(mode==='MIGRATION')restore(snapshots(true,false))
     let result: T | undefined
     try { result = recipe() } catch (error) {
       // A blocked domain action may deliberately record counts or an audit
@@ -503,7 +463,7 @@ async function runPostFinishingRecordCommand<T>(recipe:()=>T,options:PostFinishi
     restore(before)
     participants.forEach((row, index) => row.restore(relatedBefore[index]))
     const oldRows = allRows(before), nextRows = allRows(after)
-    if(mode==='BUSINESS')assertFixedSnapshotIdentities(oldRows,nextRows)
+    assertFixedSnapshotIdentities(oldRows,nextRows)
     protectInspectionSnapshots(after)
     const puts: Parameters<typeof commitPcsRecords>[0]['puts'] = []
     const deletes: Parameters<typeof commitPcsRecords>[0]['deletes'] = []
@@ -538,138 +498,6 @@ async function runPostFinishingRecordCommand<T>(recipe:()=>T,options:PostFinishi
   finally { saving = false }
 }
 
-// Explicit, resumable migration. Reading a page never writes business records.
-export async function migratePostFinishingLegacyData(): Promise<void> {
-  if (saving) throw new Error('上一笔后道操作尚未保存，请完成后再转换资料。')
-  if(requestedReadScope){await ensurePostFinishingRecordState();if(failure)throw new Error(failure)}
-  const sources = legacySources()
-  if (!sources.size) {
-    await ensurePostFinishingRecordState()
-    if (failure) throw new Error(failure)
-    const originalGate = migrationNeeded
-    migrationNeeded = false
-    try {
-      await runPostFinishingRecordCommand(() => { normalizers.forEach(recipe => recipe()); recordValidators.forEach(validate => validate()) },{},'MIGRATION')
-      await ensurePostFinishingRecordState()
-      if (failure || migrationNeeded) throw new Error(failure || '后道格式转换尚未完成，原资料保留。')
-    } catch (error) { migrationNeeded = originalGate; throw error }
-    return
-  }
-  // Only a legacy package that actually contains auxiliary material needs the
-  // current owner's read bridge. Preparing it never converts or moves stock.
-  await prepareMaterialReadBoundary([...sources.values()].some(raw => {
-    const value = JSON.parse(raw)
-    return ['materialTransferOrders', 'materialStocks'].some(key => Array.isArray(value?.[key]) && value[key].length > 0)
-  }))
-  const before = snapshots(false)
-  let staged = snapshots(true,false)
-  for (const [scope, repo] of repositories) {
-    const raw = sources.get(repo.legacyKey)
-    if (raw) staged.set(scope, repo.legacy(raw))
-  }
-  saving = true
-  try { restore(staged); normalizers.forEach(recipe => recipe()); recordValidators.forEach(validate => validate()); staged = snapshots(false) }
-  finally { restore(before); saving = false }
-  const sourceScopes = [...repositories].filter(([, repo]) => sources.has(repo.legacyKey)).map(([scope]) => scope)
-  const inSourceScope = (id: string) => sourceScopes.some(scope => id.startsWith(`${namespace}/${scope}/`))
-  const priorRows=allRows(before)
-  const rows = new Map([...allRows(staged)].filter(([id, row]) =>
-    (inSourceScope(id) || JSON.stringify(row.value)!==JSON.stringify(priorRows.get(id)?.value)) && !isReadOnlyMaterial({ id, ...row })))
-  const legacyFields = new Map<string, unknown>()
-  // Preserve unrecognised historical fields and retired records as read-only
-  // archive objects, converting any old inline files to Blob references too.
-  for (const [key, raw] of sources) legacyFields.set(`${namespace}/archive/${encodeURIComponent(key)}`, JSON.parse(raw))
-  // Keep the original material identity even when inline image bytes below are
-  // converted to Blob references. The auxiliary owner must not see a new source
-  // version merely because the finishing package moved from LS to its archive.
-  for (const [key, raw] of sources) {
-    const value = JSON.parse(raw), identities = []
-    for (const collection of ['materialTransferOrders', 'materialStocks']) for (const original of value?.[collection] || []) {
-      const id = original[collection === 'materialTransferOrders' ? 'transferOrderId' : 'stockId']
-      identities.push({ key: `LS:${collection}:${id}`, fingerprint: await sourceFingerprint(original) })
-    }
-    if (identities.length) legacyFields.set(`${namespace}/archive/material-identities/${encodeURIComponent(key)}`, { format: 'post-finishing-legacy-material-identities', legacyKey: key, identities })
-  }
-  const files: Array<{ id: string; blob: Blob }> = []
-  const inline = new Map<string, string>()
-  async function convert(value: unknown): Promise<unknown> {
-    if (typeof value === 'string' && value.startsWith('data:')) {
-      if (inline.has(value)) return inline.get(value)
-      const blob = await (await fetch(value)).blob()
-      const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())
-      const id = `pf-legacy-${[...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')}`
-      files.push({ id, blob }); inline.set(value, `pcs-file:${id}`); return `pcs-file:${id}`
-    }
-    if (typeof value === 'string' && value.startsWith('blob:')) throw new Error('旧资料含已失效的临时图片地址，请保留旧资料并重新选择图片后转换。')
-    if (Array.isArray(value)) return Promise.all(value.map(convert))
-    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, item]) => {
-      // Earlier archives embedded whole JSON documents in raw/legacyRaw.
-      // Decode them before walking files so old inline bytes are archived as Blob too.
-      if ((key === 'raw' || key === 'legacyRaw') && typeof item === 'string' && /^[\s]*[\[{]/.test(item)) {
-        try { item = JSON.parse(item) } catch { /* Preserve non-JSON historical text. */ }
-      }
-      return [key, await convert(item)]
-    })))
-    return value
-  }
-  const prepared = []
-  for (const [id, row] of rows) prepared.push({ id, collection: row.collection, value: await convert(row.value) })
-  for (const [id, value] of legacyFields) prepared.push({ id, collection: 'archive', value: await convert(value) })
-  // Omission markers prevent static records absent from an old user workspace
-  // from reappearing. Existing target differences are conflicts, never replaced.
-  const seedRows = allRows(seeds)
-  for (const [id, row] of seedRows) if (inSourceScope(id) && !rows.has(id) && !isReadOnlyMaterial({ id, ...row })) prepared.push({ id, collection: row.collection, value: null, deleted: true })
-  // One delivery's removal, outbound reservation, numbering and stock facts
-  // are a single atomic conversion group; the old whole-workspace order is not
-  // used to split a related business change across arbitrary 100-row chunks.
-  const deliveryByObject = new Map<string,string>()
-  for (const raw of sources.values()) {
-    const value=JSON.parse(raw)
-    if (!value || typeof value!=='object') continue
-    for (const entries of Object.values(value)) if (Array.isArray(entries)) for (const item of entries) {
-      if (!item || typeof item!=='object' || !item.deliveryId) continue
-      for (const key of ['deliveryId','qcTaskId','postTaskId','recheckOrderId','outboundOrderId','warehouseRecordId']) if(item[key]) deliveryByObject.set(String(item[key]),String(item.deliveryId))
-    }
-  }
-  const groups=new Map<string,typeof prepared>()
-  for (const row of prepared) {
-    const value=row.value as any
-    const originalId=decodeURIComponent(row.id.slice(row.id.lastIndexOf('/')+1))
-    const deliveryId=value?.deliveryId || deliveryByObject.get(value?.sourceObjectId) || deliveryByObject.get(originalId)
-    const key=deliveryId ? `delivery:${deliveryId}` : `record:${row.id}`
-    const group=groups.get(key) || [];group.push(row);groups.set(key,group)
-  }
-  const batches:Array<typeof prepared>=[]
-  let pending:typeof prepared=[]
-  for(const group of groups.values()) {
-    if(pending.length && pending.length+group.length>100) {batches.push(pending);pending=[]}
-    pending.push(...group)
-    if(pending.length>=100){batches.push(pending);pending=[]}
-  }
-  if(pending.length)batches.push(pending)
-  for (const batch of batches) {
-    const fresh = await readPcsRecords([namespace]), existing = new Map(fresh.records.map(row => [row.id, row]))
-    const puts = batch.filter(row => {
-      const target = existing.get(row.id)
-      if (!target) return true
-      // An explicit in-place schema 2 -> 3 upgrade changes only the version
-      // marker. Historical process facts remain untouched for supervised carryover.
-      if (row.id === `${namespace}/flow/schemaVersion/value` && [2,3].includes(Number(target.value)) && row.value === 4) return true
-      if (JSON.stringify(target.value) !== JSON.stringify(row.value) || Boolean(target.deleted) !== Boolean((row as any).deleted)) throw new Error('旧资料与已保存后道记录冲突，原资料保留，请核对后重试。')
-      return false
-    }).map(row => ({ ...row, expectedVersion: existing.get(row.id)?.version || 0 }))
-    if (!puts.length) continue
-    const referenced = new Set(puts.flatMap(row => [...pcsFileReferences(row.value)]))
-    const knownFiles = new Set(fresh.files.map(file => file.id))
-    await commitPcsRecords({ puts: [...puts, { id: revisionId, collection: 'revision', value: { format: 1 }, expectedVersion: existing.get(revisionId)?.version || 0 }], deletes: [], files: [...new Map(files.map(file => [file.id, file])).values()].filter(file => referenced.has(file.id) && !knownFiles.has(file.id)), operationId: `pf-migration-${crypto.randomUUID()}`, intent: JSON.stringify(puts) })
-    const checked = await readPcsRecords([namespace]), targets = new Map(checked.records.map(row => [row.id, row]))
-    if (puts.some(row => JSON.stringify(targets.get(row.id)?.value) !== JSON.stringify(row.value))) throw new Error('后道资料转换读回校验失败，旧资料保留。')
-  }
-  for (const [key, raw] of sources) if (localStorage.getItem(key) !== raw) throw new Error('旧页面仍在修改后道资料，转换未完成。请关闭旧页面后重试；旧资料保留。')
-  for (const key of sources.keys()) localStorage.removeItem(key)
-  await ensurePostFinishingRecordState()
-}
-
 export async function exportPostFinishingBackup(): Promise<Blob> {
   const read = await readPcsRecords([namespace])
   const files = await Promise.all(read.files.map(async file => ({ id: file.id, type: file.blob.type, bytes: Array.from(new Uint8Array(await file.blob.arrayBuffer())) })))
@@ -677,7 +505,7 @@ export async function exportPostFinishingBackup(): Promise<Blob> {
 }
 export async function importPostFinishingBackup(file: File): Promise<void> {
   const backup = JSON.parse(await file.text())
-  if (backup.format !== namespace || ![1, 2].includes(backup.version) || !Array.isArray(backup.records) || !Array.isArray(backup.files)) throw new Error('后道备份格式或版本无效。')
+  if (backup.format !== namespace || backup.version !== 2 || !Array.isArray(backup.records) || !Array.isArray(backup.files)) throw new Error('后道备份格式或版本无效。')
   const rows: PcsStoredRecord[] = backup.records
   if (rows.some(row => !row.id?.startsWith(`${namespace}/`)) || new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('备份记录范围错误或编号重复。')
   validateFlowRecords(rows, true)

@@ -20,7 +20,6 @@ export interface PostFinishingDocumentNumberRecord extends Omit<PostFinishingDoc
   createdAt: string
 }
 
-const STORAGE_KEY = 'higood-fcs-post-finishing-document-numbering-v1'
 
 function readPersistedRecords(): PostFinishingDocumentNumberRecord[] { return [] }
 
@@ -89,4 +88,4 @@ export function resetPostFinishingDocumentNumbering(): void {
   assertPostFinishingWrite()
 }
 
-registerPostFinishingRepository('numbering', STORAGE_KEY, () => records, value => { records = value })
+registerPostFinishingRepository('numbering', () => records, value => { records = value })

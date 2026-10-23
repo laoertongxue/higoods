@@ -158,13 +158,36 @@ test('两套QC纸面共用固定标准及真实抽检29+1，70未抽放行与99�
   assert.doesNotMatch(renderPostFinishingQcInspectionAppendix(inventory),/签字：/)
 })
 
-test('旧历史无实检快照保持未知，纸面/汇集不把批次数量补成实检',()=>{
+test('新演示已完成QC具有实际轮次与固定标准，汇集和打印读取同一实检数量',()=>{
   flow.loadPostFinishingDemoData()
-  const legacy=flow.listPostFinishingFullFlowQcTasks().find(row=>row.status==='质检完成'&&!row.inspection)!
-  assert(legacy)
-  const projected=listPostFinishingQcOrders().find(row=>row.actionRecordId===legacy.qcTaskId)!
-  assert(projected.qcSkuResults?.every(row=>row.inspectionKnown===false && row.inspectedQty===0))
-  assert.equal(getQcFactDetail(legacy.qcTaskId)?.inspectionKnown,false)
-  assert.match(renderPostFinishingQcTaskDetail(legacy),/历史未记录/)
-  assert.match(renderPostFinishingQcInspectionAppendix(legacy),/未记录|未知|未保存/)
+  const completed=flow.listPostFinishingFullFlowQcTasks().filter(row=>row.status==='质检完成')
+  assert(completed.length>0)
+  for(const task of completed) {
+    assert(task.inspection?.snapshot.items.length);assert(task.inspection.rounds.length);assert(task.inspection.papers.length)
+    assert.equal(task.inspection.snapshot.selectedAt,task.claimedAt)
+    assert(task.inspection.snapshot.selectedAt>='2026-10-22T00:00:00.000Z')
+    assert(task.inspection.snapshot.selectedAt<=task.inspection.rounds[0].submittedAt)
+    const projected=listPostFinishingQcOrders().find(row=>row.actionRecordId===task.qcTaskId)!
+    assert(projected.qcSkuResults?.every(row=>row.inspectionKnown===true))
+    assert.equal(getQcFactDetail(task.qcTaskId)?.inspectionKnown,true)
+    assert.doesNotMatch(renderPostFinishingQcTaskDetail(task),/历史未记录/)
+    assert.match(renderPostFinishingQcInspectionAppendix(task),/尺寸规格/)
+  }
+})
+
+
+test('未开检打印说明当前待办，已开检缺标准直接拒绝而不走历史兜底',()=>{
+  flow.loadPostFinishingDemoData()
+  const pending=flow.listPostFinishingFullFlowQcTasks().find(task=>task.status==='待质检')!
+  assert(pending)
+  assert.match(renderPostFinishingQcInspectionAppendix(pending),/尚未开检/)
+  assert.doesNotMatch(renderPostFinishingQcTaskDetail(pending),/历史记录|历史未记录/)
+  assert.throws(()=>renderPostFinishingQcInspectionAppendix({...pending,status:'质检完成'}),/缺少开检标准/)
+})
+
+test('新静态演示的固定标准身份、取用时间和纸单在重开时稳定',()=>{
+  flow.loadPostFinishingDemoData()
+  const before=flow.listPostFinishingFullFlowQcTasks().filter(task=>task.inspection).map(task=>task.inspection)
+  flow.loadPostFinishingDemoData()
+  assert.deepEqual(flow.listPostFinishingFullFlowQcTasks().filter(task=>task.inspection).map(task=>task.inspection),before)
 })

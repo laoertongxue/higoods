@@ -27,7 +27,7 @@ function validateRows(key: keyof PpicDailyStore, value: unknown): void {
     if (key === 'configs' && (row.timeZone !== 'Asia/Jakarta' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(row.cutoff) || !/^\d{4}-\d{2}-\d{2}$/.test(row.effectiveFrom))) throw new Error('已保存的日截止配置无效。')
   }
 }
-for (const key of Object.keys(collections) as Array<keyof PpicDailyStore>) registerPostFinishingRepository(collections[key], 'higood.ppic-daily-return.' + key + '.v1',
+for (const key of Object.keys(collections) as Array<keyof PpicDailyStore>) registerPostFinishingRepository(collections[key],
   () => store[key], value => { validateRows(key, value); (store[key] as unknown[]) = value })
 export const PPIC_DAILY_DEMO_MEMBERS: PpicActor[] = [
   ...getAvailableOnboardingPpicOptions().map(p => ({ id: p.ppicId, name: p.ppicName, leader: p.role === 'TEAM_LEADER' })),

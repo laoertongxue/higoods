@@ -68,16 +68,19 @@ const POST_FINISHING_PARTIAL_BROWSER_CHECK = `${POST_FINISHING_PARTIAL_BROWSER_E
 // Exact task contracts: unknown quality-like names remain unrecognized. These
 // commands execute storage/UI assertions; a product build is never a substitute.
 const QUALITY_NATIVE_PATHS = new Set([
+  // Deleted old-demo contracts are verified absent by the current native runner.
+  'tests/browser-contracts/production-context-quality-migration.test.ts',
+  'tests/helpers/post-finishing-legacy-fixture.ts',
   'tests/browser-contracts/pcs-record-db.test.ts',
   'tests/browser-contracts/post-quality-storage.test.ts',
   'tests/browser-contracts/quality-management-storage.test.ts',
-  'tests/browser-contracts/production-context-quality-migration.test.ts',
+  'tests/browser-contracts/quality-demo-rebuild.test.ts',
   'tests/browser-contracts/production-context-revision-read.test.ts',
   'tests/browser-contracts/post-finishing-late-repository-read.test.ts',
   'tests/browser-contracts/sample-bounded-action-storage.test.ts',
   'tests/browser-contracts/sample-quality-source-storage.test.ts',
   'tests/browser-contracts/sewing-execution-storage.test.ts',
-  'tests/helpers/post-finishing-legacy-fixture.ts',
+  'src/data/fcs/quality-demo-rebuild.ts',
   'scripts/verification/run-quality-native-contracts.mjs',
 ])
 const QUALITY_BROWSER_PATHS = [

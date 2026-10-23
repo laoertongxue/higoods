@@ -66,7 +66,6 @@ export interface ConsumePostFinishingAuthorizationInput {
   nowMs?: number
 }
 
-const STORAGE_KEY = 'higood-fcs-post-finishing-authorization-consumptions-v1'
 const TIME_WINDOW_MS = 30_000
 export const POST_FINISHING_AUTHORIZED_IDENTITY_STORAGE_KEY = 'higood-fcs-post-finishing-current-authorizer-v1'
 const NO_AUTHORIZED_IDENTITY = 'NONE'
@@ -261,4 +260,4 @@ export function resetPostFinishingAuthorizationConsumptions(): void {
 
 export const POST_FINISHING_AUTHORIZATION_WINDOW_MS = TIME_WINDOW_MS
 
-registerPostFinishingRepository('authorizations', STORAGE_KEY, () => consumptions, value => { consumptions = value })
+registerPostFinishingRepository('authorizations', () => consumptions, value => { consumptions = value })

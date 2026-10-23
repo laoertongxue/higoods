@@ -387,7 +387,10 @@ function inspectionRequirementTable(snapshot: InspectionSnapshot, title: string)
 export function renderPostFinishingQcInspectionAppendix(task:PostFinishingQcTask):string {
   const inspection=task.inspection, summary=getPostFinishingQcInspectionSummary(task)
   const source=task.sourceKind==='WAREHOUSE_STOCK'?`成衣仓库存 · ${task.sourceWarehouseName || ''} · 申请 ${task.inventoryApplicationId || ''}`:`生产回货 · ${task.productionOrderNo} · ${task.deliveryOrderNo}`
-  if(!inspection||!summary)return `<section class="pf-qc-section" data-qc-legacy-unknown><h3>质检事实 · ${escapeHtml(task.qcTaskNo)}</h3><p>${escapeHtml(source)}</p><p>历史记录未保存检查快照或实际实检量，不以整批数量补填。原结果单独保留。</p></section>`
+  if(!inspection||!summary) {
+    if(!['待送检','待质检'].includes(task.status)) throw new Error('本次质检缺少开检标准，无法打印，请重新读取后核对。')
+    return `<section class="pf-qc-section" data-qc-not-started><h3>质检单 · ${escapeHtml(task.qcTaskNo)}</h3><p>${escapeHtml(source)}</p><p>尚未开检。领取质检后确定本次检查要求和应检数量。</p></section>`
+  }
   const snapshot=inspection.snapshot
   // Only print additional SKU tables when their final requirements actually differ.
   const skuGroups = new Map<string,{snapshot:InspectionSnapshot;codes:string[]}>()
@@ -427,7 +430,7 @@ export function renderPostFinishingQcTaskMaster(task:PostFinishingQcTask):string
 }
 export function renderPostFinishingQcTaskDetail(task:PostFinishingQcTask,printedAt=new Date().toLocaleString('zh-CN')):string {
   const {productionOrder,snapshot}=taskPrintContext(task),summary=getPostFinishingQcInspectionSummary(task)
-  return renderOnlinePostFinishingQcDetail({priority:getQcShippingPriorityForQc(task),prioritySource:task.sourceKind==='WAREHOUSE_STOCK'?null:{type:'QC',id:task.qcTaskId},documentNo:task.qcTaskNo,spuCode:task.lines[0]?.sku.spuCode||'',printedAt,productionOrderNo:task.sourceKind==='WAREHOUSE_STOCK'?'不适用（库存送检）':task.productionOrderNo,factoryName:task.sourceKind==='WAREHOUSE_STOCK'?task.sourceWarehouseName||'原仓待核对':'后道工厂',buyerName:productionOrder?.demandSnapshot.buyerName||'未记录',productionOrderType:task.sourceKind==='WAREHOUSE_STOCK'?'成衣仓库存送检':snapshot?.productionOrderSnapshot.orderType||'未记录',saleType:productionOrder?.demandSnapshot.saleType||'未记录',skuLines:task.lines.map(line=>({skuCode:line.sku.skuCode,waitProcessQty:'',waitQcQty:task.status==='质检完成'?'':String(line.expectedQty),inspectedQty:summary?String(summary.lines.find(row=>row.skuId===line.sku.skuId)?.inspectedQty||0):task.results?.length?'历史未记录':''})),inspectionHtml:renderPostFinishingQcInspectionAppendix(task)})
+  return renderOnlinePostFinishingQcDetail({priority:getQcShippingPriorityForQc(task),prioritySource:task.sourceKind==='WAREHOUSE_STOCK'?null:{type:'QC',id:task.qcTaskId},documentNo:task.qcTaskNo,spuCode:task.lines[0]?.sku.spuCode||'',printedAt,productionOrderNo:task.sourceKind==='WAREHOUSE_STOCK'?'不适用（库存送检）':task.productionOrderNo,factoryName:task.sourceKind==='WAREHOUSE_STOCK'?task.sourceWarehouseName||'原仓待核对':'后道工厂',buyerName:productionOrder?.demandSnapshot.buyerName||'未记录',productionOrderType:task.sourceKind==='WAREHOUSE_STOCK'?'成衣仓库存送检':snapshot?.productionOrderSnapshot.orderType||'未记录',saleType:productionOrder?.demandSnapshot.saleType||'未记录',skuLines:task.lines.map(line=>({skuCode:line.sku.skuCode,waitProcessQty:'',waitQcQty:task.status==='质检完成'?'':String(line.expectedQty),inspectedQty:summary?String(summary.lines.find(row=>row.skuId===line.sku.skuId)?.inspectedQty||0):''})),inspectionHtml:renderPostFinishingQcInspectionAppendix(task)})
 }
 
 export function buildProductionQcMasterPrintDocument(input: PrintDocumentBuildInput): PrintDocument {

@@ -279,12 +279,12 @@ const columns: StandardListColumn<QcOrderRow>[] = [
   { key: 'station', title: '质检员', width: 100, required: true, render: (row) => escapeHtml(row.task.claimedBy?.actorName || '待领取') },
   { key: 'sku', title: 'SKU 明细', width: 220, required: true, render: renderSkuLines },
   { key: 'expected', title: '本批实收', width: 80, required: true, align: 'center', render: (row) => `${totalExpected(row.task)} 件` },
-  {key:'inspected',title:'实际检查',width:100,required:true,align:'center',render:row=>{const summary=getPostFinishingQcInspectionSummary(row.task);return summary?`${summary.inspectedQty} 件`:row.task.results?.length?'历史实检未记录':'0 件'}},
-  { key: 'passed', title: '实检合格', width: 80, required: true, align: 'center', render: (row) => getPostFinishingQcInspectionSummary(row.task)?`${totalPassed(row.task)} 件`:row.task.results?.length?'历史数量':'0 件' },
+  {key:'inspected',title:'实际检查',width:100,required:true,align:'center',render:row=>{const summary=getPostFinishingQcInspectionSummary(row.task);return summary?`${summary.inspectedQty} 件`:row.task.status==='待送检'||row.task.status==='待质检'?'0 件':'检查记录缺失'}},
+  { key: 'passed', title: '实检合格', width: 80, required: true, align: 'center', render: (row) => getPostFinishingQcInspectionSummary(row.task)?`${totalPassed(row.task)} 件`:row.task.status==='待送检'||row.task.status==='待质检'?'0 件':'检查记录缺失' },
   { key: 'defect', title: '不合格数量', width: 90, required: true, align: 'center', render: (row) => `${totalDefect(row.task)} 件` },
-  {key:'uninspected',title:'未抽随批放行',width:100,required:true,align:'center',render:row=>{const summary=getPostFinishingQcInspectionSummary(row.task);return row.task.status!=='质检完成'?'尚未放行':summary?`${summary.uninspectedQty} 件`:'历史未记录'}},
+  {key:'uninspected',title:'未抽随批放行',width:100,required:true,align:'center',render:row=>{const summary=getPostFinishingQcInspectionSummary(row.task);return row.task.status!=='质检完成'?'尚未放行':summary?`${summary.uninspectedQty} 件`:'检查记录缺失'}},
   {key:'released',title:'正常放行',width:90,required:true,align:'center',render:row=>row.task.status==='质检完成'?`${row.task.results?.reduce((n,line)=>n+(line.releasedQty??line.passedQty),0)||0} 件`:'尚未放行'},
-  { key: 'result', title: '质检结果', width: 95, required: true, render: (row) => row.task.status === '待送检' ? '待送检出库' : row.task.status !== '质检完成' ? '未出结果' : !getPostFinishingQcInspectionSummary(row.task)?'历史结果':totalDefect(row.task) > 0 ? '检查发现问题' : getPostFinishingQcInspectionSummary(row.task)!.fullInspection?'全检无问题':'抽检无问题' },
+  { key: 'result', title: '质检结果', width: 95, required: true, render: (row) => row.task.status === '待送检' ? '待送检出库' : row.task.status !== '质检完成' ? '未出结果' : !getPostFinishingQcInspectionSummary(row.task)?'检查记录缺失':totalDefect(row.task) > 0 ? '检查发现问题' : getPostFinishingQcInspectionSummary(row.task)!.fullInspection?'全检无问题':'抽检无问题' },
   { key: 'status', title: '状态', width: 90, required: true, render: (row) => renderPostStatusBadge(row.task.status) },
   { key: 'actions', title: '操作', width: 200, required: true, actionColumn: true, render: (row) => {
     const actor = getCurrentPostFinishingActor()

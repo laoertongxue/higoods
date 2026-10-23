@@ -2,7 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import * as flow from '../src/data/fcs/post-finishing-full-flow.ts'
-import { createLegacyPostFinishingFixture } from './helpers/post-finishing-legacy-fixture.ts'
 
 const namespace = 'higood-fcs-post-finishing-records'
 const oldKey = 'higood-fcs-post-finishing-full-flow-v1'
@@ -40,7 +39,6 @@ async function installFixture(page: Page, fixture: any): Promise<void> {
   }, fixture)
 }
 
-const legacyGarment = () => createLegacyPostFinishingFixture(400, 'MIXED-LEGACY-INPUT')
 
 async function durable(page: Page) {
   return page.evaluate(async () => {
@@ -50,10 +48,6 @@ async function durable(page: Page) {
     const files = async (rows: any[]) => Promise.all(rows.map(async row => ({ id: row.id, type: row.blob.type, bytes: Array.from(new Uint8Array(await row.blob.arrayBuffer())) })))
     return { pcs: { records: pcs.records, files: await files(pcs.files) }, accessory: { records: accessory.records, files: await files(cutting.files) } }
   })
-}
-async function migrateGarment(page: Page) {
-  page.once('dialog', dialog => dialog.accept())
-  await page.locator('[data-post-finishing-action="storage-migrate"]').click()
 }
 async function archiveAccessory(page: Page) {
   await page.goto('/fcs/craft/post-finishing/material-transfers')
@@ -78,96 +72,10 @@ async function materialReadback(page: Page) {
     return { inspection: auxiliary.inspectLegacyAccessoryPostMigration(), sourceKeys: backup.sources.map(row => ({ key: row.key, fingerprint: row.fingerprint })), stocks: flow.listPostFinishingMaterialStocks().filter(row => row.transferOrderId === 'OLD-POST-1'), transfer: flow.getPostFinishingMaterialTransferOrder('OLD-POST-1') }
   })
 }
-async function carryAndContinue(page: Page, input: Awaited<ReturnType<typeof legacyGarment>>) {
-  await page.goto(`/fcs/craft/post-finishing/work-orders/${input.parentId}`)
-  await expect(page.locator('[data-post-prototype-actor], [data-post-finishing-work-order-detail-action="switch-actor"]')).toHaveCount(0)
-  await page.locator('[data-post-finishing-work-order-detail-action="open-legacy"]').click()
-  await expect(page.locator('[data-post-entry-supervisor]')).toHaveValue('')
-  await page.locator('[data-post-entry-supervisor]').selectOption('PF-USER-POST-MGR')
-  for (const item of flow.POST_FINISHING_PROCESS_ITEMS) await page.locator(`[data-post-legacy-process-item][value="${item}"]`).check()
-  for (const item of flow.POST_FINISHING_PROCESS_ITEMS) for (const field of await page.locator(`[data-post-legacy-baseline="${item}"]`).all()) await field.fill('0')
-  await page.locator('[data-post-entry-reason]').fill('混合旧资料承接，H400明确，剩余各项从0继续')
-  page.once('dialog', dialog => dialog.accept())
-  await page.locator('[data-post-finishing-work-order-detail-action="save-entry"]').click()
-  await expect(page.locator('[data-post-entry-form]')).toHaveCount(0)
-  return page.evaluate(async ({ parentId, skuId }) => {
-    const r = await import('/src/data/fcs/post-finishing-records.ts'), f = await import('/src/data/fcs/post-finishing-full-flow.ts'), a = f.POST_FINISHING_ACCEPTANCE_ACTORS
-    for (const item of f.POST_FINISHING_PROCESS_ITEMS) await r.runPostFinishingCommand(() => f.appendPostFinishingProcessCompletion({ postTaskId: parentId, processItem: item, quantities: [{ skuId, quantity: 100 }], responsible: a.postOperator, actor: a.postOperator, operationId: `MIXED-CONTINUE-${item}` }))
-    const child = await r.runPostFinishingCommand(() => f.submitPostFinishingForOutbound({ postTaskId: parentId, quantities: [{ skuId, quantity: 100 }], actor: a.postOperator, operationId: 'MIXED-CONTINUE-OUTBOUND' }))
-    return { progress: f.getPostFinishingProcessProgress(parentId), child, children: f.listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === parentId), rechecks: f.listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === parentId) }
-  }, input)
-}
 async function artifact(page: Page, name: string, value: unknown) {
   mkdirSync(evidence, { recursive: true })
   writeFileSync(resolve(evidence, `${name}.json`), JSON.stringify(value, null, 2))
   await page.screenshot({ path: `${evidence}/${name}.png`, fullPage: true })
-}
-
-for (const order of ['post-first-inline', 'accessory-first-existing-pcs'] as const) {
-  test(`main integration: mixed legacy ${order}, atomic retry, original files and H/N continue`, async ({ page }) => {
-    test.setTimeout(90000)
-    const input = await legacyGarment(), fixture = structuredClone(legacyMaterials)
-    const originals = structuredClone(legacyMaterialRows.map((row: any) => row.value))
-    for (const row of originals) input.snapshot[row.collection.split('/')[1]].push(row.value)
-    if (order === 'post-first-inline') {
-      const inline = `data:image/jpeg;base64,${readFileSync('public/materials/accessory-zipper.jpg').toString('base64')}`
-      input.snapshot.materialTransferOrders[0].lines[0].imageUrl = inline
-      input.snapshot.materialStocks[0].material.imageUrl = inline
-      fixture.databases.find((db: any) => db.name === 'higood-pcs-records').stores.find((store: any) => store.name === 'records').rows = fixture.databases.find((db: any) => db.name === 'higood-pcs-records').stores.find((store: any) => store.name === 'records').rows.filter((row: any) => !/flow\/material(TransferOrders|Stocks)$/.test(row.value.collection))
-    }
-    await installFixture(page, fixture)
-    const raw = JSON.stringify(input.snapshot)
-    await page.evaluate(({ key, raw }) => localStorage.setItem(key, raw), { key: oldKey, raw })
-    if (order === 'accessory-first-existing-pcs') await archiveAccessory(page)
-    await page.goto('/fcs/craft/post-finishing/work-orders')
-    await expect(page.locator('[data-post-finishing-action="storage-migrate"]')).toBeVisible()
-    const before = await durable(page)
-    await page.evaluate(() => { (window as any).__mixedOriginalPut = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (value: any, ...args: any[]) { if (this.name === 'records' && String(value?.id).startsWith('higood-fcs-post-finishing-records/')) throw new DOMException('mixed migration abort', 'QuotaExceededError'); return (window as any).__mixedOriginalPut.call(this, value, ...args) } })
-    await migrateGarment(page)
-    await expect(page.locator('[data-post-finishing-storage-notice]')).toContainText('本次未保存')
-    expect(await durable(page)).toEqual(before)
-    expect(await page.evaluate(key => localStorage.getItem(key), oldKey)).toBe(raw)
-    await page.evaluate(() => { IDBObjectStore.prototype.put = (window as any).__mixedOriginalPut })
-    await migrateGarment(page)
-    await expect(page.locator('[data-post-finishing-storage-notice]')).toHaveCount(0)
-    expect(await page.evaluate(key => localStorage.getItem(key), oldKey)).toBeNull()
-    const migrated = await durable(page)
-    const originalPcs = (value: typeof migrated) => value.pcs.records.filter(row => !row.deleted && /flow\/material(TransferOrders|Stocks)$/.test(row.collection))
-    expect(originalPcs(migrated)).toEqual(originalPcs(before))
-    expect(migrated.accessory).toEqual(before.accessory)
-    expect(migrated.pcs.records.some(row => row.collection === 'archive' && String(row.id).includes(encodeURIComponent(oldKey)))).toBe(true)
-    await archiveAccessory(page)
-    const material = await materialReadback(page)
-    expect(material.inspection.state).toBe('已完成')
-    expect(material.stocks).toHaveLength(1)
-    expect(material.stocks[0].currentQty).toBe(7)
-    expect(material.stocks[0].inboundQty).toBe(10)
-    const afterArchive = await durable(page)
-    await page.reload(); await expect(page.locator('[data-post-material-root]')).toBeVisible()
-    expect(await materialReadback(page)).toEqual(material)
-    expect((await durable(page)).accessory).toEqual(afterArchive.accessory)
-    if (order === 'post-first-inline') {
-      // Same LS source version plus its converted archive must deduplicate.
-      await page.evaluate(({ key, raw }) => localStorage.setItem(key, raw), { key: oldKey, raw })
-      expect((await materialReadback(page)).sourceKeys).toEqual(material.sourceKeys)
-      const altered = JSON.parse(raw); altered.materialStocks[0].currentQty = 6
-      await page.evaluate(({ key, raw }) => localStorage.setItem(key, raw), { key: oldKey, raw: JSON.stringify(altered) })
-      const blocked = await page.evaluate(async () => { try { await (await import('/src/data/wls/accessory-warehouse-post-finishing.ts')).prepareAccessoryPostFinishing(); return '' } catch (error) { return String(error) } })
-      expect(blocked).toContain('不一致')
-      expect((await durable(page)).accessory).toEqual(afterArchive.accessory)
-      await page.evaluate(key => localStorage.removeItem(key), oldKey)
-      await materialReadback(page)
-    }
-    const continued = await carryAndContinue(page, input)
-    expect(continued.progress.totalCompletedQty).toBe(500)
-    expect(continued.children).toHaveLength(2)
-    expect(continued.rechecks).toHaveLength(0)
-    expect(continued.child.status).toBe('待出货')
-    expect(continued.child.lines.reduce((sum,line)=>sum+line.outboundQty,0)).toBe(100)
-    expect(continued.children.some(child => child.retiredRecheckId === input.oldRecheckId)).toBe(true)
-    expect((await durable(page)).accessory).toEqual(afterArchive.accessory)
-    await artifact(page, order, { inputBoundary: 'public garment source encoded schema2 plus main frozen AW fixture; isolated prototype only', material, continued, durable: await durable(page) })
-  })
 }
 
 async function publicPostTask(page: Page) {

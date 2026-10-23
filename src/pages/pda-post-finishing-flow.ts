@@ -213,14 +213,11 @@ export function renderPdaPostFinishingReturnConfirmationPage(): string {
 function renderPostTask(task: PostFinishingPostTask): string {
   const runtime = getPdaRuntimeContext()
   const progress = getPostFinishingProcessProgress(task)
-  const historicalUnsplit = task.executionModel !== 'ITEMS_V1' && !task.legacyCarryover
-  const historicalCompletedQty = progress.lines.reduce((sum, line) => sum + line.historyCompletedQty, 0)
   const materialReadiness = getPostFinishingMaterialReadiness(task.productionOrderNo)
   const outbounds = listPostFinishingFullFlowOutboundOrders().filter((item) => item.postTaskId === task.postTaskId)
-  const canRegister = Boolean(runtime && isPostFinishingFactoryId(runtime.factoryId) && !progress.legacyPending)
+  const canRegister = Boolean(runtime && isPostFinishingFactoryId(runtime.factoryId))
   const firstAvailable = progress.processes.find((item) => item.applicable && item.availableQty > 0)?.processItem
   const processes = progress.processes.map((process) => {
-    if (historicalUnsplit) return `<div class="flex items-center justify-between rounded-xl border bg-amber-50 px-3 py-3 text-sm"><span>${escapeHtml(process.processItem)}</span><span class="text-amber-800">历史未分项</span></div>`
     if (!process.applicable) return `<div class="flex items-center justify-between rounded-xl border bg-slate-50 px-3 py-3 text-sm"><span>${escapeHtml(process.processItem)}</span><span class="text-slate-500">不涉及</span></div>`
     const records = progress.records.filter((record) => record.processItem === process.processItem)
     const quantityLines = process.lines.map((line) => `
@@ -228,7 +225,7 @@ function renderPostTask(task: PostFinishingPostTask): string {
         <div class="flex gap-3">${image(line.sku)}<div class="min-w-0 flex-1">
           <div class="break-all text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div>
           <div class="mt-1 text-xs text-slate-500">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div>
-          <div class="mt-2 text-xs">${historicalUnsplit ? '历史未分项' : `${historicalCompletedQty > 0 ? '新增分项累计' : '累计'} ${line.completedQty} / ${line.expectedQty} 件 · 本次可登记 ${line.availableQty} 件`}</div>
+          <div class="mt-2 text-xs">${`累计 ${line.completedQty} / ${line.expectedQty} 件 · 本次可登记 ${line.availableQty} 件`}</div>
         </div></div>
         <label class="mt-3 block text-xs font-medium">本次完成数量（件）
           <input aria-label="${escapeHtml(`${process.processItem} ${line.sku.skuCode} 本次完成数量`)}" type="number" min="0" max="${line.availableQty}" step="1" inputmode="numeric" value="0" class="mt-1 h-12 w-full rounded-xl border px-3 text-right text-base" data-post-process-qty data-skip-page-rerender="true" ${canRegister && line.availableQty > 0 ? '' : 'disabled'} />
@@ -236,7 +233,7 @@ function renderPostTask(task: PostFinishingPostTask): string {
         ${line.availableQty === 0 && line.completedQty < line.expectedQty ? '<p class="mt-2 text-xs text-amber-800">前序尚无可登记数量。</p>' : ''}
       </article>`).join('')
     return `<details class="rounded-2xl border bg-white shadow-sm" data-post-process="${escapeHtml(process.processItem)}" ${firstAvailable === process.processItem ? 'open' : ''}>
-      <summary class="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm"><span class="font-semibold">${escapeHtml(process.processItem)}</span><span class="text-right">${historicalUnsplit ? '历史未分项' : `${process.completedQty} / ${process.expectedQty} 件`}<span class="mt-1 block text-xs text-slate-500">${historicalUnsplit ? '历史合并记录' : process.completedQty >= process.expectedQty ? '已完成' : process.completedQty > 0 ? '部分完成' : '待加工'}</span></span></summary>
+      <summary class="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm"><span class="font-semibold">${escapeHtml(process.processItem)}</span><span class="text-right">${`${process.completedQty} / ${process.expectedQty} 件`}<span class="mt-1 block text-xs text-slate-500">${process.completedQty >= process.expectedQty ? '已完成' : process.completedQty > 0 ? '部分完成' : '待加工'}</span></span></summary>
       <div class="space-y-3 border-t p-3">
         <div class="rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-900">本次责任人：${escapeHtml(runtime?.userName || '请先登录')} · 录入人：${escapeHtml(runtime?.userName || '—')}</div>
         ${quantityLines}
@@ -254,8 +251,6 @@ function renderPostTask(task: PostFinishingPostTask): string {
         <div class="mt-3 text-xs text-blue-900">实际加工顺序：${task.processItems.map(escapeHtml).join(' → ')}</div>
         <div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/80 p-3 text-xs"><div>应加工<span class="mt-1 block text-base font-semibold">${progress.totalExpectedQty} 件</span></div><div>全部后道完成<span class="mt-1 block text-base font-semibold">${progress.totalCompletedQty} 件</span></div><div>已准备出货占用<span class="mt-1 block text-base font-semibold">${progress.totalReservedQty} 件</span></div><div>可准备出货<span class="mt-1 block text-base font-semibold">${progress.availableForOutboundQty} 件</span></div></div>
       </section>
-      ${progress.legacyPending ? '<div class="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">历史加工尚未分项，请由主管在管理端核对承接后继续登记；原数量和下游记录保留。</div>' : ''}
-      ${historicalCompletedQty > 0 ? `<div class="rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-700">历史合并完成 ${historicalCompletedQty} 件，历史未分项；各项数量仅显示剩余新加工范围，不补造历史责任人和时间。</div>` : ''}
       ${materialReadiness.applicable && materialReadiness.status !== '已入库' ? `<section class="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>后道辅料未到齐。</strong><span class="mt-1 block text-xs">${escapeHtml(materialReadiness.label)}。当前仅提示，不阻断登记。</span></section>` : ''}
       <section class="space-y-2" aria-label="各加工项数量">${processes}</section>
       <details class="rounded-2xl border bg-white" data-post-outbound-form>

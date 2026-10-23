@@ -102,20 +102,13 @@ async function runCase(scenario: 'LEGACY_EMPTY_IDB' | 'COPYING' | 'VERIFIED' | '
     assert.ok(actual.requests.every(row => row.mode === 'readonly'))
     const prefixRequests = actual.requests.filter(row => row.store === 'records' && row.method === 'getAll' && row.bounded)
     assert.ok(prefixRequests.length)
-    for (const request of prefixRequests) assert.ok(actual.requests.some(row => row.tx === request.tx && row.id === actual.markerId), '样衣前缀与原迁移标记必须同一只读事务')
-    if (scenario === 'LS_COMPLETE') {
-      assert.equal(actual.list.ok, true); assert.equal(actual.detail.ok, true)
-      assert.equal((actual.list as any).value.find((item: any) => item.id === actual.sampleId).styleName, actual.expectedName)
-      assert.equal((actual.detail as any).value.styleName, actual.expectedName)
-      const point = actual.requests.find(row => row.id === actual.sampleRowId)
-      assert.ok(point); assert.ok(actual.requests.some(row => row.tx === point.tx && row.id === actual.markerId), '按单详情与原迁移标记必须同一只读事务')
-    } else {
-      assert.equal(actual.list.ok, false); assert.equal(actual.detail.ok, false)
-      assert.equal((actual.list as any).code, 'PRODUCTION_CONTEXT_RECOVERY'); assert.equal((actual.detail as any).code, 'PRODUCTION_CONTEXT_RECOVERY')
-      assert.equal(actual.exposedAfterFailure, false)
-      if (scenario === 'COMPLETE_REAPPEAR') assert.equal((actual.initial as any).ok, true)
-      if (scenario === 'LEGACY_EMPTY_IDB' || scenario === 'COMPLETE_REAPPEAR') assert.equal(actual.preservedLegacy, true)
+    assert.equal(actual.requests.some(row=>row.id===actual.markerId),false,'当前样衣读取不再读取迁移标记')
+    assert.equal(actual.list.ok,true);assert.equal(actual.detail.ok,true)
+    if(scenario !== 'LEGACY_EMPTY_IDB') {
+      assert.equal((actual.list as any).value.find((item:any)=>item.id===actual.sampleId).styleName,actual.expectedName)
+      assert.equal((actual.detail as any).value.styleName,actual.expectedName)
     }
+    if(scenario==='LEGACY_EMPTY_IDB'||scenario==='COMPLETE_REAPPEAR')assert.equal(actual.preservedLegacy,true,'普通读取不执行清理')
     evidence.passed = true
   } catch (error) { evidence.error = String(error); throw error }
   finally {
@@ -126,5 +119,5 @@ async function runCase(scenario: 'LEGACY_EMPTY_IDB' | 'COPYING' | 'VERIFIED' | '
 }
 
 for (const scenario of ['LEGACY_EMPTY_IDB', 'COPYING', 'VERIFIED', 'COMPLETE_REAPPEAR', 'LS_UNKNOWN', 'LS_COMPLETE'] as const) {
-  test(`原样衣窄源迁移门禁原生只读：${scenario}`, { timeout: 60000 }, () => runCase(scenario))
+  test(`当前样衣窄源忽略废弃演示键和标记、只读不写：${scenario}`, { timeout: 60000 }, () => runCase(scenario))
 }
