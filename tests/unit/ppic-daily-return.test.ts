@@ -85,12 +85,13 @@ test('R17/R49/R61/R73: ownership, stable commands and historical receipts', () =
   syncPpicReceipts(s, [receipt('old', 800, '2026-10-14T08:00:00+07:00')])
   assert.equal(ppicPromiseResult(s, p, now).currentGap, 800)
 })
-test('R22/R46/R63/R64: complete daily coverage, config permission and immutable baseline', () => {
+test('R22/R46/R64: complete daily coverage, config versioning and immutable baseline', () => {
   const s = createPpicDailyStore()
   assert.throws(() => confirmPpicDay(s, { operationId: 'd', actor, date: '2026-10-14', tasks: [task], noArrangementReasons: {}, nowAt: now }), /安排/)
   confirmPpicDay(s, { operationId: 'd', actor, date: '2026-10-14', tasks: [task], noArrangementReasons: { t: '等待交出' }, nowAt: now })
   assert.equal(s.confirmations.length, 1)
-  assert.throws(() => changePpicConfig(s, { operationId: 'c', actor, cutoff: '18:00', timeZone: 'Asia/Jakarta', effectiveFrom: '2026-10-15', nowAt: now }), /组长/)
+  assert.equal(changePpicConfig(s, { operationId: 'c', actor, cutoff: '18:00', timeZone: 'Asia/Jakarta', effectiveFrom: '2026-10-15', nowAt: now }).cutoff, '18:00')
+  assert.throws(() => changePpicConfig(s, { operationId: 'past', actor, cutoff: '18:00', timeZone: 'Asia/Jakarta', effectiveFrom: '2026-10-13', nowAt: now }), /过去业务日/)
   const p = addPpicPromise(s, input('p'))
   amendPpicPromise(s, { operationId: 'am', actor, task, promiseId: p.promiseId, deadlineAt: '2026-10-14T18:00', reason: '运输确认', nowAt: now })
   assert.equal(p.originalDeadlineAt, '2026-10-14T10:00:00.000Z')

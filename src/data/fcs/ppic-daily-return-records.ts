@@ -1,4 +1,4 @@
-import { getAvailableOnboardingPpicOptions, getCurrentSewingOutsourcingPpic } from './factory-onboarding-ppic.ts'
+import { getAvailableOnboardingPpicOptions, getCurrentSewingOutsourcingPpic, getOnboardingPpicOptionById } from './factory-onboarding-ppic.ts'
 import { listSewingFactoryMasterRecords } from './factory-master-store.ts'
 import { hydrateProductionContextRecords } from './production-context-records.ts'
 import { getCurrentSewingTaskResponsibility, listSewingTaskResponsibilityVersions } from './sewing-outsourcing-responsibility.ts'
@@ -7,7 +7,7 @@ import { listPostFinishingReturnConfirmationVersions } from './post-finishing-fu
 import { getPpicReturnQuantityBasis, type PpicReturnQuantityBasis } from './ppic-return-quantity-basis.ts'
 import { withCutPieceReleaseReadSnapshot } from './cut-piece-release.ts'
 import { assertPostFinishingWrite, ensurePostFinishingRecordState, getPostFinishingStorageFailure, registerPostFinishingRepository, registerPostFinishingCommitProjection, runPostFinishingCommand } from './post-finishing-records.ts'
-import { createPpicDailyStore, ppicConfigAt, ppicBusinessDate, ppicInstant, ppicPromiseResult, ppicTaskCapacity, syncPpicReceipts, addPpicPromise, arrangePpicMakeup, recordPpicGapReason, confirmPpicDay, changePpicConfig, amendPpicPromise, type PpicDailyStore, type PpicActor, type PpicTaskContext, type PpicPromise } from './ppic-daily-return.ts'
+import { createPpicDailyStore, ppicConfigAt, ppicBusinessDate, ppicInstant, ppicPromiseResult, ppicTaskCapacity, syncPpicReceipts, addPpicPromise, arrangePpicMakeup, recordPpicGapReason, confirmPpicDay, changePpicConfig, amendPpicPromise, type PpicDailyStore, type PpicActor, type PpicTaskContext, type PpicPromise, type PpicConfig, type PpicDailyConfirmation } from './ppic-daily-return.ts'
 
 let store = createPpicDailyStore()
 const collections = { promises: 'ppicPromises', makeups: 'ppicMakeups', allocations: 'ppicAllocations', confirmations: 'ppicConfirmations', configs: 'ppicConfigs', bases: 'ppicBases', actions: 'ppicActions', evaluations: 'ppicEvaluations' } as const
@@ -36,6 +36,15 @@ export const PPIC_DAILY_DEMO_MEMBERS: PpicActor[] = [
 export function getCurrentPpicDailyActor(): PpicActor {
   const current = getCurrentSewingOutsourcingPpic()
   return { id: current.ppicId, name: current.ppicName, leader: current.role === 'TEAM_LEADER' }
+}
+export function getPpicDailyActorById(ppicId: string): PpicActor | null {
+  const option = getOnboardingPpicOptionById(ppicId)
+  if (option) return option.status === '启用' ? { id: option.ppicId, name: option.ppicName, leader: option.role === 'TEAM_LEADER' } : null
+  const mock = PPIC_DAILY_DEMO_MEMBERS.find(member => member.id === ppicId)
+  return mock ? { ...mock } : null
+}
+export function listPpicDailyActors(): PpicActor[] {
+  return getAvailableOnboardingPpicOptions().map(option => ({ id: option.ppicId, name: option.ppicName, leader: option.role === 'TEAM_LEADER' }))
 }
 function receipts() {
   return listPostFinishingReturnConfirmationVersions({ activeOnly: true }).map(r => ({ id: r.confirmationVersionId, deliveryId: r.deliveryId, assignmentId: r.assignmentId, factoryId: r.factoryId, quantity: r.confirmedQty, confirmedAt: r.confirmedAt, recordedAt: r.versionCreatedAt }))
@@ -98,21 +107,203 @@ function readTaskViews(nowAt: string, actorId?: string): PpicDailyTaskView[] {
 function needsDailyTaskConfirmation(t: PpicDailyTaskView): boolean {
   return !t.historical && (t.capacity.conflict || t.capacity.pending > 0 || t.promises.some(p => p.result.currentGap > 0 || p.result.missingReason))
 }
-export function getPpicDailyReturnView(input: { date?: string; nowAt?: string } = {}) {
-  const actor = getCurrentPpicDailyActor(), nowAt = input.nowAt || new Date().toISOString()
+function hasTodayArrangement(task: PpicDailyTaskView, actorId: string, date: string, timeZone: string): boolean {
+  return task.promises.some(p => p.actorId === actorId && p.date === date)
+    || store.makeups.some(m => m.actorId === actorId && ppicBusinessDate(m.createdAt, timeZone) === date && task.promises.some(p => p.promiseId === m.promiseId))
+    || store.actions.some(a => a.action === '修改安排时间' && a.actorId === actorId && ppicBusinessDate(a.at, timeZone) === date && task.promises.some(p => p.promiseId === a.promiseId))
+}
+function actorDailyState(actorId: string, date: string, nowAt: string, config: PpicConfig, tasks: PpicDailyTaskView[]) {
+  const confirmation = store.confirmations.find(d => d.active && d.actorId === actorId && d.date === date) || null
+  const needsReconfirmation = Boolean(confirmation && date === ppicBusinessDate(nowAt, config.timeZone) && (tasks.some(t => !confirmation.taskIds.includes(t.task.assignmentId))
+    || store.promises.some(p => p.actorId === actorId && p.date === date && !confirmation.promiseIds.includes(p.promiseId))
+    || store.makeups.some(m => m.actorId === actorId && ppicBusinessDate(m.createdAt, config.timeZone) === date && !(confirmation.makeupIds || []).includes(m.makeupId))
+    || store.actions.some(a => a.actorId === actorId && a.action === '修改安排时间' && ppicBusinessDate(a.at, config.timeZone) === date && !(confirmation.revisionIds || []).includes(a.actionId))))
+  const submissionStatus = needsReconfirmation ? '待重新确认' : confirmation ? (() => { const c = store.configs.find(c => c.configId === confirmation.configId) || config; return ppicInstant(confirmation.submittedAt) <= ppicInstant(date + 'T' + c.cutoff, c.timeZone) ? '已提交' : '逾期补交' })() : ppicInstant(nowAt) >= ppicInstant(date + 'T' + config.cutoff, config.timeZone) ? '未提交已超时' : '待提交'
+  return { confirmation: confirmation ? structuredClone(confirmation) : null, needsReconfirmation, submissionStatus }
+}
+export function getPpicDailyReturnView(input: { date?: string; nowAt?: string; actorId?: string } = {}) {
+  const actor = input.actorId ? getPpicDailyActorById(input.actorId) : getCurrentPpicDailyActor()
+  if (!actor) throw new Error('PPIC不存在或未启用，不能读取每日回货填报。')
+  const nowAt = input.nowAt || new Date().toISOString()
   const date = input.date || ppicBusinessDate(nowAt)
   const config = ppicConfigAt(store, date)
   const all = taskViews(nowAt, actor.id)
   const tasks = all.filter(t => t.task.ownerId === actor.id && needsDailyTaskConfirmation(t))
-    .map(t => ({ ...t, todayHasArrangement: t.promises.some(p => p.actorId === actor.id && p.date === date) || store.makeups.some(m => m.actorId === actor.id && ppicBusinessDate(m.createdAt, config.timeZone) === date && t.promises.some(p => p.promiseId === m.promiseId)) || store.actions.some(a => a.action === '修改安排时间' && a.actorId === actor.id && ppicBusinessDate(a.at, config.timeZone) === date && t.promises.some(p => p.promiseId === a.promiseId)) }))
+    .map(t => ({ ...t, todayHasArrangement: hasTodayArrangement(t, actor.id, date, config.timeZone) }))
   const history = all.filter(t => (t.historical || t.task.ownerId !== actor.id) && t.promises.some(p => p.actorId === actor.id))
     .map(t => ({ assignmentId: t.task.assignmentId, taskNo: t.basis.taskNo, factoryName: t.basis.factoryName, promises: t.promises.filter(p => p.actorId === actor.id) }))
-  const confirmation = store.confirmations.find(d => d.active && d.actorId === actor.id && d.date === date)
-  const needsReconfirmation = Boolean(confirmation && date === ppicBusinessDate(nowAt, config.timeZone) && (tasks.some(t => !confirmation.taskIds.includes(t.task.assignmentId))
-    || store.promises.some(p => p.actorId === actor.id && p.date === date && !confirmation.promiseIds.includes(p.promiseId))
-    || store.makeups.some(m => m.actorId === actor.id && ppicBusinessDate(m.createdAt, config.timeZone) === date && !(confirmation.makeupIds || []).includes(m.makeupId)) || store.actions.some(a => a.actorId === actor.id && a.action === '修改安排时间' && ppicBusinessDate(a.at, config.timeZone) === date && !(confirmation.revisionIds || []).includes(a.actionId))))
-  return { actor, date, nowAt, config, tasks, history, needsReconfirmation, confirmation: confirmation ? structuredClone(confirmation) : null,
-    submissionStatus: needsReconfirmation ? '待重新确认' : confirmation ? (() => { const c = store.configs.find(c => c.configId === confirmation.configId) || config; return ppicInstant(confirmation.submittedAt) <= ppicInstant(date + 'T' + c.cutoff, c.timeZone) ? '已提交' : '逾期补交' })() : ppicInstant(nowAt) >= ppicInstant(date + 'T' + config.cutoff, config.timeZone) ? '未提交已超时' : '待提交' }
+  const state = actorDailyState(actor.id, date, nowAt, config, tasks)
+  return { actor, date, nowAt, config, tasks, history, ...state }
+}
+export interface PpicDailyWorklistQuery { date?: string; ppicId?: string; factoryId?: string; keyword?: string; status?: string; nowAt?: string }
+export type PpicDailyWorklistStatus = 'CONFLICT' | 'OVERDUE' | 'MISSING_REASON' | 'COMPLETED' | 'ARRANGED' | 'NO_ARRANGEMENT' | 'PENDING'
+export const PPIC_DAILY_WORKLIST_STATUS_OPTIONS: Array<{ value: PpicDailyWorklistStatus; label: string }> = [
+  { value: 'CONFLICT', label: '应回待核对' },
+  { value: 'OVERDUE', label: '到期欠回' },
+  { value: 'MISSING_REASON', label: '待补欠回原因' },
+  { value: 'COMPLETED', label: '回货已完成' },
+  { value: 'ARRANGED', label: '今日已安排' },
+  { value: 'NO_ARRANGEMENT', label: '今日无安排' },
+  { value: 'PENDING', label: '待安排回货' },
+]
+const WORKLIST_STATUS_LABEL = Object.fromEntries(PPIC_DAILY_WORKLIST_STATUS_OPTIONS.map(option => [option.value, option.label])) as Record<PpicDailyWorklistStatus, string>
+export interface PpicDailyWorklistTask extends PpicDailyTaskView {
+  owner: PpicActor | null
+  ownerName: string
+  ownerActive: boolean
+  submissionStatus: string
+  confirmation: PpicDailyConfirmation | null
+  needsReconfirmation: boolean
+  needsDailyConfirmation: boolean
+  todayPromises: PpicDailyTaskView['promises']
+  todayMakeups: Array<{ makeup: PpicDailyTaskView['promises'][number]['result']['makeups'][number]; promiseNo: string }>
+  todayRevisionCount: number
+  todayHasArrangement: boolean
+  noArrangementReason: string
+  status: PpicDailyWorklistStatus
+  statusLabel: string
+}
+export function getPpicDailyWorklistView(query: PpicDailyWorklistQuery = {}) {
+  const nowAt = query.nowAt || new Date().toISOString()
+  const date = query.date || ppicBusinessDate(nowAt)
+  const config = ppicConfigAt(store, date)
+  const all = taskViews(nowAt).filter(t => !t.historical)
+  const owners = new Map<string, PpicActor | null>()
+  const ownerTasks = new Map<string, PpicDailyTaskView[]>()
+  for (const task of all) {
+    if (!owners.has(task.task.ownerId)) owners.set(task.task.ownerId, getPpicDailyActorById(task.task.ownerId))
+    const list = ownerTasks.get(task.task.ownerId) || []
+    list.push(task)
+    ownerTasks.set(task.task.ownerId, list)
+  }
+  const dailyStates = new Map<string, ReturnType<typeof actorDailyState>>()
+  for (const [ownerId, tasks] of ownerTasks) {
+    const dailyTasks = tasks.filter(needsDailyTaskConfirmation).map(t => ({ ...t, todayHasArrangement: hasTodayArrangement(t, ownerId, date, config.timeZone) }))
+    dailyStates.set(ownerId, actorDailyState(ownerId, date, nowAt, config, dailyTasks))
+  }
+  let rows: PpicDailyWorklistTask[] = all.map(task => {
+    const owner = owners.get(task.task.ownerId) || null
+    const dailyState = dailyStates.get(task.task.ownerId)!
+    const todayPromises = task.promises.filter(p => p.date === date)
+    const todayMakeups = task.promises.flatMap(p => p.result.makeups
+      .filter(m => ppicBusinessDate(m.createdAt, config.timeZone) === date)
+      .map(m => ({ makeup: m, promiseNo: p.promiseNo })))
+    const todayRevisionCount = task.promises.reduce((n, p) => n + p.revisions.filter(v => ppicBusinessDate(v.at, config.timeZone) === date).length, 0)
+    const todayHasArrangement = todayPromises.length > 0 || todayMakeups.length > 0 || todayRevisionCount > 0
+    const noArrangementReason = dailyState.confirmation?.noArrangementReasons[task.task.assignmentId] || ''
+    const status: PpicDailyWorklistStatus = task.capacity.conflict ? 'CONFLICT'
+      : task.promises.some(p => p.result.due && p.result.currentGap > 0) ? 'OVERDUE'
+        : task.promises.some(p => p.result.missingReason) ? 'MISSING_REASON'
+          : task.capacity.expectedQty !== null && task.capacity.pending <= 0 ? 'COMPLETED'
+            : todayHasArrangement ? 'ARRANGED'
+              : noArrangementReason ? 'NO_ARRANGEMENT' : 'PENDING'
+    return { ...task, owner, ownerName: owner?.name || '负责人待核对', ownerActive: Boolean(owner),
+      submissionStatus: owner ? dailyState.submissionStatus : '负责人待核对', confirmation: dailyState.confirmation,
+      needsReconfirmation: dailyState.needsReconfirmation, needsDailyConfirmation: needsDailyTaskConfirmation(task),
+      todayPromises, todayMakeups, todayRevisionCount, todayHasArrangement, noArrangementReason,
+      status, statusLabel: WORKLIST_STATUS_LABEL[status] }
+  })
+  const ppicOptions = [...owners.entries()].map(([id, owner]) => ({ id, name: owner?.name || id, count: rows.filter(row => row.task.ownerId === id).length }))
+    .filter(option => option.id && option.count > 0).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+  const factories = [...new Map(rows.map(row => [row.basis.factoryId, { value: row.basis.factoryId, label: row.basis.factoryName }])).values()]
+    .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+  const keyword = (query.keyword || '').trim().toLowerCase()
+  rows = rows.filter(row => (!query.ppicId || row.task.ownerId === query.ppicId)
+    && (!query.factoryId || row.basis.factoryId === query.factoryId)
+    && (!query.status || row.status === query.status)
+    && (!keyword || [row.basis.productionOrderNo, row.basis.taskNo, row.basis.factoryName, ...row.promises.map(p => p.promiseNo)].some(value => value.toLowerCase().includes(keyword))))
+  const rowOwnerIds = new Set(rows.map(row => row.task.ownerId).filter(Boolean))
+  const measurable = rows.filter(row => !row.capacity.conflict)
+  const stats = { tasks: rows.length, ppics: rowOwnerIds.size,
+    expectedQty: measurable.reduce((n, row) => n + (row.basis.expectedQty ?? 0), 0),
+    receivedQty: measurable.reduce((n, row) => n + row.capacity.receivedQty, 0),
+    pendingQty: measurable.reduce((n, row) => n + Math.max(0, row.capacity.pending), 0),
+    currentGap: measurable.reduce((n, row) => n + row.promises.filter(p => p.result.due).reduce((m, p) => m + Math.max(0, p.result.currentGap), 0), 0),
+    arranged: rows.filter(row => row.todayHasArrangement).length,
+    submitted: [...rowOwnerIds].filter(id => dailyStates.get(id)?.confirmation && !dailyStates.get(id)?.needsReconfirmation).length,
+    conflicts: rows.filter(row => row.capacity.conflict).length }
+  return { date, nowAt, config, rows, ppicOptions, factories, stats }
+}
+export interface PpicDailyStatisticsQuery { date?: string; days?: number; nowAt?: string }
+export interface PpicDailyStatisticsRow {
+  ownerId: string
+  ownerName: string
+  ownerActive: boolean
+  requiredTasks: number
+  arrangedTasks: number
+  coveredTasks: number
+  submissionStatus: string
+  submittedAt: string
+  todayPromiseCount: number
+  todayPromiseQty: number
+  todayMakeupCount: number
+}
+export interface PpicDailyStatisticsDay {
+  date: string
+  requiredTasks: number
+  requiredPpics: number
+  filledPpics: number
+  coveredTasks: number
+  arrangedTasks: number
+}
+function shiftPpicBusinessDate(date: string, offset: number): string {
+  const value = new Date(date + 'T00:00:00Z')
+  value.setUTCDate(value.getUTCDate() + offset)
+  return value.toISOString().slice(0, 10)
+}
+export function getPpicDailyStatisticsView(query: PpicDailyStatisticsQuery = {}) {
+  const nowAt = query.nowAt || new Date().toISOString()
+  const date = query.date || ppicBusinessDate(nowAt)
+  const days = Math.min(30, Math.max(1, Math.floor(query.days || 7)))
+  const config = ppicConfigAt(store, date)
+  const byOwner = new Map<string, PpicDailyTaskView[]>()
+  for (const task of taskViews(nowAt).filter(t => !t.historical)) {
+    if (!needsDailyTaskConfirmation(task)) continue
+    const list = byOwner.get(task.task.ownerId) || []
+    list.push(task)
+    byOwner.set(task.task.ownerId, list)
+  }
+  const rows: PpicDailyStatisticsRow[] = [...byOwner.entries()].map(([ownerId, tasks]) => {
+    const owner = getPpicDailyActorById(ownerId)
+    const dailyTasks = tasks.map(t => ({ ...t, todayHasArrangement: hasTodayArrangement(t, ownerId, date, config.timeZone) }))
+    const state = actorDailyState(ownerId, date, nowAt, config, dailyTasks)
+    const confirmation = state.confirmation && !state.needsReconfirmation ? state.confirmation : null
+    const requiredIds = new Set(tasks.map(t => t.task.assignmentId))
+    const todayPromises = store.promises.filter(p => p.actorId === ownerId && p.date === date)
+    const todayMakeups = store.makeups.filter(m => m.actorId === ownerId && ppicBusinessDate(m.createdAt, config.timeZone) === date)
+    return { ownerId, ownerName: owner?.name || '负责人待核对', ownerActive: Boolean(owner),
+      requiredTasks: tasks.length, arrangedTasks: dailyTasks.filter(t => t.todayHasArrangement).length,
+      coveredTasks: confirmation ? confirmation.taskIds.filter(id => requiredIds.has(id)).length : 0,
+      submissionStatus: owner ? state.submissionStatus : '负责人待核对', submittedAt: state.confirmation?.submittedAt || '',
+      todayPromiseCount: todayPromises.length, todayPromiseQty: todayPromises.reduce((n, p) => n + p.quantity, 0), todayMakeupCount: todayMakeups.length }
+  }).sort((a, b) => b.requiredTasks - a.requiredTasks || a.ownerName.localeCompare(b.ownerName, 'zh-CN'))
+  const requiredTasks = rows.reduce((n, row) => n + row.requiredTasks, 0)
+  const requiredPpics = rows.length
+  const filledPpics = rows.filter(row => ['已提交', '逾期补交'].includes(row.submissionStatus)).length
+  const coveredTasks = rows.reduce((n, row) => n + row.coveredTasks, 0)
+  const arrangedTasks = rows.reduce((n, row) => n + row.arrangedTasks, 0)
+  const daily: PpicDailyStatisticsDay[] = []
+  for (let offset = days - 1; offset >= 0; offset--) {
+    const day = shiftPpicBusinessDate(date, -offset)
+    let dayFilled = 0, dayCovered = 0, dayArranged = 0
+    for (const [ownerId, tasks] of byOwner) {
+      const dailyTasks = tasks.map(t => ({ ...t, todayHasArrangement: hasTodayArrangement(t, ownerId, day, config.timeZone) }))
+      const state = actorDailyState(ownerId, day, nowAt, config, dailyTasks)
+      const confirmation = state.confirmation && !state.needsReconfirmation ? state.confirmation : null
+      if (confirmation) {
+        dayFilled++
+        const requiredIds = new Set(tasks.map(t => t.task.assignmentId))
+        dayCovered += confirmation.taskIds.filter(id => requiredIds.has(id)).length
+      }
+      dayArranged += dailyTasks.filter(t => t.todayHasArrangement).length
+    }
+    daily.push({ date: day, requiredTasks, requiredPpics, filledPpics: dayFilled, coveredTasks: dayCovered, arrangedTasks: dayArranged })
+  }
+  return { date, nowAt, config, days, rows, daily, stats: {
+    requiredTasks, requiredPpics, filledPpics, unfilledPpics: requiredPpics - filledPpics, coveredTasks, arrangedTasks,
+    confirmationRate: requiredPpics ? filledPpics / requiredPpics : null,
+    taskCoverageRate: requiredTasks ? coveredTasks / requiredTasks : null,
+  } }
 }
 export interface PpicDailySummaryQuery { date?: string; ppicId?: string; factoryId?: string; keyword?: string; reason?: string; status?: string; nowAt?: string }
 export function getPpicDailySupervisorView(query: PpicDailySummaryQuery = {}) {
@@ -171,6 +362,20 @@ export function getPpicDailySupervisorView(query: PpicDailySummaryQuery = {}) {
     originalGap: rows.filter(r => r.result.due).reduce((n, r) => n + r.result.originalGap, 0), currentGap: rows.filter(r => r.result.due).reduce((n, r) => n + r.result.currentGap, 0),
     makeupRounds: rows.reduce((n, r) => n + r.result.rounds, 0), actualReceivedQty, todayMakeupPlans: todayMakeups.length, todayMakeupPendingQty: todayMakeups.filter(r => r.makeup.active).reduce((n, r) => n + r.result.currentGap, 0), actualMakeupReceivedQty, submitted: people.filter(p => p.confirmation && !p.needsReconfirmation).length, members: people.length } }
 }
+function resolveActor(actorId?: string): PpicActor {
+  if (!actorId) return getCurrentPpicDailyActor()
+  const actor = getPpicDailyActorById(actorId)
+  if (!actor) throw new Error('任务负责人不在当前PPIC名单或已停用，不能填报。')
+  return actor
+}
+async function saveAs<T>(actor: PpicActor, recipe: (actor: PpicActor) => T): Promise<T> {
+  await hydrateProductionContextRecords()
+  return runPostFinishingCommand(() => {
+    const current = getPpicDailyActorById(actor.id)
+    if (!current || current.name !== actor.name || current.leader !== actor.leader) throw new Error('PPIC名单已变化，尚未保存。重新读取后再提交。')
+    return recipe(current)
+  })
+}
 async function save<T>(recipe: () => T): Promise<T> {
   const startedBy = getCurrentPpicDailyActor()
   await hydrateProductionContextRecords()
@@ -185,23 +390,28 @@ function currentTask(assignmentId: string): PpicDailyTaskView {
   if (!view || view.historical) throw new Error('第三方车缝任务不存在或已失效，历史任务只读。')
   return view
 }
-export function savePpicDailyReturnPromise(input: { operationId: string; assignmentId: string; quantity: number; deadlineAt: string; date: string; basisVersion: string; nowAt?: string }) {
-  return save(() => { const view = currentTask(input.assignmentId)
+export function savePpicDailyReturnPromise(input: { operationId: string; assignmentId: string; quantity: number; deadlineAt: string; date: string; basisVersion: string; actorId?: string; nowAt?: string }) {
+  const actor = resolveActor(input.actorId)
+  return saveAs(actor, current => { const view = currentTask(input.assignmentId)
     if (view.task.basisVersion !== input.basisVersion) throw new Error('应回数量来源已变化，请重新读取后填写。')
     syncPpicDailyReceiptAllocations()
-    return addPpicPromise(store, { ...input, actor: getCurrentPpicDailyActor(), task: view.task, receivedQty: view.capacity.receivedQty, nowAt: input.nowAt || new Date().toISOString() }) })
+    return addPpicPromise(store, { ...input, actor: current, task: view.task, receivedQty: view.capacity.receivedQty, nowAt: input.nowAt || new Date().toISOString() }) })
 }
-export function savePpicDailyReturnMakeup(input: { operationId: string; assignmentId: string; promiseId: string; quantity: number; deadlineAt: string; reason: string; detail: string; nowAt?: string }) {
-  return save(() => { syncPpicDailyReceiptAllocations(); return arrangePpicMakeup(store, { ...input, actor: getCurrentPpicDailyActor(), task: currentTask(input.assignmentId).task, nowAt: input.nowAt || new Date().toISOString() }) })
+export function savePpicDailyReturnMakeup(input: { operationId: string; assignmentId: string; promiseId: string; quantity: number; deadlineAt: string; reason: string; detail: string; actorId?: string; nowAt?: string }) {
+  const actor = resolveActor(input.actorId)
+  return saveAs(actor, current => { syncPpicDailyReceiptAllocations(); return arrangePpicMakeup(store, { ...input, actor: current, task: currentTask(input.assignmentId).task, nowAt: input.nowAt || new Date().toISOString() }) })
 }
-export function savePpicDailyReturnReason(input: { operationId: string; assignmentId: string; promiseId: string; reason: string; detail: string; nowAt?: string }) {
-  return save(() => recordPpicGapReason(store, { ...input, actor: getCurrentPpicDailyActor(), task: currentTask(input.assignmentId).task, nowAt: input.nowAt || new Date().toISOString() }))
+export function savePpicDailyReturnReason(input: { operationId: string; assignmentId: string; promiseId: string; reason: string; detail: string; actorId?: string; nowAt?: string }) {
+  const actor = resolveActor(input.actorId)
+  return saveAs(actor, current => recordPpicGapReason(store, { ...input, actor: current, task: currentTask(input.assignmentId).task, nowAt: input.nowAt || new Date().toISOString() }))
 }
-export function savePpicDailyReturnAmendment(input: { operationId: string; assignmentId: string; promiseId: string; deadlineAt: string; reason: string; nowAt?: string }) {
-  return save(() => amendPpicPromise(store, { ...input, actor: getCurrentPpicDailyActor(), task: currentTask(input.assignmentId).task, nowAt: input.nowAt || new Date().toISOString() }))
+export function savePpicDailyReturnAmendment(input: { operationId: string; assignmentId: string; promiseId: string; deadlineAt: string; reason: string; actorId?: string; nowAt?: string }) {
+  const actor = resolveActor(input.actorId)
+  return saveAs(actor, current => amendPpicPromise(store, { ...input, actor: current, task: currentTask(input.assignmentId).task, nowAt: input.nowAt || new Date().toISOString() }))
 }
-export function confirmPpicDailyReport(input: { operationId: string; date: string; noArrangementReasons: Record<string, string>; nowAt?: string }) {
-  return save(() => confirmPpicDay(store, { ...input, actor: getCurrentPpicDailyActor(), tasks: getPpicDailyReturnView({ date: input.date, nowAt: input.nowAt }).tasks.map(t => t.task), nowAt: input.nowAt || new Date().toISOString() }))
+export function confirmPpicDailyReport(input: { operationId: string; date: string; noArrangementReasons: Record<string, string>; actorId?: string; nowAt?: string }) {
+  const actor = resolveActor(input.actorId)
+  return saveAs(actor, current => confirmPpicDay(store, { ...input, actor: current, tasks: getPpicDailyReturnView({ date: input.date, nowAt: input.nowAt, actorId: current.id }).tasks.map(t => t.task), nowAt: input.nowAt || new Date().toISOString() }))
 }
 export function getPpicTaskPromiseHistory(assignmentId: string, nowAt = new Date().toISOString()) {
   const view = currentTask(assignmentId), actor = getCurrentPpicDailyActor()

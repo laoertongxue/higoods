@@ -52,6 +52,10 @@ export function ppicBusinessDate(nowAt = new Date().toISOString(), timeZone = 'A
   const get = (type: string) => parts.find(p => p.type === type)!.value
   return get('year') + '-' + get('month') + '-' + get('day')
 }
+export function ppicDailyTime(value: string, timeZone = 'Asia/Jakarta'): string {
+  if (!value) return '—'
+  return new Intl.DateTimeFormat('zh-CN', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ppicInstant(value, timeZone)))
+}
 export function ppicConfigAt(s: PpicDailyStore, date: string): PpicConfig {
   return [...s.configs].filter(c => c.effectiveFrom <= date).sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom) || b.createdAt.localeCompare(a.createdAt))[0]!
 }
@@ -253,7 +257,6 @@ export function confirmPpicDay(s: PpicDailyStore, input: { operationId: string; 
   return row
 }
 export function changePpicConfig(s: PpicDailyStore, input: { operationId: string; actor: PpicActor; cutoff: string; timeZone: string; effectiveFrom: string; nowAt: string }): PpicConfig {
-  if (!input.actor.leader) throw new Error('只有组长可以修改每日截止配置。')
   const fp = fingerprint({ actorId: input.actor.id, cutoff: input.cutoff, timeZone: input.timeZone, effectiveFrom: input.effectiveFrom })
   const old = repeat(s.configs, input.operationId, fp); if (old) return old
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(input.cutoff)) throw new Error('提交截止时间格式不正确。')

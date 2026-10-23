@@ -371,8 +371,8 @@ function preloadStaticFirstScreenRoutes(): Plugin {
             '/src/pages/sewing-outsourcing/daily-return-report.ts',
             ...returnReadInitialization,
           ]), ['/thumbnails/materials/pcs-reviewed/shirt-black.webp', '/thumbnails/materials/pcs-reviewed/jacket-black.webp', '/thumbnails/materials/pcs-reviewed/tee-black.webp']],
-          ['/fcs/sewing-outsourcing/daily-return-summary', routeStaticChunks(context.bundle, [
-            '/src/pages/sewing-outsourcing/daily-return-summary.ts',
+          ['/fcs/sewing-outsourcing/daily-return-statistics', routeStaticChunks(context.bundle, [
+            '/src/pages/sewing-outsourcing/daily-return-statistics.ts',
             ...returnReadInitialization,
           ]), []],
           ['/fcs/sewing-outsourcing/returns', routeStaticChunks(context.bundle, [

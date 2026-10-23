@@ -411,7 +411,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         { key: 'sewing-outsourcing-sample-approval', title: '批版建议', icon: 'ClipboardCheck', href: '/fcs/sewing-outsourcing/sample-approval-suggestions' },
         { key: 'sewing-outsourcing-returns', title: '回货跟进', icon: 'PackageCheck', href: '/fcs/sewing-outsourcing/returns' },
         { key: 'sewing-outsourcing-daily-return-report', title: '每日回货填报', icon: 'ClipboardCheck', href: '/fcs/sewing-outsourcing/daily-return-report' },
-        { key: 'sewing-outsourcing-daily-return-summary', title: '每日回货汇总', icon: 'ChartColumn', href: '/fcs/sewing-outsourcing/daily-return-summary' },
+        { key: 'sewing-outsourcing-daily-return-statistics', title: '每日填报统计', icon: 'ChartColumn', href: '/fcs/sewing-outsourcing/daily-return-statistics' },
         { key: 'sewing-outsourcing-supplements', title: '补料跟进', icon: 'PackagePlus', href: '/fcs/sewing-outsourcing/supplements' },
         { key: 'sewing-outsourcing-cut-piece-returns', title: '裁片退仓', icon: 'RotateCcw', href: '/fcs/sewing-outsourcing/cut-piece-returns' },
         { key: 'sewing-outsourcing-responsibility-transfers', title: '责任移交', icon: 'UserRoundCog', href: '/fcs/sewing-outsourcing/responsibility-transfers' },

@@ -460,9 +460,9 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/sewing-outsourcing/daily-return-report.ts')
     return page.handlePpicDailyReturnReportEvent(eventTarget, event)
   }
-  if (pagePath === '/fcs/sewing-outsourcing/daily-return-summary') {
-    const page = await import('./pages/sewing-outsourcing/daily-return-summary.ts')
-    return page.handlePpicDailyReturnSummaryEvent(eventTarget, event)
+  if (pagePath === '/fcs/sewing-outsourcing/daily-return-statistics') {
+    const page = await import('./pages/sewing-outsourcing/daily-return-statistics.ts')
+    return page.handlePpicDailyStatisticsEvent(eventTarget, event)
   }
   if (pagePath === '/fcs/dispatch/workbench') {
     const page = await import('./pages/unified-dispatch-workbench.ts')
@@ -1049,7 +1049,7 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     || (normalizedPathname === '/fcs/print/preview'
       && ['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') || ''))
   const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
-    '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns',
+    '/fcs/sewing-outsourcing/daily-return-statistics', '/fcs/sewing-outsourcing/returns',
     '/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)
   if ((!postFinishingEntry && !dailyReturnReadEntry && !isIsolatedCraftReadEntry(normalizedPathname)) || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
     productionSourceEffectsHydration ??= import('./data/fcs/production-context-actions.ts')
@@ -2953,10 +2953,6 @@ document.addEventListener('keydown', async (event) => {
 
   if (document.querySelector('[data-ppic-daily-page]')) {
     if ((await import('./pages/sewing-outsourcing/daily-return-report.ts')).closePpicDailyReturnDialog()) event.preventDefault()
-    return
-  }
-  if (document.querySelector('[data-ppic-summary-page]')) {
-    if ((await import('./pages/sewing-outsourcing/daily-return-summary.ts')).closePpicDailySummaryDialog()) event.preventDefault()
     return
   }
 

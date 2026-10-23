@@ -305,9 +305,9 @@ export const renderPpicDailyReturnReportPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/daily-return-report.ts'),
   'renderPpicDailyReturnReportPage',
 )
-export const renderPpicDailyReturnSummaryPage = createAsyncRenderer(
-  () => import('../pages/sewing-outsourcing/daily-return-summary.ts'),
-  'renderPpicDailyReturnSummaryPage',
+export const renderPpicDailyStatisticsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/daily-return-statistics.ts'),
+  'renderPpicDailyStatisticsPage',
 )
 export const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/responsibility-transfers'),

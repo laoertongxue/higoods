@@ -32,7 +32,7 @@ const reportReadInitialization = ['/src/data/pms/idb-storage.ts', '/src/data/fcs
 const factoryQcRead = ['/src/data/fcs/factory-qc.ts', '/src/data/fcs/factory-qc-records.ts']
 const originalRoutes = [
   ['/fcs/sewing-outsourcing/daily-return-report', '/src/pages/sewing-outsourcing/daily-return-report.ts'],
-  ['/fcs/sewing-outsourcing/daily-return-summary', '/src/pages/sewing-outsourcing/daily-return-summary.ts'],
+  ['/fcs/sewing-outsourcing/daily-return-statistics', '/src/pages/sewing-outsourcing/daily-return-statistics.ts'],
   ['/fcs/sewing-outsourcing/returns', '/src/pages/sewing-outsourcing/returns.ts'],
   ['/fcs/progress/production-orders', '/src/pages/production-order-progress-tracking.ts'],
   ['/fcs/contracts/print', '/src/pages/production-contract-print.ts'],
