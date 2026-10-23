@@ -1747,10 +1747,23 @@ export function handleCraftCuttingWaitProcessEvent(target: HTMLElement): boolean
     return true
   }
   if (action !== 'submit' || !dialog) return false
-  const blocked = submitWaitProcessWarehouseAction(dialog)
-  if (blocked) return true
-  removeWaitProcessWarehouseActionDialog()
-  requestWaitProcessRefresh()
+  if (dialog.dataset.saving === 'true') return true
+  const operationId = dialog.dataset.operationId || crypto.randomUUID()
+  dialog.dataset.operationId = operationId
+  const intent = JSON.stringify({ action: dialog.dataset.waitProcessActionType,
+    fields: [...dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-wait-process-field]')].map(field => [field.dataset.waitProcessField, field.value]),
+    locationIds: waitProcessSelectedLocationIds })
+  dialog.dataset.saving = 'true'
+  const controls = [...dialog.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('input,button,select,textarea')]
+  const disabled = controls.map(control => control.disabled)
+  controls.forEach(control => { control.disabled = true })
+  let validationBlocked = false
+  void runCuttingEventAction({ id: `wait-process:${operationId}`, intent, action: () => {
+    if (submitWaitProcessWarehouseAction(dialog)) { validationBlocked = true; throw new Error('请按提示核对，当前输入尚未保存。') }
+    return true
+  } }).then(() => { removeWaitProcessWarehouseActionDialog(); requestWaitProcessRefresh() })
+    .catch(error => { if (!validationBlocked) window.alert(error instanceof Error ? error.message : '本次未保存，请重试。') })
+    .finally(() => { delete dialog.dataset.saving; controls.forEach((control, index) => { control.disabled = disabled[index] }) })
   return true
 }
 
@@ -5559,6 +5572,20 @@ function createWaitHandoverItemFromRuntimeEvent(
 }
 
 export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
+  const activeTab = readTabKey<WaitProcessTabKey>('inventory', ['inventory', 'claimRecords', 'usage', 'returns', 'locations'])
+  const renderPage = (content: string) => renderHubShell({
+    metaKey: 'warehouse-management-wait-process',
+    description: '基于裁片单数量账查看裁床已领面料库存、消耗和可用余额。',
+    kpis: '',
+    tabs: renderWaitProcessTabs(activeTab),
+    content,
+    headerActions: renderWaitProcessHeaderActions(),
+  })
+  const action = getWarehouseSearchParams().get('warehouseAction') || ''
+  // The map needs its physical occupancies, not four hidden inventory/record panels.
+  if (activeTab === 'locations' && !['claim', 'process-issue', 'return'].includes(action)) {
+    return renderPage(`${renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')}${renderWaitProcessWarehouseActionDialog([])}`)
+  }
   const materialLedgerSummary = buildWaitProcessMaterialLedgerSummary()
   const filters = getWaitProcessFilters()
   const inventoryItems = buildWaitProcessInventoryItems(materialLedgerSummary.rows)
@@ -5569,49 +5596,42 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
   const claimRecordEvents = filterWaitProcessEvents(materialLedgerSummary.rows, claimEventTypes, filters)
   const usageEvents = filterWaitProcessEvents(materialLedgerSummary.rows, usageEventTypes, filters)
   const returnEvents = filterWaitProcessEvents(materialLedgerSummary.rows, returnEventTypes, filters)
-  const activeTab = readTabKey<WaitProcessTabKey>('inventory', ['inventory', 'claimRecords', 'usage', 'returns', 'locations'])
 
-  const inventoryContent = `<section class="space-y-4">
+
+  const inventoryContent = () => `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'inventory', filters, inventoryItems })}
     ${renderWaitProcessInventoryStats(filteredInventoryItems)}
     ${renderWaitProcessInventoryTable(filteredInventoryItems)}
     ${renderWaitProcessInventoryDetailDialog(inventoryItems)}
   </section>`
-  const claimRecordContent = `<section class="space-y-4">
+  const claimRecordContent = () => `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'claimRecords', filters, inventoryItems, eventTypes: claimEventTypes })}
     ${renderWaitProcessEventStats(claimRecordEvents, '中转仓接收记录')}
     ${renderWaitProcessEventTable(claimRecordEvents, '暂无符合筛选条件的中转仓接收记录。', inventoryItems)}
   </section>`
-  const usageContent = `<section class="space-y-4">
+  const usageContent = () => `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'usage', filters, inventoryItems, eventTypes: usageEventTypes })}
     ${renderWaitProcessEventStats(usageEvents, '加工接收记录')}
     ${renderWaitProcessEventTable(usageEvents, '暂无符合筛选条件的加工接收记录。', inventoryItems)}
   </section>`
-  const returnContent = `<section class="space-y-4">
+  const returnContent = () => `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'returns', filters, inventoryItems, eventTypes: returnEventTypes })}
     ${renderWaitProcessEventStats(returnEvents, '回收入仓记录')}
     ${renderWaitProcessEventTable(returnEvents, '暂无符合筛选条件的回收入仓记录。', inventoryItems)}
   </section>`
-  const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')
+  const locationContent = () => renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')
   const activeContent =
     activeTab === 'claimRecords'
-      ? claimRecordContent
+      ? claimRecordContent()
       : activeTab === 'usage'
-        ? usageContent
+        ? usageContent()
         : activeTab === 'returns'
-          ? returnContent
+          ? returnContent()
           : activeTab === 'locations'
-            ? locationContent
-            : inventoryContent
+            ? locationContent()
+            : inventoryContent()
 
-  return renderHubShell({
-    metaKey: 'warehouse-management-wait-process',
-	    description: '基于裁片单数量账查看裁床已领面料库存、消耗和可用余额。',
-    kpis: '',
-    tabs: renderWaitProcessTabs(activeTab),
-    content: `${activeContent}${renderWaitProcessWarehouseActionDialog(inventoryItems)}`,
-    headerActions: renderWaitProcessHeaderActions(),
-  })
+  return renderPage(`${activeContent}${renderWaitProcessWarehouseActionDialog(inventoryItems)}`)
 }
 
 export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {

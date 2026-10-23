@@ -544,7 +544,11 @@ export function recordActualFeiTicketFirstPrintFromPreview(input: {
   )
   if (!selectedTickets.length) return 0
   const projection = buildFeiTicketPrintProjection()
-  const result = executeGeneratedActualTicketFirstPrint({tickets:selectedTickets,ticketRecords:projection.ticketRecords,printJobs:projection.printJobs,
+  // Display fixtures are not a prior print of a newly completed physical ticket.
+  const actualIds = new Set(selectedTickets.map(ticket => ticket.feiTicketId))
+  const savedIds = new Set((JSON.parse(readPartTicketValue(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY) || '[]') as FeiTicketLabelRecord[]).map(record => record.ticketRecordId))
+  const previousRecords = projection.ticketRecords.filter(record => !actualIds.has(record.ticketRecordId) || savedIds.has(record.ticketRecordId))
+  const result = executeGeneratedActualTicketFirstPrint({tickets:selectedTickets,ticketRecords:previousRecords,printJobs:projection.printJobs,
     operator:input.operator,operatedAt:nowText(),templateName:input.templateName})
   if (result.printedCount) {
     persistTicketRecords(result.nextRecords)

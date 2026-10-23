@@ -1,7 +1,7 @@
 import { readTmfPreparationHandoverRecord as readCurrentPreparationHandoverRecord, readTmfProductionOrderRuntimeFact as readProductionOrderRuntimeFact } from '../fcs/tmf-source-readers.ts'
 import type { PmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
 import { getBrowserLocalStorage, removeBrowserStorageItem, writeBrowserStorageItem } from '../browser-storage.ts'
-import { PMS_STORES, pmsGet, pmsTx, reportPmsSaveFailure, subscribePmsDataChanged } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsGet, pmsTx, reportPmsSaveFailure, subscribePmsDataChanged } from './idb-storage.ts'
 import { TMF_FACTORY_ID } from '../fcs/central-craft-factories.ts'
 import { deriveTmfProductionDemands, type TmfProductionDemand } from '../fcs/webbing-production-demands.ts'
 import { getWebbingPhysicalSpecificationKey, validateWebbingSpecifications, type WebbingSpecification, type WebbingEndRequirement } from '../fcs/webbing-specifications.ts'
@@ -570,35 +570,150 @@ function mergeTmfSectionsIntoState(state: TmfPurchaseState, sections: {
   Object.assign(state, sections.operations)
 }
 
-async function persistTmfPurchaseStateToIdb(draft: TmfPurchaseState, expected?: TmfPurchaseState): Promise<void> {
-  const sections = splitTmfStateIntoSections(draft)
-  const entries = [
-    [PMS_STORES.pmsTmfOrders, 'orders'], [PMS_STORES.pmsTmfProduction, 'production'],
-    [PMS_STORES.pmsTmfScrap, 'scrap'], [PMS_STORES.pmsTmfOperations, 'operations'],
-  ] as const
-  const observed = expected ? splitTmfStateIntoSections(expected) : undefined
-  await pmsTx(entries.map(([store]) => store), 'readwrite', tx => {
-    const save = () => { for (const [store, key] of entries) tx.objectStore(store).put({ singleton: 'singleton', section: sections[key] }) }
-    if (!observed) { save(); return }
-    // This receipt must use the same facts it validated. Check all four existing
-    // sections inside the write transaction; other tabs cannot interleave writes.
-    return new Promise<void>((resolve, reject) => {
-      let remaining = entries.length
-      for (const [store, key] of entries) {
-        const request = tx.objectStore(store).get('singleton')
-        request.onerror = () => reject(request.error)
-        request.onsuccess = () => {
-          const actual = request.result?.section as Record<string, unknown> | undefined
-          const before = observed[key] as Record<string, unknown>
-          if (Object.keys(before).some(field => JSON.stringify(actual?.[field] ?? []) !== JSON.stringify(before[field]))) {
-            reject(new Error('收货资料已被其他操作更新，本次未保存。刷新页面后重新打开收货记录，再重试。'))
-            return
-          }
-          if (--remaining === 0) { save(); resolve() }
+/**
+ * TMF 逐记录行覆盖旧的 singleton section 基线。
+ * - 旧 section 保留为只读基线，普通读取迁移/写种子均不修改它。
+ * - 新动作只写改变的行、删除标记和稳定操作号，同一事务提交后才发布内存结果。
+ * - 行号用于恢复原数组顺序；基线行按原位置替换，后建行按序号追加。
+ */
+const TMF_RECORD_GROUPS = {
+  orders: 'purchaseOrderNo', baseOrders: 'id', handovers: 'id', purchaseReturns: 'id', workPlans: 'workOrderId', workCosts: 'workOrderId',
+  supplyPurchaseReceipts: 'id', baseMaterialLots: 'id', baseMaterialIssues: 'id', baseMaterialReturns: 'id',
+  lots: 'id', demands: 'id', reservations: 'id', processingIssues: 'id', cutOutputs: 'id', continuousReturns: 'id',
+  tipMaterialReturns: 'id', tipMaterialLots: 'id', tipMaterialIssues: 'id', tipResults: 'id',
+  packages: 'id', outputHandovers: 'id', outputAllocations: 'id', productionIssues: 'id', productionControls: 'productionOrderId',
+  defectiveScraps: 'id', factoryScraps: 'id', continuousScraps: 'id', terminationDisposals: 'id', terminationClosures: 'id',
+  operations: 'id',
+} as const
+type TmfRecordGroup = keyof typeof TMF_RECORD_GROUPS
+interface TmfRecordRow {
+  recordKey: string
+  group: TmfRecordGroup | 'commands'
+  key: string
+  ordinal?: number
+  data?: unknown
+  deleted?: boolean
+}
+const tmfRecordKey = (group: TmfRecordGroup | 'commands', key: string) => `${group}/${encodeURIComponent(key)}`
+let tmfRecordRows = new Map<string, TmfRecordRow>()
+let legacyTmfFingerprint: string | undefined
+let tmfRecordWriteQueue: Promise<void> = Promise.resolve()
+const sameRecord = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right)
+
+function rowsOfTmfState(source: TmfPurchaseState): Map<string, TmfRecordRow> {
+  const rows = new Map<string, TmfRecordRow>()
+  for (const group of Object.keys(TMF_RECORD_GROUPS) as TmfRecordGroup[]) {
+    const field = TMF_RECORD_GROUPS[group], list = source[group] as unknown as Array<Record<string, unknown>>
+    list.forEach((data, index) => {
+      const key = String(data?.[field] ?? '')
+      if (!key) throw new Error('织带业务记录缺少稳定编号，本次未保存。')
+      const recordKey = tmfRecordKey(group, key)
+      if (rows.has(recordKey)) throw new Error('织带业务记录编号重复，本次未保存。')
+      rows.set(recordKey, { recordKey, group, key, ordinal: tmfRecordRows.get(recordKey)?.ordinal ?? index, data })
+    })
+  }
+  return rows
+}
+
+/** Apply changed rows over the read-only legacy baseline without rewriting it. */
+function applyTmfRecordRows(target: TmfPurchaseState, rows: TmfRecordRow[]): void {
+  const byGroup = new Map<string, Map<string, TmfRecordRow>>()
+  for (const row of rows) {
+    if (row.group !== 'commands' && (!(row.group in TMF_RECORD_GROUPS) || !row.key || row.recordKey !== tmfRecordKey(row.group, row.key))) throw new Error('织带保存记录无法核对，请保留原资料后重新读取。')
+    if (row.group === 'commands') continue
+    const field = TMF_RECORD_GROUPS[row.group]
+    if (!row.deleted && (!row.data || typeof row.data !== 'object' || String((row.data as Record<string, unknown>)[field] ?? '') !== row.key)) throw new Error('织带记录身份无法核对，原资料保持不变。')
+    const group = byGroup.get(row.group) ?? new Map<string, TmfRecordRow>()
+    group.set(row.key, row); byGroup.set(row.group, group)
+  }
+  for (const group of Object.keys(TMF_RECORD_GROUPS) as TmfRecordGroup[]) {
+    const field = TMF_RECORD_GROUPS[group], list = target[group] as unknown as Array<Record<string, unknown>>
+    const overlays = byGroup.get(group)
+    if (!overlays) continue
+    const next: Array<Record<string, unknown>> = []
+    for (const item of list) {
+      const overlay = overlays.get(String(item?.[field] ?? ''))
+      if (overlay) { if (!overlay.deleted) next.push(structuredClone(overlay.data) as Record<string, unknown>); continue }
+      next.push(item)
+    }
+    const appended = [...overlays.values()].filter(row => !row.deleted && !list.some(item => String(item?.[field] ?? '') === row.key))
+      .sort((left, right) => (left.ordinal ?? 0) - (right.ordinal ?? 0))
+    for (const row of appended) next.push(structuredClone(row.data) as Record<string, unknown>)
+    ;(target[group] as unknown as Array<Record<string, unknown>>) = next
+  }
+}
+
+function diffTmfRecordRows(before: TmfPurchaseState, after: TmfPurchaseState): { puts: TmfRecordRow[]; removes: TmfRecordRow[] } {
+  const oldRows = rowsOfTmfState(before), newRows = rowsOfTmfState(after), puts: TmfRecordRow[] = [], removes: TmfRecordRow[] = []
+  for (const [key, row] of newRows) {
+    const prior = oldRows.get(key)
+    if (!prior || !sameRecord(prior.data, row.data)) puts.push(row)
+  }
+  for (const [key, row] of oldRows) if (!newRows.has(key)) removes.push({ ...row, deleted: true })
+  return { puts, removes }
+}
+
+function requestResult<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error ?? new Error('读取织带记录失败。'))
+  })
+}
+
+/** Persist only this action's changed rows and its stable operation receipt. */
+async function persistTmfRecordDiff(draft: TmfPurchaseState, expected: TmfPurchaseState, operation?: { id: string; signature: string }, optimistic = false): Promise<boolean> {
+  const { puts, removes } = diffTmfRecordRows(expected, draft), changed = [...puts, ...removes]
+  const command = operation ? { recordKey: tmfRecordKey('commands', operation.id), group: 'commands' as const, key: operation.id, data: { signature: operation.signature } } : undefined
+  if (!changed.length && !command) return true
+  const prior = new Map(changed.map(row => [row.recordKey, tmfRecordRows.get(row.recordKey)]))
+  const remember = () => {
+    for (const row of puts) tmfRecordRows.set(row.recordKey, row)
+    for (const row of removes) tmfRecordRows.set(row.recordKey, row)
+    if (command) tmfRecordRows.set(command.recordKey, command as TmfRecordRow)
+  }
+  if (optimistic) remember()
+  const apply = async () => {
+    await pmsTx([PMS_STORES.pmsTmfRecords, PMS_STORES.pmsTmfOrders, PMS_STORES.pmsTmfProduction, PMS_STORES.pmsTmfScrap, PMS_STORES.pmsTmfOperations], 'readwrite', async tx => {
+      const store = tx.objectStore(PMS_STORES.pmsTmfRecords)
+      // Old tabs may still write section snapshots. Refuse to layer new rows on
+      // facts that changed after this tab read them.
+      if (legacyTmfFingerprint !== undefined) {
+        const current = await Promise.all([
+          requestResult(tx.objectStore(PMS_STORES.pmsTmfOrders).get('singleton')),
+          requestResult(tx.objectStore(PMS_STORES.pmsTmfProduction).get('singleton')),
+          requestResult(tx.objectStore(PMS_STORES.pmsTmfScrap).get('singleton')),
+          requestResult(tx.objectStore(PMS_STORES.pmsTmfOperations).get('singleton')),
+        ])
+        if (JSON.stringify(current) !== legacyTmfFingerprint) throw new Error('旧版本页面改动了织带资料，本次未保存。刷新页面后重新打开单据再重试。')
+      }
+      for (const row of changed) {
+        const current = await requestResult<TmfRecordRow | undefined>(store.get(row.recordKey))
+        const beforeRow = prior.get(row.recordKey)
+        if (beforeRow) {
+          if (!current || current.deleted || !sameRecord(current.data, beforeRow.data)) throw new Error('织带记录已被其他操作更新，本次未保存。重新读取后核对再提交。')
+        } else if (current && !current.deleted) throw new Error('织带记录已被其他操作创建，本次未保存。重新读取后核对再提交。')
+      }
+      if (command) {
+        const current = await requestResult<TmfRecordRow | undefined>(store.get(command.recordKey))
+        if (current && !current.deleted) {
+          if (!sameRecord(current.data, command.data)) throw new Error('此操作编号已保存其他内容，请查看原记录后重新操作。')
+          return
         }
       }
+      for (const row of changed) store.put(row)
+      if (command) store.put(command)
     })
-  })
+    if (!optimistic) remember()
+    return true
+  }
+  if (optimistic) {
+    // Keep rapid same-tab actions ordered; the queue also prevents a later diff
+    // from treating an earlier queued row as an unrelated concurrent creation.
+    const queued = tmfRecordWriteQueue.then(apply, apply)
+    tmfRecordWriteQueue = queued.then(() => undefined, () => { tmfRecordRows = new Map(); legacyTmfFingerprint = undefined })
+    return queued
+  }
+  return apply()
 }
 
 /**
@@ -606,38 +721,48 @@ async function persistTmfPurchaseStateToIdb(draft: TmfPurchaseState, expected?: 
  * 加载未完成时 current() 返回 emptyState;hydrate 后用 IDB 数据覆盖内存。
  */
 /**
- * 从 IDB 读取 TMF 的 4 个 section;缺失的 section 返回 null。
- * 启动期 hydrate 与跨标签页 reload 共用,避免两处各写一遍 pmsGet。
+ * 从 IDB 读取 TMF 的 4 个旧 section 与逐记录行。旧 section 只作只读基线；
+ * 指纹用于在保存事务中拒绝旧版本页面在本标签页读取后继续改写快照。
  */
-async function readTmfSectionsFromIdb(): Promise<{ orders: unknown; production: unknown; scrap: unknown; operations: unknown }> {
-  const [ordersSection, productionSection, scrapSection, operationsSection] = await Promise.all([
-    pmsGet<{ singleton: string; section: { orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown; supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown } }>(PMS_STORES.pmsTmfOrders, 'singleton'),
-    pmsGet<{ singleton: string; section: { lots?: unknown; demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown } }>(PMS_STORES.pmsTmfProduction, 'singleton'),
-    pmsGet<{ singleton: string; section: { defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown; terminationDisposals: unknown; terminationClosures: unknown } }>(PMS_STORES.pmsTmfScrap, 'singleton'),
-    pmsGet<{ singleton: string; section: { operations: unknown } }>(PMS_STORES.pmsTmfOperations, 'singleton'),
-  ])
+async function readTmfSectionsFromIdb(): Promise<{ orders: unknown; production: unknown; scrap: unknown; operations: unknown; fingerprint: string }> {
+  const stores = [PMS_STORES.pmsTmfOrders, PMS_STORES.pmsTmfProduction, PMS_STORES.pmsTmfScrap, PMS_STORES.pmsTmfOperations]
+  const raw = await pmsTx(stores, 'readonly', tx => Promise.all(stores.map(store => requestResult(tx.objectStore(store).get('singleton')))))
+  const sections = raw as Array<{ section?: { [key: string]: unknown } } | undefined>
   return {
-    orders: ordersSection?.section ?? null,
-    production: productionSection?.section ?? null,
-    scrap: scrapSection?.section ?? null,
-    operations: operationsSection?.section ?? null,
+    orders: sections[0]?.section ?? null,
+    production: sections[1]?.section ?? null,
+    scrap: sections[2]?.section ?? null,
+    operations: sections[3]?.section ?? null,
+    fingerprint: JSON.stringify(raw),
   }
 }
 
+async function loadTmfStateFromIdb(): Promise<{ state: TmfPurchaseState; rows: TmfRecordRow[]; fingerprint: string }> {
+  // A same-tab action may still be queued; never read a snapshot older than it.
+  await tmfRecordWriteQueue
+  const [base, rows] = await Promise.all([readTmfSectionsFromIdb(), pmsAll<TmfRecordRow>(PMS_STORES.pmsTmfRecords)])
+  const next = emptyState()
+  if (base.orders || base.production || base.scrap || base.operations) mergeTmfSectionsIntoState(next, base as never)
+  applyTmfRecordRows(next, rows)
+  validateLegacyTmfState(next)
+  return { state: next, rows, fingerprint: base.fingerprint }
+}
+
+function rememberTmfRows(rows: TmfRecordRow[], fingerprint: string): void {
+  tmfRecordRows = new Map(rows.map(row => [row.recordKey, row]))
+  legacyTmfFingerprint = fingerprint
+}
+
 /**
- * 跨标签页同步:其他标签页写了 TMF section 后,本标签页重新从 IDB 拉一次(§ 2.4.3.6)。
+ * 跨标签页同步:其他标签页写了 TMF section 或逐记录行后,本标签页重新从 IDB 拉一次(§ 2.4.3.6)。
  * 不能简单 `state = undefined`——IDB 可用时 current() 已不再读 localStorage,置空会退回空状态。
  */
 async function reloadTmfStateFromIdb(): Promise<void> {
   if (!tmfIdbAvailable) return
   try {
-    const sections = await readTmfSectionsFromIdb()
-    const next = emptyState()
-    if (sections.orders || sections.production || sections.scrap || sections.operations) {
-      mergeTmfSectionsIntoState(next, sections as never)
-      validateLegacyTmfState(next)
-    }
-    state = next
+    const loaded = await loadTmfStateFromIdb()
+    state = loaded.state
+    rememberTmfRows(loaded.rows, loaded.fingerprint)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown'
     console.error('[PMS_IDB_LOAD_FAILED] TMF 跨标签页 reload 失败', { message })
@@ -648,45 +773,31 @@ export function hydratePmsTmfPurchaseStateFromIdb(): Promise<void> {
   if (tmfHydrationStarted) return tmfHydrationPromise ?? Promise.resolve()
   tmfHydrationStarted = true
   tmfHydrationPromise = (async () => {
+    let loaded: { state: TmfPurchaseState; rows: TmfRecordRow[]; fingerprint: string } | undefined
     try {
-      const base = await readTmfSectionsFromIdb()
-      // 旧格式(singleton store 'pmsTmfPurchaseState')兜底迁移:如果 4 个新 section 全空,但旧 store 有数据,迁移过来。
-      // 该 store 已在 § 2.4.6 迁移完成后从 PMS_STORES 移除,本兜底仅在浏览器存储版本里残留旧键时尝试读取。
-      let legacyData: TmfPurchaseState | undefined
-      try {
-        // 历史 store 名(§ 2.4.6 迁移完成后已从 PMS_STORES 移除,不再是合法 PmsStoreName)。
-        // 仅当浏览器里仍残留该 object store 时才可能读到;读不到会抛错并被下方 catch 忽略。
-        const legacyStoreName = 'pmsTmfPurchaseState' as unknown as Parameters<typeof pmsGet>[0]
-        const legacy = await pmsGet<{ singleton: string; state: TmfPurchaseState }>(legacyStoreName, 'singleton')
-        if (legacy?.state) legacyData = legacy.state
-      } catch {
-        // 旧 store 可能不存在,忽略
-      }
-      // `??` 优先级高于 `?:`。原写法 `a ?? legacyData ? f(legacyData!) : null` 实际被解析为
-      // `(a ?? legacyData) ? f(legacyData!) : null`,即只要新 section 存在就无条件用 legacyData
-      // (旧 store 已移除,恒为 undefined)去 extract,进而抛 TypeError 并导致整个 hydrate 失败。
-      // 显式加括号:优先用新 section;只有新 section 缺失且确有旧数据时才从旧数据提取。
-      const legacy = legacyData ?? null
-      const sections = {
-        orders: base.orders ?? (legacy ? extractOrdersSection(legacy) : null),
-        production: base.production ?? (legacy ? extractProductionSection(legacy) : null),
-        scrap: base.scrap ?? (legacy ? extractScrapSection(legacy) : null),
-        operations: base.operations ?? (legacy ? extractOperationsSection(legacy) : null),
-      }
-      // 至少有一个 section 有数据才走合并路径
-      if (sections.orders || sections.production || sections.scrap || sections.operations) {
-        if (!state) {
-          const placeholder = emptyState()
-          mergeTmfSectionsIntoState(placeholder, sections as never)
-          validateLegacyTmfState(placeholder)
-          state = placeholder
-        } else {
-          mergeTmfSectionsIntoState(state, sections as never)
-          validateLegacyTmfState(state)
+      loaded = await loadTmfStateFromIdb()
+      // 旧格式(singleton store 'pmsTmfPurchaseState')兜底:仅当新旧资料都为空时尝试读取。
+      if (loaded.state.orders.length === 0 && loaded.state.demands.length === 0 && loaded.state.operations.length === 0) {
+        try {
+          const legacyStoreName = 'pmsTmfPurchaseState' as unknown as Parameters<typeof pmsGet>[0]
+          const legacy = await pmsGet<{ singleton: string; state: TmfPurchaseState }>(legacyStoreName, 'singleton')
+          if (legacy?.state) {
+            const restored = emptyState()
+            mergeTmfSectionsIntoState(restored, {
+              orders: extractOrdersSection(legacy.state), production: extractProductionSection(legacy.state),
+              scrap: extractScrapSection(legacy.state), operations: extractOperationsSection(legacy.state),
+            } as never)
+            applyTmfRecordRows(restored, loaded.rows)
+            validateLegacyTmfState(restored)
+            loaded = { ...loaded, state: restored }
+          }
+        } catch {
+          // 旧 store 可能不存在,忽略
         }
       }
-      // IDB 读取链路完整走通 → 后续以「内存 + IDB」为事实源,不再依赖 localStorage(§ 2.4.1)。
-      // 注意:section 全空(首次访问)也属成功,只是没有已存数据。
+      state = loaded.state
+      rememberTmfRows(loaded.rows, loaded.fingerprint)
+      // IDB 读取链路完整走通 → 后续以「内存 + 逐记录行」为事实源,不再依赖 localStorage(§ 2.4.1)。
       tmfIdbAvailable = true
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
@@ -699,12 +810,12 @@ export function hydratePmsTmfPurchaseStateFromIdb(): Promise<void> {
       // 必须用最新(commit 后)的 state 重写 IDB 并同步到内存,
       // 避免 hydrate 拉回的 stale state 覆盖内存中 commit 的最新结果。
       const pending = pendingTmfCommits.splice(0)
-      if (pending.length > 0) {
-        // 多个 commit 累积时,最后一个 draft 是内存当前最新值;用它重写 IDB + state。
+      if (pending.length > 0 && loaded) {
         const latestDraft = pending[pending.length - 1]
         state = latestDraft
         try {
-          await persistTmfPurchaseStateToIdb(latestDraft)
+          const last = latestDraft.operations[latestDraft.operations.length - 1]
+          await persistTmfRecordDiff(latestDraft, loaded.state, last ? { id: last.id, signature: last.payloadSignature } : undefined, true)
         } catch (error) {
           const message = error instanceof Error ? error.message : 'unknown'
           console.error('[PMS_IDB_SAVE_FAILED] TMF pending commit 重写失败', { message })
@@ -720,13 +831,9 @@ let procurementReferenceHydration: Promise<void> | null = null
 export function hydratePmsTmfPurchaseReferencesFromIdb(force = false): Promise<void> {
   if (procurementReferenceHydration && !force) return procurementReferenceHydration
   return procurementReferenceHydration = (async () => {
-    const sections = await readTmfSectionsFromIdb()
-    const next = emptyState()
-    if (sections.orders || sections.production || sections.scrap || sections.operations) {
-      mergeTmfSectionsIntoState(next, sections as never)
-      validateLegacyTmfState(next)
-    }
-    state = next
+    const loaded = await loadTmfStateFromIdb()
+    state = loaded.state
+    rememberTmfRows(loaded.rows, loaded.fingerprint)
   })().catch(error => { procurementReferenceHydration = null; throw error })
 }
 
@@ -843,7 +950,7 @@ export function migrateTmfPurchaseStateFromLocalStorage(): Promise<void> {
       draft.operations.forEach((operation) => {
         operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
       })
-      await persistTmfPurchaseStateToIdb(draft)
+      await persistTmfRecordDiff(draft, emptyState(), undefined, true)
       if (removeBrowserStorageItem(storage, TMF_PURCHASE_STORAGE_KEY)) {
         console.info('[TMF_LEGACY_MIGRATION_DONE]', { orders: draft.orders.length, operations: draft.operations.length })
       } else {
@@ -991,7 +1098,7 @@ function commit(
   if (waitForSave) {
     if (!tmfHydrationReady || !tmfIdbAvailable) throw new Error('实收资料尚未读取完成，本次未保存。刷新页面后重新打开收货记录，再重试。')
     confirmedTmfSavePending = true
-    return persistTmfPurchaseStateToIdb(draft, observed)
+    return persistTmfRecordDiff(draft, observed, { id: operationId, signature })
       .then(() => { state = draft })
       .finally(() => { confirmedTmfSavePending = false })
   }
@@ -1003,23 +1110,17 @@ function commit(
       throw new Error('本次未保存，数量未改变。请检查浏览器存储后使用原操作重试。')
     }
   }
-  // 同步更新内存 state,保证 current() 立即看到最新(写盘成功后才更新,失败抛错保持原态)。
+  // 同步更新内存 state,保证 current() 立即看到最新。IDB 可用时只排队写本动作改变的行。
   state = draft
-  // 启动期 hydrate 未就绪时,进入 pending 队列等 hydrate 完成后重写。
+  // 启动期 hydrate 未就绪时,进入 pending 队列等 hydrate 完成后写逐记录行。
   if (!tmfHydrationReady) {
     pendingTmfCommits.push(draft)
     return
   }
-  // 异步写 IDB(fire-and-forget)。§ 2.4.3.5:失败不能静默——先回写 localStorage 兜底保住本次操作,
-  // 再重新抛出,由 main.ts 的 unhandledrejection banner 明确告知"未保存"(错误码以 PMS_IDB_ 开头)。
-  persistTmfPurchaseStateToIdb(draft).catch((error: unknown) => {
-    try {
-      const storage = getBrowserLocalStorage()
-      if (storage) writeBrowserStorageItem(storage, TMF_PURCHASE_STORAGE_KEY, JSON.stringify(draft))
-    } catch (fallbackError) {
-      console.error('[PMS_IDB_SAVE_FAILED] TMF 兜底写入 localStorage 也失败', { operationId, message: String(fallbackError) })
-    }
-    reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] TMF 全状态 IDB 写入失败', { operationId }, error)
+  // 逐记录行异步提交(§ 2.4.3.5):失败不能静默,由 main.ts 的 unhandledrejection banner
+  // 明确告知"未保存";不回退 localStorage 业务快照。
+  persistTmfRecordDiff(draft, observed, { id: operationId, signature }, true).catch((error: unknown) => {
+    reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] TMF 逐记录写入失败', { operationId }, error)
   })
 }
 
@@ -1673,11 +1774,11 @@ function applyTmfContinuousIssue(draft: TmfPurchaseState, input: TmfContinuousIs
 
 export function receiveTmfProcessingMaterial(
   input: { issueId: string; factoryId: string; materialSkuId: string; receivedMeters: number },
-  actor: TmfPurchaseActor, operationId: string,
-): void {
+  actor: TmfPurchaseActor, operationId: string, waitForSave = false,
+): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
   meters(input.receivedMeters)
-  commit(operationId, '织带厂加工投入实收', input.issueId, actor, input, (draft) => {
+  return commit(operationId, '织带厂加工投入实收', input.issueId, actor, input, (draft) => {
     const issue = draft.processingIssues.find((item) => item.id === input.issueId)
     if(issue?.printHandover||issue?.dyeHandover)throw new Error('印染回料须按原交出记录实收，不能重复登记本地收货。')
     if (!issue || issue.targetFactoryId !== TMF_FACTORY_ID || input.factoryId !== issue.targetFactoryId
@@ -1685,7 +1786,7 @@ export function receiveTmfProcessingMaterial(
     if (add(issue.receivedMeters, input.receivedMeters) > issue.dispatchedMeters) throw new Error('实收超过上游实际发出量。')
     issue.receivedMeters = add(issue.receivedMeters, input.receivedMeters)
     return { quantity: input.receivedMeters }
-  })
+  }, waitForSave)
 }
 
 function tmfInputReceivedMeters(issue:TmfProcessingMaterialIssue):number {
@@ -1828,9 +1929,9 @@ export async function receiveTmfDyeMaterial(input:{issueId:string;materialSkuId:
 }
 
 type TmfCutOutputInput = { outputId: string; issueId: string; cutPieces: number; defectivePieces: number; actualCutLengthMm: number; actualFinishedLengthMm: number | null; lossMeters: number; reason: string }
-export function reportTmfCutOutput(input: TmfCutOutputInput, actor: TmfPurchaseActor, operationId: string): void {
+export function reportTmfCutOutput(input: TmfCutOutputInput, actor: TmfPurchaseActor, operationId: string, waitForSave = false): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
-  commit(operationId, '截断产出填报', input.issueId, actor, input, (draft, at) => applyTmfCutOutput(draft, input, at))
+  return commit(operationId, '截断产出填报', input.issueId, actor, input, (draft, at) => applyTmfCutOutput(draft, input, at), waitForSave)
 }
 function applyTmfCutOutput(draft: TmfPurchaseState, input: TmfCutOutputInput, at: string) {
   for (const value of [input.cutPieces, input.actualCutLengthMm]) {
@@ -1888,12 +1989,12 @@ export function getTmfProcessingInputBalance(issueId: string): { receivedMeters:
 
 export function dispatchTmfContinuousReturn(
   input: { returnId: string; issueId: string; batchId: string; returnedMeters: number; reason: string },
-  actor: TmfPurchaseActor, operationId: string,
-): void {
+  actor: TmfPurchaseActor, operationId: string, waitForSave = false,
+): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
   meters(input.returnedMeters)
   if (!input.reason.trim()) throw new Error('请填写退料原因并确认是未截断连续料。')
-  commit(operationId, '连续余料交回仓库', input.issueId, actor, input, (draft, at) => {
+  return commit(operationId, '连续余料交回仓库', input.issueId, actor, input, (draft, at) => {
     const issue = draft.processingIssues.find((item) => item.id === input.issueId)
     if (!issue || issue.targetFactoryId !== TMF_FACTORY_ID) throw new Error('请选择本厂已接收的米料投入，条料产出不能退为连续料。')
     if (!input.returnId.trim() || !input.batchId.trim()
@@ -1908,7 +2009,7 @@ export function dispatchTmfContinuousReturn(
       batchId: input.batchId, warehouseId: sourceLot.warehouseId, dispatchedMeters: input.returnedMeters,
       receivedMeters: 0, dispatchedAt: at, reason: input.reason })
     return { quantity: input.returnedMeters, reason: input.reason }
-  })
+  }, waitForSave)
 }
 
 export function receiveTmfContinuousReturn(
@@ -1980,16 +2081,16 @@ export function dispatchTmfTipMaterial(
   })
 }
 
-export function receiveTmfTipMaterial(issueId: string, receivedQty: number, actor: TmfPurchaseActor, operationId: string): void {
+export function receiveTmfTipMaterial(issueId: string, receivedQty: number, actor: TmfPurchaseActor, operationId: string, waitForSave = false): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
-  commit(operationId, '端头辅材实收', issueId, actor, { receivedQty }, (draft) => {
+  return commit(operationId, '端头辅材实收', issueId, actor, { receivedQty }, (draft) => {
     const issue = draft.tipMaterialIssues.find((item) => item.id === issueId)
     if (!issue) throw new Error('辅材尚无交出记录。')
     validateTipQuantity(receivedQty, issue.unit)
     if (add(issue.receivedQty, receivedQty) > issue.dispatchedQty) throw new Error('辅材实收不能超过上游已发数量。')
     issue.receivedQty = add(issue.receivedQty, receivedQty)
     return { quantity: receivedQty, unit: issue.unit }
-  })
+  }, waitForSave)
 }
 
 function tipMaterialBalance(data: TmfPurchaseState, issueId: string) {
@@ -2005,10 +2106,10 @@ function tipMaterialBalance(data: TmfPurchaseState, issueId: string) {
 export function getTmfTipMaterialBalance(issueId: string) { return tipMaterialBalance(current(), issueId) }
 
 export function dispatchTmfTipMaterialReturn(
-  input: { id: string; sourceIssueId: string; quantity: number; reason: string }, actor: TmfPurchaseActor, operationId: string,
-): void {
+  input: { id: string; sourceIssueId: string; quantity: number; reason: string }, actor: TmfPurchaseActor, operationId: string, waitForSave = false,
+): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
-  commit(operationId, '未用辅材交回仓库', input.sourceIssueId, actor, input, (draft, at) => {
+  return commit(operationId, '未用辅材交回仓库', input.sourceIssueId, actor, input, (draft, at) => {
     const issue = draft.tipMaterialIssues.find(item => item.id === input.sourceIssueId)
     const lot = draft.tipMaterialLots.find(item => item.id === issue?.stockLotId)
     if (!issue || !lot) throw new Error('辅材来源实收批次缺失，请由主管核实来源后处理；不能补造库存。')
@@ -2017,7 +2118,7 @@ export function dispatchTmfTipMaterialReturn(
     if (input.quantity > tipMaterialBalance(draft, issue.id).availableQty) throw new Error('退回数量超过本厂未使用辅材余额；已用、损坏或已交回部分不能重复退。')
     draft.tipMaterialReturns.push({ id: input.id, sourceIssueId: issue.id, stockLotId: lot.id, dispatchedQty: input.quantity, receivedQty: 0, dispatchedAt: at, reason: input.reason })
     return { quantity: input.quantity, unit: issue.unit, reason: input.reason }
-  })
+  }, waitForSave)
 }
 
 export function receiveTmfTipMaterialReturn(
@@ -2037,8 +2138,8 @@ export function receiveTmfTipMaterialReturn(
 }
 
 export function reportTmfTipping(
-  input: Omit<TmfTipResult, 'reportedAt' | 'goodPieces'>, actor: TmfPurchaseActor, operationId: string,
-): void {
+  input: Omit<TmfTipResult, 'reportedAt' | 'goodPieces'>, actor: TmfPurchaseActor, operationId: string, waitForSave = false,
+): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
   if (!Number.isSafeInteger(input.pieces) || input.pieces <= 0 || !Number.isSafeInteger(input.defectivePieces)
     || input.defectivePieces < 0 || input.defectivePieces > input.pieces
@@ -2088,7 +2189,7 @@ export function reportTmfTipping(
     output.defectivePieces += defectivePieces
     draft.tipResults.push({ ...structuredClone(input), goodPieces, defectivePieces, reportedAt: at })
     return { quantity: input.pieces, unit: output.unit, reason: input.reason }
-  })
+  }, waitForSave)
 }
 
 function defectiveBalance(draft: TmfPurchaseState, cutOutputId: string, tipResultId?: string) {
@@ -2371,12 +2472,12 @@ export function closeTmfTermination(
 
 export function packTmfOutput(
   input: { packageId: string; cutOutputId: string; tipResultId?: string; pieces: number },
-  actor: TmfPurchaseActor, operationId: string,
-): void {
+  actor: TmfPurchaseActor, operationId: string, waitForSave = false,
+): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
   if (!Number.isSafeInteger(input.pieces) || input.pieces <= 0) throw new Error('包装条数必须是正整数。')
   if (input.tipResultId !== undefined && !input.tipResultId.trim()) throw new Error('打头批次编号不能为空。')
-  commit(operationId, '合格产出装包', input.cutOutputId, actor, input, (draft, at) => {
+  return commit(operationId, '合格产出装包', input.cutOutputId, actor, input, (draft, at) => {
     const output = draft.cutOutputs.find((item) => item.id === input.cutOutputId)
     if (!output) throw new Error('加工产出不存在。')
     assertTmfDemandActive(draft, output.demandId)
@@ -2394,7 +2495,7 @@ export function packTmfOutput(
       actualCutLengthMm: output.actualCutLengthMm, actualFinishedLengthMm: finishedLength,
       endA: structuredClone(tip?.endA ?? output.specification.endA), endB: structuredClone(tip?.endB ?? output.specification.endB), createdAt: at })
     return { quantity: input.pieces, unit: output.unit }
-  })
+  }, waitForSave)
 }
 
 export function splitTmfOutputPackage(
@@ -2422,10 +2523,10 @@ export function splitTmfOutputPackage(
 }
 
 export function dispatchTmfOutputPackage(
-  input: { handoverId: string; packageId: string; warehouseId: string }, actor: TmfPurchaseActor, operationId: string,
-): void {
+  input: { handoverId: string; packageId: string; warehouseId: string }, actor: TmfPurchaseActor, operationId: string, waitForSave = false,
+): void | Promise<void> {
   allowed(actor, ['织带厂员工', '织带厂主管'])
-  commit(operationId, '加工产出交回辅料仓', input.packageId, actor, input, (draft, at) => {
+  return commit(operationId, '加工产出交回辅料仓', input.packageId, actor, input, (draft, at) => {
     const pkg = draft.packages.find((item) => item.id === input.packageId)
     if (!pkg || pkg.splitAt) throw new Error('包不存在或已拆分，请扫描有效包号。')
     if (pkg.warehouseId || draft.outputHandovers.some((item) => item.packageId === pkg.id)) throw new Error('此包已经交出或回仓，不能重复交出。')
@@ -2437,7 +2538,7 @@ export function dispatchTmfOutputPackage(
     draft.outputHandovers.push({ id: input.handoverId, packageId: pkg.id, warehouseId: input.warehouseId,
       dispatchedPieces: pkg.pieces, receivedPieces: 0, dispatchedAt: at })
     return { quantity: pkg.pieces, unit: pkg.unit }
-  })
+  }, waitForSave)
 }
 
 export function receiveTmfOutputPackage(

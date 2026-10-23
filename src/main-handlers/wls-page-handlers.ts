@@ -69,7 +69,7 @@ import { transitOnlineWlsRoutes } from '../pages/wls/transit-online/routes.ts'
 import { rawOnlineWlsPageHandlers } from '../pages/wls/raw-online/routes.ts'
 import { handleGarmentInventoryEvent } from '../pages/wls/garment-inventory/page.ts'
 
-type WlsPageEventHandler = (target: HTMLElement, event?: Event) => boolean
+type WlsPageEventHandler = (target: HTMLElement, event?: Event) => boolean | Promise<boolean>
 
 const pageEventHandlers: Record<string, WlsPageEventHandler> = {
   '/wls/accessory-warehouses/gtp/preparation': handleGtpPreparationEvent,
@@ -166,7 +166,7 @@ const pageEventHandlers: Record<string, WlsPageEventHandler> = {
   '/wls/online/garment-inventory': handleGarmentInventoryEvent,
 }
 
-export function dispatchWlsPageEvent(pathname: string, target: HTMLElement, event?: Event): boolean {
+export async function dispatchWlsPageEvent(pathname: string, target: HTMLElement, event?: Event): Promise<boolean> {
   const handler = pageEventHandlers[pathname]
-  return handler ? handler(target, event) : false
+  return handler ? await handler(target, event) : false
 }

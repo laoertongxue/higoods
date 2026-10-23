@@ -1,28 +1,12 @@
 import { escapeHtml as e } from '../../../../utils.ts'
-import { washingCanExecute, type WashingCommand, type WashingOrder, type WashingRoll } from '../../../../data/fcs/fabric-washing-model.ts'
+import { washingExecutionRolls, type WashingExecutionAction, type WashingCommand, type WashingOrder, type WashingRoll } from '../../../../data/fcs/fabric-washing-model.ts'
+export { washingExecutionRolls, type WashingExecutionAction } from '../../../../data/fcs/fabric-washing-model.ts'
 
 export const washingExecutionLabels = {
   send: '印花交给染厂', receive: '登记逐卷实收', start: '投入洗水',
   output: '登记实际产出', handout: '交回原接收方', 'downstream-receive': '登记下游实收',
 } as const
-export type WashingExecutionAction = keyof typeof washingExecutionLabels
 export const isWashingExecutionAction = (value?:string):value is WashingExecutionAction => !!value && Object.hasOwn(washingExecutionLabels,value)
-
-/** Each dialog contains only physical rolls that can perform its named action. */
-export function washingExecutionRolls(order:WashingOrder,action:WashingExecutionAction):WashingRoll[] {
-  if(order.cancelledAt || order.completedAt || order.exception)return []
-  if(action!=='downstream-receive' && !washingCanExecute(order))return []
-  return order.rolls.filter(roll=>{
-    switch(action){
-      case 'send':return !roll.sentAt
-      case 'receive':return !!roll.sentAt && !roll.receivedAt
-      case 'start':return !!roll.receivedAt && !roll.startedAt
-      case 'output':return !!roll.startedAt && !roll.completedAt
-      case 'handout':return !!roll.completedAt && !roll.handedOutAt
-      case 'downstream-receive':return !!roll.handedOutAt && !roll.downstreamReceivedAt
-    }
-  })
-}
 
 type DialogOptions = {
   image:(url:string,name:string,size?:string)=>string

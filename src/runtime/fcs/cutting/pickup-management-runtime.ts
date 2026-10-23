@@ -35,6 +35,7 @@ import type {
   PickupPrintReceiptSource,
   PickupSession,
   PickupStorageLocationRef,
+  PickupCuttingSource,
 } from '../../../data/fcs/cutting/pickup-node-domain.ts'
 import {
   listPlatformDyeResultViews,
@@ -48,6 +49,8 @@ import {
   type SupplementOrderLifecycle,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
 import { assertPickupNodeHasNoOpenDiscrepancy } from '../../../data/fcs/cutting/pickup-discrepancy.ts'
+import { isNativeCuttingPickupStorage } from '../../../data/fcs/cutting/cutting-pickup-records.ts'
+import { ProductionContextReadError } from '../../../data/fcs/production-context-records.ts'
 
 export const PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY = 'pickupWarehouseTransaction'
 
@@ -204,6 +207,7 @@ export function recoverPendingPickupWarehouseTransaction(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): void {
   const raw = storage?.getItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY)
+  if (raw && isNativeCuttingPickupStorage(storage)) throw new ProductionContextReadError('发现尚未核对的旧接收日志，原资料已保留，请先核对后继续。')
   if (!raw || !storage?.setItem || !storage.removeItem) return
   let journal: PickupWarehouseTransactionJournal
   try {
@@ -284,6 +288,9 @@ export interface ConfirmPickupNodeReceiptRuntimeInput {
   pickupNodeId: string
   pickupNodeVersion: number
   receiverName: string
+  receiverUserId?: string
+  cuttingSources?: PickupCuttingSource[]
+  expectedNodeSnapshot?: string
   eventSource: Extract<CuttingRuntimeEventSource, 'WEB' | 'PDA'>
   operatorRole: string
   toLocationRefs: PickupStorageLocationRef[]
@@ -306,6 +313,7 @@ export function syncCuttingPickupSessionWarehouseFactsRuntime(
   if (!nodeSnapshot) throw new Error('接收节点快照缺失，无法写入待加工仓流水。')
   const runtimeUnits = nodeSnapshot.items.map(item => normalizePickupRuntimeQtyUnit(item.unit))
   nodeSnapshot.items.forEach((item, index) => {
+    const cuttingSource = session.cuttingSources?.find(source => source.prepLineId === item.prepLineId)
     const runtimeUnit = runtimeUnits[index]
     const pickupRecordId = session.pickupRecordIds[index] || ''
     appendCuttingRuntimeEventIdempotent({
@@ -313,11 +321,12 @@ export function syncCuttingPickupSessionWarehouseFactsRuntime(
       eventType: '中转仓接收',
       eventSource: options.eventSource,
       operatorName: session.receiverName,
+      operatorId: session.receiverUserId,
       operatorRole: options.operatorRole,
       occurredAt: session.pickedAt,
       refs: {
-        cutOrderId: item.printReceiptSources?.[0]?.targetCutOrderId,
-        cutOrderNo: item.printReceiptSources?.[0]?.targetCutOrderNo,
+        cutOrderId: cuttingSource?.cutOrderId || item.printReceiptSources?.[0]?.targetCutOrderId,
+        cutOrderNo: cuttingSource?.cutOrderNo || item.printReceiptSources?.[0]?.targetCutOrderNo,
         productionOrderId: nodeSnapshot.productionOrderId,
         productionOrderNo: nodeSnapshot.productionOrderNo,
         handoverRecordId: `${session.pickupSessionId}:${item.prepLineId}`,
@@ -359,6 +368,8 @@ export function syncCuttingPickupSessionWarehouseFactsRuntime(
         warehouseLocations: session.toLocationRefs,
         storageFootprint: session.storageFootprint,
         pickupBy: session.receiverName,
+        ...(session.receiverUserId ? { pickupById: session.receiverUserId } : {}),
+        ...(cuttingSource ? { cuttingSource } : {}),
         pickupAt: session.pickedAt,
         warehouseSyncStatus: '已回写',
       },
@@ -402,6 +413,7 @@ export function confirmPickupNodeReceiptRuntime(
   if (!node || node.version !== input.pickupNodeVersion) {
     throw new Error('当前待接收物料已更新，请重新核对全部物料后再确认接收。')
   }
+  if (input.expectedNodeSnapshot && JSON.stringify(node) !== input.expectedNodeSnapshot) throw new Error('当前待接收实物或数量已变化，请重新读取后核对。')
   assertCuttingRawPrepNodeReceipt(node, context.projections, context.demandFacts)
   node.items.forEach(item => normalizePickupRuntimeQtyUnit(item.unit))
   const firstLocation = locationRefs[0]
@@ -410,6 +422,8 @@ export function confirmPickupNodeReceiptRuntime(
     pickupNodeId: input.pickupNodeId,
     pickupNodeVersion: input.pickupNodeVersion,
     receiverName,
+    ...(input.receiverUserId ? { receiverUserId: input.receiverUserId } : {}),
+    ...(input.cuttingSources ? { cuttingSources: input.cuttingSources } : {}),
     warehouseArea: firstLocation.areaName,
     locationCode: firstLocation.locationNo,
     waitProcessLedgerEventId: idempotencyKey,

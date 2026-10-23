@@ -1,3 +1,4 @@
+import { saveWebLaceRecord } from './record-surface.ts'
 // @page-pattern: list
 import { renderStandardListPage, renderStandardListStats } from '../../../../components/ui/list-page.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../../../../components/ui/process-order-list-controller.ts'
@@ -379,7 +380,6 @@ export function renderLacePurchaseDemandsPage(): string {
     const params = new URL(window.location.href).searchParams
     const requestedPurchaseOrderId = params.get('viewChange') === '1' ? params.get('purchaseOrderId') ?? '' : ''
     if (requestedPurchaseOrderId) {
-      markPurchaseChangeViewed(requestedPurchaseOrderId, PLATFORM_ADMIN)
       state.drawerPurchaseOrderId = requestedPurchaseOrderId
       state.feedback = `正在查看采购单 ${getAccessoryPurchaseOrder(requestedPurchaseOrderId)?.purchaseOrderNo ?? ''} 的完整变更；仅表示已查看。`
       state.feedbackOk = true
@@ -389,7 +389,7 @@ export function renderLacePurchaseDemandsPage(): string {
   return `<div data-lace-purchase-demands-root data-skip-page-rerender="true">${renderInner()}</div>`
 }
 
-export function handleLacePurchaseDemandsEvent(target: HTMLElement, event?: Event): boolean {
+export async function handleLacePurchaseDemandsEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
   if (handleLaceCommonImageEvent(target, event, refreshOverlays)) return true
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-lace-demand-field]')
@@ -456,7 +456,12 @@ export function handleLacePurchaseDemandsEvent(target: HTMLElement, event?: Even
   }
   if (action === 'view-change') {
     const purchaseOrderId = actionNode.dataset.purchaseOrderId || ''
-    markPurchaseChangeViewed(purchaseOrderId, PLATFORM_ADMIN)
+    try {
+      await saveWebLaceRecord(rootElement(), 'markPurchaseChangeViewed', () => markPurchaseChangeViewed(purchaseOrderId, PLATFORM_ADMIN))
+    } catch (error) {
+      state.feedback = error instanceof Error ? error.message : String(error)
+      state.feedbackOk = false; refreshAll(); return true
+    }
     state.drawerPurchaseOrderId = purchaseOrderId
     state.feedback = `已查看采购单 ${getAccessoryPurchaseOrder(purchaseOrderId)?.purchaseOrderNo ?? ''} 的当前变更版本`
     state.feedbackOk = true

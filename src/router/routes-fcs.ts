@@ -1,3 +1,4 @@
+import { withLaceRecords } from './lace-records-loader.ts'
 import { withWashingRecords } from '../data/fcs/fabric-washing-repository.ts'
 import { renderFabricWashingListPage, renderFabricWashingDetailPage } from './route-renderers.ts'
 import { renderWoolPendingReceiptsPage } from '../pages/process-factory/wool/pending-receipts'
@@ -356,7 +357,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/spreading-detail': () => renderCraftCuttingSpreadingDetailPage(),
     '/fcs/craft/cutting/spreading-edit': () => renderCraftCuttingSpreadingEditPage(),
     '/fcs/craft/cutting/fei-tickets': () => renderCraftCuttingFeiTicketsPage(),
-    '/fcs/craft/cutting/binding-fei-tickets': () => renderCraftCuttingBindingFeiTicketsPage(),
+    '/fcs/craft/cutting/binding-fei-tickets': async () => { await (await import('../data/fcs/binding-process-records.ts')).hydrateBindingProcessRecords(); return renderCraftCuttingBindingFeiTicketsPage() },
     '/fcs/craft/cutting/replacement-fabric-fei-tickets': () => renderReplacementFabricFeiTicketsPage(),
     '/fcs/craft/cutting/fei-ticket-detail': () => renderCraftCuttingFeiTicketDetailPage(),
     '/fcs/craft/cutting/fei-ticket-printed': () => renderCraftCuttingFeiTicketPrintedPage(),
@@ -376,7 +377,7 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/cutting/sample-warehouse', '正在跳转到裁床样衣仓'),
     '/fcs/craft/cutting/transfer-bags': () => renderCraftCuttingTransferBagsPage(),
     '/fcs/craft/cutting/transfer-bag-detail': () => renderCraftCuttingTransferBagDetailPage(),
-    '/fcs/craft/cutting/special-processes': () => renderCraftCuttingSpecialProcessesPage(),
+    '/fcs/craft/cutting/special-processes': async () => { await (await import('../data/fcs/binding-process-records.ts')).hydrateBindingProcessRecords(); return renderCraftCuttingSpecialProcessesPage() },
     '/fcs/craft/cutting/cut-piece-release': () => renderCraftCuttingCutPieceReleasePage(),
     '/fcs/craft/cutting/cut-piece-return-processing': () => renderCraftCuttingCutPieceReturnProcessingPage(),
     '/fcs/craft/cutting/supplement-management': () => renderCraftCuttingSupplementManagementPage(),
@@ -385,8 +386,8 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
     '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/pending-receipts': () => withWashingRecords(() => renderPrintingPendingReceiptsPage()),
-    '/fcs/craft/printing/pending-handover': () => renderPrintingPendingHandoverPage(),
-    '/fcs/craft/printing/handover-documents': () => renderPrintingHandoverDocumentsPage(),
+    '/fcs/craft/printing/pending-handover': async () => (await import('../data/fcs/fabric-washing-repository.ts')).withWashingRecords(renderPrintingPendingHandoverPage),
+    '/fcs/craft/printing/handover-documents': async () => (await import('../data/fcs/fabric-washing-repository.ts')).withWashingRecords(renderPrintingHandoverDocumentsPage),
     '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/tasks': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/orders': () => renderCraftPrintingWorkOrdersPage(),
@@ -442,9 +443,9 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/wool/wait-process-warehouse', '正在跳转到毛织待加工仓'),
     '/fcs/craft/accessory/lace': () =>
       renderRouteRedirect('/fcs/craft/accessory/lace/purchase-demands', '正在跳转到花边采购需求'),
-    '/fcs/craft/accessory/lace/purchase-demands': () => renderLacePurchaseDemandsPage(),
-    '/fcs/craft/accessory/lace/work-orders': () => renderLaceWorkOrdersPage(),
-    '/fcs/craft/accessory/lace/handover-records': () => renderLaceHandoverRecordsPage(),
+    '/fcs/craft/accessory/lace/purchase-demands': () => withLaceRecords(() => renderLacePurchaseDemandsPage()),
+    '/fcs/craft/accessory/lace/work-orders': () => withLaceRecords(() => renderLaceWorkOrdersPage()),
+    '/fcs/craft/accessory/lace/handover-records': () => withLaceRecords(() => renderLaceHandoverRecordsPage()),
     '/fcs/craft/post-finishing': () =>
       renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道生产任务'),
     '/fcs/craft/post-finishing/tasks': () => renderPostFinishingTasksPage(),
@@ -502,7 +503,7 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/fcs\/craft\/accessory\/lace\/work-orders\/([^/?]+)(?:\?.*)?$/,
-      render: (match) => renderLaceWorkOrderDetailPage(decodeURIComponent(match[1])),
+      render: (match) => withLaceRecords(() => renderLaceWorkOrderDetailPage(decodeURIComponent(match[1]))),
     },
     {
       pattern: /^\/fcs\/progress\/board\/tasks\/([^/?]+)(?:\?.*)?$/,
@@ -617,7 +618,7 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/fcs\/craft\/cutting\/special-processes\/([^/]+)$/,
-      render: (match) => renderCraftCuttingSpecialProcessDetailPage(decodeURIComponent(match[1])),
+      render: async (match) => { await (await import('../data/fcs/binding-process-records.ts')).hydrateBindingProcessRecords(); return renderCraftCuttingSpecialProcessDetailPage(decodeURIComponent(match[1])) },
     },
     {
       pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks\/([^/]+)$/,

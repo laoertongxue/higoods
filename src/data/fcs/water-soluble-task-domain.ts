@@ -1,6 +1,9 @@
 import type { ProcessOutputRoll, ProcessDispatchDocument } from './process-output-types.ts'
+import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
+import { registerWashingLedgerSnapshot, WATER_EXECUTION_STORAGE_KEY } from './fabric-washing-storage-bridge.ts'
 import { addWaterOutputDemoOrders } from './water-soluble-output-demos.ts'
-import {getPdaSession} from './store-domain-pda.ts'
+import {getPdaSession, readFactoryPdaExecutionUsers} from './store-domain-pda.ts'
+import {isCentralPdaFactory} from './pda-experience-scope.ts'
 import {getDyeFactoryReceiptProjection} from './factory-receiving-warehouse.ts'
 import {listWaterHandoverReceivingSources,getSourceActualReceipts,recordFactoryMaterialUsage,captureFactoryReceivingData,restoreFactoryReceivingData,listFactoryMaterialUses,convertReceiptQuantity} from './factory-receiving.ts'
 import { localDateTimeText } from '../../utils.ts'
@@ -53,6 +56,7 @@ export interface WaterSolubleActionLog {
   detail: string
   at: string
   operatorName?: string
+  operatorId?: string
 }
 
 export interface WaterSolubleHandoverBatch {
@@ -102,7 +106,42 @@ export interface WaterSolubleWorkOrder {
   supervisorDecision?: WaterSolubleSupervisorDecision
   createdAt: string
   updatedAt: string
+  completedBy?: string
+  completedByUserId?: string
+  completedAt?: string
   actionLogs: WaterSolubleActionLog[]
+}
+
+export interface CentralWaterSolubleActor { userId: string; name: string; factoryId: string }
+/** Independent Central execution takes the actual active account, without changing the legacy PDA session. */
+export function assertCentralWaterSolubleActor(orderId: string, actor: CentralWaterSolubleActor): void {
+  const order = findMutableOrder(orderId),factory = order?.factoryId ? getFactoryMasterRecordById(order.factoryId) : undefined
+  const user = readFactoryPdaExecutionUsers(actor.factoryId).find(user => user.userId === actor.userId)
+  if (!order || !factory || !isCentralPdaFactory(factory) || factory.status !== 'active' || order.factoryId !== actor.factoryId
+    || !user || user.status !== 'ACTIVE' || user.name !== actor.name || !actor.name.trim()) throw new Error('WATER_wrongActor')
+}
+
+export type CentralWaterSolubleActionInput = {
+  orderId: string; taskId: string; expectedStatus: WaterSolubleWorkOrderStatus; actor: CentralWaterSolubleActor
+} & ({ action: 'START' | 'FINISH_DOCUMENT' }
+  | { action: 'COMPLETE'; completedQty: number; reason: string }
+  | { action: 'RESOLVE_PAUSE'; decision: WaterSolubleSupervisorDecision })
+
+export function executeCentralWaterSolubleAction(input: CentralWaterSolubleActionInput): WaterSolubleActionResult {
+  return runWaterSolubleMutation(() => {
+    assertCentralWaterSolubleActor(input.orderId, input.actor)
+    const order = findMutableOrder(input.orderId)!
+    if (order.taskId !== input.taskId || order.status !== input.expectedStatus) return failure('CHANGED')
+    const result = input.action === 'START' ? startWaterSoluble(input.orderId, input.actor.name)
+      : input.action === 'COMPLETE' ? completeWaterSoluble(input.orderId, input.completedQty, input.reason)
+        : input.action === 'RESOLVE_PAUSE' ? resolveWaterSolublePause(input.orderId, input.decision)
+          : completeWaterSolubleWorkOrder(input.orderId)
+    if (!result.ok) return result
+    const current = findMutableOrder(input.orderId)!,log = current.actionLogs.at(-1)!
+    log.operatorName = input.actor.name;log.operatorId = input.actor.userId
+    if (input.action === 'FINISH_DOCUMENT') { current.completedBy=input.actor.name;current.completedByUserId=input.actor.userId;current.completedAt=log.at }
+    return { ...result, order: cloneOrder(current) }
+  })
 }
 
 export interface WaterSolubleActionResult {
@@ -155,11 +194,9 @@ function cloneOrder(order: WaterSolubleWorkOrder): WaterSolubleWorkOrder {
 }
 
 
-const WATER_EXECUTION_STORAGE_KEY = 'higoods.formal-water-execution.v1'
 let waterMutationDepth = 0
 
-function restoreFormalWaterExecution(generated: Map<string, WaterSolubleWorkOrder>): void {
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(WATER_EXECUTION_STORAGE_KEY)
+function restoreFormalWaterExecution(generated: Map<string, WaterSolubleWorkOrder>, raw = getDesignRevisionFcsStorage().getItem(WATER_EXECUTION_STORAGE_KEY)): void {
   if (!raw) return
   try {
     const saved = JSON.parse(raw)
@@ -184,6 +221,15 @@ function restoreFormalWaterExecution(generated: Map<string, WaterSolubleWorkOrde
   }
 }
 
+/** Explicit migration uses the same frozen-source and output validation as the original Web reader. */
+export function decodeLegacyWaterSolubleExecution(raw: string): WaterSolubleWorkOrder[] {
+  const value = JSON.parse(raw)
+  if (!value || Object.keys(value).some(key => !['version', 'orders'].includes(key))) throw new Error('旧水溶记录包含未识别字段，原资料已保留。')
+  const generated = buildWaterSolubleOrderStore(true)
+  restoreFormalWaterExecution(generated, raw)
+  return value.orders.map((order: WaterSolubleWorkOrder) => cloneOrder(order))
+}
+
 function validateWaterOutputSnapshot(order: WaterSolubleWorkOrder): void {
   const rolls=order.outputRolls??[],docs=order.dispatchDocuments??[]
   if(!Array.isArray(rolls)||!Array.isArray(docs))throw new Error('水溶卷码或交出单格式无效')
@@ -200,23 +246,24 @@ function validateWaterOutputSnapshot(order: WaterSolubleWorkOrder): void {
 function persistFormalWaterExecution(): void {
   if (typeof localStorage === 'undefined') return
   const orders = [...(orderStore?.values() ?? [])].filter(order => order.actionLogs.length > 1)
-  localStorage.setItem(WATER_EXECUTION_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
+  getDesignRevisionFcsStorage().setItem(WATER_EXECUTION_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
 }
 
 export function captureWaterSolubleOrderMutation(order: WaterSolubleWorkOrder): { order: WaterSolubleWorkOrder; persistedRaw: string | null } {
-  return { order: cloneOrder(order), persistedRaw: typeof localStorage === 'undefined' ? null : localStorage.getItem(WATER_EXECUTION_STORAGE_KEY) }
+  return { order: cloneOrder(order), persistedRaw: getDesignRevisionFcsStorage().getItem(WATER_EXECUTION_STORAGE_KEY) }
 }
 
 function restoreWaterExecutionBytes(raw: string | null): void {
-  if (typeof localStorage === 'undefined' || localStorage.getItem(WATER_EXECUTION_STORAGE_KEY) === raw) return
-  if (raw === null) localStorage.removeItem(WATER_EXECUTION_STORAGE_KEY)
-  else localStorage.setItem(WATER_EXECUTION_STORAGE_KEY, raw)
+  const storage = getDesignRevisionFcsStorage()
+  if (storage.getItem(WATER_EXECUTION_STORAGE_KEY) === raw) return
+  if (raw === null) storage.removeItem(WATER_EXECUTION_STORAGE_KEY)
+  else storage.setItem(WATER_EXECUTION_STORAGE_KEY, raw)
 }
 
 function runWaterSolubleMutation(action: () => WaterSolubleActionResult): WaterSolubleActionResult {
   if (waterMutationDepth) return action()
   const before = new Map([...ensureStore()].map(([key, value]) => [key, cloneOrder(value)]))
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(WATER_EXECUTION_STORAGE_KEY)
+  const raw = getDesignRevisionFcsStorage().getItem(WATER_EXECUTION_STORAGE_KEY)
   const receiving=captureFactoryReceivingData()
   waterMutationDepth++
   try {
@@ -807,6 +854,14 @@ export function completeWaterSoluble(orderId: string, completedQty: number, exce
   })
 }
 
+/** Clearing a processing total cannot undo an already recorded physical handover. */
+export function waterSolubleReworkBlockReason(order: WaterSolubleWorkOrder): string | undefined {
+  if ((order.handoverQty ?? 0) > 0 || order.handoverBatches?.some(batch => batch.handoverQty > 0)
+    || order.outputRolls?.some(roll => !!roll.dispatchId)) {
+    return '已有实际交出，不能清空完成数量。可继续加工或按实际数量交出。'
+  }
+}
+
 export function resolveWaterSolublePause(orderId: string, decision: WaterSolubleSupervisorDecision): WaterSolubleActionResult {
   return runWaterSolubleMutation(() => {
   const order = findMutableOrder(orderId)
@@ -816,6 +871,8 @@ export function resolveWaterSolublePause(orderId: string, decision: WaterSoluble
   if (!['CONTINUE_PROCESSING', 'CONTINUE_WITH_ACTUAL_QTY', 'RETURN_FOR_REWORK'].includes(decision)) {
     return failure('请选择有效的主管处理方式。')
   }
+  const reworkBlocked = decision === 'RETURN_FOR_REWORK' ? waterSolubleReworkBlockReason(order) : undefined
+  if (reworkBlocked) return failure(reworkBlocked)
   order.supervisorDecision = decision
   if (decision === 'CONTINUE_WITH_ACTUAL_QTY') {
     if (order.completedQty <= 0) return failure('当前没有可交出的完成数量。')
@@ -823,8 +880,8 @@ export function resolveWaterSolublePause(orderId: string, decision: WaterSoluble
     return updateOrder(order, '主管确认按实际数量继续', `可交出 ${order.completedQty} ${order.qtyUnit}`)
   }
   order.status = 'WAIT_WATER_SOLUBLE'
-  order.handoverQty = undefined
   if (decision === 'RETURN_FOR_REWORK') {
+    order.handoverQty = undefined
     order.completedQty = 0
     order.exceptionReason = undefined
     return updateOrder(order, '主管退回返工', '已清理本次完成数量，等待重新水溶')
@@ -978,3 +1035,18 @@ export function mutateWaterSolubleOutput<T>(action: (orders: WaterSolubleWorkOrd
   if (!result.ok) throw new Error(result.message)
   return value!
 }
+
+registerDesignRevisionFcsCacheHooks('water', {
+  capture() { return { orders: orderStore ? [...orderStore].map(([key, order]) => [key, cloneOrder(order)] as const) : null } },
+  restore(value: { orders: Array<readonly [string, WaterSolubleWorkOrder]> | null }) {
+    orderStore = value.orders ? new Map(value.orders.map(([key, order]) => [key, cloneOrder(order)])) : null
+  },
+  hydrate() { orderStore = null },
+})
+// Include static rows only in the comparison baseline, never in the saved delta.
+registerWashingLedgerSnapshot(WATER_EXECUTION_STORAGE_KEY, () => JSON.stringify({ version: 1,
+  // Use the same read projection as output actions. Its derived acceptance fields
+  // must already exist in the baseline, so a read after hydration cannot adopt an
+  // unrelated static order as a user change.
+  orders: listWaterSolubleWorkOrders().filter(order => order.actionLogs.length > 1),
+}))

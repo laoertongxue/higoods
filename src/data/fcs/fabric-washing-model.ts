@@ -52,6 +52,22 @@ export function washingCanExecute(order:WashingOrder):boolean {
   return !!order.assignedFactoryId && (order.acceptance==='ACCEPTED'
     || order.assignedFactoryId===WASHING_FACTORY_ID && ['NOT_REQUIRED','PENDING'].includes(order.acceptance))
 }
+export type WashingExecutionAction = 'send' | 'receive' | 'start' | 'output' | 'handout' | 'downstream-receive'
+/** The same physical eligibility is used by the Web dialog and Central PDA. */
+export function washingExecutionRolls(order:WashingOrder,action:WashingExecutionAction):WashingRoll[] {
+  if(order.cancelledAt || order.completedAt || order.exception)return []
+  if(action!=='downstream-receive' && !washingCanExecute(order))return []
+  return order.rolls.filter(roll=>{
+    switch(action){
+      case 'send':return !roll.sentAt
+      case 'receive':return !!roll.sentAt && !roll.receivedAt
+      case 'start':return !!roll.receivedAt && !roll.startedAt
+      case 'output':return !!roll.startedAt && !roll.completedAt
+      case 'handout':return !!roll.completedAt && !roll.handedOutAt
+      case 'downstream-receive':return !!roll.handedOutAt && !roll.downstreamReceivedAt
+    }
+  })
+}
 export function washingPrintSignature(order:WashingOrder):string {
  return JSON.stringify([order.handFeel,order.assignedFactoryId,order.source.productionOrderId,order.source.target,order.rolls.map(r=>[r.id,r.barcode,r.outputBarcode,r.inputQty,r.receivedQty,r.outputQty,r.downstreamQty]),order.cancelledAt,order.exception])
 }

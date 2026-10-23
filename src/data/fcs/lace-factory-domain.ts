@@ -1,3 +1,4 @@
+import { assertLaceFactoryCommandScope } from './lace-factory-command-scope.ts'
 import { TMF_FACTORY_ID, TMF_FACTORY_NAME } from './central-craft-factories.ts'
 import {
   ACCESSORY_FACTORY_MAPPINGS,
@@ -823,6 +824,11 @@ export function resetLaceFactoryRuntime(): void {
   void getState()
 }
 
+/** Read-only static baseline for record overlays; never replaces the live runtime. */
+export function createLaceFactoryStaticSnapshot(): LaceFactoryRuntimeState {
+  return buildInitialRuntime()
+}
+
 export function captureLaceFactoryRuntime(): LaceFactoryRuntimeState {
   return structuredClone(getState())
 }
@@ -856,6 +862,7 @@ export function listLaceGenerationFailures(actor: LaceActor = LACE_FACTORY_OPERA
 }
 
 export function syncLaceProductionOrders(): LaceProductionOrder[] {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const projected = projectLacePurchaseDemands(state.purchaseOrders)
   recordProjectionFailures(state, projected.failures)
@@ -1008,6 +1015,7 @@ export function countPendingPurchaseChanges(actor: LaceActor = LACE_FACTORY_OPER
 }
 
 export function markPurchaseChangeViewed(purchaseOrderId: string, actor: LaceActor = LACE_FACTORY_OPERATOR): void {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const purchaseOrder = findPurchaseOrder(state, purchaseOrderId)
   const mappedDemand = projectLacePurchaseDemands(state.purchaseOrders).demands
@@ -1042,6 +1050,7 @@ export function requiresLaceOverproductionConfirmation(planQty: number, resultin
 }
 
 export function confirmLaceProductionReceipt(workOrderId: string, actor: LaceActor = LACE_FACTORY_OPERATOR): LaceProductionOrderView {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const order = findWorkOrder(state, workOrderId)
   assertFactoryActor(order, actor)
@@ -1079,6 +1088,7 @@ export function updateLaceProcessingInputs(
   reason: string,
   actor: LaceActor = LACE_FACTORY_OPERATOR,
 ): LaceProductionOrderView {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const order = findWorkOrder(state, workOrderId)
   assertFactoryActor(order, actor)
@@ -1139,6 +1149,7 @@ export interface CreateLaceCompletionCommand {
 }
 
 export function createLaceCompletionReport(command: CreateLaceCompletionCommand): LaceCompletionReport {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const existing = state.completionReports.find((report) => report.clientActionId === command.clientActionId)
   if (existing) return deepClone(existing)
@@ -1188,6 +1199,7 @@ export interface UpdateLaceCompletionCommand {
 }
 
 export function updateLaceCompletionReport(command: UpdateLaceCompletionCommand): LaceCompletionReport {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const report = state.completionReports.find((item) => item.reportId === command.reportId)
   if (!report) fail('REPORT_NOT_FOUND', '加工填报记录不存在')
@@ -1231,6 +1243,7 @@ export function completeLaceProduction(
   reason: string,
   actor: LaceActor = LACE_FACTORY_OPERATOR,
 ): LaceProductionOrderView {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const order = findWorkOrder(state, workOrderId)
   assertFactoryActor(order, actor)
@@ -1253,6 +1266,7 @@ export function undoLaceProductionCompletion(
   reason: string,
   actor: LaceActor = LACE_FACTORY_SUPERVISOR,
 ): LaceProductionOrderView {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const order = findWorkOrder(state, workOrderId)
   assertFactoryActor(order, actor)
@@ -1276,6 +1290,7 @@ export function cancelLaceProductionOrder(input: {
   actor?: LaceActor
   secondConfirmed?: boolean
 }): LaceProductionOrderView {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const actor = input.actor ?? LACE_FACTORY_SUPERVISOR
   const order = findWorkOrder(state, input.workOrderId)
@@ -1307,6 +1322,7 @@ export function restoreCancelledLaceProductionOrder(
   reason: string,
   actor: LaceActor = PLATFORM_ADMIN,
 ): LaceProductionOrderView {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const order = findWorkOrder(state, workOrderId)
   if (actor.role !== '平台主管') fail('PLATFORM_ADMIN_REQUIRED', '误取消恢复只能由平台主管处理')
@@ -1343,6 +1359,7 @@ export interface CreateLaceHandoverCommand {
 }
 
 export function createLaceHandover(command: CreateLaceHandoverCommand): LaceHandoverRecord {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const existing = state.handovers.find((handover) => handover.clientActionId === command.clientActionId)
   if (existing) return deepClone(existing)
@@ -1420,6 +1437,7 @@ export interface ConfirmLaceReceiptCommand {
 }
 
 export function confirmLaceReceipt(command: ConfirmLaceReceiptCommand): LaceReceiptRecord {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const existingByAction = state.receipts.find((receipt) => receipt.clientActionId === command.clientActionId)
   if (existingByAction) return deepClone(existingByAction)
@@ -1522,6 +1540,7 @@ export function recordPurchaseCancellationAttempt(
   purchaseOrderId: string,
   actor: LaceActor = PMS_BUYER,
 ): PurchaseCancellationCheck {
+  assertLaceFactoryCommandScope()
   const state = getState()
   if (actor.role !== 'PMS采购员' && actor.role !== '平台主管') fail('PMS_ROLE_REQUIRED', '只有采购人员可以取消采购单')
   const check = checkPurchaseOrderCancellation(purchaseOrderId)
@@ -1544,6 +1563,7 @@ export function cancelPurchaseOrder(input: {
   clientActionId: string
   actor?: LaceActor
 }): AccessoryPurchaseOrder {
+  assertLaceFactoryCommandScope()
   const state = getState()
   const actor = input.actor ?? PMS_BUYER
   if (actor.role !== 'PMS采购员' && actor.role !== '平台主管') fail('PMS_ROLE_REQUIRED', '只有采购人员可以取消采购单')
@@ -1614,6 +1634,7 @@ export function updatePurchaseOrder(
   clientActionId: string,
   actor: LaceActor = PMS_BUYER,
 ): AccessoryPurchaseOrder {
+  assertLaceFactoryCommandScope()
   const state = getState()
   if (actor.role !== 'PMS采购员' && actor.role !== '平台主管') fail('PMS_ROLE_REQUIRED', '只有采购人员可以变更采购单')
   const currentPurchaseOrder = findPurchaseOrder(state, purchaseOrderId)

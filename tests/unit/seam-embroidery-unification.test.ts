@@ -6,7 +6,7 @@ import { listEnabledSpecialCraftOperationDefinitions, canFactorySeeSpecialCraftO
 import { listAllProcessCraftDefinitions } from '../../src/data/fcs/process-craft-dict.ts'
 import { getDedicatedSpecialCraftFactoryId } from '../../src/data/fcs/special-craft-dedicated-factories.ts'
 import { getSpecialCraftTaskOrders } from '../../src/data/fcs/special-craft-task-orders.ts'
-import { renderSpecialCraftTaskOrdersPage } from '../../src/pages/process-factory/special-craft/task-orders.ts'
+import { renderPreparedSpecialCraftTaskOrdersPage } from '../../src/pages/process-factory/special-craft/task-orders.ts'
 import { canonicalSeamCraftCode, normalizeSeamEmbroideryReferences } from '../../src/data/fcs/seam-embroidery-identity.ts'
 import { buildCraftWarehouseAreas, resolveEnabledFactoryWarehouseLocation } from '../../src/data/fcs/factory-internal-warehouse-locations.ts'
 import { decodeProductionContextRecords, encodeProductionContextRecords, PRODUCTION_CONTEXT_KEYS } from '../../src/data/fcs/production-context-records.ts'
@@ -37,7 +37,7 @@ test('所有辅助和特种工艺当前订单仅属于各自固定厂，列表�
     assert.deepEqual(new Set(orders.map(item => item.factoryId)), new Set([getDedicatedSpecialCraftFactoryId(operation.operationId)]), operation.operationName)
     assert.equal(canFactorySeeSpecialCraftOperation(getDedicatedSpecialCraftFactoryId(operation.operationId)!, operation.operationId), true)
     assert.equal(canFactorySeeSpecialCraftOperation('ID-F090', operation.operationId), false)
-    const html = renderSpecialCraftTaskOrdersPage(operation.operationId)
+    const html = renderPreparedSpecialCraftTaskOrdersPage(operation.operationId)
     assert.doesNotMatch(html, /加工厂切换|全部加工厂|factory-tab|data-factory-id=/)
   }
 })

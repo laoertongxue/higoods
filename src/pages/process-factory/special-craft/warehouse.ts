@@ -1163,7 +1163,8 @@ function renderPaginatedTable<T>(input: {
   `
 }
 
-function renderSpecialCraftDomainWarehousePageByMode(
+// Synchronous rendering of already prepared records; route entry points below own asynchronous reads.
+export function renderSpecialCraftDomainWarehousePageFromLoadedRecords(
   domainSlug: string,
   mode: SpecialCraftWarehousePageMode,
 ): string {
@@ -1581,12 +1582,14 @@ function renderSpecialCraftDomainWarehousePageByMode(
   })
 }
 
-export function renderSpecialCraftDomainWaitProcessWarehousePage(domainSlug: string): string {
-  return renderSpecialCraftDomainWarehousePageByMode(domainSlug, 'wait-process')
+export async function renderSpecialCraftDomainWaitProcessWarehousePage(domainSlug: string): Promise<string> {
+  await (await import('../../../data/fcs/special-craft-records.ts')).ensureSpecialCraftRecords()
+  return renderSpecialCraftDomainWarehousePageFromLoadedRecords(domainSlug, 'wait-process')
 }
 
-export function renderSpecialCraftDomainWaitHandoverWarehousePage(domainSlug: string): string {
-  return renderSpecialCraftDomainWarehousePageByMode(domainSlug, 'wait-handover')
+export async function renderSpecialCraftDomainWaitHandoverWarehousePage(domainSlug: string): Promise<string> {
+  await (await import('../../../data/fcs/special-craft-records.ts')).ensureSpecialCraftRecords()
+  return renderSpecialCraftDomainWarehousePageFromLoadedRecords(domainSlug, 'wait-handover')
 }
 
 export function handleSpecialCraftWarehouseEvent(target: Element): boolean {

@@ -1,4 +1,6 @@
-import { pcsRecordStore, registerPcsRepositoryReset, runPcsRecordCommand, withPcsDemoData } from '../../pcs-record-runtime.ts'
+import { pcsRecordStore, registerPcsRepositoryReset, runPcsRecordCommand, ensurePcsRecordState, withPcsDemoData, type PcsJoinedPrintWrites } from '../../pcs-record-runtime.ts'
+import { readPcsRecords } from '../../pcs-record-db.ts'
+import { changedWoolCommandOrderIds } from './command-order-scope.ts'
 import { normalizeSeamEmbroideryReferences } from '../seam-embroidery-identity.ts'
 import { prepareWoolReceivingBaseline, registerDesignRevisionFcsCacheHooks } from '../design-revision-pcs-storage.ts'
 import { captureFactoryReceivingData, restoreFactoryReceivingData, getFactoryReceivingRevision } from '../factory-receiving.ts'
@@ -551,7 +553,10 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
   }
   for (const flow of store.warehouseFlows) {
-    if (flow.unit === '片') {
+    const pieceStockOperation = flow.unit === '片' && (
+      (flow.businessType === 'STOCK_ADJUSTMENT' && flow.flowType === 'ADJUSTMENT' && flow.sourceRecordType === 'STOCK_ADJUSTMENT')
+      || (flow.businessType === 'STOCK_TRANSFER' && flow.flowType === 'TRANSFER' && flow.sourceRecordType === 'STOCK_TRANSFER'))
+    if (flow.unit === '片' && !pieceStockOperation) {
       const order = store.workOrders[flow.woolOrderId]
       const piece = order?.externalPieces.find(p => p.pieceKey === flow.objectSkuCode)
       const source = store.processReports.some(r => r.reportId === flow.sourceRecordId) || store.handovers.some(h => h.handoverId === flow.sourceRecordId && h.pieceKey === piece?.pieceKey) || store.pieceReceipts.some(r => r.receiptId === flow.sourceRecordId && r.pieceKey === piece?.pieceKey)
@@ -561,14 +566,15 @@ export function validateWoolStore(store: WoolDomainStore): void {
     const preparation = Boolean(flow.factoryReceiptId && flow.factoryId && !flow.woolOrderId && store.yarnReceipts.some(r => r.factoryReceiptId === flow.factoryReceiptId && r.lines.some(l => l.lineId === flow.sourceRecordId || listReceivingAllocations().some(a=>a.id===flow.receivingAllocationId&&a.receiptLineId===l.lineId))))
     const order = preparation ? undefined : requireOrder(flow.woolOrderId, `仓库流水 ${flow.flowId}`)
     const outputLine = order?.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
+    const stockPiece = pieceStockOperation && order?.externalPieces.find(piece => piece.pieceKey === flow.objectSkuCode)
     const isRequiredYarn = preparation || Boolean(order && requiredYarns(order).has(flow.objectSkuCode))
-    const knownSku = Boolean(outputLine) || isRequiredYarn
+    const knownSku = Boolean(outputLine) || isRequiredYarn || Boolean(stockPiece)
     if (!knownSku) {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的对象 SKU 不属于加工单`)
     }
     const expectedObjectType = isRequiredYarn
       ? 'YARN'
-      : outputLine!.outputObjectType === 'GARMENT'
+      : !stockPiece && outputLine!.outputObjectType === 'GARMENT'
         ? 'GARMENT'
         : 'CUT_PIECE'
     const expectedLocationId = expectedObjectType === 'YARN'
@@ -576,7 +582,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
       : expectedObjectType === 'GARMENT'
         ? 'WOOL-WH-GARMENT-DEFAULT'
         : 'WOOL-WH-CUT-DEFAULT'
-    const expectedUnit = isRequiredYarn ? 'kg' : outputLine!.qtyUnit
+    const expectedUnit = isRequiredYarn ? 'kg' : stockPiece ? '片' : outputLine!.qtyUnit
     if (
       flow.sourceRecordType !== 'QTY_CHANGE'
       && (
@@ -971,7 +977,78 @@ export function projectWoolStore(mutator: (draft: WoolDomainStore) => void): Woo
 /** Browser callers await the existing record transaction before publishing success. */
 export async function runWoolRecordCommand<T>(recipe: () => T): Promise<T> {
   if (typeof window === 'undefined') return recipe()
-  return runPcsRecordCommand(recipe, crypto.randomUUID(), [WOOL_DOMAIN_STORE_KEY, 'higood-pcs-fcs-design-revision-receiving-v1'])
+  const collections = [WOOL_DOMAIN_STORE_KEY, 'higood-pcs-fcs-design-revision-receiving-v1']
+  await ensurePcsRecordState(collections)
+  const guardCollection = 'fcs.wool.receipt-command-guards.v1'
+  const orderGuardCollection = 'fcs.wool.order-command-guards.v1'
+  const allocationGuardCollection = 'fcs.wool.allocation-line-command-guards.v1'
+  const versions = new Map((await readPcsRecords([guardCollection, orderGuardCollection, allocationGuardCollection])).records.map(row => [row.id, row]))
+  const operationId = crypto.randomUUID()
+  const joined: PcsJoinedPrintWrites = { puts: [], guards: [], intent: operationId,
+    rereadCollections: collections, committedFailure: '毛织操作已保存，但页面未能更新，请重新读取后查看。' }
+  return runPcsRecordCommand(() => {
+    // Compare the original writer's staged snapshot, not query projections in
+    // memory. Generating an unrelated order during a retry is still read-only.
+    const beforeRaw = pcsRecordStore.getItem(WOOL_DOMAIN_STORE_KEY)
+    const beforeWool = beforeRaw ? JSON.parse(beforeRaw) as WoolDomainStore : readWoolStore()
+    const receivingBefore = captureFactoryReceivingData()
+    const before = new Map(receivingBefore.receipts.map(receipt => [receipt.id, receipt]))
+    const result = recipe()
+    const afterRaw = pcsRecordStore.getItem(WOOL_DOMAIN_STORE_KEY)
+    const orders = new Set(beforeRaw === afterRaw ? [] : changedWoolCommandOrderIds(beforeWool,
+      afterRaw ? JSON.parse(afterRaw) as WoolDomainStore : readWoolStore()))
+    const receivingAfter = captureFactoryReceivingData()
+    const after = new Map(receivingAfter.receipts.map(receipt => [receipt.id, receipt]))
+    const sources = new Set<string>()
+    for (const id of new Set([...before.keys(), ...after.keys()])) {
+      if (JSON.stringify(before.get(id)) === JSON.stringify(after.get(id))) continue
+      for (const receipt of [before.get(id), after.get(id)]) for (const line of receipt?.lines ?? []) {
+        sources.add(line.sourceId)
+        if (line.woolOrderId) orders.add(line.woolOrderId)
+        if (line.woolCraftOrderId) for (const order of Object.values(readWoolStore().workOrders)) {
+          if (order.externalPieces.some(piece => piece.routeNodes.some(node => node.taskOrderId === line.woolCraftOrderId))) orders.add(order.woolOrderId)
+        }
+      }
+    }
+    // Different orders can consume the same already-saved preparation line.
+    // Order guards alone do not protect that shared quota. IDs are immutable
+    // original allocation identities, not another stock/quantity projection.
+    const oldAllocations = new Map(receivingBefore.allocations.map(row => [row.id, row]))
+    const newAllocations = new Map(receivingAfter.allocations.map(row => [row.id, row]))
+    const allocationLines = new Set<string>()
+    for (const id of new Set([...oldAllocations.keys(), ...newAllocations.keys()])) {
+      if (JSON.stringify(oldAllocations.get(id)) === JSON.stringify(newAllocations.get(id))) continue
+      for (const allocation of [oldAllocations.get(id), newAllocations.get(id)]) if (allocation?.woolOrderId) {
+        allocationLines.add(allocation.receiptLineId)
+        orders.add(allocation.woolOrderId)
+      }
+    }
+    for (const receiptLineId of allocationLines) {
+      const id = `${allocationGuardCollection}/${encodeURIComponent(receiptLineId)}`
+      const previous = versions.get(id)
+      const oldIds = receivingBefore.allocations.filter(row => row.receiptLineId === receiptLineId).map(row => row.id).sort()
+      const savedIds = (previous?.value as { allocationIds?: string[] } | undefined)?.allocationIds
+      // Catch a guard read newer than this page's receiving snapshot as well
+      // as the native expectedVersion race after both writers prepare.
+      if (savedIds && JSON.stringify(savedIds) !== JSON.stringify(oldIds)) throw new Error('备料分配已被其他页面修改，请重新读取后再保存。')
+      const allocationIds = receivingAfter.allocations.filter(row => row.receiptLineId === receiptLineId).map(row => row.id).sort()
+      joined.puts.push({ id, collection: allocationGuardCollection, value: { receiptLineId, allocationIds, operationId }, expectedVersion: previous?.version ?? 0 })
+      const line = receivingAfter.receipts.flatMap(row => row.lines).find(row => row.id === receiptLineId)
+      if (line) sources.add(line.sourceId)
+    }
+    // Two tabs append different receipt IDs. Guard their shared original source
+    // in the very same native transaction, including the first ever receipt.
+    for (const sourceId of sources) {
+      const id = `${guardCollection}/${encodeURIComponent(sourceId)}`
+      joined.puts.push({ id, collection: guardCollection, value: { sourceId, operationId }, expectedVersion: versions.get(id)?.version ?? 0 })
+    }
+    for (const woolOrderId of orders) {
+      const id = `${orderGuardCollection}/${encodeURIComponent(woolOrderId)}`
+      joined.puts.push({ id, collection: orderGuardCollection, value: { woolOrderId, operationId }, expectedVersion: versions.get(id)?.version ?? 0 })
+    }
+    joined.intent = JSON.stringify({ operationId, sources: [...sources].sort(), orders: [...orders].sort(), result })
+    return result
+  }, operationId, collections, [], joined)
 }
 
 registerPcsRepositoryReset(clearWoolStoreMemoryCache)

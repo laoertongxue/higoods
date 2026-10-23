@@ -834,6 +834,25 @@ export function listFactoryPdaUsers(factoryId: string): FactoryPdaUser[] {
     .map(clonePdaUser)
 }
 
+/** Execution reads existing account facts without seeding or rewriting the legacy
+ * account collection on an ordinary page visit. Account administration is unchanged. */
+export function readFactoryPdaExecutionUsers(factoryId?: string): FactoryPdaUser[] {
+  let users: FactoryPdaUser[]
+  if (cachedPdaUsers) users = cachedPdaUsers
+  else {
+    const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(PDA_USER_STORE_KEY)
+    if (raw === null) users = initialFactoryPdaUsers
+    else {
+      let stored: unknown
+      try { stored = JSON.parse(raw) } catch { throw new Error('账号资料无法读取，未覆盖原资料。') }
+      if (!Array.isArray(stored)) throw new Error('账号资料无法读取，未覆盖原资料。')
+      users = stored.map(normalizeStoredPdaUser).filter((user): user is FactoryPdaUser => !!user)
+      if (users.length !== stored.length) throw new Error('账号资料不完整，未覆盖原资料。')
+    }
+  }
+  return users.filter(user => !factoryId || user.factoryId === factoryId).map(clonePdaUser)
+}
+
 export function listAllFactoryPdaRoles(): FactoryPdaRole[] {
   return ensurePdaRoleStore().map(clonePdaRole)
 }

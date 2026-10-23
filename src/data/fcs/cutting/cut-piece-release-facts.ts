@@ -9,6 +9,8 @@ import {listCuttingSpecialCraftFeiTicketBindingsForProjection,type CuttingSpecia
 import type {TechPackCutPiecePartSnapshot,TechPackPatternFileSnapshot} from '../production-tech-pack-snapshot-types.ts'
 import {getProductionOrderCutPieceParts,getProductionOrderPatternFiles} from '../production-order-tech-pack-runtime.ts'
 import {getCutPieceTicketValidity,isCutPieceTicketUsable} from './cut-piece-ticket-validity.ts'
+import {readPartTicketValue,PART_TICKET_KEYS} from './part-ticket-records.ts'
+import {projectReleaseTicketPrintState} from './release-ticket-print-state.ts'
 
 export interface CutPieceReleaseTicketEligibility {found:boolean;valid:boolean;bagged:boolean;requiresSpecialCraft:boolean;craftRequirementKnown:boolean;physicalPieceQty:number;eligiblePieceQty:number;canHandover:boolean;reason:string}
 export interface ReleaseBagEvidence {ticketId:string;ticketNo?:string;baggedPieceQty?:number;bagCode:string;bagUseId?:string;eventId:string;at:string;operator:string;locationLabel:string}
@@ -77,7 +79,11 @@ function projectReleaseTicketFromHandovers(input:ReleaseTicketProjectionInput,ha
 }
 let publishedDetails:()=>ReleaseTicketDetail[]=()=>[]
 export function setPublishedReleaseTicketDetails(reader:()=>ReleaseTicketDetail[]):void {publishedDetails=reader}
-function allTickets():GeneratedFeiTicketSourceRecord[] {return [...new Map([...listGeneratedFeiTickets(),...listManualFeiTicketSources()].map(ticket=>[ticket.feiTicketId,ticket])).values()]}
+function allTickets():GeneratedFeiTicketSourceRecord[] {
+  const tickets=[...new Map([...listGeneratedFeiTickets(),...listManualFeiTicketSources()].map(ticket=>[ticket.feiTicketId,ticket])).values()]
+  const printed=JSON.parse(readPartTicketValue(PART_TICKET_KEYS.records) || '[]') as Record<string,unknown>[]
+  return projectReleaseTicketPrintState(tickets,printed)
+}
 const detailCache=new Map<string,{signature:string;value:ReleaseTicketDetail[]}>()
 /** 当前归属取有效在用袋和真实交接，回仓记录中的库位仍保留为历史依据。 */
 export function buildCutPieceReleaseCurrentTicketLocations(events:CuttingRuntimeEvent[],receipts:SpecialCraftTicketReturnFact[],storage?:BrowserStorageLike|null):Map<string,string> {

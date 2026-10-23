@@ -61,17 +61,17 @@ const nodeFacts = (id: string) => {
   return { received: sum(wp, row => row.receivedQty), wp: sum(wp, row => row.availableQty ?? 0), used: sum(wp, row => row.issuedQty ?? 0), processed: sum(wh, row => row.completedQty), wh: sum(wh, row => row.waitHandoverQty), transit: sum(wh, row => row.inTransitQty ?? 0), accepted: sum(wh, row => row.receiverWrittenQty ?? 0) }
 }
 let checks = 0
-const check = (label: string, fn: () => void) => { fn(); checks++; console.log(`✓ ${label}`) }
+const check = async (label: string, fn: () => void | Promise<void>) => { await fn(); checks++; console.log(`✓ ${label}`) }
 const handover = addWoolHandover(knitting.woolOrderId, { commandId: 'WH-HANDOVER', outputSkuCode: piece.skuCode, pieceKey: piece.pieceKey, handoverQty: 40, handedOverAt: at, handedOverBy: '横机主管' })
 const firstSource = core.getFactoryReceivingSourceByOriginalRecordId(handover.handoverId)!
-check('已计划、已交出但未实收不能生成工艺库存或伪造交出记录', () => {
+await check('已计划、已交出但未实收不能生成工艺库存或伪造交出记录', () => {
   assert.equal(buildWoolCraftWarehouseProjection().waitProcessStockItems.length, 0)
   assert.equal(processWarehouse.listProcessWarehouseRecords({ workOrderId: first.taskOrderId }).length, 0)
   assert.equal(processWarehouse.listProcessHandoverRecords({ workOrderId: first.taskOrderId }).length, 0)
 })
 receive(firstSource.id, 'WH-RECEIVE-FIRST', 40)
 action(first.taskOrderId!, 'SPECIAL_CRAFT_PROCESS_REPORT', 25, 'WH-PROCESS-FIRST')
-check('加工填报以片消耗待加工库存并等量形成待交出；跨仓守恒', () => {
+await check('加工填报以片消耗待加工库存并等量形成待交出；跨仓守恒', () => {
   assert.deepEqual(nodeFacts(first.taskOrderId!), { received: 40, wp: 15, used: 25, processed: 25, wh: 25, transit: 0, accepted: 0 })
   const inbound = factoryWarehouse.listFactoryWarehouseInboundRecords().filter(row => row.taskId === first.taskOrderId)
   const outbound = factoryWarehouse.listFactoryWarehouseOutboundRecords().filter(row => row.sourceTaskId === first.taskOrderId)
@@ -83,7 +83,7 @@ check('加工填报以片消耗待加工库存并等量形成待交出；跨仓�
 action(first.taskOrderId!, 'SPECIAL_CRAFT_SUBMIT_HANDOVER', 20, 'WH-HANDOUT-FIRST')
 const nextSource = core.getFactoryReceivingSourceByOriginalRecordId('WCF:WH-HANDOUT-FIRST')!
 receive(nextSource.id, 'WH-RECEIVE-SECOND', 8)
-check('在途按下游分批实收递减；下道工艺使用真实路线工厂，不返裁厂', () => {
+await check('在途按下游分批实收递减；下道工艺使用真实路线工厂，不返裁厂', () => {
   assert.deepEqual(nodeFacts(first.taskOrderId!), { received: 40, wp: 15, used: 25, processed: 25, wh: 5, transit: 12, accepted: 8 })
   assert.deepEqual(nodeFacts(second.taskOrderId!), { received: 8, wp: 8, used: 0, processed: 0, wh: 0, transit: 0, accepted: 0 })
   const record = processWarehouse.listProcessHandoverRecords({ workOrderId: first.taskOrderId })[0]
@@ -102,7 +102,7 @@ action(second.taskOrderId!, 'SPECIAL_CRAFT_PROCESS_REPORT', 6, 'WH-PROCESS-SECON
 action(second.taskOrderId!, 'SPECIAL_CRAFT_SUBMIT_HANDOVER', 6, 'WH-HANDOUT-SECOND')
 const finalSource = core.getFactoryReceivingSourceByOriginalRecordId('WCF:WH-HANDOUT-SECOND')!
 receive(finalSource.id, 'WH-RECEIVE-LINKING', 4)
-check('末道工艺回缝盘，最终片实收只进缝盘事实，不重复计入工艺待加工仓', () => {
+await check('末道工艺回缝盘，最终片实收只进缝盘事实，不重复计入工艺待加工仓', () => {
   assert.deepEqual(nodeFacts(second.taskOrderId!), { received: 8, wp: 2, used: 6, processed: 6, wh: 0, transit: 2, accepted: 4 })
   const record = processWarehouse.listProcessHandoverRecords({ workOrderId: second.taskOrderId })[0]
   assert.equal(record.receiveFactoryId, linking.factoryId)
@@ -111,7 +111,7 @@ check('末道工艺回缝盘，最终片实收只进缝盘事实，不重复计�
   assert.equal(factoryWarehouse.listFactoryWaitProcessStockItems().filter(row => row.materialSku === piece.pieceKey).reduce((total, row) => total + (row.availableQty ?? 0), 0), 17)
   assert.equal(factoryWarehouse.listFactoryWarehouseInboundRecords().filter(row => row.materialSku === piece.pieceKey && row.inboundRecordId.startsWith('FIN-')).length, 0)
 })
-check('刷新、重复读取不重复库存；非毛织仓储和工艺记录不变', () => {
+await check('刷新、重复读取不重复库存；非毛织仓储和工艺记录不变', () => {
   const before = buildWoolCraftWarehouseProjection()
   core.clearFactoryReceivingCache(); wool.clearWoolStoreMemoryCache()
   const after = buildWoolCraftWarehouseProjection()
@@ -120,7 +120,7 @@ check('刷新、重复读取不重复库存；非毛织仓储和工艺记录不�
   const stock = factoryWarehouse.listFactoryWaitProcessStockItems().filter(row => row.materialSku === piece.pieceKey)
   assert.equal(new Set(stock.map(row => row.stockItemId)).size, stock.length)
 })
-check('修改查询副本的记录、图片、关联数组及集合不能污染下次仓储读取', () => {
+await check('修改查询副本的记录、图片、关联数组及集合不能污染下次仓储读取', () => {
   const before = buildWoolCraftWarehouseProjection()
   const returned = buildWoolCraftWarehouseProjection()
   assert.deepEqual(returned, before)
@@ -145,16 +145,18 @@ check('修改查询副本的记录、图片、关联数组及集合不能污染�
 })
 const warehousePage = await import('../src/pages/process-factory/special-craft/warehouse.ts')
 const operations = (await import('../src/data/fcs/special-craft-operations.ts')).listEnabledSpecialCraftOperationDefinitions()
-check('仓储页面显示实际0库存、片单位、真实库位和真实流水，毛织片配图可放大', () => {
+await check('仓储页面显示实际0库存、片单位、真实库位和真实流水，毛织片配图可放大', async () => {
   const operation = operations.find(item => item.craftCode === second.craftCode)!
   const slug = operation.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? 'auxiliary' : 'special-type'
   for (const mode of ['wait-process', 'wait-handover'] as const) {
     for (const [field, value] of [['keyword', piece.pieceKey], ['factoryId', second.factoryId], ['operationName', operation.operationName]]) {
-      warehousePage.handleSpecialCraftWarehouseEvent({ closest: (selector: string) => selector === '[data-special-craft-warehouse-field]' ? { dataset: { domainSlug: slug, warehouseMode: mode, specialCraftWarehouseField: field }, value } : null } as unknown as Element)
+      await warehousePage.handleSpecialCraftWarehouseEvent({ closest: (selector: string) => selector === '[data-special-craft-warehouse-field]' ? { dataset: { domainSlug: slug, warehouseMode: mode, specialCraftWarehouseField: field }, value } : null } as unknown as Element)
     }
   }
-  const wpHtml = warehousePage.renderSpecialCraftDomainWaitProcessWarehousePage(slug)
-  const whHtml = warehousePage.renderSpecialCraftDomainWaitHandoverWarehousePage(slug)
+  // This isolated Node contract checks the actual renderer against the private facts above.
+  // Asynchronous route preparation and native IndexedDB are exercised in Chromium.
+  const wpHtml = warehousePage.renderSpecialCraftDomainWarehousePageFromLoadedRecords(slug, 'wait-process')
+  const whHtml = warehousePage.renderSpecialCraftDomainWarehousePageFromLoadedRecords(slug, 'wait-handover')
   assert(wpHtml.includes('>2 片</td>'))
   assert(whHtml.includes('>0 片</td>'))
   assert(whHtml.includes('data-pda-image-preview-url='))

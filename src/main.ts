@@ -2,6 +2,7 @@ import { escapeHtml } from './utils.ts'
 import { dispatchMaterialDecisionClick, dispatchMaterialDecisionInput, dispatchMaterialDecisionChange, dispatchMaterialDecisionKey } from './pages/material-decision/events-bridge'
 import { handleProductionFulfillmentClick, handleProductionFulfillmentField, handleProductionFulfillmentKey, handleTimingSourceClick, handleTimingSourceKey, handleProductionFulfillmentDrag } from './pages/production-fulfillment/events'
 import './styles.css'
+import { isThirdPartyPdaRouteAllowed } from './router/pda-experience-paths.ts'
 import { WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE } from './data/fcs/wool-domain/demo-assets.ts'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
@@ -22,6 +23,7 @@ import { appStore } from './state/store'
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
+let centralPdaPageModule: typeof import('./pages/central-pda/entry.ts') | undefined
 let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
 let authorizedCostCleanupError: unknown
@@ -455,6 +457,14 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/unified-dispatch-workbench.ts')
     return page.handleUnifiedDispatchWorkbenchEvent(eventTarget, event)
   }
+  if (pagePath === '/fcs/craft/cutting/warehouse-management/wait-process') {
+    if (eventTarget.closest('[data-cutting-warehouse-map-section] [data-warehouse-map-action], [data-cutting-warehouse-modal] [data-warehouse-map-action]')) {
+      const map = await import('./pages/process-factory/cutting/warehouse-location-map.ts')
+      return map.handleCuttingWarehouseLocationMapEvent(eventTarget, event)
+    }
+    const page = await import('./pages/process-factory/cutting/warehouse-hub.ts')
+    return page.handleCraftCuttingWaitProcessEvent(eventTarget)
+  }
   if (pagePath === '/fcs/craft/cutting/warehouse-management/wait-handover') {
     if (eventTarget.closest('[data-warehouse-map-action]')) {
       const map = await import('./pages/process-factory/cutting/warehouse-location-map.ts')
@@ -613,7 +623,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   if (pagePath.startsWith('/wls/')) {
     const wlsPageHandlers = await getWlsPageHandlersModule()
-    const handled = wlsPageHandlers.dispatchWlsPageEvent(pagePath, eventTarget, event)
+    const handled = await wlsPageHandlers.dispatchWlsPageEvent(pagePath, eventTarget, event)
     if (handled) return true
   }
   if (
@@ -971,6 +981,10 @@ function renderPdaLoadingShell(): string {
 }
 
 function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
+  if (/^\/fcs\/pda\/central(?:\/|$)/.test(state.pathname) && !root.querySelector('[data-central-pda-root]')) {
+    root.innerHTML = renderAppShell(state, '<section class="mx-auto h-[100dvh] max-w-[420px] bg-slate-100 p-4" aria-busy="true"><div class="h-20 animate-pulse rounded-xl bg-white"></div><div class="mt-4 h-12 animate-pulse rounded-xl bg-white"></div><div class="mt-4 h-40 animate-pulse rounded-xl bg-white"></div></section>')
+    return
+  }
   if (!isPdaPath(state.pathname)) return
   if (root.childElementCount > 0) return
   root.innerHTML = renderAppShell(state, renderPdaLoadingShell())
@@ -1084,6 +1098,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
   previousRenderedPagePathname = normalizedPathname
   const isTmfPrototypeRoute = normalizedPathname.startsWith('/fcs/craft/accessory/webbing/')
     || normalizedPathname.startsWith('/fcs/pda/accessory/webbing/')
+    || normalizedPathname.startsWith('/fcs/pda/central/webbing/')
     || normalizedPathname.startsWith('/pms/tmf-')
     || normalizedPathname.startsWith('/wls/raw/tmf-')
     || normalizedPathname.startsWith('/print/tmf-')
@@ -1139,6 +1154,26 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // renderer also keeps unrelated execution routes out of this first visit.
     if (normalizedPathname === '/fcs/pda/auth/login') {
       return (await import('./pages/pda-login.ts')).renderPdaLoginPage()
+    }
+    if (/^\/fcs\/pda\/central\/webbing(?:\/|$)/.test(normalizedPathname)) {
+      // The TMF work-order projection reads formal production facts. Prepare the
+      // same direct sources as the existing TMF pages before rendering.
+      await preparePageRouteEntry(normalizedPathname)
+    }
+    if (/^\/fcs\/pda\/central(?:\/|$)/.test(normalizedPathname)) {
+      return await (await import('./router/routes-central-pda.ts')).renderCentralPdaEntry(pathname)
+    }
+    if (/^\/fcs\/craft\/(?:dyeing|printing)(?:\/|$)/.test(normalizedPathname)
+      && !normalizedPathname.startsWith('/fcs/craft/dyeing/washing')) {
+      await (await import('./data/fcs/central-execution-record-bridge.ts')).ensureCentralExecutionRecordRead()
+    }
+    // Reject third-party warehouse/craft deep links before their page owners hydrate records.
+    // Existing central routes stay available until their new experience replaces them.
+    if (normalizedPathname.startsWith('/fcs/pda/') && !isThirdPartyPdaRouteAllowed(normalizedPathname)) {
+      const runtime = await import('./pages/pda-runtime.ts')
+      if (!runtime.isCurrentPdaExperienceRouteAllowed(normalizedPathname)) {
+        return (await import('./router/route-utils.ts')).renderRouteRedirect('/fcs/pda/exec', '执行')
+      }
     }
     if (normalizedPathname === '/pms/purchase-suggestions') {
       const [page, logs] = await Promise.all([
@@ -1539,21 +1574,27 @@ async function render(): Promise<void> {
   const isDirectWoolPda = state.pathname.startsWith('/fcs/pda/wool/')
     || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
   const pageContent = await pageContentPromise
+  // A cold redirect can start the target render while this route is awaiting
+  // its content. Its obsolete handler must not read unprepared target records.
+  if (currentSerial !== renderSerial) return
   const postFinishingEntryFailed = pageContent.includes('data-post-finishing-entry-storage-failure')
   // PDA处理器含读取业务记录的模块，必须等同一页面的记录初始化完成。
   const isPdaLogin = state.pathname.split('?')[0].split('#')[0] === '/fcs/pda/auth/login'
-  if (isPdaPath(state.pathname) && !isDirectWoolPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
+  const isCentralPda = /^\/fcs\/pda\/central(?:\/|$)/.test(state.pathname)
+  if (isCentralPda) centralPdaPageModule = await import('./pages/central-pda/entry.ts')
+  if (isPdaPath(state.pathname) && !isCentralPda && !isDirectWoolPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
   if (currentSerial !== renderSerial) {
     return
   }
 
   root.innerHTML = renderAppShell(state, includeTmfStorageWarning(pageContent))
+  if (isCentralPda) centralPdaPageModule!.mountCentralPdaPage()
   if (state.pathname.startsWith('/pms/')) {
     const pmsSurface = await import('./pages/pms/shared.ts')
     pmsSurface.hydratePmsSurface(root, { icons: false })
   }
   if (isPdaPath(state.pathname)) {
-    if (!isPdaLogin && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
+    if (!isCentralPda && !isPdaLogin && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
       schedulePdaMainTabPreload()
     }
     queueMicrotask(() => hydrateIcons(root))
@@ -2388,6 +2429,13 @@ root.addEventListener('drop', dispatchListColumnDragEvent)
 root.addEventListener('dragend', dispatchListColumnDragEvent)
 
 root.addEventListener('click', async (event) => {
+  const centralTarget = resolveEventElementTarget(event.target)
+  // Central overlays sit outside the page root but still carry page actions.
+  if (centralTarget?.closest('[data-central-pda-root]') || centralTarget?.closest('[data-central-action]')) {
+    if (centralTarget.closest('button, [data-central-nav]')) event.preventDefault()
+    await (centralPdaPageModule ?? await import('./pages/central-pda/entry.ts')).handleCentralPdaEvent(centralTarget, event)
+    return
+  }
   const retryTarget = resolveEventElementTarget(event.target)
   if (retryTarget?.closest('[data-pms-record-retry]')) {
     event.preventDefault()
@@ -2602,6 +2650,11 @@ root.addEventListener('click', async (event) => {
 })
 
 root.addEventListener('input', async (event) => {
+  const centralTarget = resolveEventElementTarget(event.target)
+  if (centralTarget?.closest('[data-central-pda-root]')) {
+    if (!isComposingInputEvent(event)) await (centralPdaPageModule ?? await import('./pages/central-pda/entry.ts')).handleCentralPdaEvent(centralTarget, event)
+    return
+  }
   const replacementTarget = resolveEventElementTarget(event.target)
   if (replacementTarget?.closest('[data-hpb-page]')) {
     const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
@@ -2646,6 +2699,11 @@ root.addEventListener('input', async (event) => {
 })
 
 root.addEventListener('compositionend', async (event) => {
+  const centralTarget = resolveEventElementTarget(event.target)
+  if (centralTarget?.closest('[data-central-pda-root]')) {
+    await (centralPdaPageModule ?? await import('./pages/central-pda/entry.ts')).handleCentralPdaEvent(centralTarget, new Event('input'))
+    return
+  }
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   if (target.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(target)) return
@@ -2665,6 +2723,11 @@ root.addEventListener('compositionend', async (event) => {
 })
 
 root.addEventListener('change', async (event) => {
+  const centralTarget = resolveEventElementTarget(event.target)
+  if (centralTarget?.closest('[data-central-pda-root]')) {
+    await (centralPdaPageModule ?? await import('./pages/central-pda/entry.ts')).handleCentralPdaEvent(centralTarget, event)
+    return
+  }
   const replacementTarget = resolveEventElementTarget(event.target)
   if (replacementTarget?.closest('[data-hpb-page]')) {
     const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
@@ -2703,6 +2766,12 @@ root.addEventListener('submit', async (event) => {
 })
 
 document.addEventListener('keydown', async (event) => {
+  const centralTarget = resolveEventElementTarget(event.target)
+  if (centralTarget?.closest('[data-central-pda-root]')) {
+    if (event.key === 'Escape' || (event.key === 'Enter' && centralTarget.matches('[data-central-field]'))) event.preventDefault()
+    await (centralPdaPageModule ?? await import('./pages/central-pda/entry.ts')).handleCentralPdaEvent(centralTarget, event)
+    return
+  }
   if (handleTimingSourceKey(event) || handleProductionFulfillmentKey(event)) return
   if (dispatchMaterialDecisionKey(event)) return
   const target = resolveEventElementTarget(event.target)

@@ -58,6 +58,7 @@ export function executeBindingProcessActionWithWarehouse(input: ExecuteBindingPr
     if (input.actionCode === 'BINDING_CONFIRM_RECEIVE') {
       createWaitProcessWarehouseRecord({
         ...common,
+        warehouseRecordId: `PWH-BIND-IN-${encodeURIComponent(order.bindingOrderId)}`,
         objectType: '面料',
         qtyUnit: '米',
         currentActionName: '确认接收捆条面料',
@@ -84,6 +85,7 @@ export function executeBindingProcessActionWithWarehouse(input: ExecuteBindingPr
       }
       createWaitHandoverWarehouseRecord({
         ...common,
+        warehouseRecordId: `PWH-BIND-OUT-${encodeURIComponent(order.bindingOrderId)}`,
         objectType: '捆条',
         qtyUnit: '米',
         currentActionName: '捆条加工填报',
@@ -104,6 +106,7 @@ export function executeBindingProcessActionWithWarehouse(input: ExecuteBindingPr
       if (!waitHandover) {
         waitHandover = createWaitHandoverWarehouseRecord({
           ...common,
+          warehouseRecordId: `PWH-BIND-OUT-${encodeURIComponent(order.bindingOrderId)}`,
           objectType: '捆条',
           qtyUnit: '米',
           currentActionName: '捆条加工填报',
@@ -132,6 +135,10 @@ export function executeBindingProcessActionWithWarehouse(input: ExecuteBindingPr
         packageQty: 1,
         packageUnit: '卷',
         handoverPerson: input.operatorName,
+        operatorUserId: input.operatorUserId,
+        operatorFactoryId: input.operatorFactoryId,
+        operatorRoleId: input.operatorRoleId,
+        operatorRoleName: input.operatorRoleName,
         handoverAt: input.operatedAt,
         relatedFeiTicketIds: order.sourceFeiTicketIds,
         remark: input.remark || `捆条加工单 ${order.bindingOrderNo} 分批交出。`,

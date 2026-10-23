@@ -130,6 +130,7 @@ function isAccessoryTarget(targetObject: string): boolean {
 }
 
 export async function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrderId: string): Promise<string> {
+  await (await import('../../../data/fcs/special-craft-records.ts')).ensureSpecialCraftRecords()
   return readPreparedProcessOrderTaskDetail((readSources) => {
     resetSpecialCraftDisplayContext()
     return renderSpecialCraftTaskDetail(operationSlug, taskOrderId, readSources)

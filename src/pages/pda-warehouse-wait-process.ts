@@ -13,6 +13,7 @@ import {
 } from '../data/fcs/post-finishing-full-flow.ts'
 import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-current-read-model.ts'
 import { getPdaRuntimeContext } from './pda-runtime.ts'
+import { adjustCuttingPickupStorageFootprint } from '../data/fcs/cutting/cutting-pickup-footprint-command.ts'
 import { formatIndonesiaBusinessDateTime } from '../data/fcs/indonesia-business-time.ts'
 import {
   listMaterialLedgerProjections,
@@ -24,7 +25,6 @@ import {
   listMaterialPrepOrderProjections,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   recordPickupSessionWarehouseSyncResult,
-  updatePickupSessionStorageFootprint,
 } from '../data/fcs/cutting/production-material-prep.ts'
 import {
   confirmPickupNodeReceiptRuntime,
@@ -125,6 +125,7 @@ interface WaitProcessState {
   cuttingAdjustFootprintLocationIds: string[]
   cuttingAdjustRemainingByUnit: Record<string, string>
   cuttingAdjustFootprintFingerprint: string
+  cuttingAdjustSubmitting: boolean
   cuttingPickupDifferenceOpen: boolean
   cuttingPickupDifferenceDemandLineId: string
   cuttingPickupDifferenceQty: string
@@ -163,6 +164,7 @@ const state: WaitProcessState = {
   cuttingAdjustFootprintLocationIds: [],
   cuttingAdjustRemainingByUnit: {},
   cuttingAdjustFootprintFingerprint: '',
+  cuttingAdjustSubmitting: false,
   cuttingPickupDifferenceOpen: false,
   cuttingPickupDifferenceDemandLineId: '',
   cuttingPickupDifferenceQty: '',
@@ -705,6 +707,8 @@ function findPickupSessionById(pickupSessionId: string): PickupSession | null {
     .find((session) => session.pickupSessionId === pickupSessionId) ?? null
 }
 
+let cuttingFootprintJob: { id: string; intent: string } | undefined
+
 function openCuttingFootprintAdjustment(pickupSessionId: string): void {
   const session = findPickupSessionById(pickupSessionId)
   if (!session?.storageFootprint) {
@@ -727,6 +731,8 @@ function clearCuttingFootprintAdjustment(): void {
   state.cuttingAdjustFootprintLocationIds = []
   state.cuttingAdjustRemainingByUnit = {}
   state.cuttingAdjustFootprintFingerprint = ''
+  state.cuttingAdjustSubmitting = false
+  cuttingFootprintJob = undefined
 }
 
 function renderCuttingFootprintAdjustmentMap(): string {
@@ -762,15 +768,15 @@ function renderCuttingFootprintAdjustmentPage(): string {
           ${session.storageFootprint.unitSummaries.map((summary) => `
             <label class="space-y-1">
               <span class="text-xs text-muted-foreground">${escapeHtml(summary.unit)} 剩余数量</span>
-              <input class="h-11 w-full rounded-xl border px-3" inputmode="decimal" value="${escapeAttr(state.cuttingAdjustRemainingByUnit[summary.unit] ?? String(summary.remainingQty))}" data-pda-warehouse-field="cutting-adjust-remaining" data-unit="${escapeAttr(summary.unit)}" />
+              <input class="h-11 w-full rounded-xl border px-3" inputmode="decimal" value="${escapeAttr(state.cuttingAdjustRemainingByUnit[summary.unit] ?? String(summary.remainingQty))}" data-pda-warehouse-field="cutting-adjust-remaining" data-unit="${escapeAttr(summary.unit)}" ${state.cuttingAdjustSubmitting ? 'disabled' : ''} />
             </label>
           `).join('')}
         </div>
       </section>
       <div data-pda-cutting-footprint-map>${renderCuttingFootprintAdjustmentMap()}</div>
       <div class="grid grid-cols-2 gap-2">
-        <button type="button" class="rounded-xl border px-4 py-3 text-sm" data-pda-warehouse-action="cancel-cutting-footprint-adjustment">取消</button>
-        <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-footprint-adjustment">确认调整</button>
+        <button type="button" class="rounded-xl border px-4 py-3 text-sm" data-pda-warehouse-action="cancel-cutting-footprint-adjustment" ${state.cuttingAdjustSubmitting ? 'disabled' : ''}>取消</button>
+        <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-footprint-adjustment" ${state.cuttingAdjustSubmitting ? 'disabled' : ''}>${state.cuttingAdjustSubmitting ? '保存中…' : '确认调整'}</button>
       </div>
     </div>
   `
@@ -1888,7 +1894,7 @@ export function renderPdaWarehouseWaitProcessPage(): string {
   return renderPdaFrame(content, 'warehouse', { headerTitle: '待加工仓', disableTodoAutoOpen: true })
 }
 
-export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
+export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean | Promise<boolean> {
   const runtime = getMobileWarehouseRuntimeContext()
   if (isKolGotoFactory(runtime?.factoryId)) {
     const kolActionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
@@ -1922,6 +1928,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     && ['toggle-location', 'clear-selection'].includes(warehouseMapNode.dataset.warehouseMapAction || '')
   ) {
     const adjusting = Boolean(state.cuttingAdjustFootprintSessionId)
+    if (adjusting && state.cuttingAdjustSubmitting) return true
     const returning = !adjusting && Boolean(state.cuttingReturnSourceNo)
     const projection = buildCuttingPickupMapProjection(
       adjusting ? state.cuttingAdjustFootprintSessionId : undefined,
@@ -1974,10 +1981,12 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     return true
   }
   if (action === 'cancel-cutting-footprint-adjustment') {
+    if (state.cuttingAdjustSubmitting) return true
     clearCuttingFootprintAdjustment()
     return true
   }
   if (action === 'confirm-cutting-footprint-adjustment') {
+    if (state.cuttingAdjustSubmitting) return true
     const session = findPickupSessionById(state.cuttingAdjustFootprintSessionId)
     const projection = buildCuttingPickupMapProjection(state.cuttingAdjustFootprintSessionId)
     if (!session?.storageFootprint || !projection) {
@@ -2008,85 +2017,43 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       projection,
       selection.selectedLocationIds,
     )
-    const occurredAt = getCuttingRuntimeNowText()
-    const transactionStorage = getBrowserLocalStorage()
-    const beforePrepStore = transactionStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
-    const beforeEventStore = transactionStorage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null
-    let afterPrepStore = beforePrepStore
-    try {
-      updatePickupSessionStorageFootprint({
-        pickupSessionId: session.pickupSessionId,
-        locationRefs: selectedRefs.map((ref) => ({
-          factoryId: ref.factoryId,
-          warehouseId: ref.warehouseId,
-          warehouseKind: 'WAIT_PROCESS',
-          areaId: ref.areaId,
-          areaName: ref.areaName,
-          shelfId: ref.shelfId,
-          shelfNo: ref.shelfNo,
-          locationId: ref.locationId,
-          locationNo: ref.locationNo,
-        })),
-        remainingByUnit,
-      })
-      afterPrepStore = transactionStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
-      appendCuttingRuntimeEvent({
-        eventType: '待加工仓位置调整',
-        operatorName: '裁床仓管',
-        operatorRole: 'PDA 仓管',
-        occurredAt,
-        refs: {
-          productionOrderId: session.productionOrderId,
-          handoverRecordId: session.pickupSessionId,
-        },
-        inventoryEffect: {
-          inventoryScope: '裁床待加工仓',
-          direction: 'ADJUST',
-          qty: remainingByUnit.reduce((sum, item) => sum + item.remainingQty, 0),
-          unit: (remainingByUnit[0]?.unit || '件') as CuttingRuntimeQtyUnit,
-          toWarehouseArea: selectedRefs[0]?.areaName || '',
-          toLocationCode: selectedRefs[0]?.locationNo || '',
-        },
-        payload: {
-          pickupSessionId: session.pickupSessionId,
-          factoryId: projection.factoryId,
-          warehouseId: projection.warehouseId,
-          warehouseKind: projection.warehouseKind,
-          previousLocationIds: session.storageFootprint.locationIds,
-          warehouseLocations: selectedRefs.map((ref) => ({
-            factoryId: ref.factoryId,
-            warehouseId: ref.warehouseId,
-            warehouseKind: 'WAIT_PROCESS',
-            areaId: ref.areaId,
-            areaName: ref.areaName,
-            shelfId: ref.shelfId,
-            shelfNo: ref.shelfNo,
-            locationId: ref.locationId,
-            locationNo: ref.locationNo,
-          })),
-          remainingByUnit,
-          adjustedAt: occurredAt,
-          adjustedBy: '裁床仓管',
-        },
-      })
-      clearCuttingFootprintAdjustment()
-    } catch (error) {
-      if (transactionStorage) {
-        const currentPrepStore = transactionStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
-        if (currentPrepStore === afterPrepStore) {
-          if (beforePrepStore === null) transactionStorage.removeItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
-          else transactionStorage.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, beforePrepStore)
-        }
-        const currentEventStore = transactionStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null
-        if (currentEventStore === beforeEventStore) {
-          if (beforeEventStore === null) transactionStorage.removeItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
-          else transactionStorage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, beforeEventStore)
-        }
-      }
-      window.alert(error instanceof Error ? error.message : '存放库位调整失败，请重试。')
+    const actor = getPdaRuntimeContext()
+    if (!actor || actor.factoryId !== projection.factoryId) {
+      window.alert('当前账号或工厂已变化，请重新进入。')
+      return true
     }
-    return true
+    const input = {
+      pickupSessionId: session.pickupSessionId, expectedFootprint: state.cuttingAdjustFootprintFingerprint,
+      locationRefs: selectedRefs.map(ref => ({ ...ref, warehouseKind: 'WAIT_PROCESS' as const })), remainingByUnit,
+      operatorName: actor.userName, operatorId: actor.userId, operatorRole: 'PDA 仓管', eventSource: 'PDA' as const,
+    }
+    const intent = JSON.stringify(input)
+    if (!cuttingFootprintJob || cuttingFootprintJob.intent !== intent) cuttingFootprintJob = { id: crypto.randomUUID(), intent }
+    const job = cuttingFootprintJob, startedPath = window.location.pathname
+    state.cuttingAdjustSubmitting = true
+    const button = actionNode as HTMLButtonElement
+    button.disabled = true
+    button.textContent = '保存中…'
+    document.querySelectorAll<HTMLInputElement | HTMLButtonElement>('[data-pda-warehouse-field="cutting-adjust-remaining"], [data-pda-warehouse-action="cancel-cutting-footprint-adjustment"]').forEach(field => { field.disabled = true })
+    return (async () => {
+      const same = () => window.location.pathname === startedPath && cuttingFootprintJob === job
+        && getPdaRuntimeContext()?.userId === actor.userId && getPdaRuntimeContext()?.factoryId === actor.factoryId
+      try {
+        await adjustCuttingPickupStorageFootprint({ ...input, operationId: job.id })
+        const stillCurrent = same()
+        // A saved old draft must not reappear after returning; a newer form has its own job.
+        if (cuttingFootprintJob === job) clearCuttingFootprintAdjustment()
+        return stillCurrent
+      } catch (error) {
+        if (!same()) return false
+        window.alert(error instanceof Error ? error.message : '存放库位未保存，当前填写已保留，请重试。')
+        return true
+      } finally {
+        if (cuttingFootprintJob === job) state.cuttingAdjustSubmitting = false
+      }
+    })()
   }
+
   if (action === 'cutting-wp-pickup') {
     const pickupNodeId = actionNode?.dataset.pickupNodeId
     const pickupNodeVersion = actionNode?.dataset.pickupNodeVersion
@@ -2476,6 +2443,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     return true
   }
   if (field === 'cutting-adjust-remaining') {
+    if (state.cuttingAdjustSubmitting) return true
     const unit = fieldNode?.dataset.unit || ''
     if (unit) state.cuttingAdjustRemainingByUnit[unit] = value
     return true
@@ -2500,6 +2468,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     return true
   }
   if (field === 'cutting-adjust-remaining') {
+    if (state.cuttingAdjustSubmitting) return true
     const unit = fieldNode?.dataset.unit || ''
     if (unit) state.cuttingAdjustRemainingByUnit[unit] = value
     return true

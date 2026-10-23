@@ -52,6 +52,7 @@ export interface WoolMachineWorkbenchProjection {
 }
 
 export interface ReplaceWoolMachineAssociationsInput extends WoolMachineActor {
+  commandId?: string
   expectedAssociationSnapshot?: WoolReplaceMachineAssociationSnapshot
 }
 
@@ -395,6 +396,22 @@ export function replaceWoolMachineAssociations(
   const operatedAt = requireText(actor.operatedAt, '操作时间')
   const operatedBy = requireText(actor.operatedBy, '操作人')
   const store = readWoolStore()
+  const selectedMachineIds = [...new Set(machineIds.map((item) => item.trim()).filter(Boolean))].sort()
+  const operationLogId = actor.commandId === undefined ? undefined
+    : `WOOP-REPLACE-MACHINES-CMD-${encodeURIComponent(requireText(actor.commandId, '操作号'))}`
+  const commandPayload = JSON.stringify([woolOrderId, selectedMachineIds, operatedAt, operatedBy, actor.expectedAssociationSnapshot ?? null])
+  if (operationLogId) {
+    const previous = store.operationLogs.find(log => log.operationLogId === operationLogId)
+    if (previous) {
+      const after = previous.afterValue as { commandPayload?: string; associations?: WoolMachineAssociation[] } | undefined
+      if (previous.action !== 'REPLACE_WOOL_MACHINE_ASSOCIATIONS' || after?.commandPayload !== commandPayload || !after.associations) {
+        throw new Error('操作号已被其他请求占用，存在幂等冲突')
+      }
+      // Return the saved result; a later transfer/completion must never be
+      // reversed by retrying an already-committed device selection.
+      return after.associations.map(association => ({ ...association }))
+    }
+  }
   const order = requireOrder(store, woolOrderId)
   if (store.completions.some((item) => item.woolOrderId === woolOrderId)) {
     throw new Error(`毛织加工单 ${order.woolOrderNo} 已完成，不可关联横机`)
@@ -403,8 +420,6 @@ export function replaceWoolMachineAssociations(
     throw new Error(`毛织加工单 ${order.woolOrderNo} 当前暂不可关联横机`)
   }
 
-  const selectedMachineIds = [...new Set(machineIds.map((item) => item.trim()).filter(Boolean))]
-    .sort()
   if (actor.expectedAssociationSnapshot) {
     assertExpectedSnapshot(
       actor.expectedAssociationSnapshot,
@@ -500,7 +515,7 @@ export function replaceWoolMachineAssociations(
       })
     }
     draft.operationLogs.push({
-      operationLogId: nextRecordId(
+      operationLogId: operationLogId ?? nextRecordId(
         draft.operationLogs.map((item) => item.operationLogId),
         `WOOP-REPLACE-MACHINES-${woolOrderId}`,
       ),
@@ -509,7 +524,9 @@ export function replaceWoolMachineAssociations(
       objectType: 'WOOL_MACHINE_ASSOCIATIONS',
       objectId: woolOrderId,
       beforeValue: { machineIds: currentForTarget.map((item) => item.machineId).sort() },
-      afterValue: { machineIds: selectedMachineIds },
+      afterValue: { machineIds: selectedMachineIds, ...(operationLogId ? {
+        commandPayload, associations: cloneCurrentMachineAssociations(draft, woolOrderId),
+      } : {}) },
       operatedAt,
       operatedBy,
       remark: '保存横机当前关联整组最终真相',

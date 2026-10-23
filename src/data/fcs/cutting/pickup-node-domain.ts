@@ -112,6 +112,8 @@ export interface PickupSession {
   nodeType: PickupNodeType
   pickupRecordIds: string[]
   receiverName: string
+  receiverUserId?: string
+  cuttingSources?: PickupCuttingSource[]
   pickedAt: string
   toWarehouseArea: string
   toLocationCode: string
@@ -123,6 +125,25 @@ export interface PickupSession {
   idempotencyKey?: string
   migrationEvidence?: '按累计接收逐行齐套推导' | '旧事实不足，保守按未配齐'
   pickupNodeSnapshot?: PickupNodeProjection
+  lastStorageAdjustmentId?: string
+}
+
+/** Frozen receiving provenance; physical and planned task units remain distinct. */
+export interface PickupCuttingSource {
+  prepLineId: string
+  productionOrderId: string
+  cutOrderId: string
+  cutOrderNo: string
+  cuttingTaskId: string
+  cuttingTaskNo: string
+  executionTaskIds: string[]
+  factoryId: string
+  techPackVersionId: string
+  materialSku: string
+  materialName: string
+  materialImageUrl: string
+  sourceUnit: string
+  taskUnit: string
 }
 
 export function adjustPickupSessionStorageFootprint(

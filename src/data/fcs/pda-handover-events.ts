@@ -3,7 +3,7 @@ import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks, isSto
 import { productionContextStorage, PRODUCTION_CONTEXT_KEYS, isProductionContextReady, onProductionContextChanged } from './production-context-records.ts'
 import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
 import {registerFactoryReceivingSource,captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
-import { isKnownPrintingFactoryDemoIdentity } from './printing-factories.ts'
+import { isKnownPrintingFactoryDemoIdentity, isKnownWashingPrintDemoIdentity } from './printing-factories.ts'
 import {getFactoryReceivingSourceByOriginalRecordId,getSourceActualReceipts} from './factory-receiving.ts'
 import { initialProductionOrderIds, productionOrders } from './production-orders.ts'
 import { recordRuntimeTaskExecution, runRuntimeTaskAction } from './runtime-process-tasks.ts'
@@ -105,12 +105,15 @@ import {
   receiveWaterSolubleHandoverBatch,
   restoreWaterSolubleOrderMutation,
   captureWaterSolubleOrderMutation,
+  assertCentralWaterSolubleActor,
+  type CentralWaterSolubleActor,
 } from './water-soluble-task-domain.ts'
 import {
   validateWaterSolublePdaActor,
   type WaterSolublePdaActor,
 } from './water-soluble-pda-actor.ts'
 import { getPdaSession } from './store-domain-pda.ts'
+import { assertCentralPrintingFactoryActor, type CentralPrintingActor } from './central-printing-actor.ts'
 import { getFactoryInternalWarehouseRegistryReference } from './factory-internal-warehouse-locations.ts'
 
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
@@ -501,6 +504,7 @@ export interface PdaHandoverRecord {
   qtyUnit?: string
   factorySubmittedAt: string
   factorySubmittedBy?: string
+  factorySubmittedByUserId?: string
   factorySubmittedByKind?: 'FACTORY'
   factoryRemark?: string
   factoryProofFiles: HandoverProofFile[]
@@ -2531,6 +2535,7 @@ function isFormalIssuePickupHead(head: PdaHandoverHead | undefined): boolean {
 
 /** Fixed prototype orders have stable task ownership; formal order validation remains separate. */
 function isPrototypePrintHandoutHead(head:PdaHandoverHead):boolean {
+ if(head.sourceBusinessType==='PRINT_WORK_ORDER'&&isKnownWashingPrintDemoIdentity(head.sourceDocId||'',head.taskId,head.factoryId))return true
  const demo=/^PWO-PRINT-DEMO-(\d{2})-([1-5])$/.exec(head.sourceDocId||'')
  if(demo)return head.sourceBusinessType==='PRINT_WORK_ORDER' && isKnownPrintingFactoryDemoIdentity(head.sourceDocId!, head.taskId, head.factoryId)
  const numbers=['000716','000714','000715','000717','000718','000719','000720','000721','000724','000712','000722','000723']
@@ -4701,6 +4706,7 @@ export function createFactoryHandoverRecord(input: {
   /** Set only by the dyeing execution transaction after roll/gross-weight validation. */
   dyeExecutionConfirmed?: boolean
   printingOrderId?: string
+  printingTaskId?: string
   printingValidatedRollIds?: string[]
   handoverOrderId: string
   submittedQty: number
@@ -4723,6 +4729,8 @@ export function createFactoryHandoverRecord(input: {
   cutPieceLines?: PdaCutPieceHandoutLine[]
   scanCode?: string
   actor?: WaterSolublePdaActor
+  centralWaterActor?: CentralWaterSolubleActor
+  centralPrintingActor?: CentralPrintingActor
 }): PdaHandoverRecord {
   return runFormalHandoutAction(getHandoverOrderById(input.handoverOrderId), () => {
   const head = getHandoverOrderById(input.handoverOrderId)
@@ -4733,6 +4741,11 @@ export function createFactoryHandoverRecord(input: {
     const id=head.sourceDocId||input.printingOrderId||''
     if(input.printingValidatedRollIds?.length)input.printingValidatedRollIds.forEach(rollId=>assertFabricWashingRelease(id,rollId,'HANDOUT'))
     else assertFabricWashingRelease(id,'__SCOPE__','HANDOUT')
+  }
+  if(input.centralPrintingActor){
+    if((head.sourceBusinessType!=='PRINT_WORK_ORDER'&&head.processBusinessCode!=='PRINT')||!input.printingOrderId||input.printingTaskId!==head.taskId||(head.sourceDocId&&input.printingOrderId!==head.sourceDocId))throw new Error('PRINT_wrongActor')
+    assertCentralPrintingFactoryActor(head.factoryId||'',input.centralPrintingActor)
+    if(input.centralPrintingActor.name!==input.factorySubmittedBy)throw new Error('PRINT_wrongActor')
   }
   if (!input.dyeExecutionConfirmed && head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE')) throw new Error('染色交出请从待交出列表逐卷建单；纱线请使用毛重、净重整单交出。')
   if (head.processBusinessCode === 'WOOL') {
@@ -4752,9 +4765,14 @@ export function createFactoryHandoverRecord(input: {
     if (!waterOrder || waterOrder.waterOrderId !== head.sourceDocId) {
       throw new Error('水溶加工单与当前交出单不一致，不能交出。')
     }
-    if (!input.actor) throw new Error('水溶交出缺少当前登录交接身份，不能操作。')
-    const actorError = validateWaterSolublePdaActor(input.actor, waterOrder.factoryId, 'HANDOVER')
-    if (actorError) throw new Error(actorError)
+    if (input.centralWaterActor) {
+      assertCentralWaterSolubleActor(waterOrder.waterOrderId, input.centralWaterActor)
+      if (input.centralWaterActor.name !== input.factorySubmittedBy) throw new Error('WATER_wrongActor')
+    } else {
+      if (!input.actor) throw new Error('水溶交出缺少当前登录交接身份，不能操作。')
+      const actorError = validateWaterSolublePdaActor(input.actor, waterOrder.factoryId, 'HANDOVER')
+      if (actorError) throw new Error(actorError)
+    }
     if (!input.scanCode?.trim()) throw new Error('请扫描当前任务码、水溶加工单号或物料码。')
     const scanError = validateWaterSolubleHandoverScan(head, input.scanCode)
     if (scanError) throw new Error(scanError)
@@ -4828,6 +4846,7 @@ export function createFactoryHandoverRecord(input: {
       qtyUnit: input.qtyUnit || head.qtyUnit,
       factorySubmittedAt: input.factorySubmittedAt,
       factorySubmittedBy: input.factorySubmittedBy,
+      factorySubmittedByUserId: input.centralPrintingActor?.userId || input.centralWaterActor?.userId || input.actor?.userId,
       factorySubmittedByKind: 'FACTORY',
       factoryRemark: input.factoryRemark,
       factoryProofFiles: cloneProofFiles(input.factoryProofFiles ?? []),

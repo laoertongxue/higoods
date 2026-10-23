@@ -1,6 +1,7 @@
 import { closePdaShellDialogsOnEscape, handlePdaShellEvent } from '../pages/pda-shell'
 import { showPdaWarehouseActionToast } from '../pages/pda-warehouse-shared'
 import { normalizePdaPageEventResult, type PdaPageEventResult } from './pda-local-action-result'
+import { ensurePdaSessionForAction, isCurrentPdaExperienceRouteAllowed } from '../pages/pda-runtime.ts'
 
 type PdaPageHandler = (target: HTMLElement, event?: Event) => PdaPageEventResult | Promise<PdaPageEventResult>
 
@@ -75,6 +76,10 @@ function getActivePdaPageHandler(pathname: string): Promise<PdaPageHandler> | nu
 
 export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   try {
+    if (!isCurrentPdaExperienceRouteAllowed(window.location.pathname)) {
+      ensurePdaSessionForAction(window.location.pathname)
+      return true
+    }
     if (target.closest('[data-wool-receiving-page]')) {
       const page = await import('../pages/process-factory/wool/pending-receipts.ts')
       return event?.type === 'input' || event?.type === 'change' || event?.type === 'compositionend'

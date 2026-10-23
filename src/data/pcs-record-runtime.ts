@@ -1,4 +1,4 @@
-import { commitPcsRecords, commitPcsNewRecordGroups, readPcsRecords, readPcsFiles, pcsFileReferences, type PcsStoredRecord, type PcsMigrationReceipt } from './pcs-record-db.ts'
+import { commitPcsRecords, commitPcsNewRecordGroups, readPcsRecords, readPcsFiles, pcsFileReferences, type PcsStoredRecord, type PcsMigrationReceipt, type PcsCommitInput } from './pcs-record-db.ts'
 import { assignPcsRecordPositions } from './pcs-record-position.ts'
 import { decodePcsRecordSnapshot as decode, encodePcsRecordSnapshot as encode, normalizePcsRecordSnapshot, equalPcsRecordValues, assemblePcsRecordSnapshot, type PcsRecordEntry as Entry } from './pcs-record-codec.ts'
 import { isPcsNewStaticRecord } from './pcs-record-static-versions.ts'
@@ -297,6 +297,9 @@ async function transformFiles(value: unknown, hydrate: boolean): Promise<unknown
   if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, item]) => [key, await transformFiles(item, hydrate)])))
   return value
 }
+/** Related process writers reuse this runtime's original attachment identities. */
+export function compactPcsRecordReferences(value: unknown): Promise<unknown> { return transformFiles(value, false) }
+export function getPcsRecordFileId(url:string):string|undefined { return urlIds.get(url) }
 function notify(message: string): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('pcs-storage-status', { detail: message }))
 }
@@ -527,6 +530,7 @@ async function preparePcsRecordState(collections: readonly string[]): Promise<vo
           if (indexedRows !== stored) { indexedRows = stored; persistedRowIds = new Set(stored.filter(row => !row.deleted).map(row => row.id)) }
           return persistedRowIds.has(`${key}/items/${encodeURIComponent(rowId)}`)
         },
+        getRecordVersion: id => stored.find(row=>row.id===id)?.version,
         persistenceToken: () => stored,
         setItem: (key, raw) => pcsRecordStore.setItem(key, raw), isStaging: () => staging,
       })
@@ -575,6 +579,20 @@ export async function retryPcsRecordState(): Promise<void> {
   loadedCollections.clear()
   await preparePcsRecordState(requested)
   stale = false
+}
+/** A new PDA route (or an already-committed retry) may refresh before showing facts.
+ * Active form submissions still retain the original stale-write rejection. */
+export async function refreshPcsRecordStateAfterExternalChange():Promise<boolean>{
+ if(!stale)return false
+ await retryPcsRecordState();return true
+}
+/** A related writer has committed PCS rows in the same database transaction. */
+export async function refreshPcsRecordsAfterRelatedCommit(operationId:string):Promise<void>{
+ await retryPcsRecordState()
+ if(typeof BroadcastChannel!=='undefined'){
+  const channel=new BroadcastChannel('higood-pcs-records')
+  try{channel.postMessage({clientId,operationId})}finally{channel.close()}
+ }
 }
 
 export interface PcsRecordInsertGroup<T> { operationId: string; snapshot: object; result: T }
@@ -676,7 +694,8 @@ export async function insertPcsRecordGroups<T>(key: string, prepare: () => PcsRe
   } finally { saving = false }
 }
 
-export async function runPcsRecordCommand<T>(recipe: () => T, operationId: string = crypto.randomUUID(), collections: readonly string[] = [], guards: Array<{id:string;expectedVersion:number}> = []): Promise<T> {
+export interface PcsJoinedPrintWrites {puts:PcsCommitInput['puts'];guards:NonNullable<PcsCommitInput['guards']>;intent:string;rereadCollections:readonly string[];committedFailure?:string}
+export async function runPcsRecordCommand<T>(recipe: () => T, operationId: string = crypto.randomUUID(), collections: readonly string[] = [], guards: Array<{id:string;expectedVersion:number}> = [], joined?:PcsJoinedPrintWrites): Promise<T> {
   await ensurePcsRecordState(collections)
   try {
   if (saving) throw new Error('上一笔操作尚未保存，请等待完成后再操作。')
@@ -704,6 +723,7 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
   // to restore their own pre-command caches.
   const ownsFcsCaches = (): boolean => !collections.length || !!fcsBridge?.PCS_FCS_COLLECTIONS.some(key => collections.includes(key) || dirty.has(key))
   let versions = new Map(stored.map(row => [row.id, row]))
+  let committed=false
   saving = true; staging = true; dirty.clear()
   try {
     const result = recipe()
@@ -759,6 +779,11 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
       const meta = nextRows.find(row => row.id === `${key}/meta`)
       if (meta && !versions.has(meta.id) && !puts.some(row => row.id === meta.id)) puts.push({ ...meta, expectedVersion: 0 })
     }
+    if(joined)for(const row of joined.puts){
+      if(puts.some(own=>own.id===row.id)||deletes.some(own=>own.id===row.id))throw new Error('同一印花记录存在多个保存来源，本次未保存。')
+      puts.push({...row,value:await transformFiles(row.value,false)})
+    }
+    const commitGuards=joined?[...new Map([...guards,...joined.guards].filter(row=>!puts.some(put=>put.id===row.id)&&!deletes.some(del=>del.id===row.id)).map(row=>[row.id,row])).values()]:guards
     staging = false
     if (puts.length || deletes.length) {
       const requiredFiles = new Set(puts.flatMap(row => [...pcsFileReferences(row.value)]))
@@ -767,7 +792,8 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
       const existingFiles = new Set(persistedFiles.map(file => file.id))
       const referencedFiles = [...files].filter(([id]) => !existingFiles.has(id) && requiredFiles.has(id)).map(([id, blob]) => ({ id, blob }))
       for (const key of dirty) { const source = legacySources.get(key); if (source) await assertLegacySourceCurrent(source) }
-      await commitPcsRecords({ puts, deletes, guards, files: referencedFiles, operationId, intent: JSON.stringify({ puts, deletes, ...(guards.length ? {guards} : {}) }) })
+      await commitPcsRecords({ puts, deletes, guards:commitGuards, files: referencedFiles, operationId, intent: joined?.intent??JSON.stringify({ puts, deletes, ...(guards.length ? {guards} : {}) }) })
+      committed=true
       referencedFiles.forEach(file => persistedFileIds.add(file.id))
       // complete 已成功；不用后续读取故障把已提交动作报告为未保存。
       const nextStored = new Map(stored.map(row => [row.id, row]))
@@ -780,8 +806,10 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
     failure = ''
     if (fcsAfter) { try { fcsBridge?.restoreDesignRevisionFcsCaches(fcsAfter) } catch { stale = true; failure = '数据已保存，但加工页面暂时无法更新，请重新读取。'; notify(failure) } }
     for (const reset of resets) { try { reset() } catch { stale = true; failure = '数据已保存，但页面暂时无法更新，请重新读取。'; notify(failure) } }
+    if(joined){await hydrate(joined.rereadCollections);fcsBridge?.hydrateDesignRevisionFcsCaches()}
     return result
   } catch (error) {
+    if(joined&&committed){stale=true;failure=joined.committedFailure??'印花操作已保存，但页面未能更新，请重新读取后查看。';notify(failure);throw Object.assign(new Error(failure),{committed:true})}
     restoreChangedSnapshots(before); resets.forEach(reset => reset()); if (fcsBefore && ownsFcsCaches()) fcsBridge?.restoreDesignRevisionFcsCaches(fcsBefore)
     failure = error instanceof Error ? error.message : '本次未保存，请重试。'; notify(failure); throw error
   } finally { staging = false; saving = false; dirty.clear() }

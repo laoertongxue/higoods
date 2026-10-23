@@ -15,7 +15,7 @@
 import { PmsDomainError, createPmsOperationLog, publishPmsOperationLog, type PmsOperationLog } from './runtime.ts'
 
 export const PMS_IDB_DB_NAME = 'higood-pms'
-export const PMS_IDB_VERSION = 3
+export const PMS_IDB_VERSION = 4
 
 export const PMS_STORES = {
   pmsOperationLogs: 'pmsOperationLogs',
@@ -50,6 +50,8 @@ export const PMS_STORES = {
   pmsTmfProduction: 'pmsTmfProduction',
   pmsTmfScrap: 'pmsTmfScrap',
   pmsTmfOperations: 'pmsTmfOperations',
+  /** TMF 逐记录行与稳定操作号；旧的四个 singleton section 只作为只读基线。 */
+  pmsTmfRecords: 'pmsTmfRecords',
 } as const
 
 export type PmsStoreName = (typeof PMS_STORES)[keyof typeof PMS_STORES]
@@ -292,6 +294,7 @@ const STORE_KEYPATHS: Record<PmsStoreName, string> = {
   pmsTmfProduction: 'singleton',
   pmsTmfScrap: 'singleton',
   pmsTmfOperations: 'singleton',
+  pmsTmfRecords: 'recordKey',
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null

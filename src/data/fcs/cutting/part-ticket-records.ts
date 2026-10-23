@@ -1,6 +1,7 @@
 import { isProductionContextReady, hydrateProductionContextRecords, productionContextInitializationRecords, assertProductionContextLegacyUnchanged } from '../production-context-records.ts'
 import { cuttingRecordUuid, cuttingRecordFingerprint } from './cutting-record-identity.ts'
 import { readCuttingRecords, readCuttingCommand, commitCuttingRecords, diffCuttingRecords, type CuttingStoredRecord, type CuttingRecordSnapshot } from './cutting-record-repository.ts'
+import { validateCuttingMaterialRecordLinks } from './cutting-material-record-links.ts'
 
 /** 换片布及裁片交出使用的部位票事实，复用同一数据库和版本。 */
 export const PART_TICKET_KEYS = {
@@ -125,6 +126,7 @@ export function installPartTicketCuttingScopeBridge(bridge: NonNullable<typeof c
 let current: CuttingRecordSnapshot | null = null
 let stage: Map<string, string | null> | null = null
 let locked = false
+let hydration: { snapshot: CuttingRecordSnapshot | undefined; promise: Promise<void> } | undefined
 const listeners = new Map<string, Set<() => void>>()
 const serialized = new Map<string, string | null>()
 const inspectedEmptyKeys = new Set<string>()
@@ -239,9 +241,14 @@ async function hydrate(snapshot?: CuttingRecordSnapshot, forceNotify = false): P
   catch (error) { current = null; serialized.clear(); initializationRecords = []; throw error }
 }
 export async function hydratePartTicketRecords(snapshot?: CuttingRecordSnapshot): Promise<void> {
+  // Navigation and a committed command may request the same read together.
+  // Only identical read inputs share work; saves, migrations and other snapshots retain the lock.
+  if (hydration && hydration.snapshot === snapshot) return hydration.promise
   if (locked) throw new Error('部位票数据正在保存或迁移，请等待当前动作完成。')
   locked = true
-  try { await hydrate(snapshot) } catch (error) { current = null; throw error } finally { locked = false }
+  const promise = hydrate(snapshot)
+  hydration = { snapshot, promise }
+  try { await promise } catch (error) { current = null; throw error } finally { hydration = undefined; locked = false }
 }
 function restoreWithoutPersist<T>(restore: (value: unknown) => void, value: T, values: Map<string, string | null>): void {
   const prior = stage
@@ -281,6 +288,8 @@ export async function savePartTicketAction<T>(input: {
     const change = diffCuttingRecords(snapshot.records.filter(item => item.collection.startsWith(prefix)), keys.flatMap(key => decodePartTicketRecords(key, working.get(key) ?? null)))
     const unmarked = keys.filter(key => !marker(snapshot, key))
     change.puts.push(...partTicketInitializationRecords(), ...(withProductionContext ? productionContextInitializationRecords() : []), ...(cuttingScopeBridge?.initializationRecords() || []))
+    const replaced = new Set([...change.puts.map(record => record.id), ...(change.deletes || [])])
+    validateCuttingMaterialRecordLinks([...snapshot.records.filter(record => !replaced.has(record.id)), ...change.puts])
     const saved = await commitCuttingRecords({ revision: snapshot.revision, change, command: { id, intent: input.intent, result, at: new Date().toISOString() },
       assertSourcesCurrent: () => { cuttingScopeBridge?.assertCurrent(); if (withProductionContext) assertProductionContextLegacyUnchanged(); if (isBrowserContext()) for (const key of unmarked) if (legacyValue(key) !== null) throw new PartTicketReadError('旧页面写入了部位票数据，请先迁移，本次未保存。') } })
     committed = true

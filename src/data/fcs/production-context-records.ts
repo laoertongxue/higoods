@@ -1,4 +1,5 @@
 import { validateProductionCreatedProcessSources } from './production-created-process-source-types.ts'
+import { hydrateCuttingPickupRecords } from './cutting/cutting-pickup-records.ts'
 import { needsSeamEmbroideryNormalization, normalizeSeamEmbroideryReferences } from './seam-embroidery-identity.ts'
 import { cuttingRecordUuid, cuttingRecordFingerprint, cuttingRecordBytesFingerprint } from './cutting/cutting-record-identity.ts'
 import { readCuttingRecords, readCuttingCommand, commitCuttingRecords, diffCuttingRecords, type CuttingStoredRecord, type CuttingRecordSnapshot, type CuttingRecordChange, readCuttingRecordFile } from './cutting/cutting-record-repository.ts'
@@ -242,6 +243,7 @@ async function materializeContextFiles(records:CuttingStoredRecord[],revokeUnuse
 let current: CuttingRecordSnapshot | null = null
 let stage: Map<string, string | null> | null = null
 let locked = false
+let activeHydration: { snapshot?: CuttingRecordSnapshot; promise: Promise<void> } | undefined
 const listeners = new Map<string, Set<() => void>>()
 const serialized = new Map<string, string | null>()
 const inspectedEmptyKeys = new Set<string>()
@@ -343,6 +345,7 @@ function assertLegacyReady(snapshot: CuttingRecordSnapshot): void {
 }
 async function hydrate(snapshot?: CuttingRecordSnapshot, forceNotify = false): Promise<void> {
   const next = snapshot || await readCuttingRecords()
+  hydrateCuttingPickupRecords(next)
   assertLegacyReady(next)
   if (current?.revision === next.revision && !forceNotify) return
   const visibleRecords=await materializeContextFiles(next.records.filter(item=>item.collection.startsWith(prefix)))
@@ -358,9 +361,22 @@ async function hydrate(snapshot?: CuttingRecordSnapshot, forceNotify = false): P
   catch (error) { current = null; serialized.clear(); initializationRecords = []; throw error }
 }
 export async function hydrateProductionContextRecords(snapshot?: CuttingRecordSnapshot): Promise<void> {
-  if (locked) throw new Error('生产来源正在保存或迁移，请等待当前动作完成。')
+  if (locked) {
+    // Repeated route preparation may read the same in-flight snapshot. Writes,
+    // migrations and a different explicit snapshot retain the original lock.
+    if (activeHydration && (!snapshot || activeHydration.snapshot === snapshot)) return activeHydration.promise
+    throw new Error('生产来源正在保存或迁移，请等待当前动作完成。')
+  }
   locked = true
-  try { await hydrate(snapshot) } catch (error) { current = null; throw error } finally { locked = false }
+  const pending = Promise.resolve().then(() => hydrate(snapshot)).catch(error => {
+    current = null
+    throw error
+  }).finally(() => {
+    activeHydration = undefined
+    locked = false
+  })
+  activeHydration = { snapshot, promise: pending }
+  return pending
 }
 function restoreWithoutPersist<T>(restore: (value: unknown) => void, value: T, values: Map<string, string | null>): void {
   const prior = stage

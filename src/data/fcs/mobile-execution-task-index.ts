@@ -1,5 +1,6 @@
 import { formatFactoryDisplayName, TEST_FACTORY_ID } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { getThirdPartyPdaTaskMode, isThirdPartyPdaFactory } from './pda-experience-scope.ts'
 import { getDyeWorkOrderByTaskId } from './dyeing-task-domain.ts'
 import { getWoolWorkOrderByTaskId } from './wool-task-domain.ts'
 import { getPdaCuttingTaskSnapshot } from './pda-cutting-execution-source.ts'
@@ -537,6 +538,7 @@ export function getMobileTaskTabKey(task: ProcessTask | null | undefined): Mobil
 }
 
 export function isMobileTaskVisibleForFactory(task: ProcessTask | null | undefined, currentFactoryId = TEST_FACTORY_ID): boolean {
+  if (isThirdPartyPdaFactory(getFactoryMasterRecordById(currentFactoryId)) && !getThirdPartyPdaTaskMode(task)) return false
   const processType = getMobileTaskProcessType(task)
   if (processType === 'PRINT' || processType === 'DYE') return isTaskVisibleInMobileExecutionList(task, currentFactoryId)
   return (isTaskVisibleInMobileExecutionList(task, currentFactoryId) || isGarmentWarehouseOutboundPdaTaskForFactory(currentFactoryId, task))

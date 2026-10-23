@@ -426,6 +426,7 @@ export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumen
   }
 
   try {
+    if (resolved.sourceType === 'BINDING_PROCESS_ORDER') await (await import('../../data/fcs/binding-process-records.ts')).hydrateBindingProcessRecords()
     const {buildPrintDocument, renderPrintDocument} = await loadPrintAdapter(resolved.documentType, resolved.sourceId)
     if (resolved.sourceType.startsWith('POST_FINISHING_')) {
       // Print routes are also direct entry points. Read their own persisted

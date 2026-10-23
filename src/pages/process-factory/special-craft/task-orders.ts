@@ -276,7 +276,13 @@ function expandRows(taskOrders: SpecialCraftTaskOrder[]): ExpandedTaskOrderRow[]
   return taskOrders.map(taskOrder => ({taskOrder}))
 }
 
-export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string {
+export async function renderSpecialCraftTaskOrdersPage(operationSlug: string): Promise<string> {
+  await (await import('../../../data/fcs/special-craft-records.ts')).ensureSpecialCraftRecords()
+  return renderPreparedSpecialCraftTaskOrdersPage(operationSlug)
+}
+
+/** Local list interactions reuse the already prepared record view. */
+export function renderPreparedSpecialCraftTaskOrdersPage(operationSlug: string): string {
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   if (!operation) return renderMissingOperation()
 
@@ -581,7 +587,7 @@ export function handleSpecialCraftTaskOrdersEvent(target: Element, event?: Event
   }
   if (!action && !field && !event?.type.startsWith('drag') && event?.type !== 'drop') return true
   const next = document.createElement('div')
-  next.innerHTML = renderSpecialCraftTaskOrdersPage(operationId)
+  next.innerHTML = renderPreparedSpecialCraftTaskOrdersPage(operationId)
   const surfaces = action === 'open-column-settings' || action === 'close-column-settings'
     ? ['[data-craft-overlays]']
     : ['[data-craft-table]','[data-craft-pagination]','[data-craft-stats]','[data-craft-overlays]','[data-standard-list-table-section] > header']

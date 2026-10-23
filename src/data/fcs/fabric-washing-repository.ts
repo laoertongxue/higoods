@@ -1,7 +1,8 @@
-import { captureDesignRevisionFcsCaches, restoreDesignRevisionFcsCaches, hydrateDesignRevisionFcsCaches, PCS_FCS_COLLECTIONS } from './design-revision-pcs-storage.ts'
+import { captureDesignRevisionFcsCaches, restoreDesignRevisionFcsCaches, hydrateDesignRevisionFcsCaches, getDesignRevisionLedgerGuard, PCS_FCS_COLLECTIONS } from './design-revision-pcs-storage.ts'
 import { readPcsRecords, commitPcsRecords, type PcsStoredRecord, type PcsStoredFile, type PcsMigrationReceipt } from '../pcs-record-db.ts'
-import { registerWashingStorageBridge, washingLedgerSnapshots, WASHING_LEGACY_KEYS, splitWashingLedger, rebuildWashingLedger, type ProcessLedgerRow } from './fabric-washing-storage-bridge.ts'
+import { registerWashingStorageBridge, washingLedgerSnapshots, WASHING_LEGACY_KEYS, splitWashingLedger, rebuildWashingLedger, sameProcessLedgerRow, type ProcessLedgerRow } from './fabric-washing-storage-bridge.ts'
 import { applyWashingCommand, emptyWashingState, type WashingActor, type WashingCommand, type WashingState } from './fabric-washing-model.ts'
+import { ensureCentralExecutionRecordRead, getCentralExecutionLedgerGuard, setCentralExecutionLedgerStage, SPECIAL_CRAFT_LEDGER_RECORDS, SPECIAL_CRAFT_RECORDS, CENTRAL_EXECUTION_COMMAND_GUARDS, centralExecutionRecordChannel } from './central-execution-record-bridge.ts'
 
 export const WASHING_COLLECTION = 'fcs.fabric-washing.v1'
 export const WASHING_BRIDGE_COLLECTION = 'fcs.fabric-washing.process-records.v1'
@@ -11,6 +12,7 @@ let overlayEpoch=0
 const bridgeReadCache=new Map<string,{raw:string|null;epoch:number;result:string|null}>()
 let staged: Map<string, PcsStoredRecord> | undefined
 const guards = new Set<string>()
+const centralGuards = new Map<string,{id:string;expectedVersion:number}>()
 let projecting=false
 let projection:((state:WashingState)=>WashingState)|undefined
 export function registerWashingProjection(read:(state:WashingState)=>WashingState){projection=read}
@@ -51,11 +53,17 @@ export function readWashingState(): WashingState {
   if(!projection||projecting)return state
   projecting=true;try{return projection(state)}finally{projecting=false}
 }
+/** Resolve the exact existing process record; saved command results do not acquire an order. */
+export function getWashingProcessRecordGuard(legacyKey: string, path: string, identity: string) {
+  const id = bridgeId(legacyKey, { path, key: identity, value: null, tuple: true }), record = current().get(id)
+  return record ? { id, expectedVersion: record.version, deleted: !!(record.deleted || (record.value as BridgeRow).deleted) } : undefined
+}
 export async function ensureWashingRecords(force = false): Promise<void> {
   if (loaded && !force) return
   if (saving) throw new Error('上一笔洗水动作尚未保存，请等待完成。')
   try {
     await (await import('../pcs-record-runtime.ts')).ensurePcsRecordState(PCS_FCS_COLLECTIONS)
+    await ensureCentralExecutionRecordRead(force)
     await (await import('./production-context-records.ts')).hydrateProductionContextRecords()
     const saved = await readPcsRecords([WASHING_COLLECTION, WASHING_BRIDGE_COLLECTION])
     const bridgeVersions = (rows: Iterable<PcsStoredRecord>) => JSON.stringify([...rows].filter(row=>row.collection===WASHING_BRIDGE_COLLECTION).map(row=>[row.id,row.version]).sort())
@@ -119,11 +127,11 @@ registerWashingStorageBridge({
     }
     stagedRaw.set(key, raw)
     overlayEpoch++
-    for (const [id, row] of next) if (JSON.stringify(old.get(id)) !== JSON.stringify(row)) {
+    for (const [id, row] of next) if (!getCentralExecutionLedgerGuard(key,row.path,row.key) && !getDesignRevisionLedgerGuard(key,row.path,row.key) && !sameProcessLedgerRow(row,old.get(id))) {
       const recordId = bridgeId(key, row)
       staged.set(recordId, { id: recordId, collection: WASHING_BRIDGE_COLLECTION, value: { ...row, legacyKey: key }, version: records.get(recordId)?.version ?? 0 })
     }
-    for (const [id, row] of old) if (!next.has(id)) {
+    for (const [id, row] of old) if (!next.has(id) && !getCentralExecutionLedgerGuard(key,row.path,row.key) && !getDesignRevisionLedgerGuard(key,row.path,row.key)) {
       const recordId = bridgeId(key, row)
       staged.set(recordId, { id: recordId, collection: WASHING_BRIDGE_COLLECTION, value: { ...row, legacyKey: key, deleted: true }, version: records.get(recordId)?.version ?? 0 })
     }
@@ -132,9 +140,10 @@ registerWashingStorageBridge({
 })
 
 async function compact<T>(value: T, newFiles: PcsStoredFile[]): Promise<T> {
+  const {getPcsRecordFileId}=await import('../pcs-record-runtime.ts')
   async function visit(item: any): Promise<any> {
     if (typeof item === 'string' && (item.startsWith('data:') || item.startsWith('blob:'))) {
-      let id = urlFiles.get(item)
+      let id = urlFiles.get(item)??getPcsRecordFileId(item)
       if (!id) {
         const blob = await (await fetch(item)).blob()
         id = 'wash-file-' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map(n => n.toString(16).padStart(2, '0')).join('')
@@ -152,24 +161,70 @@ async function compact<T>(value: T, newFiles: PcsStoredFile[]): Promise<T> {
   }
   return visit(value)
 }
-export async function runWashingRecordCommand<T>(recipe: () => T, operationId: string, intent: string, usesProcessLedgers=true): Promise<T> {
+/** A washing transfer updates each existing Central or PCS owner in one transaction. */
+async function centralProcessPuts(pending: ReadonlyMap<string,string>): Promise<Array<Omit<PcsStoredRecord,'version'> & {expectedVersion:number}>> {
+  const puts:Array<Omit<PcsStoredRecord,'version'> & {expectedVersion:number}>=[]
+  let pcsRows:Map<string,PcsStoredRecord>|undefined
+  const append=async(key:string,row:ProcessLedgerRow,deleted=false)=>{
+    const central=getCentralExecutionLedgerGuard(key,row.path,row.key)
+    if(central){puts.push({...central,collection:SPECIAL_CRAFT_LEDGER_RECORDS,value:{...row,legacyKey:key,...(deleted?{deleted:true}:{})},...(deleted?{deleted:true}:{})});return}
+    const owner=getDesignRevisionLedgerGuard(key,row.path,row.key)
+    if(!owner)return
+    pcsRows??=new Map((await readPcsRecords(PCS_FCS_COLLECTIONS)).records.map(record=>[record.id,record]))
+    const saved=pcsRows.get(owner.id),value=saved?.value as {position:number;data:ProcessLedgerRow}|undefined
+    if(!saved||saved.deleted||saved.version!==owner.expectedVersion||!value?.data)throw new Error('原加工单已变化，本次未保存，请重新读取。')
+    const compact=(await import('../pcs-record-runtime.ts')).compactPcsRecordReferences
+    puts.push({...owner,collection:saved.collection,value:await compact({...value,data:{...value.data,...row}}),...(deleted?{deleted:true}:{})})
+  }
+  for(const [key,raw] of pending){
+    const old=new Map(splitWashingLedger(baseline.get(key)??null).map(row=>[row.path+'/'+row.key,row]))
+    const next=new Map(splitWashingLedger(raw).map(row=>[row.path+'/'+row.key,row]))
+    for(const [id,row] of next){
+      if(!sameProcessLedgerRow(row,old.get(id)))await append(key,row)
+    }
+    for(const [id,row] of old)if(!next.has(id)){
+      await append(key,row,true)
+    }
+  }
+  return puts
+}
+export async function runWashingRecordCommand<T>(recipe: () => T, operationId: string, intent: string, usesProcessLedgers=true, printCommand?:{target:unknown;guardKeys:readonly string[]}): Promise<T> {
   await ensureWashingRecords(true)
+  // Printing may merge already-owned washing and Central rolls. Keep its original
+  // command result/version markers in the same transaction, not in a second save.
+  const commandId=`${SPECIAL_CRAFT_RECORDS}/commands/${encodeURIComponent(operationId)}`
+  const commandRows=printCommand?new Map((await readPcsRecords([SPECIAL_CRAFT_RECORDS,CENTRAL_EXECUTION_COMMAND_GUARDS])).records.map(row=>[row.id,row])):undefined
+  const previous=commandRows?.get(commandId)?.value as {intent:string;result:T}|undefined
+  if(previous){if(previous.intent!==intent)throw new Error('本次确认号已用于其他填写，请重新打开操作。');return structuredClone(previous.result)}
   if(usesProcessLedgers)hydrateDesignRevisionFcsCaches()
   const cacheBefore = usesProcessLedgers?captureDesignRevisionFcsCaches():undefined
   stagedRaw.clear()
   baseline = usesProcessLedgers?washingLedgerSnapshots():new Map()
-  guards.clear();adoptions.clear();migrationWarnings=[]
+  guards.clear();centralGuards.clear();adoptions.clear();migrationWarnings=[]
+  const centralStage=new Map<string,string>()
+  let committed=false
   saving = true; staged = new Map(records)
   try {
+    if(usesProcessLedgers)setCentralExecutionLedgerStage(centralStage,true)
     recipeActive=true
     const result = recipe()
+    if(result&&typeof (result as {then?:unknown}).then==='function')throw new Error('先完成资料读取，再提交洗水操作。')
     recipeActive=false;overlayEpoch++
+    const centralPuts=await centralProcessPuts(centralStage)
+    if(printCommand){
+      centralPuts.push({id:commandId,collection:SPECIAL_CRAFT_RECORDS,value:{intent,result,...(typeof printCommand.target==='string'?{target:printCommand.target}:{})},expectedVersion:0})
+      for(const key of new Set(printCommand.guardKeys)){
+        const id=`${CENTRAL_EXECUTION_COMMAND_GUARDS}/${encodeURIComponent(key)}`
+        centralPuts.push({id,collection:CENTRAL_EXECUTION_COMMAND_GUARDS,value:{key,operationId},expectedVersion:commandRows?.get(id)?.version||0})
+      }
+    }
+    if(usesProcessLedgers)setCentralExecutionLedgerStage(undefined)
     if(cacheBefore)restoreDesignRevisionFcsCaches(cacheBefore)
     const changed = [...staged.values()].filter(row => JSON.stringify(row.value) !== JSON.stringify(records.get(row.id)?.value))
     const files: PcsStoredFile[] = []
-    const puts = await Promise.all(changed.map(async row => ({
+    const puts = [...centralPuts,...await Promise.all(changed.map(async row => ({
       id: row.id, collection: row.collection, value: await compact(row.value, files), expectedVersion: records.get(row.id)?.version ?? 0,
-    })))
+    })))]
     // An old tab may still hold an obsolete writer. Never delete a fragment
     // that changed after its first committed adoption, even on a later retry.
     for(const [legacyKey,source] of adoptions){
@@ -185,11 +240,14 @@ export async function runWashingRecordCommand<T>(recipe: () => T, operationId: s
     }
     const newMigrationReceipts:PcsMigrationReceipt[]=await Promise.all([...adoptions].map(async([legacyKey,source])=>({id:'washing-legacy:'+legacyKey+':'+await digest(JSON.stringify(source.rows)),sourceDigest:await digest(JSON.stringify(source.rows)),legacyKey,legacyDigest:await digest(source.raw),recordIds:source.rows.map(row=>bridgeId(legacyKey,row)),completedAt:new Date().toISOString()})))
     for(const [legacyKey,source] of adoptions)if(localStorage.getItem(legacyKey)!==source.raw)throw new Error('旧加工资料已在其他页面变化，本次未保存，请关闭旧页后重新读取。')
-    await commitPcsRecords({ migrationReceipts:newMigrationReceipts, guards: [...guards].filter(id=>!puts.some(row=>row.id===id)).map(id => ({ id, expectedVersion: records.get(id)?.version ?? 0 })), puts, deletes: [], files, operationId, intent })
+    const written=new Set(puts.map(row=>row.id))
+    await commitPcsRecords({ migrationReceipts:newMigrationReceipts, guards: [...[...guards].map(id => ({ id, expectedVersion: records.get(id)?.version ?? 0 })),...centralGuards.values()].filter(row=>!written.has(row.id)), puts, deletes: [], files, operationId, intent })
+    committed=true
     files.forEach(file => blobs.set(file.id, file.blob))
     // Read the committed versions rather than predicting the outcome of a transaction.
     staged = undefined; stagedRaw.clear(); saving = false; loaded = false
-    await ensureWashingRecords()
+    if(centralPuts.some(row=>PCS_FCS_COLLECTIONS.some(collection=>row.collection===collection+'/items')))await(await import('../pcs-record-runtime.ts')).refreshPcsRecordsAfterRelatedCommit(operationId)
+    await ensureWashingRecords(true)
     // Target records and Blob references were read back before removing any verified old fragment.
     for(const [legacyKey,source] of adoptions){
       try{
@@ -201,13 +259,16 @@ export async function runWashingRecordCommand<T>(recipe: () => T, operationId: s
     }
     if(usesProcessLedgers)hydrateDesignRevisionFcsCaches()
     channel?.postMessage({ operationId })
+    if(centralPuts.length)centralExecutionRecordChannel?.postMessage({operationId})
     return result
   } catch (error) {
     recipeActive=false;overlayEpoch++
-    if(cacheBefore)restoreDesignRevisionFcsCaches(cacheBefore)
+    if(usesProcessLedgers)setCentralExecutionLedgerStage(undefined)
+    if(cacheBefore&&!committed)restoreDesignRevisionFcsCaches(cacheBefore)
     staged = undefined; stagedRaw.clear(); saving = false; loaded = false
+    if(committed)throw new Error('洗水操作已保存，但页面未能更新，请重新读取后查看。')
     throw error
-  }
+  } finally { if(usesProcessLedgers)setCentralExecutionLedgerStage(undefined) }
 }
 export async function executeWashingCommand(command: WashingCommand, actor: WashingActor, operationId: string, extra?: () => void, validate?: () => void, usesProcessLedgers=true) {
   let orderId: string | undefined
@@ -241,7 +302,11 @@ export function adoptWashingLedgerRows(key: string, raw: string | null, matches:
 export function washingCommandIntent(command: WashingCommand, actor: WashingActor): string {
  return JSON.stringify({ command: command.type === 'JUDGE' ? { ...command, source: { id: command.source.id, revision: command.source.revision } } : command, actor })
 }
-export function guardWashingLedger(key: string, path: string, id: string): void { guards.add(bridgeId(key,{path,key:id,value:null,tuple:true})) }
+export function guardWashingLedger(key: string, path: string, id: string): void {
+ const central=getCentralExecutionLedgerGuard(key,path,id)||getDesignRevisionLedgerGuard(key,path,id)
+ if(central)centralGuards.set(central.id,central)
+ else guards.add(bridgeId(key,{path,key:id,value:null,tuple:true}))
+}
 export function isWashingCommandStaging() { return !!staged }
 
 export function washingLedgerSnapshot(key: string): string | null { return washingLedgerSnapshots().get(key) ?? null }

@@ -35,6 +35,18 @@ export interface LoadedWarehouseLayout {
   persistenceAvailable: boolean
 }
 
+interface WarehouseLayoutRecordReadBridge {
+  read(warehouse: FactoryInternalWarehouse): FactoryWarehouseLayoutSnapshot
+  history(factoryId: string, kind: FactoryInternalWarehouseKind, warehouseId: string): WarehouseLayoutChangeRecord[]
+}
+let recordReadBridge: WarehouseLayoutRecordReadBridge | undefined
+export function installWarehouseLayoutRecordReadBridge(bridge: WarehouseLayoutRecordReadBridge): void { recordReadBridge = bridge }
+function usesNativeLayoutStorage(storage?: Pick<WarehouseLayoutStorage, 'getItem'>): boolean {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false
+  if (!storage) return true
+  try { return storage === window.localStorage } catch { return true }
+}
+
 export interface WarehouseLayoutChangeRecord {
   changeRecordId: string
   factoryId: string
@@ -196,6 +208,10 @@ function legacyHistoryKeys(factoryId: string, warehouseKind: FactoryInternalWare
     `higood:cutting-warehouse-layout-history:v2:${factoryId}:${warehouseKind}:${warehouseId}`,
     `higood:cutting-warehouse-layout-history:v1:${factoryId}:${warehouseKind}`,
   ]
+}
+export function warehouseLayoutSourceKeys(factoryId: string, kind: FactoryInternalWarehouseKind, warehouseId: string): string[] {
+  return [getWarehouseLayoutStorageKey(factoryId, kind, warehouseId), getWarehouseLayoutHistoryStorageKey(factoryId, kind, warehouseId),
+    ...legacyLayoutKeys(factoryId, kind, warehouseId), ...legacyHistoryKeys(factoryId, kind, warehouseId)]
 }
 
 function assertText(value: string, label: string): void {
@@ -359,6 +375,7 @@ function isV3Snapshot(value: unknown, warehouse?: FactoryInternalWarehouse): val
     return false
   }
 }
+export { isV3Snapshot as isWarehouseLayoutSnapshot }
 
 function nextSnapshot(snapshot: FactoryWarehouseLayoutSnapshot, updatedBy: string, mutate: (next: FactoryWarehouseLayoutSnapshot) => void): FactoryWarehouseLayoutSnapshot {
   assertText(updatedBy, '操作人')
@@ -399,8 +416,13 @@ export function listWarehouseLayoutChangeRecords(
   factoryId: string,
   warehouseKind: FactoryInternalWarehouseKind,
   warehouseId = '',
-  storage: WarehouseLayoutStorage = currentStorage(),
+  storage?: WarehouseLayoutStorage,
 ): WarehouseLayoutChangeRecord[] {
+  if (usesNativeLayoutStorage(storage)) {
+    if (!recordReadBridge) throw new Error('库位资料尚未读取，请重新进入页面。')
+    return recordReadBridge.history(factoryId, warehouseKind, warehouseId)
+  }
+  storage ??= currentStorage()
   let raw: string | null = null
   try { raw = storage.getItem(getWarehouseLayoutHistoryStorageKey(factoryId, warehouseKind, warehouseId)) } catch { return [] }
   if (!raw) return []
@@ -432,10 +454,45 @@ export function buildInitialWarehouseLayoutSnapshot(
   return snapshot
 }
 
+/** Read existing positions without seeding, rewriting or removing warehouse configuration.
+ * A missing current layout may use the unchanged static warehouse. Legacy-only or
+ * unreadable data must be resolved explicitly before a new PDA action can use it. */
+export function readWarehouseLayoutSnapshot(
+  warehouse: FactoryInternalWarehouse,
+  storage?: Pick<WarehouseLayoutStorage, 'getItem'>,
+): FactoryWarehouseLayoutSnapshot {
+  if (usesNativeLayoutStorage(storage)) {
+    if (!recordReadBridge) throw new Error('库位资料尚未读取，请重新进入页面。')
+    return recordReadBridge.read(warehouse)
+  }
+  storage ??= currentStorage()
+  const key = getWarehouseLayoutStorageKey(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId)
+  let raw: string | null
+  try { raw = storage.getItem(key) } catch (cause) { throw new Error('库位资料无法读取，原资料已保留。', { cause }) }
+  if (raw !== null) {
+    let value: unknown
+    try { value = JSON.parse(raw) } catch (cause) { throw new Error('库位资料格式不完整，原资料已保留。', { cause }) }
+    if (!isV3Snapshot(value, warehouse)) throw new Error('库位资料与当前仓库不一致或不完整，原资料已保留。')
+    return clone(value)
+  }
+  let hasLegacy: boolean
+  const priorKeys = [
+    ...legacyLayoutKeys(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId),
+    ...legacyHistoryKeys(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId),
+    getWarehouseLayoutHistoryStorageKey(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId),
+  ]
+  try { hasLegacy = priorKeys.some(key => storage.getItem(key) !== null) }
+  catch (cause) { throw new Error('旧库位资料无法读取，原资料已保留。', { cause }) }
+  if (hasLegacy) throw new Error('已有库位资料需要核对，原资料已保留。')
+  return buildInitialWarehouseLayoutSnapshot(warehouse, '系统初始化')
+}
+
 export function loadWarehouseLayoutSnapshot(
   warehouse: FactoryInternalWarehouse,
-  storage: WarehouseLayoutStorage = currentStorage(),
+  storage?: WarehouseLayoutStorage,
 ): LoadedWarehouseLayout {
+  if (usesNativeLayoutStorage(storage)) return { snapshot: readWarehouseLayoutSnapshot(warehouse), warningMessage: '', persistenceAvailable: true }
+  storage ??= currentStorage()
   const key = getWarehouseLayoutStorageKey(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId)
   let persistenceAvailable = true
   const removeSafely = (removeKey: string) => {
@@ -477,6 +534,7 @@ export function saveWarehouseLayoutSnapshot(
   expectedVersion: number,
   storage: WarehouseLayoutStorage = currentStorage(),
 ): { ok: boolean; message: string; snapshot?: FactoryWarehouseLayoutSnapshot } {
+  if (usesNativeLayoutStorage(storage)) return { ok: false, message: '旧库位保存入口已停止，请从当前库位维护页面重新保存。' }
   try { validateSnapshot(snapshot) } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : '库位图结构不完整，请检查后重试。' }
   }
@@ -547,6 +605,7 @@ export function resetWarehouseLayoutSnapshot(
   updatedBy: string,
   storage: WarehouseLayoutStorage = currentStorage(),
 ): { ok: boolean; message: string; snapshot?: FactoryWarehouseLayoutSnapshot } {
+  if (usesNativeLayoutStorage(storage)) return { ok: false, message: '原库位资料已保留，请先核对或迁移后再恢复。' }
   const key = getWarehouseLayoutStorageKey(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId)
   let raw: string | null
   try { raw = storage.getItem(key) } catch {

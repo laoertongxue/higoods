@@ -357,6 +357,8 @@ function stockQty(
     objectSkuCode: string
     defaultLocationId: WoolDefaultLocationId
     batchNo?: string
+    physicalWarehouseId?: string
+    physicalLocationId?: string
   },
 ): number {
   return getWoolWarehouseLedgerBalance(store.warehouseFlows, {
@@ -403,6 +405,13 @@ function requireStockObject(
       defaultLocationType: 'YARN',
       batchNo,
     }
+  }
+  const piece = order.externalPieces.find(piece => piece.pieceKey === input.objectSkuCode)
+  if (piece) {
+    if (input.defaultLocationId !== 'WOOL-WH-CUT-DEFAULT' || normalizeWoolBatchNo(input.batchNo)) {
+      throw new Error('部位片库存必须使用裁片默认库位且不混用纱线批次')
+    }
+    return { order, unit: '片', warehouseMode: 'WAIT_HANDOVER', defaultLocationType: 'CUT_PIECE' }
   }
   const line = requireOutputLine(order, input.objectSkuCode)
   const location = outputLocation(line)
@@ -843,6 +852,7 @@ export function adjustWoolWarehouseStock(
     const currentQty = stockQty(draft, {
       ...input,
       batchNo: stockObject.batchNo,
+      physicalWarehouseId: '', physicalLocationId: '',
     })
     const delta = input.afterQty - currentQty
     if (delta === 0) throw new Error('调整前后数量不能相同')
@@ -905,9 +915,10 @@ export function transferWoolWarehouseStock(
       const to=assertReceiptPosition(order.factoryId,{warehouseId:toWarehouseId,locationId:input.toLocationId})
       if(from.location.locationId===to.location.locationId&&from.warehouse.warehouseId===to.warehouse.warehouseId)throw new Error('请选择不同的目标库位。')
       const stockObject=requireStockObject(draft,input)
+      requireWoolWarehouseQuantityUnit(input.qty, stockObject.unit, '转移数量')
       const qty=stockQty(draft,{...input,batchNo:stockObject.batchNo})
       if(input.qty>qty)throw new Error('移库数量不能超过来源实际库位库存。')
-      for(const direction of ['OUT','IN'] as const){const p=direction==='OUT'?from:to;draft.warehouseFlows.push({flowId:direction==='OUT'?`WF-${sourceRecordId}`:`WF-${sourceRecordId}-IN`,woolOrderId:input.woolOrderId,factoryId:order.factoryId,flowType:'TRANSFER',businessType:'STOCK_TRANSFER',physicalTransferDirection:direction,physicalTransferId:sourceRecordId,warehouseMode:'WAIT_PROCESS',defaultLocationType:'YARN',defaultLocationId:'WOOL-WP-YARN-DEFAULT',physicalWarehouseId:p.warehouse.warehouseId,physicalLocationId:p.location.locationId,objectSkuCode:input.objectSkuCode,batchNo:stockObject.batchNo,qty:input.qty,unit:'kg',sourceRecordType:'STOCK_TRANSFER',sourceRecordId:direction==='OUT'?sourceRecordId:`${sourceRecordId}-IN`,fromWarehouseId:from.warehouse.warehouseId,fromLocationId:from.location.locationId,toWarehouseId,toLocationId:input.toLocationId,reason,operatedAt:input.operatedAt,operatedBy})}
+      for(const direction of ['OUT','IN'] as const){const p=direction==='OUT'?from:to;draft.warehouseFlows.push({flowId:direction==='OUT'?`WF-${sourceRecordId}`:`WF-${sourceRecordId}-IN`,woolOrderId:input.woolOrderId,factoryId:order.factoryId,flowType:'TRANSFER',businessType:'STOCK_TRANSFER',physicalTransferDirection:direction,physicalTransferId:sourceRecordId,warehouseMode:stockObject.warehouseMode,defaultLocationType:stockObject.defaultLocationType,defaultLocationId:input.defaultLocationId,physicalWarehouseId:p.warehouse.warehouseId,physicalLocationId:p.location.locationId,objectSkuCode:input.objectSkuCode,batchNo:stockObject.batchNo,qty:input.qty,unit:stockObject.unit,sourceRecordType:'STOCK_TRANSFER',sourceRecordId:direction==='OUT'?sourceRecordId:`${sourceRecordId}-IN`,fromWarehouseId:from.warehouse.warehouseId,fromLocationId:from.location.locationId,toWarehouseId,toLocationId:input.toLocationId,reason,operatedAt:input.operatedAt,operatedBy})}
       appendCommandReceipt(draft,descriptor,{woolOrderId:input.woolOrderId,resultType:'WOOL_WAREHOUSE_FLOW',resultId:`WF-${sourceRecordId}`,operatedAt:input.operatedAt,operatedBy})
     })
     return committed.warehouseFlows.find(f=>f.flowId===`WF-${sourceRecordId}`)!
@@ -951,6 +962,7 @@ export function transferWoolWarehouseStock(
       : stockQty(draft, {
           ...input,
           batchNo: stockObject.batchNo,
+          physicalWarehouseId: '', physicalLocationId: '',
         })
     if (input.qty > currentQty) {
       throw new Error(isReturningToDefault

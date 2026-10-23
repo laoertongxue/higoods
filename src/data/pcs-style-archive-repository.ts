@@ -376,6 +376,11 @@ export function getStyleArchiveById(styleId: string): StyleArchiveShellRecord | 
   return record ? resolveStyleProductInformation(cloneRecord(record)) : null
 }
 
+/** Read the formal link without resolving unrelated product display configuration. */
+export function getStyleCurrentTechPackVersionId(styleId: string): string | null {
+  return (memorySnapshot ?? loadSnapshot()).records.find((record) => record.styleId === styleId)?.currentTechPackVersionId || null
+}
+
 export function findStyleArchiveByCode(styleCode: string): StyleArchiveShellRecord | null {
   // FCS 需求页与转单链路都从正式款式档案读取当前生效技术包版本指针。
   const matchedRecords = (memorySnapshot ?? loadSnapshot()).records.filter((item) => item.styleCode === styleCode)

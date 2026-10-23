@@ -1,3 +1,6 @@
+import { appStore } from '../../../../state/store.ts'
+import { markPurchaseChangeViewed } from '../../../../data/fcs/lace-factory-domain.ts'
+import { saveWebLaceRecord, laceRecordErrorText } from './record-surface.ts'
 // @page-pattern: detail
 import {
   cancelLaceProductionOrder,
@@ -85,6 +88,7 @@ function ensureLaceDetailEscapeBinding(): void {
   detailEscapeBound = true
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || !state.overlay || !rootElement()) return
+    if (rootElement()?.dataset.laceRecordBusy || rootElement()?.dataset.laceRecordCommitted) return
     state.overlay = null
     state.overlayError = ''
     refreshOverlays()
@@ -140,7 +144,7 @@ function renderChangeBanner(order: LaceProductionOrderView): string {
   const description = pending
     ? `当前生产单已同步到采购 V${order.purchaseVersion}。请先查看前后值及数量影响；查看仅代表已读，不表示审批或接受。`
     : `当前生产单读取采购 V${order.purchaseVersion}；生产、交出和收货状态仍独立计算。`
-  return `<section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${classes}" data-lace-detail-section="purchase-change-banner"><div><strong>${escapeHtml(title)}</strong><p class="mt-1 text-xs">${escapeHtml(description)}</p></div><button type="button" class="rounded-md border bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50" data-nav="/fcs/craft/accessory/lace/purchase-demands?viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}">查看采购变更</button></section>`
+  return `<section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${classes}" data-lace-detail-section="purchase-change-banner"><div><strong>${escapeHtml(title)}</strong><p class="mt-1 text-xs">${escapeHtml(description)}</p></div><button type="button" class="rounded-md border bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50" data-lace-detail-action="view-purchase-change">查看采购变更</button></section>`
 }
 
 function renderInputSection(order: LaceProductionOrderView): string {
@@ -154,7 +158,7 @@ function renderInputSection(order: LaceProductionOrderView): string {
 
 function renderSourceSection(order: LaceProductionOrderView): string {
   const source = order.demandSource
-  return `<section class="rounded-lg border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">需求来源</h2><p class="mt-1 text-xs text-slate-500">来源快照只读，由 PMS 采购事实同步；同一采购单 SKU 的多个款式来源仍合并为一张生产单。</p></header><div class="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4"><div><span class="text-xs text-slate-500">采购单／版本</span><div class="mt-1 font-medium">${escapeHtml(source.purchaseOrderNo)} · V${source.purchaseVersion}</div><div class="text-xs text-slate-500">采购员：${escapeHtml(source.buyerName)}</div></div><div><span class="text-xs text-slate-500">供应商／花边厂</span><div class="mt-1 font-medium">${escapeHtml(source.supplierName)}</div><div class="text-xs text-slate-500">${escapeHtml(source.factoryName)}</div></div><div><span class="text-xs text-slate-500">采购数量／交期</span><div class="mt-1 font-medium">${formatLaceQty(source.planQty, source.unit)}</div><div class="text-xs text-slate-500">${escapeHtml(source.dueDate)}</div></div><div><span class="text-xs text-slate-500">目标仓库</span><div class="mt-1 font-medium">${escapeHtml(source.targetWarehouseName)}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">全部关联款式</span><div class="mt-2">${renderLaceSourceStyles(source.sourceLines, 'h-14 w-14')}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">来源行／采购备注</span><div class="mt-1 text-sm">${escapeHtml(source.sourceLineIds.join('、'))}</div><div class="mt-1 text-sm text-slate-600">${escapeHtml(source.sourceNote || '无')}</div></div></div><div class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3"><div>${order.purchaseChangeStatus === '待查看' ? renderLaceStatusBadge('采购已变更 · 待查看', 'yellow') : order.purchaseChangeStatus === '已查看' ? renderLaceStatusBadge('采购变更 · 已查看', 'slate') : renderLaceStatusBadge('无新变更', 'slate')}</div><button type="button" class="text-sm font-medium text-blue-700 hover:underline" data-nav="/fcs/craft/accessory/lace/purchase-demands?viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}">查看该采购单完整变更</button></div></section>`
+  return `<section class="rounded-lg border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">需求来源</h2><p class="mt-1 text-xs text-slate-500">来源快照只读，由 PMS 采购事实同步；同一采购单 SKU 的多个款式来源仍合并为一张生产单。</p></header><div class="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4"><div><span class="text-xs text-slate-500">采购单／版本</span><div class="mt-1 font-medium">${escapeHtml(source.purchaseOrderNo)} · V${source.purchaseVersion}</div><div class="text-xs text-slate-500">采购员：${escapeHtml(source.buyerName)}</div></div><div><span class="text-xs text-slate-500">供应商／花边厂</span><div class="mt-1 font-medium">${escapeHtml(source.supplierName)}</div><div class="text-xs text-slate-500">${escapeHtml(source.factoryName)}</div></div><div><span class="text-xs text-slate-500">采购数量／交期</span><div class="mt-1 font-medium">${formatLaceQty(source.planQty, source.unit)}</div><div class="text-xs text-slate-500">${escapeHtml(source.dueDate)}</div></div><div><span class="text-xs text-slate-500">目标仓库</span><div class="mt-1 font-medium">${escapeHtml(source.targetWarehouseName)}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">全部关联款式</span><div class="mt-2">${renderLaceSourceStyles(source.sourceLines, 'h-14 w-14')}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">来源行／采购备注</span><div class="mt-1 text-sm">${escapeHtml(source.sourceLineIds.join('、'))}</div><div class="mt-1 text-sm text-slate-600">${escapeHtml(source.sourceNote || '无')}</div></div></div><div class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3"><div>${order.purchaseChangeStatus === '待查看' ? renderLaceStatusBadge('采购已变更 · 待查看', 'yellow') : order.purchaseChangeStatus === '已查看' ? renderLaceStatusBadge('采购变更 · 已查看', 'slate') : renderLaceStatusBadge('无新变更', 'slate')}</div><button type="button" class="text-sm font-medium text-blue-700 hover:underline" data-lace-detail-action="view-purchase-change">查看该采购单完整变更</button></div></section>`
 }
 
 function renderOutputSection(order: LaceProductionOrderView): string {
@@ -334,8 +338,11 @@ function closeOverlayWithFeedback(message: string): void {
 
 function showError(error: unknown): void {
   state.feedbackOk = false
-  state.overlayError = `未保存：${error instanceof Error ? error.message : String(error)}。请修正后重新提交。`
-  if (state.overlay) refreshOverlays()
+  state.overlayError = laceRecordErrorText(error)
+  if (state.overlay) {
+    const area = rootElement()?.querySelector<HTMLElement>('[data-lace-detail-overlay-error]')
+    if (area) area.innerHTML = renderLaceFeedback(state.overlayError, false)
+  }
   else {
     state.feedback = state.overlayError
     refreshAll()
@@ -383,8 +390,9 @@ export function renderLaceWorkOrderDetailPage(workOrderId: string): string {
   return `<div data-lace-work-order-detail-root data-skip-page-rerender="true">${renderInner()}</div>`
 }
 
-export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Event): boolean {
+export async function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
+  if (rootElement()?.dataset.laceRecordBusy || rootElement()?.dataset.laceRecordCommitted) return true
   if (handleLaceCommonImageEvent(target, event, refreshOverlays)) return true
   if (event?.type === 'keydown' && event instanceof KeyboardEvent && event.key === 'Escape' && state.overlay) {
     state.overlay = null
@@ -406,8 +414,13 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
   const order = currentOrder()
   if (!order) return false
   try {
+    if (action === 'view-purchase-change') {
+      await saveWebLaceRecord(rootElement(), 'markPurchaseChangeViewed', () => markPurchaseChangeViewed(order.purchaseOrderId, PLATFORM_ADMIN))
+      appStore.navigate('/fcs/craft/accessory/lace/purchase-demands?viewChange=1&purchaseOrderId=' + encodeURIComponent(order.purchaseOrderId))
+      return true
+    }
     if (action === 'confirm-receive') {
-      confirmLaceProductionReceipt(order.workOrderId, LACE_FACTORY_OPERATOR)
+      await saveWebLaceRecord(rootElement(), 'confirmLaceProductionReceipt', () => confirmLaceProductionReceipt(order.workOrderId, LACE_FACTORY_OPERATOR), undefined, order.workOrderId)
       closeOverlayWithFeedback('已确认接收生产任务并进入加工中；默认加工投入保持不变。')
       return true
     }
@@ -440,12 +453,12 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
           unitUsage: Number(row.querySelector<HTMLInputElement>('[data-lace-input-unit-usage]')?.value),
         })
       })
-      updateLaceProcessingInputs(
+      await saveWebLaceRecord(rootElement(), 'updateLaceProcessingInputs', () => updateLaceProcessingInputs(
         order.workOrderId,
         updates,
         readTextField(scope, '[data-lace-detail-field="inputReason"]'),
         LACE_FACTORY_OPERATOR,
-      )
+      ), undefined, order.workOrderId)
       closeOverlayWithFeedback('加工投入的 SKU 与单位用量已保存；计划投入已自动重算，生产状态未改变。')
       return true
     }
@@ -458,7 +471,7 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
         actor: LACE_FACTORY_OPERATOR,
       }
       try {
-        createLaceCompletionReport(command)
+        await saveWebLaceRecord(rootElement(), 'createLaceCompletionReport', () => createLaceCompletionReport(command), command.clientActionId, order.workOrderId)
         closeOverlayWithFeedback('本次加工填报已保存；生产单仍保持加工中，需人员执行完成加工单。')
       } catch (error) {
         if (error instanceof LaceDomainError && error.code === 'OVERPRODUCTION_CONFIRM_REQUIRED') {
@@ -477,7 +490,7 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
         actor: LACE_FACTORY_OPERATOR,
       }
       try {
-        updateLaceCompletionReport(command)
+        await saveWebLaceRecord(rootElement(), 'updateLaceCompletionReport', () => updateLaceCompletionReport(command), undefined, order.workOrderId)
         closeOverlayWithFeedback('加工填报已修改，修改前后值和原因已写入日志。')
       } catch (error) {
         if (error instanceof LaceDomainError && error.code === 'OVERPRODUCTION_CONFIRM_REQUIRED') {
@@ -489,23 +502,24 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
       return true
     }
     if (action === 'confirm-overproduction' && state.overlay?.kind === 'overproduction-confirm') {
-      if (state.overlay.mode === 'create') createLaceCompletionReport({ ...(state.overlay.command as CreateLaceCompletionCommand), overproductionConfirmed: true })
-      else updateLaceCompletionReport({ ...(state.overlay.command as UpdateLaceCompletionCommand), overproductionConfirmed: true })
+      const confirmation = state.overlay
+      if (confirmation.mode === 'create') await saveWebLaceRecord(rootElement(), 'createLaceCompletionReport', () => createLaceCompletionReport({ ...(confirmation.command as CreateLaceCompletionCommand), overproductionConfirmed: true }), undefined, order.workOrderId)
+      else await saveWebLaceRecord(rootElement(), 'updateLaceCompletionReport', () => updateLaceCompletionReport({ ...(confirmation.command as UpdateLaceCompletionCommand), overproductionConfirmed: true }), undefined, order.workOrderId)
       closeOverlayWithFeedback('超量完工已二次确认并保存。')
       return true
     }
     if (action === 'save-complete') {
-      completeLaceProduction(order.workOrderId, readTextField(scope, '[data-lace-detail-field="completeReason"]'), LACE_FACTORY_OPERATOR)
+      await saveWebLaceRecord(rootElement(), 'completeLaceProduction', () => completeLaceProduction(order.workOrderId, readTextField(scope, '[data-lace-detail-field="completeReason"]'), LACE_FACTORY_OPERATOR), undefined, order.workOrderId)
       closeOverlayWithFeedback('花边生产单已完结；历史记录保留，剩余有效完工仍可交出。')
       return true
     }
     if (action === 'save-undo-complete') {
-      undoLaceProductionCompletion(order.workOrderId, readTextField(scope, '[data-lace-detail-field="undoReason"]'), LACE_FACTORY_SUPERVISOR)
+      await saveWebLaceRecord(rootElement(), 'undoLaceProductionCompletion', () => undoLaceProductionCompletion(order.workOrderId, readTextField(scope, '[data-lace-detail-field="undoReason"]'), LACE_FACTORY_SUPERVISOR), undefined, order.workOrderId)
       closeOverlayWithFeedback('已撤销完成并回到加工中；完工、交出和收货事实未回滚。')
       return true
     }
     if (action === 'save-handover' && state.overlay?.kind === 'handover') {
-      createLaceHandover({
+      const command = {
         workOrderId: order.workOrderId,
         qty: readNumberField(scope, '[data-lace-detail-field="handoverQty"]'),
         deliveryNo: readTextField(scope, '[data-lace-detail-field="deliveryNo"]'),
@@ -514,23 +528,24 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
         expectedReceiverName: readTextField(scope, '[data-lace-detail-field="receiverName"]'),
         clientActionId: state.overlay.clientActionId,
         actor: LACE_FACTORY_OPERATOR,
-      })
+      }
+      await saveWebLaceRecord(rootElement(), 'createLaceHandover', () => createLaceHandover(command), command.clientActionId, order.workOrderId)
       closeOverlayWithFeedback('交出成功：已生成一条交出记录和一条 WLS 待收货记录。')
       return true
     }
     if (action === 'save-cancel') {
       const checkbox = scope.querySelector<HTMLInputElement>('[data-lace-detail-field="cancelConfirmed"]')
-      cancelLaceProductionOrder({
+      await saveWebLaceRecord(rootElement(), 'cancelLaceProductionOrder', () => cancelLaceProductionOrder({
         workOrderId: order.workOrderId,
         reason: readTextField(scope, '[data-lace-detail-field="cancelReason"]'),
         actor: LACE_FACTORY_SUPERVISOR,
         secondConfirmed: Boolean(checkbox?.checked),
-      })
+      }), undefined, order.workOrderId)
       closeOverlayWithFeedback('花边生产单已取消，历史事实和日志均保留。')
       return true
     }
     if (action === 'save-restore') {
-      restoreCancelledLaceProductionOrder(order.workOrderId, readTextField(scope, '[data-lace-detail-field="restoreReason"]'), PLATFORM_ADMIN)
+      await saveWebLaceRecord(rootElement(), 'restoreCancelledLaceProductionOrder', () => restoreCancelledLaceProductionOrder(order.workOrderId, readTextField(scope, '[data-lace-detail-field="restoreReason"]'), PLATFORM_ADMIN), undefined, order.workOrderId)
       closeOverlayWithFeedback('已恢复原生产单；系统未生成第二张生产单。')
       return true
     }

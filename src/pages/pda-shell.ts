@@ -12,6 +12,8 @@ import { renderRouteRedirect } from '../router/route-utils'
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { getPdaRuntimeContext } from './pda-runtime'
+import { isCurrentPdaExperienceRouteAllowed } from './pda-runtime'
+import { isThirdPartyPdaFactory } from '../data/fcs/pda-experience-scope.ts'
 
 export type PdaTabKey = 'task-receive' | 'exec' | 'handover' | 'warehouse' | 'settlement'
 
@@ -37,12 +39,13 @@ const MOBILE_APP_TABS: PdaTabConfig[] = [
 
 function getVisibleMobileAppTabs(): PdaTabConfig[] {
   const runtime = getPdaRuntimeContext()
+  const factory = runtime ? getFactoryMasterRecordById(runtime.factoryId) : undefined
+  if (isThirdPartyPdaFactory(factory)) {
+    return MOBILE_APP_TABS.filter((tab) => tab.key !== 'warehouse'
+      && (!isKolGotoFactory(runtime?.factoryId) || tab.key !== 'settlement' || runtime?.roleId === 'ROLE_ADMIN'))
+  }
   if (isKolGotoFactory(runtime?.factoryId)) {
     return MOBILE_APP_TABS.filter((tab) => tab.key !== 'settlement' || runtime?.roleId === 'ROLE_ADMIN')
-  }
-  const factory = runtime ? getFactoryMasterRecordById(runtime.factoryId) : undefined
-  if (factory?.factoryTier === 'THIRD_PARTY' && factory.factoryType === 'THIRD_SEWING') {
-    return MOBILE_APP_TABS.filter((tab) => tab.key !== 'warehouse')
   }
   return MOBILE_APP_TABS
 }
@@ -371,6 +374,7 @@ export function renderPdaBottomNav(activeTab: PdaTabKey | null): string {
 
 export function renderPdaFrame(content: string, activeTab: PdaTabKey | null, options: PdaFrameOptions = {}): string {
   const currentPath = appStore.getState().pathname || '/fcs/pda/exec'
+  if (!isCurrentPdaExperienceRouteAllowed(currentPath)) return renderRouteRedirect('/fcs/pda/exec', '执行')
   const access = ensurePdaAccessForRoute(currentPath)
   if (!access.allowed) {
     return renderRouteRedirect(access.redirectPath || '/fcs/pda/auth/login', access.reasonLabel || '工厂入驻&登录')

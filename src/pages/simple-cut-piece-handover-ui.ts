@@ -123,7 +123,7 @@ async function perform(mode: Mode, action: string, host: HTMLElement): Promise<v
   try {
     if(action==='read'){state.preview=undefined;state.replacementTickets=[];state.replacementFacts=await loadReplacementFabricState();state.preview=resolveSimpleCutPieceHandover(state.raw);state.raw=state.preview.sheet.taskSheetNo;state.commandId=`SIMPLE:${state.preview.sheet.taskSheetNo}:${state.preview.candidateFingerprint}`;state.page=1;state.feedback=''}
     else if(state.preview){state.result=await confirmSimpleCutPieceHandover({taskSheetNo:state.preview.sheet.taskSheetNo,candidateFingerprint:state.preview.candidateFingerprint,commandId:state.commandId,replacementFabricTicketIds:state.replacementTickets.map(ticket=>ticket.id),actor:simpleCutPieceActor(mode)});state.feedback='';document.dispatchEvent(new CustomEvent('simple-cut-piece-handover-saved'))}
-  }catch(error){state.feedback=`${action==='confirm'?'交出未保存，请核对后重试。':''}${(error as Error).message}`}
+  }catch(error){state.feedback=`${action==='confirm'&&!(error as {committed?:boolean})?.committed?'交出未保存，请核对后重试。':''}${(error as Error).message}`}
   finally {
     state.busy = false
     refresh(mode)

@@ -4,10 +4,10 @@ import { handleLacePurchaseDemandsEvent } from './purchase-demands.ts'
 import { handleLaceWorkOrderDetailEvent } from './work-order-detail.ts'
 import { handleLaceWorkOrdersEvent } from './work-orders.ts'
 
-export function handleAccessoryFactoryManagementEvent(target: HTMLElement, event?: Event): boolean {
-  return handleLaceWorkOrderDetailEvent(target, event)
-    || handleLacePurchaseDemandsEvent(target, event)
-    || handleLaceWorkOrdersEvent(target, event)
+export async function handleAccessoryFactoryManagementEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  return await handleLaceWorkOrderDetailEvent(target, event)
+    || await handleLacePurchaseDemandsEvent(target, event)
+    || await handleLaceWorkOrdersEvent(target, event)
     || handleLaceHandoverRecordsEvent(target, event)
-    || handleWlsAccessoryReceiptsEvent(target, event)
+    || await handleWlsAccessoryReceiptsEvent(target, event)
 }

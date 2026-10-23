@@ -10,6 +10,7 @@ import { resetStandardListEntryTransientStateOnRouteEntry } from '../components/
 // renderStandardListTable 和 renderTablePagination 由现有列表控制器统一渲染。
 import { renderToast, renderToastContainer } from '../components/ui/toast.ts'
 import { canAssignWaterSolubleFactory, assignWaterSolubleFactory, listWaterSolubleWorkOrders, type WaterSolubleWorkOrder } from '../data/fcs/water-soluble-task-domain.ts'
+import { runWaterSolubleRecordCommand } from '../data/fcs/water-soluble-records.ts'
 import {
   PROCESS_ORDER_HANDOVER_STATUS_LABEL,
   PROCESS_ORDER_PROCESSING_STATUS_LABEL,
@@ -28,6 +29,7 @@ import { escapeHtml } from '../utils.ts'
 type Overlay = { type: 'detail' | 'assign'; orderId: string } | null
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 const state = { keyword: '', receiptStatus: '', processingStatus: '', handoverStatus: '', factoryId: '', exception: '', currentPage: 1, sort: null as ProcessOrderListControllerState['sort'], preferences: { order: [], visibleKeys: [], frozenKeys: ['waterOrderNo'], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false, overlay: null as Overlay }
+const pendingAssignments = new Set<string>()
 
 function withSkipPageRerender(html: string): string {
   return html
@@ -261,7 +263,7 @@ function refreshList(): void { listController.refresh() }
 function refreshOverlay(): void { const node = document.querySelector<HTMLElement>('[data-water-soluble-overlay]'); if (node) node.innerHTML = renderOverlay() }
 function showToast(message: string, ok: boolean): void { const root = document.querySelector<HTMLElement>('[data-toast-container]'); if (root) root.insertAdjacentHTML('afterbegin', renderToast({ title: ok ? '操作成功' : '无法操作', description: message, variant: ok ? 'success' : 'danger' })) }
 
-export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boolean {
+export async function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): Promise<boolean> {
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-water-soluble-field]')
   if (field) {
     const name = field.dataset.waterSolubleField
@@ -295,7 +297,34 @@ export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boole
   if (action === 'open-handover') { const handoverOrderId = actionNode.dataset.handoverOrderId || ''; if (!handoverOrderId) return false; appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(handoverOrderId)}`); return true }
   if (action === 'open-detail' || action === 'open-assign') { state.overlay = { type: action === 'open-detail' ? 'detail' : 'assign', orderId: actionNode.dataset.orderId || '' }; refreshOverlay(); return true }
   if (action === 'close-overlay') { state.overlay = null; refreshOverlay(); return true }
-  if (action === 'confirm-assign') { const factoryId = document.querySelector<HTMLSelectElement>('[data-water-soluble-field="assignFactoryId"]')?.value || ''; const result = assignWaterSolubleFactory(actionNode.dataset.orderId || '', factoryId); showToast(result.message, result.ok); if (result.ok) { state.overlay = null; refreshOverlay(); refreshList() } return true }
+  if (action === 'confirm-assign') {
+    const orderId = actionNode.dataset.orderId || ''
+    if (pendingAssignments.has(orderId)) return true
+    const overlay = state.overlay
+    if (overlay?.type !== 'assign' || overlay.orderId !== orderId) return true
+    const page = document.querySelector('[data-testid="water-soluble-orders-page"]')
+    const factoryId = document.querySelector<HTMLSelectElement>('[data-water-soluble-field="assignFactoryId"]')?.value || ''
+    const intent = JSON.stringify({ orderId, factoryId })
+    if (actionNode.dataset.waterCommandIntent !== intent) {
+      actionNode.dataset.waterCommandIntent = intent
+      actionNode.dataset.waterCommandId = crypto.randomUUID()
+    }
+    const controls = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[data-water-soluble-overlay] input, [data-water-soluble-overlay] select, [data-water-soluble-overlay] button')]
+      .map(control => ({ control, disabled: control.disabled }))
+    const sameView = () => state.overlay === overlay && document.querySelector('[data-testid="water-soluble-orders-page"]') === page
+    pendingAssignments.add(orderId)
+    controls.forEach(({ control }) => { control.disabled = true })
+    try {
+      const result = await runWaterSolubleRecordCommand({ orderId, factoryId }, () => assignWaterSolubleFactory(orderId, factoryId), actionNode.dataset.waterCommandId, intent)
+      if (sameView()) { showToast(result.message, result.ok); state.overlay = null; refreshOverlay(); refreshList() }
+    } catch (error) {
+      if (sameView()) showToast(error instanceof Error ? error.message : '分配未保存，请保留选择后重试。', false)
+    } finally {
+      pendingAssignments.delete(orderId)
+      controls.forEach(({ control, disabled }) => { control.disabled = disabled })
+    }
+    return true
+  }
   if (action === 'prev-page') listController.stepPage(-1)
   else if (action === 'next-page') listController.stepPage(1)
   else if (action === 'sort-column') listController.cycleSort(actionNode.dataset.columnKey || '')

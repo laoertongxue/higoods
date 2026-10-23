@@ -1,4 +1,6 @@
 import type { MaterialPrepRow } from './material-prep-model.ts'
+import { computeUsableLength } from '../../../data/fcs/cutting/spreading-length.ts'
+export { computeUsableLength } from '../../../data/fcs/cutting/spreading-length.ts'
 import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import {
   DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
@@ -245,6 +247,9 @@ export interface SpreadingRollRecord {
   sourceChannel: SpreadingSourceChannel
   sourceWritebackId: string
   updatedFromPdaAt: string
+  /** Actual issue supporting this roll; measurements above retain the Web model's metres. */
+  sourceIssueEventId?: string
+  lastUpdatedById?: string
 }
 
 export interface SpreadingRollOperatorLayerRow {
@@ -500,6 +505,7 @@ export interface SpreadingOperationLog {
   logId: string
   occurredAt: string
   operatorName: string
+  operatorId?: string
   statusType: SpreadingOperationStatusType
   actionLabel: string
   fromStatusLabel: string
@@ -598,6 +604,10 @@ export interface SpreadingSession {
   updatedBy?: string
   completedAt?: string
   completedBy?: string
+  executionFactoryId?: string
+  completedByUserId?: string
+  cuttingStartedById?: string
+  cuttingFinishedById?: string
   warningMessages?: string[]
   importSource?: SpreadingImportSource | null
   planUnits?: SpreadingPlanUnit[]
@@ -1406,11 +1416,6 @@ export function deriveSpreadingModeMeta(mode: MarkerModeKey | string): MarkerSpr
 
 export function computeMarkerTotalPieces(sizeDistribution: MarkerSizeDistributionItem[]): number {
   return sizeDistribution.reduce((sum, item) => sum + Math.max(item.quantity, 0), 0)
-}
-
-export function computeUsableLength(actualLength: number, headLength: number, tailLength: number, layerCount = 1): number {
-  const normalizedLayerCount = Math.max(Number(layerCount || 0), 0)
-  return Number(((Number(actualLength || 0) * normalizedLayerCount) + Number(headLength || 0) + Number(tailLength || 0)).toFixed(2))
 }
 
 function normalizeOperatorLayerNumber(value: unknown): number | undefined {
@@ -2468,6 +2473,19 @@ export function createSpreadingDraftFromMarker(
     updatedFromPdaAt: baseSession?.updatedFromPdaAt || '',
     rolls: baseSession?.rolls ? [...baseSession.rolls] : [],
     operators: baseSession?.operators ? [...baseSession.operators] : [],
+    ...(baseSession?.actualCutGarmentQty !== undefined ? { actualCutGarmentQty: baseSession.actualCutGarmentQty } : {}),
+    ...(baseSession?.theoreticalCutGarmentQty !== undefined ? { theoreticalCutGarmentQty: baseSession.theoreticalCutGarmentQty } : {}),
+    ...(baseSession?.executionFactoryId !== undefined ? { executionFactoryId: baseSession.executionFactoryId } : {}),
+    ...(baseSession?.completedAt !== undefined ? { completedAt: baseSession.completedAt } : {}),
+    ...(baseSession?.completedBy !== undefined ? { completedBy: baseSession.completedBy } : {}),
+    ...(baseSession?.completedByUserId !== undefined ? { completedByUserId: baseSession.completedByUserId } : {}),
+    ...(baseSession?.cuttingStartedById !== undefined ? { cuttingStartedById: baseSession.cuttingStartedById } : {}),
+    ...(baseSession?.cuttingFinishedById !== undefined ? { cuttingFinishedById: baseSession.cuttingFinishedById } : {}),
+    ...(baseSession?.updatedBy !== undefined ? { updatedBy: baseSession.updatedBy } : {}),
+    ...(baseSession?.voidedAt !== undefined ? { voidedAt: baseSession.voidedAt } : {}),
+    ...(baseSession?.voidedBy !== undefined ? { voidedBy: baseSession.voidedBy } : {}),
+    ...(baseSession?.voidReason !== undefined ? { voidReason: baseSession.voidReason } : {}),
+    ...(baseSession?.voidEventId !== undefined ? { voidEventId: baseSession.voidEventId } : {}),
   }
 }
 
@@ -3440,6 +3458,7 @@ export function createSpreadingOperationLog(options: {
   logId?: string
   occurredAt: string
   operatorName?: string
+  operatorId?: string
   statusType: SpreadingOperationStatusType
   actionLabel: string
   fromStatusLabel: string
@@ -3461,6 +3480,7 @@ export function createSpreadingOperationLog(options: {
     logId: options.logId || fallbackId,
     occurredAt: options.occurredAt,
     operatorName: options.operatorName || '系统',
+    ...(options.operatorId ? { operatorId: options.operatorId } : {}),
     statusType: options.statusType,
     actionLabel: options.actionLabel,
     fromStatusLabel: options.fromStatusLabel,
@@ -3483,6 +3503,7 @@ export function normalizeSpreadingOperationLogs(logs: unknown): SpreadingOperati
         logId: raw.logId || `spreading-operation-log-${index + 1}`,
         occurredAt,
         operatorName: raw.operatorName || '系统',
+      ...(raw.operatorId ? { operatorId: raw.operatorId } : {}),
         statusType,
         actionLabel,
         fromStatusLabel,

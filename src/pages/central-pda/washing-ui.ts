@@ -1,0 +1,31 @@
+import type { CentralPdaLanguage } from './frame.ts'
+import { centralErrorText } from './ui.ts'
+import { dyeErrorText } from './dye-ui.ts'
+const labels={
+ zh:{reading:'正在读取',readError:'资料无法读取，请重新读取',washReceived:'洗水实收',incoming:'洗水来料',washedReturn:'洗后回货',printPreview:'单据与卷标',preview:'打印预览',print:'打印',printNotReady:'打印内容尚未就绪，请重试',receiptScope:'实收范围',receiptTab:'实收',washing:'洗水',order:'洗水加工单',scan:'扫单号 / 卷码',identify:'识别',start:'投入洗水',output:'登记产出',receive:'确认接收',handoff:'交回原接收方',actual:'查看实收',work:'加工',return:'交回',qty:'本次实收',outputQty:'实际产出',reference:'原数量',input:'实际投入',position:'实际库位',choosePosition:'选择库位',repack:'重包新卷码',keepCode:'留空保留原卷码',choose:'选择本次卷',selected:'本次已选',noPending:'当前没有可操作的卷',next:'下一单',clear:'清空本次填写',confirmAmounts:'确认本次实测数量',confirm:'确认提交',cancel:'取消',changed:'资料已变化，重新读取后核对',reload:'重新读取',saved:'本次已保存',saving:'正在保存',stored:'已保存，重新读取后查看',complete:'完单',completeWarning:'完单后只能查看',confirmComplete:'确认完单',originRoll:'原卷',outputRoll:'产出卷',handFeel:'目标手感',source:'上游',target:'下游',batch:'批次',whole:'整单',thisBatch:'本批',sent:'已交回',received:'下游实收',awaiting:'待对方实收',waiting:'等待前道交出',receivedState:'已接收',processing:'洗水中',produced:'已产出',closed:'已完单',cancelled:'已作废',blocked:'当前不可操作',sender:'交出人',receiver:'接收人',notSubmitted:'填写尚未保存',continue:'继续填写',discardLogout:'放弃填写并退出',login:'登录',account:'账号',password:'密码',noRecords:'暂无记录',empty:'暂无洗水加工单',noImage:'图片无法加载',locations:'库区库位',receiveRecords:'接收记录',handoffRecords:'交回记录',unknownPosition:'未登记产出库位',originalPosition:'原卷接收库位',remaining:'待投入',ready:'待交回'},
+ id:{reading:'Memuat data',readError:'Data belum dapat dimuat. Muat ulang.',washReceived:'Diterima pabrik cuci',incoming:'Bahan untuk cuci',washedReturn:'Hasil cuci kembali',printPreview:'Dokumen / label',preview:'Pratinjau cetak',print:'Cetak',printNotReady:'Pratinjau belum siap. Coba lagi.',receiptScope:'Cakupan terima',receiptTab:'Diterima',washing:'Pencucian',order:'Order cuci',scan:'Pindai order / kode rol',identify:'Cari',start:'Gunakan untuk cuci',output:'Catat hasil',receive:'Konfirmasi terima',handoff:'Kirim ke penerima asal',actual:'Lihat penerimaan',work:'Proses',return:'Kirim',qty:'Jumlah diterima',outputQty:'Jumlah hasil',reference:'Jumlah asal',input:'Bahan dipakai',position:'Lokasi barang',choosePosition:'Pilih lokasi',repack:'Kode rol baru',keepCode:'Kosongkan untuk memakai kode asal',choose:'Pilih rol untuk tindakan ini',selected:'Rol terpilih',noPending:'Belum ada rol untuk tindakan ini',next:'Order berikutnya',clear:'Kosongkan isian',confirmAmounts:'Konfirmasi jumlah terukur',confirm:'Konfirmasi simpan',cancel:'Batal',changed:'Data berubah. Muat ulang dan periksa.',reload:'Muat ulang',saved:'Isian sudah disimpan',saving:'Sedang menyimpan',stored:'Sudah tersimpan. Muat ulang untuk melihat.',complete:'Selesaikan order',completeWarning:'Setelah selesai, order hanya dapat dilihat.',confirmComplete:'Konfirmasi selesai',originRoll:'Rol asal',outputRoll:'Rol hasil',handFeel:'Hasil rabaan',source:'Dari',target:'Tujuan',batch:'Lot',whole:'Seluruh order',thisBatch:'Kiriman ini',sent:'Sudah dikirim',received:'Diterima tujuan',awaiting:'Menunggu penerima',waiting:'Menunggu kiriman asal',receivedState:'Sudah diterima',processing:'Sedang dicuci',produced:'Hasil tercatat',closed:'Order selesai',cancelled:'Dibatalkan',blocked:'Belum dapat diproses',sender:'Pengirim',receiver:'Penerima',notSubmitted:'Isian belum disimpan',continue:'Lanjut isi',discardLogout:'Buang isian dan keluar',login:'Masuk',account:'Akun',password:'Kata sandi',noRecords:'Belum ada catatan',empty:'Belum ada order cuci',noImage:'Gambar tidak dapat dimuat',locations:'Area / lokasi',receiveRecords:'Catatan terima',handoffRecords:'Catatan kirim',unknownPosition:'Lokasi hasil belum dicatat',originalPosition:'Lokasi terima rol asal',remaining:'Belum dipakai',ready:'Belum dikirim'},
+} as const
+export type WashingTextKey=keyof typeof labels.zh
+export const cwt=(lang:CentralPdaLanguage,key:WashingTextKey)=>labels[lang][key]
+export const washingNumber=(n:number,lang:CentralPdaLanguage)=>String(n).replace('.',lang==='id'?',':'.')
+export const washingUnit=(unit:string)=>unit==='米'?'m':unit
+export const washingFeel=(feel:string,lang:CentralPdaLanguage)=>lang==='zh'?feel:({'柔软手感':'Lembut','增厚蓬松棉手感':'Tebal dan mengembang','硬挺手感':'Kaku'}[feel]||feel)
+export function washingError(error:unknown,lang:CentralPdaLanguage){
+ const message=error instanceof Error?error.message:String(error)
+ if(message.startsWith('DYE_'))return dyeErrorText(error,lang)
+ const pairs:Record<string,[string,string]>={CW_read:[labels.zh.readError,labels.id.readError],CW_actor:['账号或工厂已变化，重新登录后核对','Akun atau pabrik berubah. Masuk lagi dan periksa.'],CW_changed:[labels.zh.changed,labels.id.changed],CW_select:['选择本次可操作的卷','Pilih rol yang dapat diproses.'],CW_target:['尚无已核对的接收方','Tujuan belum dikonfirmasi.'],CW_scanFirst:['扫齐本次交回的卷','Pindai setiap rol yang akan dikirim.'],CW_overReceipt:['实收不能超过本卷交出量','Jumlah diterima melebihi jumlah kiriman rol ini.'],CW_confirmAmounts:[labels.zh.confirmAmounts,labels.id.confirmAmounts],CW_position:[labels.zh.choosePosition,labels.id.choosePosition],CW_scan:['卷码不在本次操作范围，重新扫描','Kode rol bukan untuk tindakan ini. Pindai ulang.'],CW_duplicate:['本卷已选，继续扫下一卷','Rol sudah dipilih. Pindai rol berikutnya.'],CW_login:['账号或密码不正确','Akun atau kata sandi tidak sesuai.']}
+ const key=message.match(/CW_[A-Za-z]+/)?.[0]
+ if(key&&pairs[key])return pairs[key][lang==='id'?1:0]
+ if(/已保存/.test(message))return cwt(lang,'stored')
+ if(/资料无法读取|读取失败/.test(message))return cwt(lang,'readError')
+ if(/变化|版本|已更新|冲突/.test(message))return cwt(lang,'changed')
+ if(lang==='zh')return centralErrorText(error,lang)
+ if(/Code 128/.test(message))return 'Label tidak dapat dicetak dengan kode ini. Periksa kode rol.'
+ if(/卷码/.test(message))return pairs.CW_scan[1]
+ if(/库位|所在库/.test(message))return 'Lokasi barang tidak dapat digunakan. Periksa lokasi asal.'
+ if(/实收|数量/.test(message))return 'Periksa jumlah dan status rol yang dipilih.'
+ if(/未加工|未完成|不能人工完单/.test(message))return 'Masih ada rol yang belum selesai atau belum diterima tujuan.'
+ if(/来源|面料/.test(message))return 'Data bahan asal berubah. Muat ulang dan periksa.'
+ if(/已人工完成|已作废|实物异常/.test(message))return cwt(lang,'blocked')
+ return 'Belum tersimpan. Coba lagi.'
+}

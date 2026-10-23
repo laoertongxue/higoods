@@ -714,6 +714,11 @@ function normalizeSpecialCraftLineProgress(taskOrder: SpecialCraftTaskOrder): Sp
   }))
 }
 
+/** Same normalized quantity rows consumed by the current write guards; this read does not create a ledger entry. */
+export function readSpecialCraftTaskLineProgress(taskOrder: SpecialCraftTaskOrder): SpecialCraftTaskLineProgress[] {
+  return structuredClone(normalizeSpecialCraftLineProgress(taskOrder))
+}
+
 function summarizeLineProgress(lineProgress: SpecialCraftTaskLineProgress[]): Pick<SpecialCraftTaskOrder, 'receivedQty' | 'completedQty' | 'returnedQty' | 'waitHandoverQty' | 'currentQty'> {
   const receivedQty = roundQty(lineProgress.reduce((sum, row) => sum + row.receivedQty, 0))
   const completedQty = roundQty(lineProgress.reduce((sum, row) => sum + row.completedQty, 0))

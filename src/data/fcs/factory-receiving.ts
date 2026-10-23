@@ -256,7 +256,7 @@ export interface FactoryMaterialUse {
  id:string; printingOrderId?:string;dyeOrderId?:string; waterOrderId?:string; washingOrderId?:string; factoryId:string; operatorName:string; at:string;
  lines:Array<{receiptLineId:string;barcode?:string;qty:number;unit:'Yard'|'kg'|'米'}>
 }
-export function listFactoryMaterialUses(orderId?: string){return clone((read().materialUses ?? []).filter(use => !orderId || use.printingOrderId === orderId || use.dyeOrderId === orderId || use.waterOrderId === orderId))}
+export function listFactoryMaterialUses(orderId?: string){return clone((read().materialUses ?? []).filter(use => !orderId || use.printingOrderId === orderId || use.dyeOrderId === orderId || use.waterOrderId === orderId || use.washingOrderId === orderId))}
 export function convertReceiptQuantity(qty:number,from:string,to:string):number|undefined {
  const canonical=(u:string)=>['米','m'].includes(u)?'m':['Yard','yard','YARD','y'].includes(u)?'Yard':['kg','公斤'].includes(u)?'kg':u
  const a=canonical(from),b=canonical(to)

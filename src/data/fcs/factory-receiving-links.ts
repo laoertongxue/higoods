@@ -6,7 +6,7 @@ import {capturePdaHandoverState,restorePdaHandoverState,listPdaHandoverHeads,get
 import {convertReceiptQuantity,captureFactoryReceivingData,restoreFactoryReceivingData,getFactoryReceivingSource,listFactoryReceipts,listReceivingAllocations,getDyeReceivingConflict,allocateFactoryReceivedMaterial,prepareFactoryReceipt,savePreparedFactoryReceipt,type FactoryReceiptInput,type ReceivingAllocation} from './factory-receiving.ts'
 import {listDyeWorkOrders} from './dyeing-task-domain.ts'
 import {readWoolStore} from './wool-domain/store.ts'
-import {getPdaSession} from './store-domain-pda.ts'
+import {getPdaSession,readFactoryPdaExecutionUsers} from './store-domain-pda.ts'
 export function listReceivingAllocationTargets(receiptLineId:string){
  const receipt=listFactoryReceipts().find(r=>r.lines.some(l=>l.id===receiptLineId)),line=receipt?.lines.find(l=>l.id===receiptLineId)
  if(!receipt||!line||line.material.kind==='WOOL_PIECE'||line.printingOrderId||line.dyeOrderId||line.waterOrderId||line.woolOrderId)return []
@@ -15,17 +15,31 @@ export function listReceivingAllocationTargets(receiptLineId:string){
  if(line.material.kind==='YARN'&&woolOrders.length)return woolOrders.filter(o=>o.outputPlanLines.some(l=>l.requiredYarnSkus.includes(line.material.sku))).map(o=>({id:o.woolOrderId,no:o.woolOrderNo,kind:'wool' as const}))
  return [...listPrintingWorkOrders().filter(o=>o.printFactoryId===receipt.factoryId&&o.plannedInput.sku===line.material.sku&&!o.manuallyCompletedAt&&o.processingStatus!=='CANCELLED'&&!getPrintingReceivingConflict(o.workOrderId,line.material.sku,line.origin)).map(o=>({id:o.workOrderId,no:o.printOrderNo,kind:'printing' as const})),...listWaterSolubleWorkOrders().filter(o=>o.factoryId===receipt.factoryId&&o.materialCode===line.material.sku&&o.status!=='DONE').map(o=>({id:o.waterOrderId,no:o.waterOrderNo,kind:'water' as const})),...listDyeWorkOrders().filter(o=>o.dyeFactoryId===receipt.factoryId&&(DYE_DEMO_DETAILS[o.dyeOrderId]?.rawSku||o.rawMaterialSku)===line.material.sku&&!getDyeReceivingConflict(o.dyeOrderId,line.material.sku,line.origin)&&!['COMPLETED','REJECTED'].includes(o.status)).map(o=>({id:o.dyeOrderId,no:o.dyeOrderNo,kind:'dye' as const}))]
 }
-export function allocateReceivedMaterialToOrder(input:ReceivingAllocation){
- const session=getPdaSession(),receipt=listFactoryReceipts().find(r=>r.lines.some(l=>l.id===input.receiptLineId))
- if(session&&receipt?.factoryId!==session.factoryId)throw new Error('当前操作人只能分配本厂实际接收的备料。')
+export function allocateReceivedMaterialToOrder(input:ReceivingAllocation,actor?:FactoryMaterialReceiptActor){
+ const receipt=listFactoryReceipts().find(r=>r.lines.some(l=>l.id===input.receiptLineId))
+ if(actor){
+  const current=readFactoryPdaExecutionUsers(actor.factoryId).find(user=>user.userId===actor.userId)
+  if(receipt?.factoryId!==actor.factoryId||input.operatorName!==actor.name||!current||current.status!=='ACTIVE'||current.name!==actor.name)throw new Error('分配人与当前账号不一致，请重新登录。')
+ }else{
+  const session=getPdaSession()
+  if(session&&receipt?.factoryId!==session.factoryId)throw new Error('当前操作人只能分配本厂实际接收的备料。')
+ }
  if(listReceivingAllocations().some(a=>a.id===input.id)){allocateFactoryReceivedMaterial(input);return}
 
  if(!listReceivingAllocationTargets(input.receiptLineId).some(t=>t.id===(input.printingOrderId||input.dyeOrderId||input.waterOrderId||input.woolOrderId)))throw new Error('请选择本厂、同一物料 SKU 的有效加工单；染色和印花单还须来自同一上游。')
  allocateFactoryReceivedMaterial(input)
 }
-export function confirmFactoryMaterialReceipt(input:FactoryReceiptInput){
- const session=getPdaSession()
- if(session&&session.factoryId!==input.factoryId)throw new Error('当前操作人只能接收本厂来货，请核对登录工厂。')
+export interface FactoryMaterialReceiptActor {factoryId:string;userId:string;name:string}
+export function confirmFactoryMaterialReceipt(input:FactoryReceiptInput,actor?:FactoryMaterialReceiptActor){
+ // Independent PDA experiences pass their actual account. Existing Web and
+ // legacy PDA callers retain the device-session boundary below.
+ if(actor){
+  const current=readFactoryPdaExecutionUsers(actor.factoryId).find(user=>user.userId===actor.userId)
+  if(actor.factoryId!==input.factoryId||actor.userId!==input.operatorId||actor.name!==input.operatorName||!current||current.status!=='ACTIVE'||current.name!==actor.name)throw new Error('接收人与当前账号不一致，请重新登录。')
+ }else{
+  const session=getPdaSession()
+  if(session&&session.factoryId!==input.factoryId)throw new Error('当前操作人只能接收本厂来货，请核对登录工厂。')
+ }
  const receipt=prepareFactoryReceipt(input)
  if(listFactoryReceipts(input.factoryId).some(saved=>saved.id===receipt.id))return receipt
  // Only wool receipts need the wool domain. Initializing its demo facts inside

@@ -1,4 +1,5 @@
 import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
+import { runWaterSolubleRecordCommand } from '../../../data/fcs/water-soluble-records.ts'
 // @page-pattern: list
 import { openDyeBarcodeDialog, handleDyeBarcodeEvent } from './barcode-dialog.ts'
 import { escapeHtml as e } from '../../../utils.ts'
@@ -21,6 +22,7 @@ const getDyeDispatchStatus = dye.getDyeDispatchStatus
 const dyeApi={rolls:dye.getDyeOutputRolls,docs:dye.listDyeDispatchDocuments,create:dye.createDyeDispatchDocument,finish:dye.finishDyeDispatchDocument,available:dye.getDyeDispatchAvailableQty,scan:dye.scanDyeDispatchRoll,transport:dye.saveDyeDispatchTransport,isAvailable:dye.isDyeRollAvailable}
 const waterApi={rolls:water.getWaterOutputRolls,docs:water.listWaterDispatchDocuments,create:water.createWaterDispatchDocument,finish:water.finishWaterDispatchDocument,available:water.getWaterDispatchAvailableQty,scan:water.scanWaterDispatchRoll,transport:water.saveWaterDispatchTransport,isAvailable:water.isWaterRollAvailable}
 let process:'dye'|'water'='dye',api=dyeApi
+let savingOutputCommand=false
 const processLabel=()=>process==='water'?'水溶':'染色'
 const route=(next:'pending'|'documents')=>`/fcs/craft/dyeing/${process==='water'?'water-soluble-':''}${next==='pending'?'pending-handover':'handover-documents'}`
 const orderRoute=(id:string)=>process==='water'?`/fcs/craft/dyeing/water-soluble-orders?orderId=${encodeURIComponent(id)}`:`/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeURIComponent(id)}`
@@ -169,8 +171,22 @@ export async function handleDyeOutputEvent(target:HTMLElement,event?:Event):Prom
   if(target.matches('[data-dye-output-select],[data-dye-output-select-order]')){if(event?.type==='click')return true;const input=target as HTMLInputElement;const keys=input.dataset.dyeOutputSelect?[input.dataset.dyeOutputSelect]:api.rolls(input.dataset.dyeOutputSelectOrder!).filter(r=>api.isAvailable(input.dataset.dyeOutputSelectOrder!,r)).map(r=>`${input.dataset.dyeOutputSelectOrder}|${r.id}`);keys.forEach(k=>input.checked?selected.add(k):selected.delete(k));syncSelection();return true}
   if(target.matches('[data-dye-output-field="pageSize"]')){if(event?.type==='click')return true;preferences.pageSize=Number((target as HTMLSelectElement).value);page=1;persist();refreshList();return true}
   if(!action)return Boolean(target.closest('[data-dye-output-field]'))
+  if(savingOutputCommand&&['save-document','scan','save-transport','confirm','void'].includes(action))return true
   if(event?.type==='change'&&action!=='toggle-column-visibility'&&action!=='toggle-column-freeze')return true
   if(!target.matches('input[type=checkbox]'))event?.preventDefault();message('')
+  const commandPage=target.closest('[data-dye-output-page]'),commandProcess=process,commandOverlay=overlay,commandDoc=docId,dataApi=api,commandHost=document.querySelector('[data-dye-output-overlays]')?.firstElementChild
+  let commandStarted=false
+  const sameView=()=>commandPage?.isConnected&&commandPage===document.querySelector('[data-dye-output-page]')&&process===commandProcess&&overlay===commandOverlay&&docId===commandDoc&&commandHost===document.querySelector('[data-dye-output-overlays]')?.firstElementChild
+  const save=async<T>(target:unknown,input:unknown,recipe:()=>T)=>{
+    const actor=JSON.stringify(getPdaSession()),intent=JSON.stringify({process:commandProcess,action,target,input,actor})
+    if(actionNode!.dataset.outputCommandIntent!==intent){actionNode!.dataset.outputCommandIntent=intent;actionNode!.dataset.outputCommandId=crypto.randomUUID()}
+    const host=actionNode!.closest('[role="dialog"]'),controls=[...(host?.querySelectorAll<HTMLInputElement>('input,select,textarea,button')||[])].map(control=>({control,disabled:control.disabled}))
+    commandStarted=true;savingOutputCommand=true;controls.forEach(({control})=>{control.disabled=true})
+    try{
+      const apply=()=>{if(actor!==JSON.stringify(getPdaSession()))throw new Error('当前登录已变化，请重新核对后保存。');return recipe()}
+      return commandProcess==='water'?await runWaterSolubleRecordCommand(target,apply,actionNode!.dataset.outputCommandId,intent):await runDesignRevisionFcsCommand(target,apply)
+    }finally{savingOutputCommand=false;controls.forEach(({control,disabled})=>{if(control.isConnected)control.disabled=disabled})}
+  }
   try{
     if(action==='toggle-more'){showMore=!showMore;document.querySelector<HTMLElement>('[data-dye-output-more]')!.hidden=!showMore;actionNode!.textContent=showMore?'收起更多':'更多筛选';actionNode!.setAttribute('aria-expanded',String(showMore));return true}
     if(action==='close-overlay'){overlay='';refreshOverlay();return true}
@@ -178,10 +194,10 @@ export async function handleDyeOutputEvent(target:HTMLElement,event?:Event):Prom
     if(action==='detail'||action==='print-doc'){docId=id;overlay=action==='detail'?'detail':'print';refreshOverlay();return true}
     if(action==='print-frame'){document.querySelector<HTMLIFrameElement>('[data-dye-output-print]')?.contentWindow?.print();return true}
     if(action==='create'||action==='join'||action==='join-row'){if(action==='join-row'){selected.clear();api.rolls(id).filter(r=>api.isAvailable(id,r)).forEach(r=>selected.add(`${id}|${r.id}`));syncSelection()}if(!selected.size)throw new Error('请先选择可交出的卷。');if(new Set(selections().map(s=>info(s.orderId).factoryId)).size!==1)throw new Error('不同加工厂请分别建单。');overlay=action==='create'?'create':'join';refreshOverlay();return true}
-    if(action==='save-document'){const merge=read('merge');if(overlay==='join'&&!merge)throw new Error('请选择尚未交出的单据。');const doc=await runDesignRevisionFcsCommand(selections(), () => api.create(selections(),read('operator'),overlay==='join'?merge:undefined));docId=doc.id;selected.clear();overlay='detail';refreshList();refreshOverlay();message('单据已保存，可逐卷扫码核对。');return true}
-    if(action==='scan'){const scanner=read('scanner');await runDesignRevisionFcsCommand(id, () => api.scan(id,read('scan'),scanner));refreshList();refreshOverlay();const input=document.querySelector<HTMLInputElement>('[data-dye-output-field="scanner"]');if(input)input.value=scanner;message('本卷核对成功。');return true}
-    if(action==='save-transport'){await runDesignRevisionFcsCommand(id, () => api.transport(id,{driver:read('driver'),vehicle:read('vehicle'),plate:read('plate'),note:read('note')}));refreshList();message('运输信息已保存。');return true}
-    if(action==='confirm'||action==='void'){if(!window.confirm(action==='confirm'?'确认实物已按本单交给司机？下游将依据实际到货单独接收。':'确认作废此单并释放占用的卷？'))return true;await runDesignRevisionFcsCommand(id, () => api.finish(id,action));refreshList();refreshOverlay();message(action==='confirm'?'交出已保存，等待下游登记实收。':'单据已作废，所选卷已释放。');return true}
+    if(action==='save-document'){const merge=read('merge'),join=overlay==='join',chosen=selections(),operator=read('operator');if(join&&!merge)throw new Error('请选择尚未交出的单据。');const doc=await save(chosen,{merge,join,operator},()=>dataApi.create(chosen,operator,join?merge:undefined));if(!sameView())return true;docId=doc.id;selected.clear();overlay='detail';refreshList();refreshOverlay();message('单据已保存，可逐卷扫码核对。');return true}
+    if(action==='scan'){const scanner=read('scanner'),code=read('scan');await save(id,{scanner,code},()=>dataApi.scan(id,code,scanner));if(!sameView())return true;refreshList();refreshOverlay();const input=document.querySelector<HTMLInputElement>('[data-dye-output-field="scanner"]');if(input)input.value=scanner;message('本卷核对成功。');return true}
+    if(action==='save-transport'){const transport={driver:read('driver'),vehicle:read('vehicle'),plate:read('plate'),note:read('note')};await save(id,transport,()=>dataApi.transport(id,transport));if(!sameView())return true;refreshList();message('运输信息已保存。');return true}
+    if(action==='confirm'||action==='void'){if(!window.confirm(action==='confirm'?'确认实物已按本单交给司机？下游将依据实际到货单独接收。':'确认作废此单并释放占用的卷？'))return true;await save(id,{action},()=>dataApi.finish(id,action));if(!sameView())return true;refreshList();refreshOverlay();message(action==='confirm'?'交出已保存，等待下游登记实收。':'单据已作废，所选卷已释放。');return true}
     if(action==='factory'){factory=id;page=1;selected.clear()}
     else if(action==='query'){keyword=read('keyword');receiver=read('receiver');status=read('status');ready=read('ready');dateFrom=read('dateFrom');dateTo=read('dateTo');if(dateFrom&&dateTo&&dateFrom>dateTo)throw new Error('开始日期不能晚于结束日期。');page=1;selected.clear()}
     else if(action==='reset'){keyword=receiver=status=ready=dateFrom=dateTo='';if(process==='water'&&mode==='pending')status='待建单据';page=1;selected.clear()}
@@ -195,7 +211,7 @@ export async function handleDyeOutputEvent(target:HTMLElement,event?:Event):Prom
     else if(action==='move-column-up'||action==='move-column-down'){const key=actionNode!.dataset.dyeOutputColumnKey!,a=preferences.order.indexOf(key),b=a+(action==='move-column-up'?-1:1);if(a>=0&&b>=0&&b<preferences.order.length){[preferences.order[a],preferences.order[b]]=[preferences.order[b],preferences.order[a]];persist()}}
     else return false
     refreshList()
-  }catch(error){message(error instanceof Error?error.message:'操作未保存，请核对输入后重试。',true)}
+  }catch(error){if(!commandStarted||sameView())message(error instanceof Error?error.message:'操作未保存，请核对输入后重试。',true)}
   return true
 }
 if(typeof document!=='undefined'){

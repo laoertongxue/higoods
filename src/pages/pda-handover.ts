@@ -1,4 +1,6 @@
 import { renderWashingFactoryStockSection } from './process-factory/dyeing/washing/work-orders.ts'
+import { currentThirdPartyPdaFactoryId, isCurrentPdaHandoverInScope, isCurrentPdaExecutionInScope } from './pda-third-party-scope.ts'
+import { getMobileExecutionTaskById } from '../data/fcs/mobile-execution-task-index.ts'
 import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
 import { handlePostFinishingStorageEvent } from './process-factory/post-finishing/storage-notice.ts'
 import { getSpecialCraftTaskOrderById } from '../data/fcs/special-craft-task-orders.ts'
@@ -153,6 +155,7 @@ function ensureSewingPickupCommandId(versionId: string): string {
 
 function renderSewingPickupScanPage(versionId: string, runtime: NonNullable<ReturnType<typeof getPdaRuntimeContext>>): string {
   const slip = getSewingPickupSlipVersion(versionId)
+  if (currentThirdPartyPdaFactoryId() && slip?.factoryId !== runtime.factoryId) return renderPdaFrame('<main class="p-4"><p>未找到领料单</p><button class="mt-3 min-h-12 rounded-xl border p-3" data-nav="/fcs/pda/handover">返回交接</button></main>', 'handover', { disableTodoAutoOpen: true })
   if (!slip) {
     return renderPdaFrame(`<main class="min-h-[760px] bg-slate-100 p-4"><section class="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800"><h1 class="font-semibold">无法识别领料单</h1><p class="mt-2 text-sm">二维码对应的领料单不存在，请回到PPIC任务页重新打印。</p></section></main>`, 'handover', { disableTodoAutoOpen: true })
   }
@@ -1020,6 +1023,13 @@ export function renderPdaHandoverPage(): string {
     return renderPdaLoginRedirect()
   }
 
+  const thirdParty = !!currentThirdPartyPdaFactoryId()
+  const taskFilter = getCurrentSearchParams().get('taskId')
+  if (thirdParty && (['woolFinalCraftOrderId', 'materialOrderNo'].some(key => getCurrentSearchParams().has(key))
+    || taskFilter && !isCurrentPdaExecutionInScope(getMobileExecutionTaskById(taskFilter)))) {
+    return renderPdaFrame('<main class="p-4"><p>未找到交接单</p><button class="mt-3 min-h-12 rounded-xl border p-3" data-nav="/fcs/pda/handover">返回交接</button></main>', 'handover', { disableTodoAutoOpen: true })
+  }
+
   const sewingPickupVersionId = getCurrentSearchParams().get('sewingPickupVersionId') || ''
   if (sewingPickupVersionId) return renderSewingPickupScanPage(sewingPickupVersionId, runtime)
 
@@ -1049,7 +1059,7 @@ export function renderPdaHandoverPage(): string {
     return `<main class="min-h-screen bg-slate-100 p-4"><section class="rounded-xl border border-amber-300 bg-amber-50 p-4"><h1 class="text-base font-semibold">接收记录</h1><p role="alert" class="mt-3 text-sm">${escapeHtml(simpleReceiptReadError)}</p><a href="/fcs/pda/handover?tab=pickup" class="mt-4 inline-flex min-h-11 items-center rounded-lg border bg-white px-4 text-sm font-medium">恢复存储后重新加载</a></section></main>`
   }
   // One current snapshot supplies all tabs; special-craft details initialize their own data when opened.
-  const factoryHeads = listPdaHandoverHeadsByFactory(selectedFactoryId)
+  const factoryHeads = listPdaHandoverHeadsByFactory(selectedFactoryId).filter(isCurrentPdaHandoverInScope)
   const simpleReceiptHeads = factoryHeads.filter((head) => head.completionStatus === 'COMPLETED' && head.simpleCutPieceReceipt)
   syncTabWithQuery(isPostFinishingFactory, simpleReceiptHeads.length > 0)
   const materialOrderNo = getCurrentSearchParams().get('materialOrderNo') || ''
@@ -1059,9 +1069,9 @@ export function renderPdaHandoverPage(): string {
     ensureKolGotoPdaScenarios()
     return renderKolGotoHandoverPage()
   }
-  const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
-  const hasBindingOrders = hasBindingProcessOrdersForFactory(selectedFactoryId)
-  const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
+  const hasWoolOrders = !thirdParty && hasWoolOrdersForFactory(selectedFactoryId)
+  const hasBindingOrders = !thirdParty && hasBindingProcessOrdersForFactory(selectedFactoryId)
+  const hasSpecialCraftOrders = !thirdParty && hasSpecialCraftOrdersForFactory(selectedFactoryId)
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
   const pickupHeads = isPostFinishingFactory
     ? getPdaPostFinishingPickupHeads()
@@ -1117,7 +1127,7 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
-        ${state.activeTab==='pickup'?renderWashingFactoryStockSection(runtime.factoryId,'WAIT_PROCESS'):state.activeTab==='handout'?renderWashingFactoryStockSection(runtime.factoryId,'WAIT_HANDOVER'):''}
+        ${thirdParty?'':state.activeTab==='pickup'?renderWashingFactoryStockSection(runtime.factoryId,'WAIT_PROCESS'):state.activeTab==='handout'?renderWashingFactoryStockSection(runtime.factoryId,'WAIT_HANDOVER'):''}
         ${state.activeTab === 'received' && simpleReceiptHeads.length ? `<section class="rounded-xl border bg-white p-3"><h2 class="font-semibold">裁片接收记录</h2><p class="mt-1 text-xs text-muted-foreground">仓库已确认，PPIC 与工厂已接收，无需再次确认。</p>${simpleReceiptHeads.map((h) => `<a data-nav="/fcs/pda/handover/${encodeURIComponent(h.handoverId)}" class="mt-3 block rounded-lg border p-3 text-sm"><b>${escapeHtml(h.handoverOrderNo || '')} · 已接收</b><p>${escapeHtml(h.productionOrderNo || '')} / ${escapeHtml(h.taskNo)}</p><p>${h.qtyActualTotal} 片 · ${escapeHtml(h.lastRecordAt || '')}</p></a>`).join('')}</section>` : ''}
         ${hasBindingOrders && state.activeTab !== 'received' ? renderBindingHandoverScanPanel() : ''}
         ${hasWoolOrders && state.activeTab !== 'received' ? renderWoolHandoverScanPanel() : ''}
@@ -1170,6 +1180,18 @@ export function renderPdaHandoverPage(): string {
 }
 
 export async function handlePdaHandoverEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (currentThirdPartyPdaFactoryId()) {
+    const action = target.closest<HTMLElement>('[data-pda-handover-action]')
+    const name = action?.dataset.pdaHandoverAction
+    if (!name || !['switch-tab', 'open-detail', 'open-new-record', 'confirm-sewing-pickup'].includes(name)) return true
+    if (name === 'open-detail' || name === 'open-new-record') {
+      if (!isCurrentPdaHandoverInScope(findPdaHandoverHead(action!.dataset.eventId || ''))) return true
+    }
+    if (name === 'confirm-sewing-pickup') {
+      const slip = getSewingPickupSlipVersion(getCurrentSearchParams().get('sewingPickupVersionId') || '')
+      if (slip?.factoryId !== getPdaRuntimeContext()?.factoryId) return true
+    }
+  }
   const postField = target.closest<HTMLInputElement | HTMLSelectElement>('[data-pda-post-qty],[data-pda-post-location]')
   if (postField && (event?.type === 'input' || event?.type === 'change')) { if (managedPostBusy) return true; const id = postField.dataset.pdaPostQty || postField.dataset.pdaPostLocation || ''; managedPostDrafts.set(`${postField.hasAttribute('data-pda-post-qty') ? 'qty' : 'location'}:${id}`, postField.value); managedPostDirty = true; managedPostPending = null; return true }
 

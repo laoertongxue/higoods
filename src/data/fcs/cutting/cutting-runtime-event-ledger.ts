@@ -174,7 +174,7 @@ export interface WaitProcessIssuePayload {
   spreadingOrderNo: string
   materialSku: string
   issuedQty: number
-  unit: 'yard'
+  unit: CuttingRuntimeQtyUnit
   rollCount: number
   rollNos: string[]
   fromWarehouseArea: string
@@ -185,6 +185,9 @@ export interface WaitProcessIssuePayload {
   pickupSessionId?: string
   sourceInboundEventIds?: string[]
   warehouseLocations?: RuntimeWarehouseLocationRef[]
+  cuttingSource?: unknown
+  receivedBy?: string
+  receivedById?: string
   /** 旧事件只读兼容；新提交统一写 warehouseLocations。 */
   locationRef?: RuntimeWarehouseLocationRef
 }
@@ -196,7 +199,7 @@ export interface WaitProcessReturnPayload {
   spreadingOrderNo: string
   materialSku: string
   returnedQty: number
-  unit: 'yard'
+  unit: CuttingRuntimeQtyUnit
   rollCount: number
   rollNos: string[]
   warehouseArea: string
@@ -205,6 +208,9 @@ export interface WaitProcessReturnPayload {
   returnedAt: string
   reason: '铺布剩余' | '取消加工' | '其他'
   warehouseLocations?: RuntimeWarehouseLocationRef[]
+  sourceIssueEventId?: string
+  sourcePickupSessionId?: string
+  cuttingSource?: unknown
   /** 旧事件只读兼容；新提交统一写 warehouseLocations。 */
   locationRefs?: RuntimeWarehouseLocationRef[]
   storageFootprint?: {
@@ -1112,8 +1118,7 @@ export function persistCuttingRuntimeEventLedgerStore(
     const previous = hydrateCuttingRuntimeEventLedgerStore(storage).events
     const before = new Map(previous.map(event => [event.eventId, JSON.stringify(event)]))
     const changed = store.events.filter(event => before.get(event.eventId) !== JSON.stringify(event))
-    const affected = MANAGED_CUTTING_EVENT_TYPES
-    if (changed.some(event => event.eventSource !== 'MOCK' && affected.has(event.eventType))) throw new Error('本次裁后动作尚未保存，请从当前装袋、交出或回收页面重新确认。')
+    if (changed.some(event => event.eventSource !== 'MOCK' && isManagedCuttingEvent(event))) throw new Error('本次裁床动作尚未保存，请重新读取后确认。')
     for (const event of changed.filter(event => event.eventSource === 'MOCK')) staticRuntimeEvents.set(event.eventId, event)
     if (changed.some(event => event.eventSource === 'MOCK')) eventProjectionRevision++
     if (!changed.some(event => event.eventSource !== 'MOCK')) return store
@@ -1341,7 +1346,7 @@ export function listCuttingRuntimeEventsByInventoryScope(
   inventoryScope: CuttingRuntimeInventoryScope,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent[] {
-  return (inventoryScope === '裁床待交出仓' ? listManagedCuttingRuntimeEvents(storage) : listCuttingRuntimeEvents(storage)).filter((event) => event.inventoryEffect?.inventoryScope === inventoryScope)
+  return listManagedCuttingRuntimeEvents(storage).filter((event) => event.inventoryEffect?.inventoryScope === inventoryScope)
 }
 
 export type PdaRuntimeEventProjectionSourceChannel = 'PDA'

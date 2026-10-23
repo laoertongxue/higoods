@@ -32,6 +32,12 @@ export function isKnownPrintingFactoryDemoIdentity(orderId: string, taskId: stri
     || (match[1] === '09' && (factoryId === 'DYE-GOTO-GLOBAL' || factoryId === 'ID-FAC-001165'))
 }
 
+/** Existing washing scenarios have their own fixed task identities, separate from supplier slots. */
+export function isKnownWashingPrintDemoIdentity(orderId: string, taskId: string, factoryId: string): boolean {
+  return /^PWO-WASH-DEMO-(?:PRODUCTION|PRODUCTION_DEMAND|PURCHASE|STOCK|SUPPLEMENT|DESIGN_REVISION)-(?:DONE|PAPER)$/.test(orderId)
+    && taskId === `TASK-${orderId}` && factoryId === 'F090'
+}
+
 export function listPrintingFactoryOptions(records: ReadonlyArray<{ printFactoryId: string; printFactoryName: string }> = []): Array<{ id: string; name: string }> {
   const options = new Map<string, { id: string; name: string }>(PRINTING_FACTORIES.map(factory => [factory.id, { ...factory }]))
   for (const record of records) {

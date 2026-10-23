@@ -1,3 +1,5 @@
+import { convertCuttingQuantity } from './cutting-quantity-unit.ts'
+import { spreadingAllocatedMaterial } from './spreading-material-allocation.ts'
 import { listMaterialPrepOrderProjections } from './production-material-prep.ts'
 import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import {
@@ -15,6 +17,7 @@ export type SpreadingMaterialReadinessStatusKey =
   | 'READY'
   | 'NOT_CLAIMED'
   | 'SHORTAGE'
+  | 'UNIT_MISMATCH'
 
 export interface SpreadingMaterialReadinessSourceRow {
   cutOrderId: string
@@ -40,6 +43,8 @@ export interface SpreadingMaterialReadiness {
   consumedQty: number
   returnedQty: number
   availableQty: number
+  warehouseAvailableQty: number
+  allocatedToOrderQty: number
   shortageQty: number
   unit: string
   reasonText: string
@@ -51,6 +56,8 @@ export interface SpreadingMaterialReadinessInput {
   sourceCutOrderNos?: string[]
   plannedMaterialUsage?: number
   plannedMaterialUsageUnit?: string
+  spreadingOrderId?: string
+  factoryId?: string
 }
 
 const READY_CLASS = 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -97,7 +104,9 @@ function listRuntimeWaitProcessEvents(): CuttingRuntimeEvent[] {
     })
 }
 
-function cloneLedgerRow(row: MaterialLedgerProjection): MaterialLedgerProjection {
+interface SpreadingLedgerProjection extends MaterialLedgerProjection { readinessUnitIssue?: boolean }
+
+function cloneLedgerRow(row: MaterialLedgerProjection): SpreadingLedgerProjection {
   return {
     ...row,
     materialIdentity: { ...row.materialIdentity },
@@ -113,6 +122,7 @@ function cloneLedgerRow(row: MaterialLedgerProjection): MaterialLedgerProjection
 function isRuntimeEventForLedgerRow(event: CuttingRuntimeEvent, row: MaterialLedgerProjection): boolean {
   const payload = runtimeRecord(event.payload)
   const materialSku = event.material?.materialSku || runtimeString(payload.materialSku)
+  if (materialSku && materialSku !== row.materialIdentity.materialSku) return false
   if (event.refs.cutOrderId) return event.refs.cutOrderId === row.cutOrderId
   // Old pickup writes used the production number in cutOrderNo; only that known alias falls through.
   if (event.refs.cutOrderNo && event.refs.cutOrderNo !== event.refs.productionOrderNo) return event.refs.cutOrderNo === row.cutOrderNo
@@ -129,7 +139,7 @@ function isRuntimeEventForLedgerRow(event: CuttingRuntimeEvent, row: MaterialLed
   return sources.filter(cut => cut.productionOrderNo === row.productionOrderNo && cut.materialSku === materialSku).length === 1
 }
 
-function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
+function buildRuntimeAdjustedLedgerRows(): SpreadingLedgerProjection[] {
   const rows = listMaterialLedgerProjections().map(cloneLedgerRow)
   const runtimeEvents = listRuntimeWaitProcessEvents()
   const productionOrderIds = new Set(rows.map(row => row.productionOrderId))
@@ -149,8 +159,9 @@ function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
     let returnedQty = row.returnedQty
     let availableQty = row.availableQty
 
+    let readinessUnitIssue = false
     matchedEvents.forEach((event) => {
-      const qty = getRuntimeWaitProcessQty(event)
+      let qty = getRuntimeWaitProcessQty(event)
       if (qty <= 0) return
       const payload = runtimeRecord(event.payload)
       const unit = event.inventoryEffect?.unit || event.material?.unit || runtimeString(payload.unit)
@@ -163,7 +174,11 @@ function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
           && prepLine?.prepLineId === payload.prepLineId && allocations.length > 0
           && allocations.every(allocation => allocation.prepLineId === prepLine?.prepLineId && allocation.unit === row.unit)
           && roundQty(allocations.reduce((sum, allocation) => sum + allocation.pickedQty, 0)) === roundQty(qty)
-        if (!provenLegacyUnit) return
+        if (!provenLegacyUnit) {
+          const converted = convertCuttingQuantity(qty, unit, row.unit)
+          if (converted === null) { readinessUnitIssue = true; return }
+          qty = converted
+        }
       }
       if (event.eventType === '中转仓接收') {
         cuttingClaimedQty += qty
@@ -181,6 +196,7 @@ function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
 
     return {
       ...row,
+      readinessUnitIssue,
       cuttingClaimedQty: roundQty(cuttingClaimedQty),
       spreadingConsumedQty: roundQty(spreadingConsumedQty),
       returnedQty: roundQty(returnedQty),
@@ -189,8 +205,8 @@ function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
   })
 }
 
-export function buildRuntimeAdjustedLedgerMap(): Record<string, MaterialLedgerProjection> {
-  const map: Record<string, MaterialLedgerProjection> = {}
+export function buildRuntimeAdjustedLedgerMap(): Record<string, SpreadingLedgerProjection> {
+  const map: Record<string, SpreadingLedgerProjection> = {}
   buildRuntimeAdjustedLedgerRows().forEach((row) => {
     map[row.cutOrderId] = row
     map[row.cutOrderNo] = row
@@ -220,6 +236,7 @@ function buildReasonText(input: {
   const planned = `${input.plannedUsageQty.toFixed(2)} ${input.unit}`
   const available = `${input.availableQty.toFixed(2)} ${input.unit}`
   const shortage = `${input.shortageQty.toFixed(2)} ${input.unit}`
+  if (input.statusKey === 'UNIT_MISMATCH') return '来源数量单位与计划用料单位不能换算，不能开始铺布。'
   if (input.statusKey === 'READY') return `计划用量 ${planned}，当前可用 ${available}，可开始铺布。`
   if (input.statusKey === 'NOT_CLAIMED') return '来源裁片单尚未完成裁床接收，不能开始铺布。'
   if (input.plannedUsageQty <= 0) return '铺布单缺少计划用量，不能开始铺布。'
@@ -234,20 +251,30 @@ export function resolveSpreadingMaterialReadiness(
   const sourceRows = resolveLedgerRows(input, ledgerMap)
   const plannedUsageQty = roundQty(Math.max(Number(input.plannedMaterialUsage || 0), 0))
   const unit = input.plannedMaterialUsageUnit || sourceRows[0]?.unit || '米'
-  const claimedQty = roundQty(sourceRows.reduce((sum, row) => sum + Number(row.cuttingClaimedQty || 0), 0))
-  const consumedQty = roundQty(sourceRows.reduce((sum, row) => sum + Number(row.spreadingConsumedQty || 0), 0))
-  const returnedQty = roundQty(sourceRows.reduce((sum, row) => sum + Number(row.returnedQty || 0), 0))
-  const availableQty = roundQty(sourceRows.reduce((sum, row) => sum + Number(row.availableQty || 0), 0))
+  let unitMismatch = sourceRows.some(row => (row as SpreadingLedgerProjection).readinessUnitIssue)
+  const total = (field: 'cuttingClaimedQty' | 'spreadingConsumedQty' | 'returnedQty' | 'availableQty') => roundQty(sourceRows.reduce((sum, row) => {
+    const converted = convertCuttingQuantity(Number(row[field] || 0), row.unit, unit)
+    if (converted === null) { unitMismatch = true; return sum }
+    return sum + converted
+  }, 0))
+  const claimedQty = total('cuttingClaimedQty'), consumedQty = total('spreadingConsumedQty')
+  const returnedQty = total('returnedQty'), warehouseAvailableQty = total('availableQty')
+  const allocation = input.spreadingOrderId && input.factoryId ? spreadingAllocatedMaterial({ events: listRuntimeWaitProcessEvents(),
+    spreadingOrderId: input.spreadingOrderId, factoryId: input.factoryId, cutOrderIds: sourceRows.map(row => row.cutOrderId), unit }) : { quantity: 0, unitIssue: false }
+  unitMismatch ||= allocation.unitIssue
+  const allocatedToOrderQty = allocation.quantity, availableQty = roundQty(warehouseAvailableQty + allocatedToOrderQty)
   const shortageQty = roundQty(Math.max(plannedUsageQty - availableQty, 0))
 
   let statusKey: SpreadingMaterialReadinessStatusKey = 'SHORTAGE'
-  if (claimedQty <= 0) statusKey = 'NOT_CLAIMED'
+  if (unitMismatch) statusKey = 'UNIT_MISMATCH'
+  else if (claimedQty <= 0) statusKey = 'NOT_CLAIMED'
   else if (plannedUsageQty > 0 && availableQty >= plannedUsageQty) statusKey = 'READY'
 
   const meta: Record<SpreadingMaterialReadinessStatusKey, { label: string; className: string }> = {
     READY: { label: '可铺布', className: READY_CLASS },
     NOT_CLAIMED: { label: '未接收', className: WARNING_CLASS },
     SHORTAGE: { label: '物料不足', className: DANGER_CLASS },
+    UNIT_MISMATCH: { label: '单位不一致', className: DANGER_CLASS },
   }
   const reasonText = buildReasonText({ statusKey, plannedUsageQty, availableQty, shortageQty, unit })
 
@@ -261,6 +288,8 @@ export function resolveSpreadingMaterialReadiness(
     consumedQty,
     returnedQty,
     availableQty,
+    warehouseAvailableQty,
+    allocatedToOrderQty,
     shortageQty,
     unit,
     reasonText,
@@ -281,10 +310,14 @@ export function resolveSpreadingMaterialReadiness(
 }
 
 export function resolveSpreadingOrderMaterialReadiness(order: SpreadingOrder, ledgerMap?: Record<string, MaterialLedgerProjection>): SpreadingMaterialReadiness {
+  const sources = listGeneratedCutOrderSourceRecords({ includeDimensionScenarios: false }).filter(source => order.sourceCutOrderIds.includes(source.cutOrderId))
+  const factories = new Set(sources.map(source => source.cuttingTaskAssigneeFactoryId).filter(Boolean))
   return resolveSpreadingMaterialReadiness({
     sourceCutOrderIds: order.sourceCutOrderIds,
     sourceCutOrderNos: order.sourceCutOrderNos,
     plannedMaterialUsage: order.plannedMaterialUsage,
     plannedMaterialUsageUnit: order.plannedMaterialUsageUnit,
+    spreadingOrderId: order.spreadingOrderId,
+    factoryId: sources.length === new Set(order.sourceCutOrderIds).size && factories.size === 1 ? [...factories][0] : undefined,
   }, ledgerMap)
 }

@@ -29,7 +29,7 @@ async function fixtureSnapshot(page: Page, storage = false): Promise<string | nu
     const fixture = (window as typeof window & {
       __woolWarehouseFixture?: {
         snapshot(): string
-        storageSnapshot(): string | null
+        storageSnapshot(): Promise<string>
       }
     }).__woolWarehouseFixture
     return useStorage ? fixture?.storageSnapshot() ?? null : fixture?.snapshot() ?? null
@@ -50,6 +50,10 @@ async function clickWithinBudget(
     return performance.now() - startedAt
   }, { targetSelector: selector, targetIndex: index })
   assert(elapsed < 200, `${label}必须低于 200ms，实际 ${elapsed.toFixed(1)}ms`)
+  // Dispatch timing remains separate; assertions after save must wait for the
+  // original native transaction and its readback, including invalid submissions.
+  if (selector.includes('save-')) await page.waitForFunction(() =>
+    document.querySelector('[data-wool-warehouse-root]')?.getAttribute('data-wool-warehouse-saving') === 'false')
 }
 
 async function clickRowActionWithinBudget(
@@ -321,6 +325,51 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       const transfers = await page.locator('[data-wool-warehouse-table-surface]').innerText()
       assert(transfers.includes(originalLine.physicalLocationId) && transfers.includes(selectedTransferTarget.split('|')[1]), '转移列表显示本厂实际来源和目标库位')
       await assertRootStable(page, '实际库位移库及记录')
+      // Pause a real native intent, rather than treating a synchronous handler
+      // return as a saved fact. The old return callback must not close a new dialog.
+      await clickWithinBudget(page, '[data-wool-warehouse-action="tab:inventory"]', '进入保存中保护场景')
+      await clickWithinBudget(page, traceRowAction('open-issue'), '打开原生保存中领纱')
+      await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
+      await page.locator('[data-wool-warehouse-dialog-field="operator"]').fill('QA Web pending snapshot')
+      await page.evaluate(() => {
+        const qa = window as typeof window & { __pendingRelease?: () => void; __pendingReady?: boolean; __pendingDigest?: typeof crypto.subtle.digest }
+        const digest = crypto.subtle.digest.bind(crypto.subtle)
+        qa.__pendingDigest = digest
+        crypto.subtle.digest = (async (algorithm: AlgorithmIdentifier, data: BufferSource) => {
+          if (!qa.__pendingReady && new TextDecoder().decode(data).includes('"orders"')) {
+            qa.__pendingReady = true
+            await new Promise<void>(resolve => { qa.__pendingRelease = resolve })
+          }
+          return digest(algorithm, data)
+        }) as typeof crypto.subtle.digest
+        document.querySelector<HTMLButtonElement>('[data-wool-warehouse-action="save-issue"]')!.click()
+      })
+      try {
+        await page.waitForFunction(() => (window as typeof window & { __pendingReady?: boolean }).__pendingReady)
+        assert(await page.locator('[data-wool-warehouse-dialog-field="qty"]').isDisabled(), '原生保存中不能修改本次数量')
+        assert(await page.locator('[data-wool-warehouse-action="save-issue"]').isDisabled(), '原生保存中不能重复提交')
+        await page.evaluate(() => {
+          document.querySelector<HTMLInputElement>('[data-wool-warehouse-dialog-field="qty"]')!.value = '999'
+          document.querySelector<HTMLButtonElement>('[data-wool-warehouse-action="open-transfer-out"]')!.click()
+          document.querySelector<HTMLButtonElement>('[data-wool-warehouse-action="save-issue"]')!.click()
+        })
+        assert.equal(await page.locator('[data-wool-warehouse-dialog-field="target"]').count(), 0, '待保存领纱不能被新移库弹窗替换')
+      } finally {
+        await page.evaluate(() => {
+          const qa = window as typeof window & { __pendingRelease?: () => void; __pendingDigest?: typeof crypto.subtle.digest }
+          qa.__pendingRelease?.()
+          if (qa.__pendingDigest) crypto.subtle.digest = qa.__pendingDigest
+        })
+      }
+      await page.waitForFunction(() => document.querySelector('[data-wool-warehouse-root]')?.getAttribute('data-wool-warehouse-saving') === 'false'
+        && !document.querySelector('[data-wool-warehouse-dialog]'))
+      const protectedRows = JSON.parse((await fixtureSnapshot(page))!).yarnIssues.filter((row: { issuedBy: string }) => row.issuedBy === 'QA Web pending snapshot')
+      assert.equal(protectedRows.length, 1, '原生暂停期间重复按钮不得另建业务记录')
+      assert.equal(protectedRows[0].issuedQty, .001, '保存使用确认时快照，不读取后来变动的禁用输入框')
+      await clickWithinBudget(page, traceRowAction('open-transfer-out'), '原生保存后下一笔正常移库')
+      assert(await page.locator('[data-wool-warehouse-dialog-field="target"]').isVisible())
+      await clickWithinBudget(page, '[data-wool-warehouse-action="close-overlay"]', '关闭下一笔移库')
+      await clickWithinBudget(page, '[data-wool-warehouse-action="tab:transfers"]', '恢复转移记录视图')
     } else {
       await clickWithinBudget(page, '[data-wool-warehouse-action="open-adjust"]', '打开待交出仓调整')
       const beforeEmptyAdjust = await fixtureSnapshot(page)

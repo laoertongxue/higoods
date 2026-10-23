@@ -1,3 +1,4 @@
+import { withLaceRecords } from './lace-records-loader.ts'
 import { isIsolatedCraftReadEntry } from '../main-infrastructure/craft-read-entry.ts'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import type { RouteRegistry } from './route-types'
@@ -151,7 +152,7 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/wls/accessory-material-preparation': () => renderTmfMaterialPreparationPage(),
   '/wls/accessory-production-stock': () => renderTmfOutputStockPage(),
   '/wls/accessory-continuous-stock': () => renderTmfContinuousStockPage(),
-  '/wls/accessory-receipts': () => renderWlsAccessoryReceiptsPage(),
+  '/wls/accessory-receipts': () => withLaceRecords(() => renderWlsAccessoryReceiptsPage()),
   '/wls/garment-spu-replacements': () => renderWlsGarmentSpuReplacementsPage(),
   '/wls/garment-relabel-tasks': () => renderWlsGarmentRelabelTasksPage(),
   // PPIC 是独立且高频的协同入口，直接按页面懒加载，避免先加载整套 FCS 路由及其无关业务依赖。
@@ -245,6 +246,9 @@ function getWlsRoutes(): Promise<RouteRegistry> {
 }
 
 function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry | null> {
+  if (/^\/fcs\/pda\/central(?:\/|$)/.test(normalizedPathname)) {
+    return import('./routes-central-pda.ts').then(module => module.routes)
+  }
   if (normalizedPathname.startsWith('/fcs/pda')) {
     return getPdaRoutes()
   }

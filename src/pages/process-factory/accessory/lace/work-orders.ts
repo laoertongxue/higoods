@@ -1,3 +1,5 @@
+import { saveWebLaceRecord } from './record-surface.ts'
+import { getLaceProductionOrderView } from '../../../../data/fcs/lace-factory-domain.ts'
 // @page-pattern: list
 import { renderStandardListPage, renderStandardListStats } from '../../../../components/ui/list-page.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../../../../components/ui/process-order-list-controller.ts'
@@ -317,7 +319,7 @@ export function renderLaceWorkOrdersPage(): string {
   return `<div data-lace-work-orders-root data-skip-page-rerender="true">${renderInner()}</div>`
 }
 
-export function handleLaceWorkOrdersEvent(target: HTMLElement, event?: Event): boolean {
+export async function handleLaceWorkOrdersEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
   if (handleLaceCommonImageEvent(target, event, refreshOverlays)) return true
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-lace-work-orders-field]')
@@ -347,7 +349,8 @@ export function handleLaceWorkOrdersEvent(target: HTMLElement, event?: Event): b
   if (action === 'confirm-receive') {
     const workOrderId = actionNode.dataset.workOrderId || ''
     try {
-      const nextOrder = confirmLaceProductionReceipt(workOrderId, LACE_FACTORY_OPERATOR)
+      await saveWebLaceRecord(rootElement(), 'confirmLaceProductionReceipt', () => confirmLaceProductionReceipt(workOrderId, LACE_FACTORY_OPERATOR), undefined, workOrderId)
+      const nextOrder = getLaceProductionOrderView(workOrderId, PLATFORM_ADMIN)!
       state.feedback = `${nextOrder.workOrderNo} 已确认接收并进入“加工中”；操作日志已记录花边厂业务员。`
       state.feedbackOk = true
     } catch (error) {

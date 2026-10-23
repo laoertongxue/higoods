@@ -1,4 +1,5 @@
 import {
+  Globe,
   Activity,
   BadgeCheck,
   Banknote,
@@ -190,6 +191,7 @@ import {
 } from 'lucide'
 
 export const shellIcons = {
+  Globe,
   Activity,
   BadgeCheck,
   Banknote,

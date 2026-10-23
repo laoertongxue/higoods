@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { withGeneratedCutOrderReadFrame } from '../../../data/fcs/cutting/generated-cut-orders.ts'
 
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import {
@@ -23,7 +24,6 @@ import {
   resolvePickupDiscrepancy,
 } from '../../../data/fcs/cutting/pickup-discrepancy.ts'
 import {
-  confirmPickupNodeReceiptRuntime,
   listActivePickupNodesRuntime,
 } from '../../../runtime/fcs/cutting/pickup-management-runtime.ts'
 import {
@@ -35,6 +35,7 @@ import {
   renderProductionObjectCodeButton,
 } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { confirmCuttingPickupNodeReceipt } from '../../../data/fcs/cutting/cutting-pickup-command.ts'
 import {
   buildCuttingWarehouseMapProjectionForWarehouse,
   listCuttingWarehouses,
@@ -94,6 +95,7 @@ interface PickupReceiptDraft {
   groupKey: string
   pickupNodeId: string
   pickupNodeVersion: number
+  expectedNodeSnapshot: string
   receiverName: string
   warehouseId: string
   selectedLocationIds: string[]
@@ -719,12 +721,12 @@ function receiptCarrierLabel(node: NonNullable<ReturnType<typeof getReceiptNode>
   )))).join('；') || '来源库位未记录'
 }
 
-function renderPickupReceiptModal(kind: PickupListKind): string {
+function renderPickupReceiptModal(kind: PickupListKind, knownNode?: ReturnType<typeof getReceiptNode>): string {
   const state = getState(kind)
   const draft = state.receiptDraft
   if (!draft) return ''
   const group = (groupSnapshots.get(kind) ?? []).find((item) => item.groupKey === draft.groupKey)
-  const node = getReceiptNode(draft)
+  const node = knownNode ?? getReceiptNode(draft)
   const warehouses = listCuttingWarehouses('WAIT_PROCESS')
   const projection = getReceiptWarehouseProjection(draft)
   const openDiscrepancies = listPickupDiscrepancies().filter((record) =>
@@ -789,10 +791,10 @@ function renderPickupReceiptModal(kind: PickupListKind): string {
   </div>`
 }
 
-function renderAllPickupOverlays(kind: PickupListKind): string {
+function renderAllPickupOverlays(kind: PickupListKind, knownNode?: ReturnType<typeof getReceiptNode>): string {
   const preview = getState(kind).imagePreview
   const previewHtml = preview ? `<div class="fixed inset-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label="${escapeHtml(preview.alt)}"><button type="button" class="absolute inset-0 bg-black/75" data-pickup-list-action="close-image-preview" aria-label="关闭大图"></button><div class="relative z-10 max-h-[90vh] max-w-[90vw] rounded-xl bg-background p-4 shadow-xl"><button type="button" class="absolute right-3 top-3 rounded border bg-background px-3 py-1" data-pickup-list-action="close-image-preview">关闭</button><img class="max-h-[82vh] max-w-[84vw] object-contain" src="${escapeHtml(preview.src)}" alt="${escapeHtml(preview.alt)}" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><div class="hidden px-10 py-20 text-sm text-red-700">图片加载失败，请核对素材。</div></div></div>` : ''
-  return `${renderColumnSettings(kind)}${renderPickupRecordsDrawer(kind)}${renderPickupReceiptModal(kind)}${previewHtml}`
+  return `${renderColumnSettings(kind)}${renderPickupRecordsDrawer(kind)}${renderPickupReceiptModal(kind, knownNode)}${previewHtml}`
 }
 
 function renderTableRegion(
@@ -848,6 +850,10 @@ function renderPaginationRegion(
 }
 
 function renderPickupList(kind: PickupListKind): string {
+  return withGeneratedCutOrderReadFrame(() => renderPickupListInFrame(kind))
+}
+
+function renderPickupListInFrame(kind: PickupListKind): string {
   cancelPickupListDebouncesBeforeRender()
   groupSnapshots.set(kind, listPickupOrderGroups(kind))
   const state = getState(kind)
@@ -918,10 +924,10 @@ function refreshPickupListRegions(kind: PickupListKind): void {
   if (pagination) pagination.innerHTML = renderPaginationRegion(kind, view)
 }
 
-function refreshPickupListOverlay(kind: PickupListKind): void {
+function refreshPickupListOverlay(kind: PickupListKind, knownNode?: ReturnType<typeof getReceiptNode>): void {
   const root = document.querySelector<HTMLElement>(`[data-pickup-list-root="${kind}"]`)
   const overlay = root?.querySelector<HTMLElement>('[data-pickup-list-region="overlay"]')
-  if (overlay) overlay.innerHTML = renderAllPickupOverlays(kind)
+  if (overlay) overlay.innerHTML = renderAllPickupOverlays(kind, knownNode)
 }
 
 export function closeCraftCuttingPickupListImagePreview(): boolean {
@@ -949,6 +955,10 @@ export function closeCraftCuttingPickupListOverlay(): boolean {
 }
 
 export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: Event): boolean {
+  return withGeneratedCutOrderReadFrame(() => handlePickupListEventInFrame(target, event))
+}
+
+function handlePickupListEventInFrame(target: HTMLElement, event?: Event): boolean {
   const kind = kindFromPathname()
   if (!kind) return false
   const state = getState(kind)
@@ -1149,6 +1159,7 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
       groupKey,
       pickupNodeId: node.nodeId,
       pickupNodeVersion: node.version,
+      expectedNodeSnapshot: JSON.stringify(node),
       receiverName: '裁床仓管',
       warehouseId: warehouses.length === 1 ? warehouses[0].warehouseId : '',
       selectedLocationIds: [],
@@ -1160,7 +1171,7 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
       feedbackMessage: '',
       submitting: false,
     }
-    refreshPickupListOverlay(kind)
+    refreshPickupListOverlay(kind, node)
     return true
   }
   if (action === 'close-web-receipt') {
@@ -1211,6 +1222,7 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
   }
   if (action === 'confirm-web-receipt' && state.receiptDraft) {
     const draft = state.receiptDraft
+    if (draft.submitting) return true
     const node = getReceiptNode(draft)
     if (!node) {
       draft.feedbackMessage = '当前待接收物料已更新，请关闭后重新核对列表。'
@@ -1233,10 +1245,13 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
     const selectedRefs = selectedReceiptLocationRefs(projection, selection.selectedLocationIds)
     draft.submitting = true
     draft.feedbackMessage = ''
+    refreshPickupListOverlay(kind)
+    void (async () => {
     try {
-      confirmPickupNodeReceiptRuntime({
+      await confirmCuttingPickupNodeReceipt({
         pickupNodeId: draft.pickupNodeId,
         pickupNodeVersion: draft.pickupNodeVersion,
+        expectedNodeSnapshot: draft.expectedNodeSnapshot,
         receiverName: draft.receiverName,
         eventSource: 'WEB',
         operatorRole: 'Web 裁床仓管',
@@ -1252,18 +1267,25 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
           locationNo: ref.locationNo,
         })),
       })
-      state.receiptDraft = null
       groupSnapshots.clear()
+      if (kindFromPathname() !== kind) return
+      if (state.receiptDraft !== draft) { refreshPickupListRegions(kind); return }
+      state.receiptDraft = null
       const nextView = getView(kind)
       state.currentPage = nextView.paging.currentPage
       refreshPickupListRegions(kind)
       refreshPickupListOverlay(kind)
       window.alert('接收完成，接收记录和裁床待加工仓已同步。')
     } catch (error) {
+      groupSnapshots.clear()
+      if (state.receiptDraft !== draft || kindFromPathname() !== kind) return
       draft.submitting = false
-      draft.feedbackMessage = error instanceof Error ? error.message : '接收失败，当前选择已保留，可直接重试。'
+      draft.feedbackMessage = error instanceof DOMException && error.name === 'QuotaExceededError'
+        ? '接收未保存：设备可用空间不足，当前输入和库位已保留。'
+        : error instanceof Error ? error.message : '接收失败，当前选择已保留，可直接重试。'
       refreshPickupListOverlay(kind)
     }
+    })()
     return true
   }
 

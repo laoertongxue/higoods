@@ -34,7 +34,7 @@ test('毛织备料桌面/PDA显式分支保留原HTML、筛选状态和控制器
   }
 })
 
-test('毛织两仓列表表格参数显式传递后，排序分页和各标签HTML与原实现相同',()=>{
+test('毛织两仓保留原排序分页和各标签HTML，仅增加原生保存中标记',()=>{
   const warehousePath='src/pages/process-factory/wool/warehouse.ts'
   function extractWarehouse(source:string) {
     const ast=ts.createSourceFile(warehousePath,source,ts.ScriptTarget.Latest,true)
@@ -46,7 +46,7 @@ test('毛织两仓列表表格参数显式传递后，排序分页和各标签HT
   const currentWarehouse=extractWarehouse(readFileSync(warehousePath,'utf8'))
   for(const mode of ['WAIT_PROCESS','WAIT_HANDOVER']) for(const tab of ['inventory','receipts','issues','returns','inbounds','outbounds','adjustments','transfers']) for(const total of [0,3,25]) {
     function render(javascript:string) {
-      const states={ [mode]:{activeTab:tab,currentPage:3,sort:{key:'quantity',direction:'desc'}} }
+      const states={ [mode]:{activeTab:tab,currentPage:3,saving:false,sort:{key:'quantity',direction:'desc'}} }
       const dependencies={states,columns:[{key:'quantity',sortValue:(row:{qty:number})=>row.qty}],
         filteredRows:()=>Array.from({length:total},(_,i)=>({qty:i+1})),
         sortStandardListRows:(rows:{qty:number}[])=>[...rows].reverse(),
@@ -58,6 +58,8 @@ test('毛织两仓列表表格参数显式传递后，排序分页和各标签HT
       const html=new Function('dependencies',`with(dependencies){${javascript};return renderPageFromRuntime('${mode}')}`)(dependencies)
       return {html,states}
     }
-    assert.deepEqual(render(currentWarehouse),render(originalWarehouse),JSON.stringify({mode,tab,total}))
+    const actual=render(currentWarehouse), baseline=render(originalWarehouse)
+    assert.ok(actual.html.includes('data-wool-warehouse-saving="false"'), '新增属性准确表示当前未保存中')
+    assert.deepEqual({...actual,html:actual.html.replace(' data-wool-warehouse-saving="false"','')},baseline,JSON.stringify({mode,tab,total}))
   }
 })

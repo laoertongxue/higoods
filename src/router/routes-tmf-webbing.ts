@@ -13,7 +13,8 @@ function createAsyncRenderer<TArgs extends unknown[]>(
         throw error
       })
     }
-
+    // Direct TMF entries read persisted rows, never a previous page's memory.
+    await (await import('../data/pms/tmf-material-purchases.ts')).hydratePmsTmfPurchaseStateFromIdb()
     const renderer = (await modulePromise)[exportName]
     if (typeof renderer !== 'function') {
       throw new Error(`页面渲染函数不存在: ${exportName}`)

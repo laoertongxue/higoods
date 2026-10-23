@@ -22,9 +22,9 @@ for (const [scenario, description] of scenarios) {
       const legacy = getTmfPurchaseState()
       legacy.workPlans = [{ workOrderId: 'LEGACY-WORK-001', responsibleName: '原负责人', plannedStartAt: '2026-10-01', plannedFinishAt: '2026-10-02', waitingReason: '', revision: 1, updatedAt: '2026-10-01T08:00:00Z', updatedBy: '原登记人' }]
       const raw = scenario === 'invalid-json' ? '{invalid json' : JSON.stringify(scenario === 'invalid-state' ? { ...legacy, orders: null } : legacy)
-      let storedRaw = raw, removeCalls = 0, writes = 0, committed = false
-      const target = new Map([['existing-record', { value: '保留原目标' }]])
-      const beforeTarget = structuredClone(target)
+      let storedRaw = raw, removeCalls = 0, writes = 0, committed = false, aborted = false
+      const targets = new Map([['existing-record', { value: '保留原目标' }]])
+      const beforeTarget = structuredClone(targets)
       const info = [], warnings = [], errors = []
       console.info = (...args) => info.push(args)
       console.warn = (...args) => warnings.push(args)
@@ -34,19 +34,54 @@ for (const [scenario, description] of scenarios) {
           const request = { result: {
             transaction(names, mode) {
               assert.equal(mode, 'readwrite')
-              assert.equal(names.length, 4)
-              const pending = new Map()
-              const tx = { objectStore(name) { assert.ok(names.includes(name)); return { put(value) { writes += 1; pending.set(name, structuredClone(value)) } } } }
-              setImmediate(() => {
-                if (scenario === 'write-abort') {
-                  tx.error = new Error('test transaction aborted')
-                  tx.onabort()
-                } else {
-                  for (const [name, value] of pending) target.set(name, value)
-                  committed = true
-                  tx.oncomplete()
+              assert.deepEqual(names, ['pmsTmfRecords','pmsTmfOrders','pmsTmfProduction','pmsTmfScrap','pmsTmfOperations'])
+              let active = 0, settled = false
+              const tx = {
+                objectStore(name) {
+                  assert.ok(names.includes(name))
+                  return {
+                    get(key) {
+                      const req = {}
+                      active += 1
+                      setImmediate(() => {
+                        active -= 1
+                        if (aborted) return
+                        req.result = targets.get(name)?.get(key)
+                        req.onsuccess?.()
+                        maybeDone()
+                      })
+                      return req
+                    },
+                    put(value) {
+                      if (scenario === 'write-abort') {
+                        aborted = true
+                        tx.error = new Error('test transaction aborted')
+                        setImmediate(() => tx.onabort?.())
+                        return {}
+                      }
+                      active += 1
+                      setImmediate(() => {
+                        active -= 1
+                        if (aborted) return
+                        writes += 1
+                        const rows = targets.get(name) instanceof Map ? targets.get(name) : new Map()
+                        if (name === 'pmsTmfRecords') rows.set(value.recordKey, structuredClone(value))
+                        else rows.set(value.singleton ?? value.id ?? 'singleton', structuredClone(value))
+                        targets.set(name, rows)
+                        maybeDone()
+                      })
+                      return {}
+                    }
+                  }
                 }
-              })
+              }
+              function maybeDone() {
+                if (aborted || settled || active !== 0) return
+                setImmediate(() => {
+                  if (aborted || settled || active !== 0) return
+                  settled = true; committed = true; tx.oncomplete?.()
+                })
+              }
               return tx
             }
           } }
@@ -68,15 +103,16 @@ for (const [scenario, description] of scenarios) {
         await assert.rejects(migration, scenario === 'write-abort' ? /保存被中止/ : scenario === 'invalid-state' ? /格式不符/ : SyntaxError)
         assert.equal(removeCalls, 0, '失败不得尝试删除旧源')
         assert.equal(storedRaw, raw)
-        assert.deepEqual(target, beforeTarget)
-        assert.equal(writes, scenario === 'write-abort' ? 4 : 0)
+        assert.deepEqual(targets, beforeTarget)
+        assert.equal(writes, 0)
         assert.equal(info.length, 0)
         assert.ok(errors.some(args => args[0] === '[TMF_LEGACY_MIGRATION_FAILED]'))
       } else {
         await migration
         assert.equal(committed, true)
-        assert.equal(writes, 4)
-        assert.deepEqual(target.get('pmsTmfOrders').section.workPlans, legacy.workPlans)
+        assert.equal(writes, 1)
+        const savedRows = targets.get('pmsTmfRecords')
+        assert.deepEqual(savedRows.get('workPlans/LEGACY-WORK-001').data, legacy.workPlans[0])
         assert.deepEqual(getTmfPurchaseState().workPlans, legacy.workPlans)
         if (scenario === 'success') {
           assert.equal(storedRaw, null)

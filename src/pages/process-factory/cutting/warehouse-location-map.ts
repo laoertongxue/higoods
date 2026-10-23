@@ -1,3 +1,4 @@
+import { createCuttingRuntimeChronologyComparator } from '../../../data/fcs/cutting/cutting-runtime-chronology.ts'
 import {
   listFactoryInternalWarehouses,
   listFactoryWaitProcessStockItems,
@@ -32,7 +33,6 @@ import {
 } from './warehouse-location-map-model.ts'
 import {
   loadWarehouseLayoutSnapshot,
-  saveWarehouseLayoutSnapshot,
   resetWarehouseLayoutSnapshot,
   applyWarehouseLayoutSnapshot,
   createWarehouseArea,
@@ -57,6 +57,8 @@ import {
   type CuttingRuntimeEvent,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
+import { saveCuttingWarehouseLayout } from '../../../data/fcs/cutting/warehouse-layout-records.ts'
+import { cuttingRecordUuid } from '../../../data/fcs/cutting/cutting-record-identity.ts'
 
 export type CuttingWarehouseMapKind = Extract<FactoryInternalWarehouseKind, 'WAIT_PROCESS' | 'WAIT_HANDOVER'>
 
@@ -219,20 +221,21 @@ export function buildWaitProcessRuntimeOccupancies(
     return { belongs: false, forceUnresolved: true }
   }
   const latestAdjustmentBySessionId = new Map<string, Record<string, unknown>>()
-  const latestAdjustmentAtBySessionId = new Map<string, string>()
+  const latestAdjustmentEventBySessionId = new Map<string, CuttingRuntimeEvent>()
+  const compareChronology = createCuttingRuntimeChronologyComparator(events)
   events
     .filter((event) => event.eventType === '待加工仓位置调整' && event.eventStatus !== '已取消')
     .filter((event) => {
       const scope = classifyPayloadWarehouseScope(runtimeRecord(event.payload))
       return scope.belongs && !scope.forceUnresolved
     })
-    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt, 'zh-CN'))
+    .sort(compareChronology)
     .forEach((event) => {
       const payload = runtimeRecord(event.payload)
       const pickupSessionId = runtimeString(payload.pickupSessionId)
       if (pickupSessionId) {
         latestAdjustmentBySessionId.set(pickupSessionId, payload)
-        latestAdjustmentAtBySessionId.set(pickupSessionId, event.occurredAt)
+        latestAdjustmentEventBySessionId.set(pickupSessionId, event)
       }
     })
   const allSourceEvents = events
@@ -316,8 +319,8 @@ export function buildWaitProcessRuntimeOccupancies(
       }
       if (!candidates.length) return
       const activeCandidates = candidates.filter((source) => {
-        const adjustmentAt = latestAdjustmentAtBySessionId.get(eventSessionId(source))
-        return !adjustmentAt || event.occurredAt > adjustmentAt
+        const adjustment = latestAdjustmentEventBySessionId.get(eventSessionId(source))
+        return !adjustment || compareChronology(event, adjustment) > 0
       })
       const originalTotal = activeCandidates.reduce((sum, source) => {
         const sourcePayload = runtimeRecord(source.payload)
@@ -976,7 +979,7 @@ function dialogShell(kind: CuttingWarehouseMapKind, snapshot: FactoryWarehouseLa
     .replace('<div class="relative bg-background', `<div role="dialog" aria-modal="true" aria-labelledby="${titleId}" class="relative max-h-[calc(100vh-2rem)] bg-background`)
     .replace('<h2 class="text-lg font-semibold">', `<h2 id="${titleId}" class="text-lg font-semibold">`)
     .replace('<button class="p-1 hover:bg-muted rounded-md -mr-2 -mt-2"', '<button type="button" aria-label="关闭维护弹窗" class="p-1 hover:bg-muted rounded-md -mr-2 -mt-2"')
-  return `<div id="${CUTTING_WAREHOUSE_MODAL_ID}" class="fixed inset-0 z-[140]" data-cutting-warehouse-modal data-warehouse-kind="${kind}" data-maintenance-dialog="${dialog.type}" data-area-id="${'areaId' in dialog ? escapeHtml(dialog.areaId) : ''}" data-shelf-id="${'shelfId' in dialog ? escapeHtml(dialog.shelfId) : ''}" data-location-id="${'locationId' in dialog ? escapeHtml(dialog.locationId) : ''}" data-layout-version="${snapshot.layoutVersion}">${html}</div>`
+  return `<div id="${CUTTING_WAREHOUSE_MODAL_ID}" class="fixed inset-0 z-[140]" data-cutting-warehouse-modal data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(snapshot.warehouseId)}" data-maintenance-dialog="${dialog.type}" data-area-id="${'areaId' in dialog ? escapeHtml(dialog.areaId) : ''}" data-shelf-id="${'shelfId' in dialog ? escapeHtml(dialog.shelfId) : ''}" data-location-id="${'locationId' in dialog ? escapeHtml(dialog.locationId) : ''}" data-layout-version="${snapshot.layoutVersion}">${html}</div>`
 }
 
 function renderCreateAreaDialog(kind: CuttingWarehouseMapKind, snapshot: FactoryWarehouseLayoutSnapshot): string {
@@ -1396,24 +1399,34 @@ function moveId(ids: string[], id: string, direction: -1 | 1): string[] {
   return next
 }
 
-function persistSnapshot(
+const pendingLayoutSections = new WeakSet<HTMLElement>()
+
+async function persistSnapshot(
   kind: CuttingWarehouseMapKind,
   mutate: (snapshot: FactoryWarehouseLayoutSnapshot) => FactoryWarehouseLayoutSnapshot,
-): void {
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
-  if (!current) return
-  if (!current.persistenceAvailable) {
-    if (typeof window !== 'undefined') window.alert('当前仅可查看，无法保存。')
-    return
+): Promise<void> {
+  const section = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"]`)
+  if (!section || pendingLayoutSections.has(section)) return
+  pendingLayoutSections.add(section)
+  const buttons = Array.from(section.querySelectorAll<HTMLButtonElement>('button[data-warehouse-map-action^="move-"]'))
+  const disabled = buttons.map(button => button.disabled)
+  buttons.forEach(button => { button.disabled = true })
+  const warehouseId = getCurrentWarehouse(kind)?.warehouseId
+  const stillCurrent = () => section.isConnected && getCurrentWarehouse(kind)?.warehouseId === warehouseId
+  try {
+    const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
+    if (!current) return
+    if (!current.persistenceAvailable) throw new Error('当前仅可查看，无法保存。')
+    const next = mutate(current.snapshot)
+    if (next === current.snapshot) return
+    await saveCuttingWarehouseLayout({ ...next, updatedBy: '当前用户' }, current.snapshot.layoutVersion, cuttingRecordUuid())
+    if (stillCurrent()) refreshMapSection(kind)
+  } catch (error) {
+    if (stillCurrent()) window.alert(maintenanceErrorMessage(error))
+  } finally {
+    pendingLayoutSections.delete(section)
+    buttons.forEach((button, index) => { button.disabled = disabled[index] })
   }
-  const next = mutate(current.snapshot)
-  if (next === current.snapshot) return
-  const result = saveWarehouseLayoutSnapshot(
-    { ...next, updatedBy: '当前用户' },
-    current.snapshot.layoutVersion,
-  )
-  if (!result.ok && typeof window !== 'undefined') window.alert(result.message)
-  refreshMapSection(kind)
 }
 
 function movePaginationPage(currentPage: number, totalPages: number, action: string | undefined): number {
@@ -1573,6 +1586,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         abortMaintenanceIfNeeded(signal)
         const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
         if (!current) throw new Error('当前仓库库位图不可用，请刷新后重试。')
+        if (current.warehouse.warehouseId !== modal.dataset.warehouseId) throw new Error('当前仓库已切换，请重新打开库位维护。')
         const expectedVersion = Number(modal.dataset.layoutVersion)
         const occupiedIds = new Set(current.projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf))).filter((cell) => cell.businessStatus === 'OCCUPIED').map((cell) => cell.locationId))
         let next = current.snapshot
@@ -1631,8 +1645,8 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         }
         await yieldMaintenanceWork()
         abortMaintenanceIfNeeded(signal)
-        const saved = saveWarehouseLayoutSnapshot(next, expectedVersion)
-        if (!saved.ok) throw new Error(saved.message)
+        const operationId = modal.dataset.layoutOperationId ||= cuttingRecordUuid()
+        await saveCuttingWarehouseLayout(next, expectedVersion, operationId, signal)
         abortMaintenanceIfNeeded(signal)
         if (!isActive()) return
         removeCuttingWarehouseLocationMapModal(modal)
@@ -1743,7 +1757,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     return true
   }
   if (action === 'move-area-left' || action === 'move-area-right') {
-    persistSnapshot(kind, (snapshot) => reorderWarehouseAreas(
+    void persistSnapshot(kind, (snapshot) => reorderWarehouseAreas(
       snapshot,
       moveId(snapshot.areaList.map((area) => area.areaId), node.dataset.areaId || '', action.endsWith('left') ? -1 : 1),
       '当前用户',
@@ -1752,7 +1766,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   }
   if (action === 'move-shelf-up' || action === 'move-shelf-down') {
     const areaId = node.dataset.areaId || ''
-    persistSnapshot(kind, (snapshot) => {
+    void persistSnapshot(kind, (snapshot) => {
       const area = snapshot.areaList.find((item) => item.areaId === areaId)
       if (!area) return snapshot
       return reorderWarehouseShelves(
@@ -1766,7 +1780,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   }
   if (action === 'move-location-left' || action === 'move-location-right') {
     const shelfId = node.dataset.shelfId || ''
-    persistSnapshot(kind, (snapshot) => {
+    void persistSnapshot(kind, (snapshot) => {
       const shelf = snapshot.areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === shelfId)
       if (!shelf) return snapshot
       return reorderWarehouseLocations(

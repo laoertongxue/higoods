@@ -1,3 +1,4 @@
+import { assertBindingProcessCommandScope } from '../../../data/fcs/binding-process-command-scope.ts'
 import {
   listGeneratedCutOrderSourceRecords,
   type GeneratedCutOrderSourceRecord,
@@ -899,6 +900,10 @@ export interface ExecuteBindingProcessActionInput {
   detailId?: string
   confirmationKey: string
   operatorName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   operatedAt: string
   remark?: string
 }
@@ -924,6 +929,7 @@ function recalculateBindingProcessOrder(order: BindingProcessOrder): void {
 }
 
 export function executeBindingProcessAction(input: ExecuteBindingProcessActionInput): BindingProcessOrder {
+  assertBindingProcessCommandScope()
   const order = getBindingProcessOrderById(input.bindingOrderId)
   if (!order) throw new Error('捆条加工单不存在')
   const confirmationKey = input.confirmationKey.trim()
@@ -1036,6 +1042,8 @@ export function executeBindingProcessAction(input: ExecuteBindingProcessActionIn
       unit: order.unit,
       confirmationKey,
       operatorName: input.operatorName,
+      operatorUserId: input.operatorUserId,
+      operatorFactoryId: input.operatorFactoryId,
       operatedAt: input.operatedAt,
       remark: input.remark?.trim() || '',
     }

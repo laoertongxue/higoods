@@ -1,6 +1,8 @@
 import { getCurrentPdaUser, getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import { renderRouteRedirect } from '../router/route-utils'
 import { appStore } from '../state/store'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
+import { isThirdPartyPdaFactory, isThirdPartyPdaRouteAllowed } from '../data/fcs/pda-experience-scope.ts'
 import {
   canFactoryEnterBusiness,
   ensurePdaAccessForRoute,
@@ -55,8 +57,18 @@ export function renderPdaLoginRedirect(title = '工厂入驻&登录'): string {
 }
 
 export function ensurePdaSessionForAction(targetRoute = appStore.getState().pathname || '/fcs/pda/exec'): boolean {
+  if (!isCurrentPdaExperienceRouteAllowed(targetRoute)) {
+    appStore.navigate('/fcs/pda/exec', { historyMode: 'replace' })
+    return false
+  }
   const access = ensurePdaAccessForRoute(targetRoute)
   if (access.allowed) return true
   appStore.navigate(access.redirectPath || '/fcs/pda/auth/login', { historyMode: 'replace' })
   return false
+}
+
+export function isCurrentPdaExperienceRouteAllowed(targetRoute: string): boolean {
+  const runtime = getPdaRuntimeContext()
+  const factory = runtime ? getFactoryMasterRecordById(runtime.factoryId) : undefined
+  return !isThirdPartyPdaFactory(factory) || isThirdPartyPdaRouteAllowed(targetRoute)
 }

@@ -8,7 +8,10 @@
   <body>
     <main id="app"></main>
     <script type="module">
-      import { clearWoolStoreMemoryCache } from '/src/data/fcs/wool-domain/store.ts'
+      import { readPcsRecords } from '/src/data/pcs-record-db.ts'
+      import { prepareCentralWool } from '/src/pages/central-pda/wool-model.ts'
+      import { readFactoryPdaExecutionUsers } from '/src/data/fcs/store-domain-pda.ts'
+      import { clearWoolStoreMemoryCache, runWoolRecordCommand } from '/src/data/fcs/wool-domain/store.ts'
       import { appStore } from '/src/state/store.ts'
       import {
         readWoolStore,
@@ -27,15 +30,19 @@
       const mode = new URLSearchParams(location.search).get('mode') === 'handover'
         ? 'handover'
         : 'process'
-      resetWoolFactWorkflowMockStore()
+      await prepareCentralWool()
+      await runWoolRecordCommand(() => resetWoolFactWorkflowMockStore())
       clearWoolStoreMemoryCache()
+      await prepareCentralWool()
       // Isolated browser fixture: use real shared receipts for one new KNITTING stage.
       // Shared receipt quantities are immutable here; old direct receipt correction probes
       // were retired with the legacy receipt dialog, while batch isolation stays covered.
       if (mode === 'process') {
         const order = readWoolStore().workOrders['WOOL-STAGE-003:KNITTING']
         const material = order.yarnMaterials[0]
-        function receive(id, batchNo, qty, remark) {
+        const actor = readFactoryPdaExecutionUsers(order.factoryId).find(user => user.status === 'ACTIVE' && user.roleId === 'ROLE_ADMIN')
+        if (!actor) throw Error('隔离夹具缺少原工厂启用账号')
+        async function receive(id, batchNo, qty, remark) {
           const source = { id: `SOURCE-${id}`, documentNo: `SOURCE-${id}`, type: 'TRANSFER',
             origin: { kind: 'WAREHOUSE', id: 'TEST-YARN-WAREHOUSE', name: '纱线交互检查仓', warehouseAttribute: '常规仓' },
             targetFactoryId: order.factoryId, targetFactoryName: order.factoryName,
@@ -43,14 +50,17 @@
             createdAt: '2026-09-18 12:00:00', createdBy: '检查员',
             lines: [{ id: `LINE-${id}`, material: { sku: material.sku, name: material.name, kind: 'YARN', imageUrl: material.imageUrl, color: '奶油色系', composition: '棉纱', specification: '段染棉纱', batchNo },
               plannedQty: qty, sentQty: qty, unit: 'kg', rolls: [], label: id, woolOrderId: order.woolOrderId, taskNo: order.taskNo, productionOrderNo: order.productionOrderNo }] }
+          await runWoolRecordCommand(() => {
           registerFactoryReceivingSource(source)
-          confirmFactoryMaterialReceipt({ id, factoryId: order.factoryId, operatorId: 'BROWSER-WAREHOUSE', operatorName: '浏览器仓管 <甲>', receivedAt: '2026-09-18 14:00:00', remark,
-            lines: [{ sourceId: source.id, sourceLineId: source.lines[0].id, ...getDefaultFactoryReceiptPosition(order.factoryId), grossKg: qty + .062, pcs: 1, tubes: { PAPER: 1, CONICAL: 0, PAGODA: 0 } }] })
+          confirmFactoryMaterialReceipt({ id, factoryId: order.factoryId, operatorId: actor.userId, operatorName: actor.name, receivedAt: '2026-09-18 14:00:00', remark,
+            lines: [{ sourceId: source.id, sourceLineId: source.lines[0].id, ...getDefaultFactoryReceiptPosition(order.factoryId), grossKg: qty + .062, pcs: 1, tubes: { PAPER: 1, CONICAL: 0, PAGODA: 0 } }] }, actor)
+          readWoolStore()
+          })
         }
-        for (let index = 0; index < 12; index++) receive(`BROWSER-RECEIPT-${String(index + 1).padStart(2, '0')}`, 'BATCH-TRACE', index + 1,
+        for (let index = 0; index < 12; index++) await receive(`BROWSER-RECEIPT-${String(index + 1).padStart(2, '0')}`, 'BATCH-TRACE', index + 1,
           index === 0 ? '浏览器备注 <img src=x onerror=alert(1)><svg onload=alert(1)>' : `浏览器备注 ${index + 1}`)
-        receive('BROWSER-RECEIPT-BATCH-N', 'BATCH-N', 3, '浏览器 N 批次备注 <b>只显示文本</b>')
-        receive('BROWSER-RECEIPT-BATCH-X', 'BATCH-X', 4, '浏览器 BATCH-X 备注')
+        await receive('BROWSER-RECEIPT-BATCH-N', 'BATCH-N', 3, '浏览器 N 批次备注 <b>只显示文本</b>')
+        await receive('BROWSER-RECEIPT-BATCH-X', 'BATCH-X', 4, '浏览器 BATCH-X 备注')
       }
       appStore.navigate(
         mode === 'handover'
@@ -71,7 +81,7 @@
       window.__woolWarehouseFixture = {
         root: document.querySelector('[data-wool-warehouse-root]'),
         snapshot: () => JSON.stringify(readWoolStore()),
-        storageSnapshot: () => localStorage.getItem(WOOL_DOMAIN_STORE_KEY),
+        storageSnapshot: async () => JSON.stringify((await readPcsRecords()).records),
       }
     </script>
   </body>

@@ -16,7 +16,7 @@ export function buildGeneratedCutReleaseInputs(sources: GeneratedCutOrderSourceR
   const currentOrderIds = new Set(scope?.currentOrderIds || [])
   for (const ticket of allTickets) {
     const source = sourceById.get(ticket.cutOrderId)
-    if (source?.productionOrderId === ticket.productionOrderId && (ticket.sourceBasisType === 'MANUAL_MARKER_PLAN' || ticket.printStatus === 'PRINTED')) currentOrderIds.add(source.productionOrderId)
+    if (source?.productionOrderId === ticket.productionOrderId && (ticket.sourceBasisType === 'MANUAL_MARKER_PLAN' || ticket.printStatus === 'PRINTED' || ticket.printStatus === 'REPRINTED')) currentOrderIds.add(source.productionOrderId)
   }
   const currentSources = scope ? sources.filter(source => !scope.initialOrderIds.has(source.productionOrderId) || currentOrderIds.has(source.productionOrderId)) : sources
   if (!currentSources.length) return []

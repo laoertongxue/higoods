@@ -57,6 +57,21 @@ export function replacementStateToRecords(state: ReplacementFabricState): Cuttin
     id: `${collections[key]}:${value.id}`, collection: collections[key], value,
   })))
 }
+/** Persist this action's changes and their required ticket/print references, not the demo read model. */
+export function replacementStateChangeRecords(before: ReplacementFabricState, after: ReplacementFabricState, persisted: CuttingStoredRecord[]): CuttingStoredRecord[] {
+  const prior = new Map(replacementStateToRecords(before).map(row => [row.id, JSON.stringify(row)]))
+  const stored = new Map(persisted.map(row => [row.id, JSON.stringify(row)]))
+  const rows = replacementStateToRecords(after)
+  const changed = rows.filter(row => prior.get(row.id) !== JSON.stringify(row))
+  const ids = new Set(changed.map(row => row.id))
+  const tickets = new Set(changed.flatMap(row => row.collection === collections.prints ? [(row.value as ReplacementFabricPrintRecord).ticketId]
+    : row.collection === collections.receipts ? [(row.value as ReplacementFabricReceipt).ticket.id] : []))
+  const receiptTickets = new Set(changed.filter(row => row.collection === collections.receipts).map(row => (row.value as ReplacementFabricReceipt).ticket.id))
+  return rows.filter(row => (ids.has(row.id) || stored.has(row.id)
+    || row.collection === collections.tickets && tickets.has((row.value as ReplacementFabricTicket).id)
+    || row.collection === collections.prints && receiptTickets.has((row.value as ReplacementFabricPrintRecord).ticketId))
+    && stored.get(row.id) !== JSON.stringify(row))
+}
 export async function loadReplacementFabricState(): Promise<ReplacementFabricState> {
   const snapshot = await readCuttingRecords()
   await hydrateProductionContextRecords(snapshot)

@@ -10,6 +10,7 @@ import {
   receiveTmfBaseProduction, receiveTmfProcessingMaterial, registerTmfProductionOrder,
   releaseTmfMaterialPurchase, reportTmfBaseProduction, reportTmfCutOutput, reserveTmfContinuousMaterial,
   receiveTmfOutputPackage, allocateTmfOutputPackage, issueTmfProductionPackage, receiveTmfProductionPackage,
+  receiveTmfTipMaterialStock, dispatchTmfTipMaterial, receiveTmfTipMaterial,
   type TmfPurchaseActor,
 } from '../pms/tmf-material-purchases.ts'
 
@@ -199,6 +200,19 @@ export function ensureTmfConnectedMockData(): void {
       once(`${scenario.id}:${suffix}:reserve`, () => reserveTmfContinuousMaterial({ reservationId: `${scenario.id}:${suffix}:reservation`, demandId: demand.id, lotId: scenario.lotId, reservedMeters: meters, reason: '串联 Mock 按技术包长度独立备料' }, planner, `${scenario.id}:${suffix}:reserve`))
       once(`${scenario.id}:${suffix}:issue`, () => issueTmfContinuousMaterial({ issueId: `${scenario.id}:${suffix}:issue`, reservationId: `${scenario.id}:${suffix}:reservation`, targetFactoryId: 'FAC-TMF', dispatchedMeters: meters }, warehouse, `${scenario.id}:${suffix}:issue`))
       once(`${scenario.id}:${suffix}:receive`, () => receiveTmfProcessingMaterial({ issueId: `${scenario.id}:${suffix}:issue`, factoryId: 'FAC-TMF', materialSkuId: scenario.materialSkuId, receivedMeters: meters }, TMF_DEMO_SUPERVISOR, `${scenario.id}:${suffix}:receive`))
+      if (demand.specification.tippingRequired) {
+        const ends = [...new Map([demand.specification.endA, demand.specification.endB]
+          .filter(end => end.method !== 'NONE' && end.materialBomItemId)
+          .map(end => [end.materialBomItemId!, end])).values()]
+        for (const end of ends) {
+          const unit = end.materialUnit!, qty = unit === '个' ? 1000 : 100
+          const sku = end.method === 'METAL' ? 'METAL-M4' : end.method === 'PLASTIC_WRAP' ? 'PLASTIC-P4' : 'SILICONE-CLEAR'
+          const lotId = `${demand.id}:${end.materialBomItemId}:lot`, issueId = `${demand.id}:${end.materialBomItemId}:issue`
+          once(`${issueId}:stock`, () => receiveTmfTipMaterialStock({ id: lotId, materialSkuId: sku, warehouseId: 'TMF-DEMO-ACCESSORY-WH', location: `TIP-${end.materialBomItemId}`, sourceReceiptNo: `${issueId}:receipt`, sourceReceiptLineId: 'L1', unit, receivedQty: qty }, warehouse, `${issueId}:stock`))
+          once(`${issueId}:dispatch`, () => dispatchTmfTipMaterial({ id: issueId, demandId: demand.id, materialBomItemId: end.materialBomItemId!, materialSkuId: sku, sourceDocumentNo: `${issueId}:doc`, unit, dispatchedQty: qty, stockLotId: lotId }, warehouse, `${issueId}:dispatch`))
+          once(`${issueId}:receive`, () => receiveTmfTipMaterial(issueId, qty, TMF_DEMO_SUPERVISOR, `${issueId}:receive`))
+        }
+      }
     }
   }
 }

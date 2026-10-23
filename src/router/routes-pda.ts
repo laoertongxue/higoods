@@ -104,7 +104,7 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/fcs\/pda\/exec\/([^/]+)\/([^/]+)$/,
-      render: (match) => renderPdaWorkOrderExecDetailPage(decodeRouteSegment(match[1]), decodeRouteSegment(match[2])),
+      render: (match) => decodeRouteSegment(match[1]) === 'BINDING_PROCESS_ORDER' ? renderRouteRedirect(`/fcs/pda/central/binding/execute/${encodeURIComponent(decodeRouteSegment(match[2]))}`, '正在进入中央工厂捆条加工单') : renderPdaWorkOrderExecDetailPage(decodeRouteSegment(match[1]), decodeRouteSegment(match[2])),
     },
     {
       pattern: /^\/fcs\/pda\/exec\/([^/]+)$/,

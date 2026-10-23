@@ -6,6 +6,8 @@ import { readWashingState, registerWashingProjection, executeWashingCommand, ens
 import { assertWashingSource, washingRollRelease, washingInitiationRolls, WASHING_FACTORY_ID, WASHING_FACTORY_NAME, type WashingSource, type WashingActor, type WashingCommand, type WashingOrder } from './fabric-washing-model.ts'
 import { FACTORY_RECEIVING_KEY, registerFactoryReceivingSource, assertReceiptPosition, prepareFactoryReceipt, savePreparedFactoryReceipt, listFactoryReceipts, recordWashingMaterialUsage } from './factory-receiving.ts'
 import type { FactoryReceivingSource } from './factory-receiving-types.ts'
+import { getCentralExecutionLedgerGuard } from './central-execution-record-bridge.ts'
+import { getDesignRevisionLedgerGuard } from './design-revision-pcs-storage.ts'
 const PRINT_KEY='higoods.formal-print-execution.v1'
 export const WASHING_ROUTE='/fcs/craft/dyeing/washing/work-orders'
 export function listWashingFactories() {
@@ -56,6 +58,11 @@ export function listWashingCandidates() {
 }
 function adoptPrint(printOrderId:string) {
  const raw=getPrintWorkOrderById(printOrderId);if(!raw)throw new Error('来源印花单不存在。')
+ // A physical judgment reads this current order; it does not transfer its owner.
+ if(getCentralExecutionLedgerGuard(PRINT_KEY,'state.workOrders',printOrderId)||getDesignRevisionLedgerGuard(PRINT_KEY,'state.workOrders',printOrderId)){
+  guardWashingLedger(PRINT_KEY,'state.workOrders',printOrderId)
+  return
+ }
  adoptWashingLedgerRows(PRINT_KEY,washingLedgerSnapshot(PRINT_KEY),row=>row.key===printOrderId||(row.value as any)?.taskId===raw.taskId||(row.value as any)?.orderId===printOrderId)
  guardWashingLedger(PRINT_KEY,'state.workOrders',printOrderId)
  // Preserve necessary received input and mixed receipt documents, without moving unrelated modules.
@@ -72,7 +79,7 @@ function transferSource(order:WashingOrder, command: Extract<WashingCommand,{typ
   lines:[{id:id+'-L1',material:material(order),plannedQty:selected.reduce((n,r)=>n+(outbound?r.outputQty!:r.inputQty),0),sentQty:selected.reduce((n,r)=>n+(outbound?r.outputQty!:r.inputQty),0),unit:selected[0].unit,
    rolls:selected.map(r=>({barcode:outbound?r.outputBarcode||r.barcode:r.barcode,yard:outbound?r.outputQty!:r.inputQty,qty:outbound?r.outputQty!:r.inputQty,unit:r.unit,originRollId:r.sourceRollId})),label:order.no,washingOrderId:order.id,washingDirection:outbound?'AFTER_WASH':'TO_WASH',originPrintOrderId:order.source.printOrderId,productionOrderNo:order.source.productionOrderId}]}
 }
-export async function submitWashingCommand(command:WashingCommand,actor:WashingActor,operationId:string) {
+export async function submitWashingCommand(command:WashingCommand,actor:WashingActor,operationId:string,validateCurrent?:()=>void) {
  await ensureWashingRecords()
  if(command.type==='LINK'){
   const current=getWashingSources(command.printOrderId)[0]
@@ -126,6 +133,7 @@ export async function submitWashingCommand(command:WashingCommand,actor:WashingA
    }
   }
  },()=>{
+  validateCurrent?.()
   if(command.type==='JUDGE'){const current=getWashingSources(command.source.printOrderId).find(s=>s.id===command.source.id);if(!current||current.revision!==command.source.revision||command.rollIds.some(id=>current.rolls.find(r=>r.id===id)?.handedOut))throw new Error('原面料已变化或已经交出，请重新读取后核对。');assertWashingSource(current)}
   if(['SEND','RECEIVE','START','OUTPUT','HANDOUT','DOWNSTREAM_RECEIVE','COMPLETE'].includes(command.type)&&'orderId'in command){
    const state=readWashingState(),order=state.orders.find(o=>o.id===command.orderId)

@@ -1,13 +1,18 @@
 import { migrateRetiredCutPiecePickupHistory } from './retired-cut-piece-pickup-history.ts'
-import { CUTTING_EVENT_SCOPE_RECORD, isManagedCuttingEvent } from './cutting-event-scope.ts'
+import { CUTTING_EVENT_SCOPE_RECORD, CUTTING_EVENT_SCOPE_VERSION, isManagedCuttingEvent } from './cutting-event-scope.ts'
 import { cuttingRecordFingerprint as fingerprint } from './cutting-record-identity.ts'
 import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, type CuttingRuntimeEvent } from './cutting-runtime-event-ledger.ts'
 import { readCuttingRecords, commitCuttingRecords } from './cutting-record-repository.ts'
 
 async function markScopeComplete(expectedRaw: string | null): Promise<void> {
   const snapshot = await readCuttingRecords()
-  if (snapshot.records.some(record => record.id === CUTTING_EVENT_SCOPE_RECORD)) return
-  await commitCuttingRecords({ revision: snapshot.revision, assertSourcesCurrent: () => { if (localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) !== expectedRaw) throw new Error('旧裁床记录在核对后发生变化，请关闭其他页面后重试；未标记完成。') }, change: { puts: [{ id: CUTTING_EVENT_SCOPE_RECORD, collection: 'cutting-event-scopes', value: { phase: 'COMPLETE', version: 2 } }] }, command: { id: 'cutting-event-scope-v2:complete', intent: 'cutting-event-scope-v2:complete', result: true, at: new Date().toISOString() } })
+  if (localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) !== expectedRaw) throw new Error('旧裁床记录在核对后发生变化，请关闭其他页面后重试；未标记完成。')
+  const scope = snapshot.records.find(record => record.id === CUTTING_EVENT_SCOPE_RECORD)
+  if (scope) {
+    if (scope.collection !== 'cutting-event-scopes' || (scope.value as {phase?:string;version?:number}).phase !== 'COMPLETE' || (scope.value as {version?:number}).version !== CUTTING_EVENT_SCOPE_VERSION) throw new Error('裁床事件核对标记不完整，未覆盖原记录。')
+    return
+  }
+  await commitCuttingRecords({ revision: snapshot.revision, assertSourcesCurrent: () => { if (localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) !== expectedRaw) throw new Error('旧裁床记录在核对后发生变化，请关闭其他页面后重试；未标记完成。') }, change: { puts: [{ id: CUTTING_EVENT_SCOPE_RECORD, collection: 'cutting-event-scopes', value: { phase: 'COMPLETE', version: CUTTING_EVENT_SCOPE_VERSION } }] }, command: { id: 'cutting-event-scope-v3:complete', intent: 'cutting-event-scope-v3:complete', result: true, at: new Date().toISOString() } })
 }
 /** 显式迁移共享旧账；不由读取触发，不改其他模块事件。 */
 export async function migrateLegacyCuttingEvents(input: { otherPagesClosed: boolean; progress: (message: string) => void }): Promise<number> {

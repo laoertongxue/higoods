@@ -53,8 +53,11 @@ test('one render reads each production snapshot once, including missing snapshot
 test('the actual prepared detail entry starts a fresh display context after preparation and on a later direct task entry', async () => {
   const display = sourceDeclarations('../../src/pages/process-factory/special-craft/order-display.ts',
     ['productionSnapshot', 'buildContext', 'resetSpecialCraftDisplayContext', 'context'], ['productionSnapshots', 'contexts'])
-  const entry = sourceDeclarations('../../src/pages/process-factory/special-craft/task-detail.ts', ['renderSpecialCraftTaskDetailPage'])
+  const entrySource = sourceDeclarations('../../src/pages/process-factory/special-craft/task-detail.ts', ['renderSpecialCraftTaskDetailPage'])
+  const entry = entrySource.replace("await (await import('../../../data/fcs/special-craft-records.ts')).ensureSpecialCraftRecords();", 'await prepareSpecialCraftRecords();')
+  assert.notEqual(entry, entrySource, 'the real record-preparation boundary must remain present')
   const reads: string[] = [], state = { version: 'v1', failPreparation: false, afterPreparationVersion: '' }
+  const preparations: string[] = []
   const tasks = new Map([['TASK-A', { productionOrderId: 'PO-1', demandLines: [] }], ['TASK-B', { productionOrderId: 'PO-1', demandLines: [] }]])
   const api = new Function('dependencies', `with(dependencies){let handoversByOrder;${display};${entry};
     function renderSpecialCraftTaskDetail(slug,id,source){
@@ -64,7 +67,9 @@ test('the actual prepared detail entry starts a fresh display context after prep
     return {context,entry:renderSpecialCraftTaskDetailPage}}`)({
     tasks, productionOrders: [{ productionOrderId: 'PO-1' }], handoverRecords: () => [],
     getProductionOrderTechPackSnapshot: (id: string) => { reads.push(state.version);return { version: state.version, bomItems: [] } },
+    prepareSpecialCraftRecords: async () => { preparations.push('records') },
     readPreparedProcessOrderTaskDetail: async (render: (source: { prepared: boolean }) => string) => {
+      preparations.push('sources')
       await Promise.resolve()
       if (state.failPreparation) throw Error('saved source unavailable')
       if (state.afterPreparationVersion) state.version = state.afterPreparationVersion
@@ -74,6 +79,7 @@ test('the actual prepared detail entry starts a fresh display context after prep
   assert.equal(api.context(tasks.get('TASK-A')).snapshot.version, 'v1')
   state.version = 'v2'
   assert.equal(await api.entry('aux-op-dalan', 'TASK-B'), 'true|v2|v2')
+  assert.deepEqual(preparations, ['records', 'sources'])
   assert.deepEqual(reads, ['v1', 'v2'], 'one fresh snapshot for this render, reused by its two identity consumers')
   state.afterPreparationVersion = 'v3'
   assert.equal(await api.entry('aux-op-dalan', 'TASK-A'), 'true|v3|v3', 'read the restored version after the original async preparation')

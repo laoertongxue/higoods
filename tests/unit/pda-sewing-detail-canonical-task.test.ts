@@ -3,6 +3,7 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 import { isIsolatedCraftReadEntry } from '../../src/main-infrastructure/craft-read-entry.ts'
+import { isThirdPartyPdaRouteAllowed } from '../../src/router/pda-experience-paths.ts'
 import {
   getMobileTaskAccessResult,
   getMobileTaskProcessType,
@@ -154,6 +155,7 @@ test('PDA handlers wait for part-ticket hydration, and the real detail is not mo
   let mounted = ''
   const dependencies = {
     isIsolatedCraftReadEntry,
+    isThirdPartyPdaRouteAllowed,
     authorizedCostCleanupError: undefined,
     renderSerial: 0,
     appStore: { getState: () => ({ pathname: '/fcs/pda/exec/TASK-SEW-000513-F090-3' }) },
@@ -203,6 +205,7 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
     let pmsInitializationStarted = false
     const dependencies = {
       isIsolatedCraftReadEntry,
+      isThirdPartyPdaRouteAllowed,
       authorizedCostCleanupError: undefined,
       startPmsInitialization: () => {
         if (pmsInitializationStarted) return
@@ -280,4 +283,35 @@ test('ordinary procurement entry does not initialize unrelated production or cut
     assert.equal(dependencies.previousRenderedPagePathname, path)
   }
   assert.deepEqual(loaded, [])
+})
+
+test('third-party cold redirect abandons the stale render before loading a handler whose records are not prepared',async()=>{
+ const source=readFileSync(new URL('../../src/main.ts',import.meta.url),'utf8'),ast=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true)
+ const functions=ast.statements.filter(n=>ts.isFunctionDeclaration(n)&&['renderCurrentPageContent','render'].includes(n.name?.text||''))
+ const script=functions.map(n=>n.getText(ast)).join('\n').replaceAll('import(','loadModule(')
+ const javascript=ts.transpileModule(script,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+ let release!:()=>void,prepared=false,next:Promise<void>|undefined,handlers=0,mounted=''
+ const preparation=new Promise<void>(resolve=>release=resolve),state={pathname:'/fcs/pda/warehouse'}
+ let renderer:{render:()=>Promise<void>}
+ const dependencies={
+  authorizedCostCleanupError:undefined,renderSerial:0,isIsolatedCraftReadEntry,isThirdPartyPdaRouteAllowed,
+  appStore:{getState:()=>state},ensureInitialPdaLoadingShell:()=>{},startPmsInitialization:()=>{},
+  loadModule:async(path:string)=>path.includes('pda-runtime')?{isCurrentPdaExperienceRouteAllowed:()=>false}:path.includes('route-utils')?{renderRouteRedirect:()=>{queueMicrotask(()=>{state.pathname='/fcs/pda/exec';next=renderer.render()});return'<p>Redirect</p>'}}:{ensurePcsRecordState:async()=>{}},
+  preparePageRouteEntry:async()=>{await preparation;prepared=true},
+  resolvePage:async()=>{assert.equal(prepared,true);return'<main>Current sewing execution</main>'},
+  getPdaExecPageModule:async()=>({renderPdaExecPage:()=>{assert.equal(prepared,true);return'<main>Current sewing execution</main>'}}),
+  getPdaHandlersModule:async()=>{handlers++;assert.equal(prepared,true,'stale redirect must not load a business handler before the target read preparation')},
+  isPdaPath:()=>true,root:{get innerHTML(){return mounted},set innerHTML(value:string){mounted=value},querySelector:()=>null},
+  renderAppShell:(_state:unknown,html:string)=>html,includeTmfStorageWarning:(html:string)=>html,
+  schedulePdaMainTabPreload:()=>{},hydrateIcons:()=>{},hydrateRealQRCodes:()=>{},dynamicModuleReloadScheduled:false,clearPreloadReloadFlag:()=>{},
+ }
+ renderer=new Function('dependencies',`with(dependencies){${javascript};return {render}}`)(dependencies)
+ const first=renderer.render();const outcome=first.then(()=>({ok:true}),error=>({ok:false,error}))
+ await new Promise(resolve=>setImmediate(resolve))
+ assert.equal(handlers,0,'only the still-waiting target owns handler loading')
+ assert.equal(mounted,'')
+ release();await next
+ assert.deepEqual(await outcome,{ok:true})
+ assert.equal(handlers,1)
+ assert.equal(mounted,'<main>Current sewing execution</main>')
 })

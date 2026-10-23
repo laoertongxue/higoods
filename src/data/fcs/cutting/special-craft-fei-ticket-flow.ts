@@ -3090,6 +3090,21 @@ export function ensureSpecialCraftFeiTicketFlowSeeded(): void {
   ensureFlowStore()
 }
 
+export type SpecialCraftFeiTicketStateSnapshot = Omit<FlowStore, 'pickupRecordToDispatchRecordId'> & {
+  pickupRecordToDispatchRecordId: Array<[string, string]>
+}
+
+export function captureSpecialCraftFeiTicketState(): SpecialCraftFeiTicketStateSnapshot {
+  const state = ensureFlowStore()
+  return structuredClone({ ...state, pickupRecordToDispatchRecordId: [...state.pickupRecordToDispatchRecordId] })
+}
+
+export function restoreSpecialCraftFeiTicketState(snapshot: SpecialCraftFeiTicketStateSnapshot): void {
+  const value = structuredClone(snapshot)
+  flowStore = { ...value, pickupRecordToDispatchRecordId: new Map(value.pickupRecordToDispatchRecordId) }
+  projectionBindingsCache = null
+}
+
 export function markSpecialCraftFeiTicketBindingCompleted(input: {
   taskOrderId: string
   operationId: string

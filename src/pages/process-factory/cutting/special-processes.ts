@@ -15,7 +15,7 @@ import {
   type BindingProcessActionCode,
   type BindingStripRequirementSummary,
 } from './binding-strip-orders.ts'
-import { executeBindingProcessActionWithWarehouse } from '../../../data/fcs/binding-process-warehouse-linkage-service.ts'
+import { runBindingProcessRecordCommand } from '../../../data/fcs/binding-process-records.ts'
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 import type {
   BindingProcessDifferenceStatus,
@@ -890,20 +890,21 @@ function openBindingActionModal(row: BindingProcessOrder, actionCode: BindingPro
   const wrapper = document.createElement('div')
   wrapper.innerHTML = renderBindingWorkOrderActionDialog(row, actionCode)
   const modal = wrapper.firstElementChild
-  if (modal) {
+  if (modal instanceof HTMLElement) {
+    modal.dataset.bindingRevision = JSON.stringify(row)
     modal.addEventListener('click', (event) => {
       const eventTarget = event.target
       if (!(eventTarget instanceof HTMLElement)) return
       if (!eventTarget.closest('[data-cutting-binding-action]')) return
       event.preventDefault()
       event.stopPropagation()
-      handleCraftCuttingSpecialProcessesEvent(eventTarget)
+      void handleCraftCuttingSpecialProcessesEvent(eventTarget)
     })
     document.body.appendChild(modal)
   }
 }
 
-export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): boolean {
+export async function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): Promise<boolean> {
   const pageSizeField = target.closest<HTMLSelectElement>('[data-cutting-binding-field="pageSize"]')
   if (pageSizeField) {
     const pageSize = Number(pageSizeField.value)
@@ -917,6 +918,7 @@ export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): bo
 
   const action = button.dataset.cuttingBindingAction
   if (action === 'close-overlay') {
+    if (document.getElementById(BINDING_ACTION_MODAL_ID)?.getAttribute('aria-busy') === 'true') return true
     removeBindingActionModal()
     return true
   }
@@ -932,8 +934,11 @@ export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): bo
       showBindingToast('加工单动作信息缺失，请关闭后重新操作')
       return true
     }
+    if (!modal || modal.getAttribute('aria-busy') === 'true') return true
+    modal.setAttribute('aria-busy', 'true')
+    modal.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('input,button,select,textarea').forEach(field => { field.disabled = true })
     try {
-      executeBindingProcessActionWithWarehouse({
+      await runBindingProcessRecordCommand({
         bindingOrderId,
         actionCode,
         qty: qtyField ? Number(qtyField.value) : undefined,
@@ -942,13 +947,16 @@ export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): bo
         operatorName: 'Web 操作员',
         operatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-'),
         remark: remarkField?.value,
-      })
+      }, undefined, modal.dataset.bindingRevision)
       const actionLabel = bindingActionMeta[actionCode].title
       removeBindingActionModal()
       showBindingToast(`${actionLabel}已写入具体捆条加工单`)
       window.dispatchEvent(new PopStateEvent('popstate'))
     } catch (error) {
       showBindingToast(error instanceof Error ? error.message : '加工单操作失败，请重试')
+    } finally {
+      modal.setAttribute('aria-busy', 'false')
+      modal.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('input,button,select,textarea').forEach(field => { field.disabled = false })
     }
     return true
   }

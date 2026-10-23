@@ -1,4 +1,9 @@
-/** 本次裁后动作的记录级持久化。旧同步领域可在提交前计算，事务只做版本核对和逐记录写入。 */
+import { CUTTING_EVENT_SCOPE_RECORD, CUTTING_EVENT_SCOPE_VERSION, LEGACY_CUTTING_EVENT_SCOPE_RECORD } from './cutting-event-scope.ts'
+import { validateWarehouseLayoutStoredRecords } from './warehouse-layout-record-contract.ts'
+import { validateCuttingPickupRecords, validateCuttingPickupRecordLinks } from './cutting-pickup-records.ts'
+import { validateCuttingMaterialRecordLinks } from './cutting-material-record-links.ts'
+
+/** 裁床动作的记录级持久化。旧同步领域可在提交前计算，事务只做版本核对和逐记录写入。 */
 export const CUTTING_RECORD_DB = 'higood-cutting-records-v1'
 export interface CuttingStoredRecord<T = unknown> { id: string; collection: string; value: T }
 export interface CuttingRecordSnapshot { revision: number; records: CuttingStoredRecord[] }
@@ -62,20 +67,31 @@ export async function readCuttingRecordFile(id: string): Promise<Blob | undefine
 
 /** 事务中的 command 与 revision 检查同时防止重放、抢票、旧页面静默覆盖。 */
 export async function commitCuttingRecords<T>(input: {
-  revision: number; change: CuttingRecordChange; command: CuttingStoredCommand & { result: T }; assertSourcesCurrent?: () => void
+  revision: number; change: CuttingRecordChange; command: CuttingStoredCommand & { result: T }; assertSourcesCurrent?: () => void; signal?: AbortSignal
 }): Promise<{ result: T; revision: number; replayed: boolean }> {
+  if (input.signal?.aborted) throw new DOMException('本次保存已取消。', 'AbortError')
   if (!input.command.id || !input.command.intent) throw new Error('保存失败：操作标识缺失。')
   if (new Set(input.change.puts.map(record => record.id)).size !== input.change.puts.length) throw new Error('保存失败：记录编号重复。')
   if (input.change.files?.some(file => !file.id || !(file.blob instanceof Blob))
     || new Set(input.change.files?.map(file => file.id)).size !== (input.change.files?.length || 0)) throw new Error('保存失败：附件身份或内容不完整。')
   const db = await openCuttingRecordDatabase()
+  if (input.signal?.aborted) throw new DOMException('本次保存已取消。', 'AbortError')
   return new Promise((resolve, reject) => {
     const tx = db.transaction(['records', 'commands', 'meta', 'files'], 'readwrite')
     let failure: Error | null = null; let replayed = false; let revision = input.revision; let result = input.command.result
-    const abort = (error: Error) => { failure = error; tx.abort() }
-    tx.onabort = () => reject(failure || tx.error || new Error('尚未保存：本次操作已撤回，请重试。'))
+    const abort = (error: Error) => {
+      // Cancellation may abort synchronously while a record request is queued.
+      // Preserve that first cause; a later request must not abort it a second time.
+      if (failure) return
+      failure = error
+      tx.abort()
+    }
+    const cancelled = () => abort(new DOMException('本次保存已取消。', 'AbortError'))
+    input.signal?.addEventListener('abort', cancelled, { once: true })
+    tx.onabort = () => { input.signal?.removeEventListener('abort', cancelled); reject(failure || tx.error || new Error('尚未保存：本次操作已撤回，请重试。')) }
     tx.onerror = () => {}
     tx.oncomplete = () => {
+      input.signal?.removeEventListener('abort', cancelled)
       // 通知只在 complete 后发布；其他页收到通知需重新读取，不能接受旧内存继续写入。
       if (!replayed && typeof BroadcastChannel !== 'undefined') {
         try { const channel = new BroadcastChannel(CUTTING_RECORD_DB); try { channel.postMessage({ revision }) } finally { channel.close() } } catch { /* 已提交；通知不可用不改变保存结果。 */ }
@@ -159,6 +175,10 @@ export function validateCuttingRecordBackup(value: unknown): asserts value is Cu
   const data = value as CuttingRecordBackup
   if (!data || data.format !== 'higood-cutting-record-backup' || data.version !== 1
     || !Array.isArray(data.records) || !Array.isArray(data.commands) || !Array.isArray(data.files)) throw new Error('备份格式或版本不正确，未改动现有数据。')
+  validateWarehouseLayoutStoredRecords(data.records)
+  validateCuttingPickupRecords(data.records)
+  validateCuttingPickupRecordLinks(data.records)
+  validateCuttingMaterialRecordLinks(data.records)
   for (const entries of [data.records, data.commands, data.files]) {
     if (entries.some(row => !row || typeof row.id !== 'string' || !row.id) || new Set(entries.map(row => row.id)).size !== entries.length) throw new Error('备份包含无效或重复编号，未改动现有数据。')
   }
@@ -183,7 +203,8 @@ export function validateCuttingRecordBackup(value: unknown): asserts value is Cu
       if (!tickets.has(String(value.ticketId)) || !value.commandId || !value.printedAt || !value.printedBy) throw new Error('备份打印记录缺少关联原票或确认信息。')
       printedIds.add(String(value.ticketId))
     } else if (row.collection === 'cutting-event-scopes') {
-      if (row.id !== 'cutting-event-scope:post-cutting-v2' || value.phase !== 'COMPLETE' || value.version !== 2) throw new Error('备份裁后来源核对记录不完整。')
+      const version = row.id === CUTTING_EVENT_SCOPE_RECORD ? CUTTING_EVENT_SCOPE_VERSION : row.id === LEGACY_CUTTING_EVENT_SCOPE_RECORD ? 2 : undefined
+      if (version === undefined || value.phase !== 'COMPLETE' || value.version !== version) throw new Error('备份裁床来源核对记录不完整。')
     } else if (row.collection === 'cutting-events') {
       if (row.id !== `cutting-event:${value.eventId}` || !value.eventType || !value.refs || !value.payload) throw new Error('备份裁床动作记录不完整。')
     }

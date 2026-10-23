@@ -1,6 +1,8 @@
 import { PDA_MOCK_QUOTED_TENDERS } from './pda-mobile-mock.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from './special-craft-pda-scope.ts'
 import { type ProcessTask } from './process-tasks.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { getThirdPartyPdaTaskMode, isThirdPartyPdaFactory } from './pda-experience-scope.ts'
 
 export const PDA_RECEIVE_EXCLUDED_PROCESS_NAMES = ['印花'] as const
 
@@ -36,6 +38,7 @@ export function isReceiveEligibleProcessName(processName?: string, processCode?:
 
 export function isReceiveEligibleTask(task: ProcessTask | null | undefined, selectedFactoryId?: string): boolean {
   if (!task) return false
+  if (selectedFactoryId && isThirdPartyPdaFactory(getFactoryMasterRecordById(selectedFactoryId)) && !getThirdPartyPdaTaskMode(task)) return false
   const canAccess = !selectedFactoryId || canFactoryAccessSpecialCraftPdaTask(selectedFactoryId, task)
   if (!canAccess) return false
   // 生产准备加工单不进入通用任务体系，但已分配加工单仍必须在 PDA 完成接单、执行和交出。
@@ -50,6 +53,8 @@ export function isReceiveEligibleTender(
 ): boolean {
   if (task?.defaultDocType === 'PREPARATION_ORDER') return false
   if (task) return isReceiveEligibleTask(task, selectedFactoryId)
+  // A tender without a resolvable source task cannot prove one of the three sewing scopes.
+  if (selectedFactoryId && isThirdPartyPdaFactory(getFactoryMasterRecordById(selectedFactoryId))) return false
   return isReceiveEligibleProcessName(tender.processName, tender.processCode)
     && (!selectedFactoryId || canFactoryAccessSpecialCraftPdaTask(selectedFactoryId, tender))
 }

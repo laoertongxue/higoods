@@ -8,13 +8,26 @@ export const PCS_FCS_COLLECTIONS = [
 const remarkPrefix = 'higood:dye-work-order:remark:'
 const legacyKeys = ['higoods.formal-dye-execution.v1', 'higoods.formal-print-execution.v1', 'higood.formal-merged-handout-actions.v1', 'higood-factory-material-receiving-v1']
 type Row = { id: string; path: string; key: string; value: any; tuple: boolean }
-type Hooks = { getItem(key: string): string | null; getBaselineItem?(key: string): string | null; isPersistedRow?(key: string, rowId: string): boolean; persistenceToken?(): unknown; setItem(key: string, raw: string): void; isStaging(): boolean }
+type Hooks = { getItem(key: string): string | null; getBaselineItem?(key: string): string | null; isPersistedRow?(key: string, rowId: string): boolean; getRecordVersion?(recordId:string):number|undefined; persistenceToken?(): unknown; setItem(key: string, raw: string): void; isStaging(): boolean }
 let hooks: Hooks | undefined
 let preparingWoolBaseline = false
 const stagedRaw = new Map<string, string>()
 // 四个集合各保留一份只读合并结果；任一实际源字符串变化即重新计算。
 const mergedReads = new Map<number, { nativeRaw: string | null; localRaw: string; baselineRaw: string; persistenceToken: unknown; result: string | null }>()
 export function configureDesignRevisionPcsStorage(value: Hooks): void { hooks = value }
+/** Related process actions guard an existing PCS row; reading never adopts it elsewhere. */
+export function getDesignRevisionLedgerGuard(legacyKey:string,path:string,identity:string):{id:string;expectedVersion:number}|undefined {
+ const index=legacyKeys.indexOf(legacyKey)
+ if(index<0)return undefined
+ const id=`${PCS_FCS_COLLECTIONS[index]}/items/${encodeURIComponent(path+'/'+encodeURIComponent(identity))}`
+ const expectedVersion=hooks?.getRecordVersion?.(id)
+ return expectedVersion===undefined?undefined:{id,expectedVersion}
+}
+/** The original PCS codec remains responsible for these staged process rows. */
+export function getDesignRevisionLedgerRows(legacyKey:string):Array<{path:string;key:string;value:unknown;tuple:boolean}> {
+ const index=legacyKeys.indexOf(legacyKey)
+ return index<0?[]:localRows(index).map(({path,key,value,tuple})=>({path,key,value,tuple}))
+}
 function native(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
   let storage: Storage
   try { storage = globalThis.localStorage } catch (error) { if ((error as { name?: string })?.name === 'SecurityError') return undefined; throw error }
@@ -260,10 +273,10 @@ export function getDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setIte
 export function registerDesignRevisionFcsCacheHooks(name: string, value: { capture(): unknown; restore(value: any): void; hydrate?(): void }): void { cacheHooks.set(name, value) }
 // Top-level owner hooks exist even when no generation command has run.
 export function hasDesignRevisionFcsCacheOwner(name: 'print' | 'dye'): boolean { return cacheHooks.has(name) }
-export function captureDesignRevisionFcsCaches(): Array<[string, unknown]> { return [...cacheHooks].map(([name, hook]) => [name, hook.capture()]) }
+export function captureDesignRevisionFcsCaches(names?: readonly string[]): Array<[string, unknown]> { return [...cacheHooks].filter(([name]) => !names || names.includes(name)).map(([name, hook]) => [name, hook.capture()]) }
 export function restoreDesignRevisionFcsCaches(snapshot: unknown): void { for (const [name, value] of snapshot as Array<[string, unknown]>) cacheHooks.get(name)?.restore(value) }
 
-export function hydrateDesignRevisionFcsCaches(): void { stagedRaw.clear(); for (const hook of cacheHooks.values()) hook.hydrate?.() }
+export function hydrateDesignRevisionFcsCaches(names?: readonly string[]): void { if (!names || names.includes('staged-storage')) stagedRaw.clear(); for (const [name, hook] of cacheHooks) if (!names || names.includes(name)) hook.hydrate?.() }
 
 registerDesignRevisionFcsCacheHooks('staged-storage', { capture() { return [...stagedRaw] }, restore(value) { stagedRaw.clear(); value.forEach(([key, raw]: [string,string]) => stagedRaw.set(key, raw)) } })
 export function isDesignRevisionFcsTarget(target: unknown): boolean {

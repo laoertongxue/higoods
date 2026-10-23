@@ -1,3 +1,4 @@
+import { saveWebLaceRecord, laceRecordErrorText } from './process-factory/accessory/lace/record-surface.ts'
 import { renderTmfSupplyPurchaseReceiptsPage } from './process-factory/accessory/webbing/supply-purchase-receipts.ts'
 // @page-pattern: list
 import { renderTmfContinuousReturnReceiptsPage } from './process-factory/accessory/webbing/continuous-return-receipts.ts'
@@ -286,8 +287,9 @@ export function renderWlsAccessoryReceiptsPage(): string {
   return `<div data-wls-lace-receipts-root data-skip-page-rerender="true">${renderInner()}</div>`
 }
 
-export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Event): boolean {
+export async function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
+  if (rootElement()?.dataset.laceRecordBusy || rootElement()?.dataset.laceRecordCommitted) return true
   const categoryButton = target.closest<HTMLElement>('[data-wls-receipt-category]')
   if (categoryButton && (!event || event.type === 'click')) {
     receiptCategory = categoryButton.dataset.wlsReceiptCategory === 'tmf-supply' ? 'tmf-supply' : categoryButton.dataset.wlsReceiptCategory === 'tmf-return' ? 'tmf-return' : categoryButton.dataset.wlsReceiptCategory === 'tmf-output' ? 'tmf-output' : categoryButton.dataset.wlsReceiptCategory === 'tmf-base' ? 'tmf-base' : 'existing'
@@ -406,7 +408,7 @@ export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Eve
       if (!draft.receiverName) throw new Error('请填写实际收货人姓名')
       const source = currentOverlayHandover()
       if (source && command.actualQty > source.qty && !command.evidence) throw new Error('多收须填写或上传收货凭证')
-      confirmLaceReceipt(command)
+      await saveWebLaceRecord(rootElement(), 'confirmLaceReceipt', () => confirmLaceReceipt(command), command.clientActionId, currentOverlayHandover()?.workOrderId)
       state.overlay = null
       state.feedback = '实际收货已确认，并按 WLS 实收数量回写采购单 SKU。'
       state.feedbackOk = true
@@ -417,7 +419,7 @@ export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Eve
         state.overlayError = ''
         refreshOverlays()
       } else {
-        state.overlayError = `未保存：${error instanceof Error ? error.message : String(error)}。请修正后重新提交。`
+        state.overlayError = laceRecordErrorText(error)
         refreshOverlays()
       }
     }
@@ -430,13 +432,14 @@ export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Eve
     try {
       if (!supervisorName) throw new Error('请填写本次实际确认主管姓名')
       if (!supervisorConfirmed) throw new Error('请由实际主管核对实物、差异原因和凭证后勾选确认')
-      confirmLaceReceipt({ ...state.overlay.command, overReceiptConfirmed: true, actor: { ...WLS_ACCESSORY_SUPERVISOR, actorId: `WLS-SUPERVISOR:${state.overlay.command.clientActionId}`, actorName: supervisorName } })
+      const confirmedCommand = { ...state.overlay.command, overReceiptConfirmed: true, actor: { ...WLS_ACCESSORY_SUPERVISOR, actorId: `WLS-SUPERVISOR:${state.overlay.command.clientActionId}`, actorName: supervisorName } }
+      await saveWebLaceRecord(rootElement(), 'confirmLaceReceipt', () => confirmLaceReceipt(confirmedCommand), confirmedCommand.clientActionId, currentOverlayHandover()?.workOrderId)
       state.overlay = null
       state.feedback = '中央辅料仓主管已二次确认多收，实收和差异凭证已记录。'
       state.feedbackOk = true
       refreshAll()
     } catch (error) {
-      state.overlayError = `未保存：${error instanceof Error ? error.message : String(error)}。请修正后重新提交。`
+      state.overlayError = laceRecordErrorText(error)
       refreshOverlays()
     }
     return true

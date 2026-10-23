@@ -1,4 +1,5 @@
 import { MATERIAL_PREP_BASE_ORDER_IDS, MATERIAL_PREP_CATEGORY_SEQUENCES } from './material-prep-seed-identities.ts'
+import { applyCuttingPickupRecordView, assertReadablePreparationSource, getCuttingPickupRecordEpoch, isNativeCuttingPickupStorage, protectCuttingPickupLegacyWrite } from './cutting-pickup-records.ts'
 import { resolveRuntimePrepMaterial, findRuntimePrepCutSource } from './material-prep-cut-order-read.ts'
 export { listRuntimeMaterialPrepCutOrderIds } from './material-prep-cut-order-read.ts'
 import { generatePreparationOrderArtifactsForOrder } from '../production-artifact-generation.ts'
@@ -8,6 +9,7 @@ import { productionOrders, type ProductionOrder } from '../production-orders.ts'
 import { getProductionOrderChangeCurrentFacts } from '../production-tech-pack-change-domain.ts'
 import {
   getBrowserLocalStorage,
+  isBrowserBusinessStorageStaged,
   type BrowserStorageLike,
 } from '../../browser-storage.ts'
 import { listBusinessFactoryMasterRecords } from '../factory-master-store.ts'
@@ -23,6 +25,7 @@ import {
   type PickupNodeSourceLocation,
   type PickupSession,
   type PickupStorageLocationRef,
+  type PickupCuttingSource,
 } from './pickup-node-domain.ts'
 import {
   buildPickupDemandFacts,
@@ -276,6 +279,7 @@ export interface PickupRecord {
   pickedQty: number
   rollCount: number
   receiverName: string
+  receiverUserId?: string
   pickedAt: string
   warehouseArea: string
   locationCode: string
@@ -3398,16 +3402,23 @@ export function deserializeProductionMaterialPrepStore(raw: string | null): Prod
 export function hydrateProductionMaterialPrepStore(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): ProductionMaterialPrepWorkflowStore {
-  return deserializeProductionMaterialPrepStore(storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null)
+  const raw = storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
+  if (isNativeCuttingPickupStorage(storage)) assertReadablePreparationSource(raw)
+  return applyCuttingPickupRecordView(deserializeProductionMaterialPrepStore(raw), raw, storage)
 }
 
 export function persistProductionMaterialPrepStore(
   store: ProductionMaterialPrepWorkflowStore,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): ProductionMaterialPrepWorkflowStore {
-  assertRetiredAccessoryLegacyWritesUnchanged(hydrateProductionMaterialPrepStore(storage), store)
+  const before = hydrateProductionMaterialPrepStore(storage)
+  assertRetiredAccessoryLegacyWritesUnchanged(before, store)
   const raw = storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
-  storage?.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(preserveOriginalAccessoryLegacyRows(store, raw)))
+  // A joint receipt computes in memory and never writes this legacy snapshot.
+  // Legacy-only accessory preservation must not reorder or repoint its untouched source records.
+  const safe = protectCuttingPickupLegacyWrite(before, store, storage)
+  const prepared = isBrowserBusinessStorageStaged() ? safe : preserveOriginalAccessoryLegacyRows(safe, raw)
+  storage?.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(prepared))
   invalidateMaterialPrepProjectionCache()
   return store
 }
@@ -4002,7 +4013,7 @@ export function listMaterialPrepOrderProjections(
   // Scope only the orders being projected. All saved reservations remain in the
   // calculation because another order can reserve the same physical stock.
   const currentOrders = listCurrentMaterialPrepOrders(store.prepRecords, options.productionOrderIds)
-  const sourceFingerprint = JSON.stringify(currentOrders)
+  const sourceFingerprint = JSON.stringify([currentOrders, getCuttingPickupRecordEpoch()])
   if (materialPrepProjectionCache?.storage === storage && materialPrepProjectionCache.sourceFingerprint === sourceFingerprint) {
     return materialPrepProjectionCache.rows
   }
@@ -5166,10 +5177,10 @@ function readPickupNodeTypeFromFingerprint(fingerprint: string): PickupNodeProje
   }
 }
 
-export function listActivePickupNodes(
-  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
-  demandFacts: PickupDemandFact[] = listPickupDemandFacts(storage),
-): PickupNodeProjection[] {
+function calculateActivePickupNodes(
+  storage: BrowserStorageLike | null,
+  demandFacts: PickupDemandFact[],
+): { nodes: PickupNodeProjection[]; snapshots: PickupNodeSnapshotState[] } {
   const store = hydrateProductionMaterialPrepStore(storage)
   const projections = listMaterialPrepOrderProjections(storage)
   const sessionsByPrepOrder: Map<string, PickupSession[]> = new Map()
@@ -5179,7 +5190,6 @@ export function listActivePickupNodes(
     else sessionsByPrepOrder.set(session.prepOrderId, [session])
   }
 
-  let snapshotChanged = false
   const nodes = projections.flatMap((projection) => {
     if (projection.order.isClosed) return []
     const pickupSessions = sessionsByPrepOrder.get(projection.order.prepOrderId) ?? []
@@ -5243,7 +5253,6 @@ export function listActivePickupNodes(
         readySource: nodeType === 'READY_TO_PICKUP' ? 'DIRECT_READY' : null,
       }
       store.pickupNodeSnapshots.push(snapshot)
-      snapshotChanged = true
     } else if (snapshot.fingerprint !== fingerprint) {
       const previousNodeType = snapshot.nodeType || readPickupNodeTypeFromFingerprint(snapshot.fingerprint)
       snapshot.version += 1
@@ -5255,11 +5264,9 @@ export function listActivePickupNodes(
           ? 'UPGRADED_FROM_INCOMPLETE'
           : 'DIRECT_READY'
         : null
-      snapshotChanged = true
     } else if (!snapshot.nodeType || (nodeType === 'READY_TO_PICKUP' && !snapshot.readySource)) {
       snapshot.nodeType = nodeType
       snapshot.readySource = nodeType === 'READY_TO_PICKUP' ? 'DIRECT_READY' : null
-      snapshotChanged = true
     }
 
     const carrierType: PickupNodeProjection['carrierType'] =
@@ -5289,8 +5296,15 @@ export function listActivePickupNodes(
     }
     return [node]
   })
-  if (snapshotChanged) persistProductionMaterialPrepStore(store, storage)
-  return nodes
+  return { nodes, snapshots: store.pickupNodeSnapshots }
+}
+
+/** Current availability is a read projection. Only an explicit receipt saves its selected snapshot. */
+export function listActivePickupNodes(
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  demandFacts: PickupDemandFact[] = listPickupDemandFacts(storage),
+): PickupNodeProjection[] {
+  return calculateActivePickupNodes(storage, demandFacts).nodes
 }
 
 export function appendPickupSessionFromNode(
@@ -5298,6 +5312,8 @@ export function appendPickupSessionFromNode(
     pickupNodeId: string
     pickupNodeVersion: number
     receiverName: string
+    receiverUserId?: string
+    cuttingSources?: PickupCuttingSource[]
     warehouseArea: string
     locationCode: string
     waitProcessLedgerEventId: string
@@ -5319,17 +5335,19 @@ export function appendPickupSessionFromNode(
     throw new Error(`幂等键已用于其他待领节点：${idempotentSession.pickupNodeId}`)
   }
 
-  const nodes = listActivePickupNodes(storage, demandFacts)
-  const node = nodes.find((n) => n.nodeId === input.pickupNodeId)
+  const calculation = calculateActivePickupNodes(storage, demandFacts)
+  const node = calculation.nodes.find((n) => n.nodeId === input.pickupNodeId)
   if (!node) throw new Error(`待领节点不存在：${input.pickupNodeId}`)
   if (node.status === 'CLOSED') throw new Error('当前待领节点已关闭，不可重复确认接收')
   if (node.version !== input.pickupNodeVersion) {
     throw new Error('当前待领物料已更新，请重新核对全部物料后再确认接收。')
   }
   assertCuttingRawPrepNodeReceipt(node, listMaterialPrepOrderProjections(storage), demandFacts)
-  // listActivePickupNodes 会在物料事实变化时持久化节点快照；提交前重新读取，
-  // 避免随后保存接收事实时用旧 Store 覆盖刚刚递增的节点版本。
+  // Keep the selected current version with this receipt, without saving unrelated viewed nodes.
+  const selectedSnapshot = calculation.snapshots.find(snapshot => snapshot.nodeId === node.nodeId)
+  if (!selectedSnapshot) throw new Error('当前接收节点快照缺失，请重新核对。')
   store = hydrateProductionMaterialPrepStore(storage)
+  store.pickupNodeSnapshots = [cloneRecord(selectedSnapshot), ...store.pickupNodeSnapshots.filter(snapshot => snapshot.nodeId !== node.nodeId)]
 
   const occurredAt = nowText()
   const pickupSessionId = `pickup-session:${node.nodeId}`
@@ -5373,6 +5391,7 @@ export function appendPickupSessionFromNode(
       pickedQty: roundQty(item.currentAvailableQty),
       rollCount: Math.max(item.rollCount, 0),
       receiverName: input.receiverName,
+      ...(input.receiverUserId ? { receiverUserId: input.receiverUserId } : {}),
       pickedAt: occurredAt,
       warehouseArea: targetWarehouseArea,
       locationCode: targetLocationCode,
@@ -5410,6 +5429,8 @@ export function appendPickupSessionFromNode(
     nodeType: node.nodeType,
     pickupRecordIds,
     receiverName: input.receiverName,
+    ...(input.receiverUserId ? { receiverUserId: input.receiverUserId } : {}),
+    ...(input.cuttingSources ? { cuttingSources: cloneRecord(input.cuttingSources) } : {}),
     pickedAt: occurredAt,
     toWarehouseArea: targetWarehouseArea,
     toLocationCode: targetLocationCode,
@@ -5468,6 +5489,7 @@ export function updatePickupSessionStorageFootprint(
     pickupSessionId: string
     locationRefs: PickupStorageLocationRef[]
     remainingByUnit: Array<{ unit: string; remainingQty: number }>
+    adjustmentId?: string
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupSession {
@@ -5480,6 +5502,7 @@ export function updatePickupSessionStorageFootprint(
     input.locationRefs,
     input.remainingByUnit,
   )
+  if (input.adjustmentId) adjusted.lastStorageAdjustmentId = input.adjustmentId
   store.pickupSessions[index] = adjusted
   store.pickupRecords
     .filter((record) => record.pickupSessionId === input.pickupSessionId)

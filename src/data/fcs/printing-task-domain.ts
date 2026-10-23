@@ -1,12 +1,12 @@
 import { PRINT_EXECUTION_STORAGE_KEY } from './process-execution-storage-keys.ts'
 import { buildWashingPrintDemoOrders } from './fabric-washing-mock.ts'
 import { assertFabricWashingRelease, setReadingStaticPrintHistory, withStaticPrintHistory } from './fabric-washing-gates.ts'
-import { registerWashingLedgerSnapshot, isWashingStorageTarget, withWashingStaticRead } from './fabric-washing-storage-bridge.ts'
+import { registerWashingLedgerSnapshot, isWashingStorageTarget, isSpecialCraftStorageTarget, withWashingStaticRead } from './fabric-washing-storage-bridge.ts'
 import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
 import { isProductionCreationSourceStage, withProductionCreationSourceStage, recordProductionCreatedProcessSource, listProductionCreatedProcessSources, shouldApplyProductionCreatedProcessSource } from './production-created-process-sources.ts'
 import { parsePrintExecution, serializePrintExecution } from './printing-execution-storage.ts'
 import { buildPrintingFactoryDemoOrders, initializePrintingFactoryDemoProgress } from './printing-factory-demos.ts'
-import { isKnownPrintingFactoryDemoIdentity } from './printing-factories.ts'
+import { isKnownPrintingFactoryDemoIdentity, isKnownWashingPrintDemoIdentity } from './printing-factories.ts'
 import { localDateTimeText } from '../../utils.ts'
 import {ensurePrintingReceivingExamples} from './printing-material-receipts.ts'
 import { initializeFactoryReceivingDemoBatch, captureFactoryReceivingData, restoreFactoryReceivingData, listFactoryReceivingSources, listFactoryReceipts, listReceivingAllocations, listFactoryMaterialUses, recordFactoryMaterialUsage, convertReceiptQuantity, getFactoryReceivingSource, getProcessOrderReceivingFacts, registerFactoryReceivingSource } from './factory-receiving.ts'
@@ -18,6 +18,7 @@ import {
   capturePdaHandoverState,
   restorePdaHandoverState,
   persistPdaHandoverState,
+  invalidatePdaHandoverHeadCache,
   ensureHandoverOrderForStartedTask,
   getHandoverOrderById,
   getPdaHandoverRecordsByHead,
@@ -61,6 +62,8 @@ import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { listPrintingFactoryOptions } from './printing-factories.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { assertCentralPrintingFactoryActor, type CentralPrintingActor } from './central-printing-actor.ts'
+export type { CentralPrintingActor } from './central-printing-actor.ts'
 import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { resolveProductionMaterialImageUrl } from './production-material-image-assets.ts'
 import { getPrintingOrderImageManifest } from './process-order-image-manifest.ts'
@@ -262,25 +265,28 @@ export interface PrintingInputChangeRecord {
   changedAt: string
   crossSpecification: boolean
 }
-export interface PrintingOperationLog { logId: string; action: string; operatorName: string; operatedAt: string; remark: string }
+export interface PrintingOperationLog { logId: string; action: string; operatorName: string; operatedAt: string; remark: string; operatorUserId?: string; confirmationId?: string; commandSignature?: string }
 export interface PrintingDocumentHistory {
   historyId: string
   documentName: '印花信息单' | '印花确认单' | '加工产出卷条码'
   action: '打印' | '下载' | '补打' | '标记需重印'
   operatorName: string
+  operatorUserId?: string
   operatedAt: string
   versionNo: string
   remark?: string
 }
 export interface PrintingDispatchDocument {
-  scans?: Array<{workOrderId:string;barcodeId:string;barcode:string;scannedAt:string;scannedBy:string}>
+  scans?: Array<{workOrderId:string;barcodeId:string;barcode:string;scannedAt:string;scannedBy:string;scannedByUserId?:string}>
   scanCompletedAt?: string
   id: string
   status: '草稿' | '已交出' | '已作废'
   createdAt: string
   createdBy: string
+  createdByUserId?: string
   handedOverAt?: string
   handedOverBy?: string
+  handedOverByUserId?: string
   lines: Array<{ workOrderId: string; barcodeIds: string[]; rolls?: PrintingRollBarcode[] }>
 }
 
@@ -308,6 +314,7 @@ export interface PrintingRollBarcode {
   inboundStatus: '待上架' | '已上架'
   inboundAt?: string
   printedBy?: string
+  printedByUserId?: string
   printedAt?: string
   remark?: string
 }
@@ -320,8 +327,8 @@ export interface PrintingBusinessViewFacts {
   requirementVersionStartUsedQty?: number
   requirementVersionStartOutputQty?: number
   requirementHistory?: Array<{version:number;requirement:PrintingRequirement;at:string;operatorName:string;reason:string}>
-  productionActions?: Array<{id:string;stage:'ARTWORK'|'SAMPLE'|'PRINT'|'TRANSFER';action:'START'|'FINISH';qty?:number;operatorName:string;at:string;requirementVersion?:number}>
-  productionBatches?: Array<{id:string;qty:number;lossQty?:number;at:string;operatorName:string;requirementVersion:number;requirement:PrintingRequirement}>
+  productionActions?: Array<{id:string;stage:'ARTWORK'|'SAMPLE'|'PRINT'|'TRANSFER';action:'START'|'FINISH';qty?:number;operatorName:string;at:string;requirementVersion?:number;operatorUserId?:string}>
+  productionBatches?: Array<{id:string;qty:number;lossQty?:number;at:string;operatorName:string;requirementVersion:number;requirement:PrintingRequirement;operatorUserId?:string}>
 
   dispatchDocuments?: PrintingDispatchDocument[]
   barcodeSequence?: number
@@ -383,6 +390,7 @@ export interface PrintingWorkOrderBusinessRecord extends PrintingBusinessViewFac
   plannedFinishAt?: string
   manuallyCompletedAt?: string
   manuallyCompletedBy?: string
+  manuallyCompletedByUserId?: string
 }
 
 export interface PrintingWorkOrderSummary {
@@ -496,6 +504,7 @@ export interface PrintWorkOrder {
   businessView?: PrintingBusinessViewFacts
   manuallyCompletedAt?: string
   manuallyCompletedBy?: string
+  manuallyCompletedByUserId?: string
 }
 
 export interface PrintExecutionNodeRecord {
@@ -506,6 +515,10 @@ export interface PrintExecutionNodeRecord {
   nodeName: string
   operatorUserId: string
   operatorName: string
+  startedBy?: string
+  startedByUserId?: string
+  finishedBy?: string
+  finishedByUserId?: string
   deviceId?: string
   startedAt?: string
   finishedAt?: string
@@ -749,9 +762,7 @@ function hydrateDesignRevisionPrintPreview(order: PrintWorkOrder): void {
   if (!order.businessView.output.imageUrl) order.businessView.output.imageUrl = preview
 }
 
-function saveFormalPrintExecution(): void {
-  applyProductionCreatedPrintSources()
-  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+function currentPrintExecutionSnapshot(): string {
   const ids = new Set([...workOrderStore.keys()].filter(id=>!id.startsWith('PWO-WASH-DEMO-')||isWashingStorageTarget(id)||JSON.stringify(workOrderStore.get(id))!==washingDemoBaselines.get(id))), state = capturePrintProcessMutationState()
   state.workOrders = state.workOrders.filter(([id]) => ids.has(id))
   // 新建但未开工的加工单也保存空执行记录，刷新时可区分“尚未执行”和缺失记录。
@@ -771,7 +782,12 @@ function saveFormalPrintExecution(): void {
       records: getPdaHandoverRecordsByHead(head.handoverId, head),
     })))
     .filter(item => item.records.length > 0)
-  const raw = serializePrintExecution({ version: 1, state, tasks, designRevisionHandovers })
+  return serializePrintExecution({ version: 1, state, tasks, designRevisionHandovers })
+}
+function saveFormalPrintExecution(): void {
+  applyProductionCreatedPrintSources()
+  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+  const raw = currentPrintExecutionSnapshot()
   getDesignRevisionFcsStorage().setItem(PRINT_EXECUTION_STORAGE_KEY, raw)
   if (getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('印花保存结果未核实')
 }
@@ -792,8 +808,13 @@ function restoreFormalPrintExecution(): void {
     const ids = new Set(workOrderStore.keys()), seen = new Set<string>()
     for (const [id, order] of saved.state.workOrders) {
       const current = workOrderStore.get(id)
+      // An adopted row can refer to unchanged static task/empty node context.
+      // External or legacy-only snapshots retain the complete-reference contract.
+      const adopted = !!current && isSpecialCraftStorageTarget(id)
       const nodes = saved.state.nodeRecords.find(([key]) => key === id)?.[1]
+        ?? (adopted ? nodeRecordStore.get(id) ?? [] : undefined)
       const task = saved.tasks.find(item => item.taskId === order.taskId)
+        ?? (adopted ? getPrintingTaskById(current.taskId) : undefined)
       const restorableHistoricalDemo = !current
         && isKnownPrintingFactoryDemoIdentity(id, order.taskId, order.printFactoryId || '')
         && order.sourceKey === id.replace('PWO-PRINT-DEMO-', 'PRINT-FACTORY-DEMO-')
@@ -895,12 +916,22 @@ export function runPrintProcessMutation<T>(action: () => T): T {
   printMutationDepth++
   try {
     const result = action()
-    const ids = formalPrintIds()
+    // Linked task status changes are independent of head metadata. Refresh the
+    // projection explicitly instead of relying on unrelated demo upserts to do it.
+    invalidatePdaHandoverHeadCache()
+    const ids = formalPrintIds(), previousOrders = new Map(before.workOrders)
     for (const order of workOrderStore.values()) {
       if (!order.handoverOrderId) continue
+      // Actual/formal order heads also carry task completion and recipient facts
+      // outside the raw order JSON. Only untouched fixed demonstrations can skip
+      // this original synchronization; a general "unchanged order" filter loses
+      // the design-revision completion handoff.
+      const fixedDemo = /^PWO-PRINT-(?:\d{3}|DEMO-\d{2}-[1-5])$/.test(order.printOrderId) || order.printOrderId.startsWith('PWO-WASH-DEMO-')
+      if (fixedDemo && order.sourceType !== 'DESIGN_REVISION' && !ids.has(order.printOrderId)
+        && !createdPrintOrderIds.has(order.printOrderId) && JSON.stringify(order) === JSON.stringify(previousOrders.get(order.printOrderId))) continue
       if(!ids.has(order.printOrderId)){
         const head=getHandoverOrderById(order.handoverOrderId, { includeWool: false })
-        if(head&&/^PWO-PRINT-(?:\d{3}|DEMO-\d{2}-[1-5])$/.test(order.printOrderId))upsertPdaHandoverHeadMock({...head,sourceBusinessType:'PRINT_WORK_ORDER',sourceDocId:order.printOrderId,sourceDocNo:order.printOrderNo})
+        if(head&&(/^PWO-PRINT-(?:\d{3}|DEMO-\d{2}-[1-5])$/.test(order.printOrderId)||isKnownWashingPrintDemoIdentity(order.printOrderId,order.taskId,order.printFactoryId)))upsertPdaHandoverHeadMock({...head,sourceBusinessType:'PRINT_WORK_ORDER',sourceDocId:order.printOrderId,sourceDocNo:order.printOrderNo})
         continue
       }
       const head = getHandoverOrderById(order.handoverOrderId, { includeWool: false })
@@ -4545,6 +4576,7 @@ function projectPrintingBusinessRecord(order: MutablePrintWorkOrder): PrintingWo
     plannedFinishAt: order.plannedFinishAt,
     manuallyCompletedAt: order.manuallyCompletedAt,
     manuallyCompletedBy: order.manuallyCompletedBy,
+    manuallyCompletedByUserId: order.manuallyCompletedByUserId,
   }
 }
 
@@ -4668,6 +4700,7 @@ export function assignPrintingWorkOrder(workOrderId: string, input: { factoryId:
   order.acceptanceStatus = 'PENDING'
   order.manuallyCompletedAt = undefined
   order.manuallyCompletedBy = undefined
+  order.manuallyCompletedByUserId = undefined
   const assignedAt = nowTimestamp()
   updateOrderTimestamp(order, assignedAt)
   syncLinkedTaskState(order.taskId, {
@@ -4860,8 +4893,9 @@ export function completePrintingWorkOrder(workOrderId: string, input: { usedQty:
  })
 }
 
-export function handoverPrintingOutput(workOrderId: string, input: { qty: number; barcodeIds: string[]; operatorName: string; receiverName: string; dispatchId?: string }): void {
+export function handoverPrintingOutput(workOrderId: string, input: { qty: number; barcodeIds: string[]; operatorName: string; receiverName: string; dispatchId?: string; centralPrintingActor?: CentralPrintingActor }): void {
   return runPrintProcessMutation(() => {
+  if(input.centralPrintingActor){assertCentralPrintingActor(workOrderId,input.centralPrintingActor);if(input.centralPrintingActor.name!==input.operatorName)throw new Error('PRINT_wrongActor')}
   const order = getMutablePrintingBusinessOrder(workOrderId)
   if(order.productionTmfContinuation){
     const production=productionOrders.find(p=>p.productionOrderId===order.sourceSnapshot?.productionOrderId)
@@ -4895,8 +4929,9 @@ export function handoverPrintingOutput(workOrderId: string, input: { qty: number
   const handoverOrderId = order.handoverOrderId || ensureStartedTaskHandover(order.taskId)
   if (!handoverOrderId) throw new Error('未找到已开工任务的交出单，请返回任务检查。')
   const record = createFactoryHandoverRecord({
-    handoverOrderId, submittedQty: input.qty, qtyUnit: view.output.qtyUnit, printingOrderId:workOrderId,printingValidatedRollIds:input.barcodeIds,
+    handoverOrderId, submittedQty: input.qty, qtyUnit: view.output.qtyUnit, printingOrderId:workOrderId,printingTaskId:order.taskId,printingValidatedRollIds:input.barcodeIds,
     factorySubmittedAt: handedOverAt, factorySubmittedBy: input.operatorName,
+    centralPrintingActor: input.centralPrintingActor,
     factoryRemark: `下游接收人：${input.receiverName}；产出卷：${selected.map(barcode => barcode.barcode).join('、')}`,
     objectType: order.objectType === '面料' ? 'FABRIC' : 'MATERIAL',
     handoutObjectType: order.objectType === '面料' ? 'FABRIC' : 'MATERIAL',
@@ -4956,6 +4991,7 @@ export function handoverPrintingOutput(workOrderId: string, input: { qty: number
   syncPrintingBusinessReview(order)
   updateOrderTimestamp(order, handedOverAt)
   addPrintingBusinessOperation(order, '交出加工产出', input.operatorName, `${formatPrintingQty(input.qty)} ${view.output.qtyUnit}；${input.barcodeIds.length} 卷`)
+  if(input.centralPrintingActor)view.operationLogs[0].operatorUserId=input.centralPrintingActor.userId
 
   })
 }
@@ -5004,6 +5040,7 @@ export function receivePrintingHandover(workOrderId: string, input: { receivedQt
   // 收齐只记录下游接收事实；不得在这里把加工单冒充为人工完单。
   order.manuallyCompletedAt = undefined
   order.manuallyCompletedBy = undefined
+  order.manuallyCompletedByUserId = undefined
   syncPrintingBusinessReview(order)
   syncLinkedTaskState(order.taskId, {
     status: 'IN_PROGRESS',
@@ -5037,23 +5074,40 @@ export function receivePrintingContinuationForTask(workOrderId:string,recordId:s
  })
 }
 
-export function completePrintWorkOrderDocument(workOrderId: string, input: { operatorName: string }): PrintWorkOrder {
+function printingDocumentCanComplete(order: MutablePrintWorkOrder):boolean {
+  const view=order.businessView!
+  return derivePrintingHandoverStatus(order)==='FULL_HANDOVER'&&view.handover.receivedQty>=view.handover.handedOverQty&&view.handover.diffQty===0&&view.handover.objectionQty===0
+}
+/** Read the same completion prerequisite enforced by the Web command. */
+export function getPrintingDocumentCompletion(workOrderId:string){
+  return withWashingStaticRead(()=>{
+    const order=getMutablePrintingBusinessOrder(workOrderId),view=order.businessView!
+    return {ready:!order.manuallyCompletedAt&&printingDocumentCanComplete(order),outputQty:view.output.completedQty,handedQty:view.handover.handedOverQty,receivedQty:view.handover.receivedQty,
+      completedAt:order.manuallyCompletedAt,completedBy:order.manuallyCompletedBy,completedByUserId:order.manuallyCompletedByUserId,
+      revision:JSON.stringify([centralPrintingProductionRevision(workOrderId),view.handover.diffQty,view.handover.objectionQty])}
+  })
+}
+export function completePrintWorkOrderDocument(workOrderId: string, input: { operatorName: string }, actor?:CentralPrintingActor): PrintWorkOrder {
   return runPrintProcessMutation(() => {
+  if(actor){assertCentralPrintingActor(workOrderId,actor);if(input.operatorName!==actor.name)throw new Error('PRINT_wrongActor')}
   const operatorName = input.operatorName.trim()
   if (!operatorName) throw new Error('请填写实际完成人')
   const order = getMutablePrintingBusinessOrder(workOrderId)
   const view = order.businessView!
-  if (derivePrintingHandoverStatus(order) !== 'FULL_HANDOVER' || view.handover.receivedQty < view.handover.handedOverQty || view.handover.diffQty !== 0 || view.handover.objectionQty !== 0) {
+  if (!printingDocumentCanComplete(order)) {
     throw new Error('加工产出尚未全部接收或仍有差异，不能完成单据')
   }
   if (order.manuallyCompletedAt) throw new Error('印花加工单已经人工完成')
   const completedAt = nowTimestamp()
   order.manuallyCompletedAt = completedAt
   order.manuallyCompletedBy = operatorName
+  if(actor)order.manuallyCompletedByUserId=actor.userId
+  else delete order.manuallyCompletedByUserId
   order.status = 'COMPLETED'
   updateOrderTimestamp(order, completedAt)
   syncLinkedTaskState(order.taskId, { status: 'DONE', finishedAt: completedAt, blockReason: undefined, blockRemark: undefined })
   addPrintingBusinessOperation(order, '人工完成单据', order.manuallyCompletedBy, '确认交出与接收数量无差异，人工完成印花加工单')
+  if(actor)view.operationLogs[0].operatorUserId=actor.userId
   return cloneWorkOrder(order)
 
   })
@@ -5073,29 +5127,48 @@ export function cancelPrintingWorkOrder(workOrderId: string, input: { operatorNa
   })
 }
 
-export function addPrintingRollBarcode(workOrderId: string): PrintingRollBarcode {
+export function addPrintingRollBarcode(workOrderId: string, actor?: CentralPrintingActor, batchId?:string): PrintingRollBarcode {
   return runPrintProcessMutation(() => {
+  if(actor)assertCentralPrintingActor(workOrderId,actor)
   const order = getMutablePrintingBusinessOrder(workOrderId)
   const view = order.businessView!
   if (view.historicalRollQuantitiesUnknown) throw new Error('历史完成卷数未记录，请先补录历史累计数量，再补充产出卷条码')
+  const batch=batchId?view.productionBatches?.find(b=>b.id===batchId):view.productionBatches?.length===1?view.productionBatches[0]:undefined
+  if(batchId&&!batch)throw new Error('PRINT_wrongBatch')
   const rollOffset = Math.max(view.barcodeSequence || 0, view.output.completedRollCount, view.barcodes.reduce((max, roll) => Math.max(max, Number(roll.rollNo) || 0), 0))
   const barcode = makePrintingBarcode({ printOrderNo: order.printOrderNo, outputSku: view.output.sku, rollIndex: rollOffset, lengthY: 0, gsm: view.output.gsm, widthCm: view.output.widthCm, qtyUnit: view.output.qtyUnit, objectType: view.output.objectType })
   barcode.createdAt = nowTimestamp()
+  if(batch){barcode.batchId=batch.id;barcode.requirementVersion=batch.requirementVersion}
   view.barcodeSequence = rollOffset + 1
   view.barcodes.push(barcode)
-  addPrintingBusinessOperation(order, '补充产出卷条码', '印花执行员', barcode.barcode)
+  addPrintingBusinessOperation(order, '补充产出卷条码', actor?.name || '印花执行员', barcode.barcode)
+  if(actor)view.operationLogs[0].operatorUserId=actor.userId
   return structuredClone(barcode)
 
   })
 }
 
-export function updatePrintingRollBarcode(workOrderId: string, barcodeId: string, input: { lengthY?: number; meters?: number; weightKg?: number; weightMeasured?:boolean; gsm: number; widthCm: number; vatNo: string; warehouseName: string; remark: string }): void {
+/** Printed content consists of physical facts; absent legacy flags keep their original meaning. */
+export function printingRollLabelContent(barcode: PrintingRollBarcode): unknown[] {
+  return [barcode.barcode,barcode.printOrderNo,barcode.rollNo,barcode.sku,barcode.lengthY,barcode.meters,barcode.weightKg,
+    barcode.weightSource==='ACTUAL'?'ACTUAL':'THEORETICAL',barcode.gsm,barcode.widthCm,barcode.vatNo||'',barcode.warehouseName||'',barcode.remark||'',barcode.batchId||'',barcode.requirementVersion]
+}
+function invalidateChangedPrintingLabel(barcode: PrintingRollBarcode, previous: string): void {
+  if(previous===JSON.stringify(printingRollLabelContent(barcode)))return
+  delete barcode.printedAt;delete barcode.printedBy;delete barcode.printedByUserId
+  if(barcode.status==='已打印')barcode.status='草稿'
+}
+export function updatePrintingRollBarcode(workOrderId: string, barcodeId: string, input: { lengthY?: number; meters?: number; weightKg?: number; weightMeasured?:boolean; gsm: number; widthCm: number; vatNo: string; warehouseName: string; remark: string;batchId?:string }, actor?: CentralPrintingActor): void {
   return runPrintProcessMutation(() => {
+  if(actor)assertCentralPrintingActor(workOrderId,actor)
   const order = getMutablePrintingBusinessOrder(workOrderId)
   const view = order.businessView!
   const barcode = view.barcodes.find((item) => item.id === barcodeId)
   if (!barcode) throw new Error('未找到产出卷条码')
+  const previousLabel=JSON.stringify(printingRollLabelContent(barcode))
   assertPrintingRollEditable(workOrderId, [barcode.id])
+  const batch=input.batchId?view.productionBatches?.find(b=>b.id===input.batchId):undefined
+  if(input.batchId&&(!batch||barcode.batchId&&barcode.batchId!==batch.id))throw new Error('PRINT_wrongBatch')
   if (barcode.sku !== view.output.sku) throw new Error('条码 SKU 与固定加工产出不一致')
   const usesFabricSpecification = ['面料', '花边', '织带'].includes(view.output.objectType)
   if (usesFabricSpecification && (!(input.gsm > 0) || !(input.widthCm > 0))) throw new Error('克重和幅宽必须大于 0')
@@ -5123,7 +5196,10 @@ export function updatePrintingRollBarcode(workOrderId: string, barcodeId: string
   if(view.barcodes.filter(b=>b.id!==barcode.id).reduce((n,b)=>n+b.lengthY,0)+lengthY>view.output.completedQty+.01)throw new Error('逐卷数量合计不能超过本单实际产出，请核对。')
   const confirmed=hasLength||hasMeters||(!usesFabricSpecification&&['kg','公斤','千克'].includes(view.output.qtyUnit.toLowerCase())&&hasWeight)
   Object.assign(barcode, { weightSource:hasWeight&&input.weightMeasured!==false?'ACTUAL':'THEORETICAL', quantityConfirmed: confirmed, lengthY, meters, weightKg, gsm: usesFabricSpecification ? input.gsm : barcode.gsm, widthCm: usesFabricSpecification ? input.widthCm : barcode.widthCm, vatNo: input.vatNo.trim(), warehouseName: input.warehouseName.trim() || barcode.warehouseName, remark: input.remark.trim() })
-  addPrintingBusinessOperation(order, '编辑产出卷属性', '印花执行员', `${barcode.barcode}；${formatPrintingQty(lengthY)} ${view.output.qtyUnit} / ${formatPrintingWeightKg(weightKg)} KG`)
+  if(batch){barcode.batchId=batch.id;barcode.requirementVersion=batch.requirementVersion}
+  invalidateChangedPrintingLabel(barcode,previousLabel)
+  addPrintingBusinessOperation(order, '编辑产出卷属性', actor?.name || '印花执行员', `${barcode.barcode}；${formatPrintingQty(lengthY)} ${view.output.qtyUnit} / ${formatPrintingWeightKg(weightKg)} KG`)
+  if(actor)view.operationLogs[0].operatorUserId=actor.userId
 
   })
 }
@@ -5139,17 +5215,20 @@ export function batchUpdatePrintingRollBarcodes(workOrderId: string, barcodeIds:
   if (![input.gsm, input.widthCm].every(Number.isFinite)) throw new Error('规格必须为有效数字')
   if (usesFabricSpecification && (!(input.gsm > 0) || !(input.widthCm > 0))) throw new Error('克重和幅宽必须大于 0')
   selected.forEach((barcode) => {
+    const previousLabel=JSON.stringify(printingRollLabelContent(barcode))
     if (barcode.sku !== view.output.sku) throw new Error('条码 SKU 与固定加工产出不一致')
     Object.assign(barcode, { gsm: usesFabricSpecification ? input.gsm : barcode.gsm, widthCm: usesFabricSpecification ? input.widthCm : barcode.widthCm, vatNo: input.vatNo.trim(), warehouseName: input.warehouseName.trim() || barcode.warehouseName })
     if (usesFabricSpecification && barcode.meters > 0 && barcode.weightSource!=='ACTUAL') barcode.weightKg = weightKgFromMeters(barcode.meters, input.widthCm, input.gsm)
+    invalidateChangedPrintingLabel(barcode,previousLabel)
   })
   addPrintingBusinessOperation(order, '批量修改产出卷属性', '印花执行员', usesFabricSpecification ? `${selected.length} 卷；${input.gsm}g/㎡ / ${input.widthCm}cm` : `${selected.length} 个物料条码`)
 
   })
 }
 
-export function markPrintingRollBarcodesPrinted(workOrderId: string, barcodeIds: string[], operatorName: string): void {
+export function markPrintingRollBarcodesPrinted(workOrderId: string, barcodeIds: string[], operatorName: string, actor?: CentralPrintingActor): void {
   return runPrintProcessMutation(() => {
+  if(actor){assertCentralPrintingActor(workOrderId,actor);if(actor.name!==operatorName)throw new Error('PRINT_wrongActor')}
   const order = getMutablePrintingBusinessOrder(workOrderId)
   const view = order.businessView!
   const selected = view.barcodes.filter((barcode) => barcodeIds.includes(barcode.id))
@@ -5160,9 +5239,12 @@ export function markPrintingRollBarcodesPrinted(workOrderId: string, barcodeIds:
     if (barcode.sku !== view.output.sku) throw new Error('条码 SKU 与固定加工产出不一致')
     if (barcode.status === '草稿') barcode.status = '已打印'
     barcode.printedBy = operatorName; barcode.printedAt = printedAt
+    if(actor)barcode.printedByUserId=actor.userId
+    else delete barcode.printedByUserId
   })
-  view.documentHistory.unshift({ historyId: `PDH-${order.printOrderNo}-${Date.now()}`, documentName: '加工产出卷条码', action: '打印', operatorName, operatedAt: printedAt, versionNo: `LABEL-${view.documentHistory.filter((item) => item.documentName === '加工产出卷条码').length + 1}`, remark: `${selected.length} 个卷条码` })
+  view.documentHistory.unshift({ historyId: `PDH-${order.printOrderNo}-${Date.now()}`, documentName: '加工产出卷条码', action: '打印', operatorName, ...(actor?{operatorUserId:actor.userId}:{}), operatedAt: printedAt, versionNo: `LABEL-${view.documentHistory.filter((item) => item.documentName === '加工产出卷条码').length + 1}`, remark: `${selected.length} 个卷条码` })
   addPrintingBusinessOperation(order, '打印产出卷条码', operatorName, `${selected.length} 个条码`)
+  if(actor)view.operationLogs[0].operatorUserId=actor.userId
 
   })
 }
@@ -5285,12 +5367,19 @@ function validateDispatchLines(lines: PrintingDispatchDocument['lines'], ownId?:
   }
 }
 
-export function createPrintingDispatch(lines: PrintingDispatchDocument['lines'], operator: string, mergeId?: string): string {
+function assertPrintingDispatchActor(lines: PrintingDispatchDocument['lines'], operator: string, actor?: CentralPrintingActor): void {
+  if(!actor)return
+  if(actor.name!==operator||!lines.length)throw new Error('PRINT_wrongActor')
+  for(const id of new Set(lines.map(line=>line.workOrderId)))assertCentralPrintingActor(id,actor)
+}
+
+export function createPrintingDispatch(lines: PrintingDispatchDocument['lines'], operator: string, mergeId?: string, actor?: CentralPrintingActor): string {
   return runPrintProcessMutation(() => {
     if (!operator.trim()) throw new Error('请填写建单人')
     const existing = mergeId ? listPrintingDispatchDocuments().find(doc => doc.id === mergeId) : undefined
     if (mergeId && existing?.status !== '草稿') throw new Error('只能合入已有草稿')
     const combined = [...(existing?.lines || []), ...structuredClone(lines)]
+    assertPrintingDispatchActor(combined,operator,actor)
     validateDispatchLines(combined, mergeId)
     const grouped = new Map<string, string[]>()
     combined.forEach(line => grouped.set(line.workOrderId, [...(grouped.get(line.workOrderId) || []), ...line.barcodeIds]))
@@ -5302,40 +5391,46 @@ export function createPrintingDispatch(lines: PrintingDispatchDocument['lines'],
       stored.lines = normalized
       stored.scanCompletedAt = undefined
       addPrintingBusinessOperation(anchor, '合入交出草稿', operator, mergeId!)
+      if(actor)anchor.businessView!.operationLogs[0].operatorUserId=actor.userId
       return mergeId!
     }
     const id = `SJ-${nowTimestamp().slice(0,10).replaceAll('-', '')}-${Date.now()}-${listPrintingDispatchDocuments().length+1}`
-    anchor.businessView!.dispatchDocuments.push({id, status:'草稿', createdAt:nowTimestamp(), createdBy:operator, lines:normalized})
+    anchor.businessView!.dispatchDocuments.push({id, status:'草稿', createdAt:nowTimestamp(), createdBy:operator, ...(actor?{createdByUserId:actor.userId}:{}), lines:normalized})
     addPrintingBusinessOperation(anchor, '生成交出草稿', operator, id)
+    if(actor)anchor.businessView!.operationLogs[0].operatorUserId=actor.userId
     return id
   })
 }
 
-export function confirmPrintingDispatch(id: string, operator: string): void {
+export function confirmPrintingDispatch(id: string, operator: string, actor?: CentralPrintingActor): void {
   runPrintProcessMutation(() => {
     const doc = listPrintingDispatchDocuments().find(item => item.id === id)
     if (!doc || doc.status !== '草稿') throw new Error('仅草稿可以确认交出')
     if (!operator.trim()) throw new Error('请填写交出人')
+    assertPrintingDispatchActor(doc.lines,operator,actor)
     validateDispatchLines(doc.lines, id)
     if(!doc.scanCompletedAt || doc.lines.some(l=>l.barcodeIds.some(b=>!doc.scans?.some(s=>s.workOrderId===l.workOrderId&&s.barcodeId===b))))throw new Error('请先扫齐交出单内的全部卷，再确认实际交出。')
     doc.lines.forEach(line => {
       const order = getPrintingWorkOrderById(line.workOrderId)!
       const qty = roundPrintingValue(order.barcodes.filter(roll => line.barcodeIds.includes(roll.id)).reduce((sum, roll) => sum + roll.lengthY, 0), 2)
-      handoverPrintingOutput(line.workOrderId, {qty, barcodeIds:line.barcodeIds, operatorName:operator, receiverName:order.receivingTargetName,dispatchId:id})
+      handoverPrintingOutput(line.workOrderId, {qty, barcodeIds:line.barcodeIds, operatorName:operator, receiverName:order.receivingTargetName,dispatchId:id,centralPrintingActor:actor})
     })
     const stored = mutablePrintingDispatch(id).doc
     stored.status = '已交出'; stored.handedOverAt = nowTimestamp(); stored.handedOverBy = operator
+    if(actor)stored.handedOverByUserId=actor.userId
   })
 }
 
-export function voidPrintingDispatch(id: string, operator: string): void {
+export function voidPrintingDispatch(id: string, operator: string, actor?: CentralPrintingActor): void {
   runPrintProcessMutation(() => {
     const doc = listPrintingDispatchDocuments().find(item => item.id === id)
     if (!doc || doc.status !== '草稿') throw new Error('只能作废尚未交出的草稿')
     if (!operator.trim()) throw new Error('请填写操作人')
+    assertPrintingDispatchActor(doc.lines,operator,actor)
     const {order,doc:stored}=mutablePrintingDispatch(id)
     stored.status = '已作废'
     addPrintingBusinessOperation(order, '作废交出草稿', operator, id)
+    if(actor)order.businessView!.operationLogs[0].operatorUserId=actor.userId
   })
 }
 
@@ -5487,28 +5582,32 @@ function mutablePrintingDispatch(id:string){
  for(const order of workOrderStore.values()){const doc=order.businessView?.dispatchDocuments?.find(d=>d.id===id);if(doc)return {order,doc}}
  throw new Error('交出单不存在。')
 }
-export function scanPrintingDispatchRoll(id:string,barcode:string,operatorName:string):void {
+export function scanPrintingDispatchRoll(id:string,barcode:string,operatorName:string,actor?:CentralPrintingActor):void {
  return runPrintProcessMutation(()=>{
   const {order,doc}=mutablePrintingDispatch(id)
   if(doc.status!=='草稿'||!operatorName.trim())throw new Error('请选择有效草稿并核对扫码人。')
+  assertPrintingDispatchActor(doc.lines,operatorName,actor)
   validateDispatchLines(doc.lines,id)
   const matches=doc.lines.flatMap(l=>getPrintingWorkOrderById(l.workOrderId)!.barcodes.filter(b=>l.barcodeIds.includes(b.id)&&b.barcode===barcode.trim()).map(b=>({workOrderId:l.workOrderId,barcodeId:b.id,barcode:b.barcode})))
   if(matches.length!==1)throw new Error('该卷不在本交出单内，请核对卷码。')
-  const match=matches[0];if(!doc.scans?.some(s=>s.workOrderId===match.workOrderId&&s.barcodeId===match.barcodeId))(doc.scans??=[]).push({...match,scannedAt:nowTimestamp(),scannedBy:operatorName})
+  const match=matches[0];if(!doc.scans?.some(s=>s.workOrderId===match.workOrderId&&s.barcodeId===match.barcodeId))(doc.scans??=[]).push({...match,scannedAt:nowTimestamp(),scannedBy:operatorName,...(actor?{scannedByUserId:actor.userId}:{})})
   if(doc.lines.every(l=>l.barcodeIds.every(b=>doc.scans!.some(s=>s.workOrderId===l.workOrderId&&s.barcodeId===b))))doc.scanCompletedAt=nowTimestamp()
   addPrintingBusinessOperation(order,'交出扫码核对',operatorName,`${id}；${barcode}；${doc.scanCompletedAt?'已扫齐，等待实际交出':'继续扫码'}`)
+  if(actor)order.businessView!.operationLogs[0].operatorUserId=actor.userId
  })
 }
-export function removePrintingDispatchRoll(id:string,workOrderId:string,barcodeId:string,operatorName:string):void {
+export function removePrintingDispatchRoll(id:string,workOrderId:string,barcodeId:string,operatorName:string,actor?:CentralPrintingActor):void {
  return runPrintProcessMutation(()=>{
   const {order,doc}=mutablePrintingDispatch(id)
   if(doc.status!=='草稿'||!operatorName.trim())throw new Error('只有尚未交出的草稿允许移除卷。')
+  assertPrintingDispatchActor(doc.lines,operatorName,actor)
   const line=doc.lines.find(l=>l.workOrderId===workOrderId&&l.barcodeIds.includes(barcodeId));if(!line)throw new Error('该卷不属于当前交出单。')
-  if(doc.lines.reduce((n,l)=>n+l.barcodeIds.length,0)===1){doc.status='已作废';doc.scanCompletedAt=undefined;addPrintingBusinessOperation(order,'移除末卷并作废草稿',operatorName,`${id}；${barcodeId}；保留原明细，释放占用`);return}
+  if(doc.lines.reduce((n,l)=>n+l.barcodeIds.length,0)===1){doc.status='已作废';doc.scanCompletedAt=undefined;addPrintingBusinessOperation(order,'移除末卷并作废草稿',operatorName,`${id}；${barcodeId}；保留原明细，释放占用`);if(actor)order.businessView!.operationLogs[0].operatorUserId=actor.userId;return}
   line.barcodeIds=line.barcodeIds.filter(b=>b!==barcodeId);line.rolls=line.rolls?.filter(b=>b.id!==barcodeId);doc.lines=doc.lines.filter(l=>l.barcodeIds.length)
   doc.scans=doc.scans?.filter(s=>s.workOrderId!==workOrderId||s.barcodeId!==barcodeId);doc.scanCompletedAt=undefined
   if(!doc.lines.length)doc.status='已作废'
   addPrintingBusinessOperation(order,'移除交出草稿卷',operatorName,`${id}；${barcodeId}；已释放占用，需重新核对`)
+  if(actor)order.businessView!.operationLogs[0].operatorUserId=actor.userId
  })
 }
 
@@ -5607,7 +5706,7 @@ export function markPrintingWashingTransfer(printOrderId: string, rollIds: strin
   view.pendingWritebackQty = Math.max(0, view.handover.handedOverQty - view.handover.receivedQty)
   saveFormalPrintExecution()
 }
-registerWashingLedgerSnapshot(PRINT_EXECUTION_STORAGE_KEY, () => serializePrintExecution({ version: 1, state: capturePrintProcessMutationState(), tasks: [...workOrderStore.values()].flatMap(order => { const task = getPrintingTaskById(order.taskId); return task ? [task] : [] }), designRevisionHandovers: [] }))
+registerWashingLedgerSnapshot(PRINT_EXECUTION_STORAGE_KEY, () => { seedDomain(); listPrintingWorkOrders(); return currentPrintExecutionSnapshot() })
 
 /** Rehydrate a fixed demo task from its already saved real usage, without consuming again. */
 export function restoreStaticPrintingDemoStart(printOrderId:string):void {
@@ -5615,4 +5714,50 @@ export function restoreStaticPrintingDemoStart(printOrderId:string):void {
  const order=workOrderStore.get(printOrderId),use=listFactoryMaterialUses(printOrderId).find(row=>row.id===printOrderId+'-START')
  if(!order?.businessView||!use||use.factoryId!==order.printFactoryId||!order.businessView.productionStartedAt)throw new Error('没有可恢复的实际领用事实。')
  syncLinkedTaskState(order.taskId,{status:'IN_PROGRESS',startedAt:use.at})
+}
+
+
+export type CentralPrintingProductionInput = {kind:'INPUT';qty:number}
+  | {kind:'STAGE';stage:'ARTWORK'|'SAMPLE'|'PRINT'|'TRANSFER';action:'START'|'FINISH';qty?:number;printerNo?:string}
+  | {kind:'OUTPUT';completedQty:number;completedRollCount:number;usedRollCount:number;lossQty?:number;printerNo?:string}
+export function assertCentralPrintingActor(workOrderId:string,actor:CentralPrintingActor):void {
+  const order=getPrintWorkOrderById(workOrderId)
+  if(!order)throw new Error('PRINT_wrongActor')
+  assertCentralPrintingFactoryActor(order.printFactoryId,actor)
+}
+export function getPrintingProductionQuantities(workOrderId:string){
+  const order=getMutablePrintingBusinessOrder(workOrderId)
+  return {print:stageCompletedQty(order,'PRINT'),transfer:stageCompletedQty(order,'TRANSFER')}
+}
+/** Only numerical/current-version and physical identities participate; no image payload enters the confirmation. */
+export function centralPrintingProductionRevision(workOrderId:string):string {
+  const order=getMutablePrintingBusinessOrder(workOrderId),v=order.businessView!
+  return JSON.stringify([order.taskId,order.sourceKey,order.printFactoryId,order.status,order.manuallyCompletedAt,v.requirementVersion,v.requirementVersionStartUsedQty,v.requirementVersionStartOutputQty,v.artworkConfirmedAt,v.sampleConfirmedAt,v.productionStartedAt,v.productionCompletedAt,v.historicalInputQuantityUnknown,v.actualInput.receivedQty,v.actualInput.receivedRollCount,v.actualInput.usedQty,v.actualInput.usedRollCount,v.output.completedQty,v.output.completedRollCount,v.handover.handedOverQty,v.handover.receivedQty,v.productionActions?.map(a=>a.id),v.productionBatches?.map(b=>b.id),v.barcodes.map(b=>[b.id,b.sku,b.lengthY,b.handoverRecordId,b.printedAt])])
+}
+/** Actual central-device actions use the original Web rules and retain the actual person. */
+export function executeCentralPrintingProduction(workOrderId:string,input:CentralPrintingProductionInput,actor:CentralPrintingActor,operationId:string,expectedRevision:string):PrintingWorkOrderBusinessRecord {
+  return runPrintProcessMutation(()=>{
+    assertCentralPrintingActor(workOrderId,actor)
+    const order=getMutablePrintingBusinessOrder(workOrderId),view=order.businessView!,signature=JSON.stringify({input,actor:actor.userId})
+    if(!operationId.trim())throw new Error('CHANGED')
+    const previous=view.operationLogs.find(log=>log.confirmationId===operationId)
+    if(previous){if(previous.commandSignature!==signature)throw new Error('CHANGED');return projectPrintingBusinessRecord(order)}
+    if(centralPrintingProductionRevision(workOrderId)!==expectedRevision)throw new Error('CHANGED')
+    const oldLog=view.operationLogs[0]?.logId,id='CENTRAL-PRINT-'+operationId
+    if(input.kind==='INPUT')startPrintingProduction(workOrderId,{id,qty:input.qty,operatorName:actor.name})
+    else if(input.kind==='STAGE'){
+      const oldNode=['PRINT','TRANSFER'].includes(input.stage)?nodeRecordStore.get(workOrderId)?.find(node=>node.nodeCode===input.stage):undefined
+      recordPrintingProductionStage(workOrderId,{id,stage:input.stage,action:input.action,qty:input.qty,operatorName:actor.name})
+      const action=view.productionActions?.find(action=>action.id===id);if(action)action.operatorUserId=actor.userId
+      const node=nodeRecordStore.get(workOrderId)?.find(node=>node.nodeCode===input.stage)
+      if(node){node.operatorUserId=actor.userId;if(!oldNode?.startedAt){node.startedBy=actor.name;node.startedByUserId=actor.userId}if(input.action==='FINISH'){node.finishedBy=actor.name;node.finishedByUserId=actor.userId}if(input.printerNo!==undefined){node.printerNo=input.printerNo.trim();view.printerNo=input.printerNo.trim()}}
+    }else{
+      completePrintingWorkOrder(workOrderId,{batchId:id,usedQty:view.actualInput.usedQty,usedRollCount:input.usedRollCount,completedQty:input.completedQty,completedRollCount:input.completedRollCount,lossQty:input.lossQty,printerNo:input.printerNo??view.printerNo,operatorName:actor.name})
+      const batch=view.productionBatches?.find(batch=>batch.id===id);if(batch)batch.operatorUserId=actor.userId
+    }
+    const log=view.operationLogs[0]
+    if(!log||log.logId===oldLog)throw new Error('CHANGED')
+    log.operatorUserId=actor.userId;log.confirmationId=operationId;log.commandSignature=signature
+    return projectPrintingBusinessRecord(order)
+  })
 }

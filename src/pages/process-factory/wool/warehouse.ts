@@ -109,6 +109,7 @@ interface WarehousePageState {
   overlay: WarehouseOverlay | null
   overlayError: string
   feedback: string
+  saving: boolean
 }
 
 const EVENT_PREFIX = 'wool-warehouse'
@@ -156,6 +157,7 @@ const states: Record<WarehouseMode, WarehousePageState> = {
     overlay: null,
     overlayError: '',
     feedback: '',
+    saving: false,
   },
   WAIT_HANDOVER: {
     activeTab: 'inventory',
@@ -167,6 +169,7 @@ const states: Record<WarehouseMode, WarehousePageState> = {
     overlay: null,
     overlayError: '',
     feedback: '',
+    saving: false,
   },
 }
 
@@ -865,7 +868,7 @@ function renderPageFromRuntime(mode: WarehouseMode): string {
   const locationSummary = mode === 'WAIT_PROCESS'
     ? 'WOOL-WP-YARN-DEFAULT'
     : 'WOOL-WH-CUT-DEFAULT / WOOL-WH-GARMENT-DEFAULT'
-  return `<div data-wool-warehouse-root data-wool-warehouse-mode="${mode}" data-skip-page-rerender="true">${renderStandardListPage({
+  return `<div data-wool-warehouse-root data-wool-warehouse-mode="${mode}" data-wool-warehouse-saving="${states[mode].saving}" data-skip-page-rerender="true">${renderStandardListPage({
     title,
     primaryActionsHtml: `<div class="rounded-md border bg-muted/30 px-3 py-2 text-xs"><span class="text-muted-foreground">固定默认库位：</span><span class="font-mono">${escapeHtml(locationSummary)}</span></div>`,
     feedbackHtml: renderFeedback(mode),
@@ -968,8 +971,8 @@ function requiredDialogNumber(
   field: string,
   label: string,
   options: { allowZero?: boolean } = {},
+  raw = dialogRawValue(field),
 ): number {
-  const raw = dialogRawValue(field)
   if (!raw.trim()) throw new Error(`${label}不能为空`)
   const value = Number(raw.trim())
   if (!Number.isFinite(value)) throw new Error(`${label}必须是有效数字`)
@@ -989,12 +992,20 @@ function captureOverlayDraft(
 async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
   const state = states[mode]
   const overlay = state.overlay
-  if (!overlay || overlay.kind === 'detail') return
+  if (state.saving || !overlay || overlay.kind === 'detail') return
   const row = withWarehouseRuntime(mode, () => findRow(mode, overlay.rowId))
   if (!row) return
+  captureOverlayDraft(overlay)
+  const values = { ...overlay.draft }, text = (field: string) => (values[field] || '').trim()
+  const number = (field: string, label: string, options: { allowZero?: boolean } = {}) => requiredDialogNumber(field, label, options, values[field] || '')
+  const root = document.querySelector<HTMLElement>(`[data-wool-warehouse-root][data-wool-warehouse-mode="${mode}"]`)
+  const disabled = [...root?.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('input:not(:disabled),button:not(:disabled),select:not(:disabled),textarea:not(:disabled)') || []]
+  state.saving = true
+  if (root) { root.dataset.woolWarehouseSaving = 'true'; root.setAttribute('aria-busy', 'true') }
+  disabled.forEach(node => { node.disabled = true })
   try {
     const operatedAt = nowText()
-    const operator = dialogValue('operator')
+    const operator = text('operator')
     let savedFeedback = state.feedback
     await runWoolRecordCommand(() => {
     if (action === 'save-issue') {
@@ -1003,7 +1014,7 @@ async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
         yarnSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
         physicalWarehouseId: row.stock?.physicalWarehouseId, physicalLocationId: row.stock?.physicalLocationId,
-        issuedQty: requiredDialogNumber('qty', '纱线领用数量'),
+        issuedQty: number('qty', '纱线领用数量'),
         issuedAt: operatedAt,
         issuedBy: operator,
       })
@@ -1014,7 +1025,7 @@ async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
         yarnSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
         physicalWarehouseId: row.stock?.physicalWarehouseId, physicalLocationId: row.stock?.physicalLocationId,
-        returnedQty: requiredDialogNumber('qty', '纱线退回数量'),
+        returnedQty: number('qty', '纱线退回数量'),
         returnedAt: operatedAt,
         returnedBy: operator,
       })
@@ -1026,14 +1037,14 @@ async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
         objectSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
         defaultLocationId: row.locationId,
-        afterQty: requiredDialogNumber('afterQty', '调整后数量', { allowZero: true }),
-        reason: dialogValue('reason'),
+        afterQty: number('afterQty', '调整后数量', { allowZero: true }),
+        reason: text('reason'),
         operatedAt,
         operatedBy: operator,
       })
       savedFeedback = `已调整 ${row.woolOrderNo} / ${row.objectSkuCode} 库存`
     } else if (action === 'save-transfer-out') {
-      const [toWarehouseId = '', toLocationId = ''] = dialogValue('target').split('|')
+      const [toWarehouseId = '', toLocationId = ''] = text('target').split('|')
       transferWoolWarehouseStock({
         commandId: nextCommandId('TRANSFER-OUT', row.woolOrderId),
         physicalWarehouseId:row.stock?.physicalWarehouseId,physicalLocationId:row.stock?.physicalLocationId,
@@ -1045,8 +1056,8 @@ async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
         fromLocationId: row.locationId,
         toWarehouseId,
         toLocationId,
-        qty: requiredDialogNumber('qty', '转移数量'),
-        reason: dialogValue('reason'),
+        qty: number('qty', '转移数量'),
+        reason: text('reason'),
         operatedAt,
         operatedBy: operator,
       })
@@ -1062,8 +1073,8 @@ async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
         fromLocationId: row.flow.toLocationId,
         toWarehouseId: WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[row.locationId],
         toLocationId: row.locationId,
-        qty: requiredDialogNumber('qty', '转回数量'),
-        reason: dialogValue('reason'),
+        qty: number('qty', '转回数量'),
+        reason: text('reason'),
         operatedAt,
         operatedBy: operator,
       })
@@ -1075,9 +1086,14 @@ async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
     state.overlayError = ''
     refresh(mode, { table: true, tabs: true, overlays: true, feedback: true })
   } catch (error) {
-    captureOverlayDraft(overlay)
+    overlay.draft = values
     state.overlayError = error instanceof Error ? error.message : String(error)
     refresh(mode, { table: false, overlays: true })
+  } finally {
+    state.saving = false
+    const currentRoot = document.querySelector<HTMLElement>(`[data-wool-warehouse-root][data-wool-warehouse-mode="${mode}"]`)
+    if (currentRoot) { currentRoot.dataset.woolWarehouseSaving = 'false'; currentRoot.removeAttribute('aria-busy') }
+    disabled.forEach(node => { if (node.isConnected) node.disabled = false })
   }
 }
 
@@ -1111,6 +1127,7 @@ export async function handleCraftWoolWarehouseEvent(
   if (!root) return false
   const mode = root.dataset.woolWarehouseMode as WarehouseMode
   const state = states[mode]
+  if (state.saving) return true
   const filter = target.closest<HTMLInputElement | HTMLSelectElement>('[data-wool-warehouse-filter]')
   if (filter) {
     // Selects emit input and change. Ignore input before touching a timer that

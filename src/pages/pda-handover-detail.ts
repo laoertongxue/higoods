@@ -101,6 +101,7 @@ import { createPdaPickupDisputeCase } from '../helpers/fcs-pda-pickup-dispute'
 import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { renderPdaFrame } from './pda-shell'
 import { getPdaRuntimeContext } from './pda-runtime'
+import { currentThirdPartyPdaFactoryId, isCurrentPdaHandoverInScope } from './pda-third-party-scope.ts'
 import { getWaterSolubleWorkOrderByTaskId, WATER_SOLUBLE_STATUS_LABEL } from '../data/fcs/water-soluble-task-domain.ts'
 import { canWaterSolubleRolePerform } from '../data/fcs/water-soluble-pda-actor.ts'
 import { getCurrentPdaUser, getPdaSession } from '../data/fcs/store-domain-pda.ts'
@@ -2326,7 +2327,8 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
 }
 
 function renderPdaHandoverDetailContents(eventId: string): string {
-  const head = findPdaHandoverHead(eventId)
+  const candidate = findPdaHandoverHead(eventId)
+  const head = isCurrentPdaHandoverInScope(candidate) ? candidate : undefined
 
   if (!head) {
     const content = `
@@ -2440,6 +2442,18 @@ function renderPdaHandoverDetailContents(eventId: string): string {
 }
 
 export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise<boolean> {
+  if (currentThirdPartyPdaFactoryId()) {
+    const action = target.closest<HTMLElement>('[data-pda-handoverd-action]')
+    if (action?.dataset.pdaHandoverdAction === 'back') {
+      appStore.navigate('/fcs/pda/handover')
+      return true
+    }
+    const currentId = decodeURIComponent(window.location.pathname.split('/').pop() || '')
+    const recordId = action?.dataset.recordId
+    const targetId = action?.dataset.handoverId || (recordId ? findPdaHandoverRecord(recordId)?.handoverId : undefined)
+    if (!isCurrentPdaHandoverInScope(findPdaHandoverHead(currentId))
+      || targetId && (targetId !== currentId || !isCurrentPdaHandoverInScope(findPdaHandoverHead(targetId)))) return true
+  }
   const fieldNode = target.closest<HTMLElement>('[data-pda-handoverd-field]')
   if (
     fieldNode instanceof HTMLInputElement ||

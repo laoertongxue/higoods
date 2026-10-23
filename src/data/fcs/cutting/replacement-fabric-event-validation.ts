@@ -1,4 +1,4 @@
-import { getPdaSession, listFactoryPdaRoles } from '../store-domain-pda.ts'
+import { getPdaSession, listFactoryPdaRoles, readFactoryPdaExecutionUsers } from '../store-domain-pda.ts'
 import type { BrowserStorageLike } from '../../browser-storage.ts'
 import type { CuttingRuntimeEvent, TransferBagTicketFactSnapshot } from './cutting-runtime-event-ledger.ts'
 import { listManagedCuttingRuntimeEvents } from './cutting-runtime-event-ledger.ts'
@@ -9,8 +9,10 @@ import { assertReplacementTicketCurrent, validateReplacementFabricHandover, type
 import { replacementFabricBagTicket } from './mixed-transfer-bag-ticket.ts'
 
 /** 提交整个动作后的新事件统一校验；覆盖所有袋的并集，任何失败都还未进入持久事务。 */
+export interface CuttingPdaActorReference { factoryId: string; operatorId: string; operatorName: string }
 export function validateReplacementFabricEventBatch(input: {
   state: ReplacementFabricState; before: CuttingRuntimeEvent[]; after: CuttingRuntimeEvent[]; storage: BrowserStorageLike
+  pdaActor?: CuttingPdaActorReference
 }): void {
   const oldIds = new Set(input.before.map(event => event.eventId))
   const added = input.after.filter(event => !oldIds.has(event.eventId) && event.eventStatus !== '已取消')
@@ -48,8 +50,13 @@ export function validateReplacementFabricEventBatch(input: {
     }
     if (!['新增交出记录', '简易裁片交出'].includes(event.eventType)) continue
     if (event.eventSource === 'PDA' && typeof document !== 'undefined') {
-      const session = getPdaSession()
-      const role = session && listFactoryPdaRoles(session.factoryId).find(role => role.roleId === session.roleId && role.status === 'ACTIVE')
+      const actor = event.eventType === '简易裁片交出' ? input.pdaActor : undefined
+      if (actor && (payload.warehouseFactoryId !== actor.factoryId || event.operatorId !== actor.operatorId || event.operatorName !== actor.operatorName)) throw new Error('交出账号或发方工厂与本次确认不一致，请重新核对。')
+      const user = actor && readFactoryPdaExecutionUsers(actor.factoryId).find(user => user.userId === actor.operatorId && user.status === 'ACTIVE' && user.name === actor.operatorName)
+      const session = actor ? null : getPdaSession()
+      const factoryId = actor?.factoryId || session?.factoryId
+      const roleId = actor ? user?.roleId : session?.roleId
+      const role = factoryId && roleId ? listFactoryPdaRoles(factoryId).find(role => role.roleId === roleId && role.status === 'ACTIVE') : undefined
       if (!role?.permissionKeys.includes('CUTTING_HANDOVER_CONFIRM')) throw new Error('当前账号没有裁床交出权限，请由仓管账号确认。')
     }
     if (!items.length || (event.eventType === '新增交出记录' && items.some(item => !item.sewingTaskId))) throw new Error('交出明细缺少当前车缝任务，请从任务交出入口重新核对。')

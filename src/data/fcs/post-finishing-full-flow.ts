@@ -483,6 +483,7 @@ export interface PostFinishingProcessCompletion {
   recordedAt: string
   correctionOf?: string
   reason?: string
+  unprocessedReason?: string
 }
 
 export interface PostFinishingPostTask {
@@ -866,6 +867,34 @@ export const POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS: PostFinishingAcceptanc
   })),
   skus: seed.skus.map((sku) => ({ ...sku })),
 }))
+
+/** One open sewing-return source for the public-machine flow. It is not part of the
+ * acceptance demo orders, whose five historical returns have consumed their plans. */
+const SEWING_SELF_RETURN_DEMO_ORDER: PostFinishingAcceptanceProductionOrder = (() => {
+  const base = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]!
+  return {
+    ...structuredClone(base),
+    productionOrderId: 'PF-SEW-SELF-RETURN-4',
+    productionOrderNo: 'PO-QC-202608-004',
+    styleNo: 'HG-QC-004',
+    styleName: '后道验收针织衫',
+    executionTaskId: 'PF-SEW-EXEC-004',
+    sewingTaskNo: 'SEW-TASK-QC-004',
+    assignmentId: 'PF-SEW-ASG-004',
+    defaultStagingLocation: '后道待确认区-D',
+    sewingFactoryId: 'ID-F025',
+    sewingFactoryName: 'CV Micro Sewing Tangerang Selatan',
+    skus: base.skus.map((sku, index) => ({
+      ...sku,
+      skuId: `SPU-QC-004-${sku.sizeName}`,
+      skuCode: `SPU-QC-004-${String(index + 1).padStart(2, '0')}`,
+      spuCode: 'SPU-QC-004',
+      spuName: '后道验收针织衫',
+      barcode: `SKU-404-202608-${String(index + 1).padStart(2, '0')}`,
+      plannedQty: 100,
+    })),
+  }
+})()
 
 function emptyState(): PostFinishingFullFlowState {
   return {
@@ -1696,12 +1725,14 @@ function getProductionOrder(
       item.productionOrderNo === productionOrderNo
       && item.executionTaskId === executionTaskId
     ))
-    const exactOrder = formalOrder || demoOrder
+    const selfOrder = SEWING_SELF_RETURN_DEMO_ORDER.productionOrderNo === productionOrderNo && SEWING_SELF_RETURN_DEMO_ORDER.executionTaskId === executionTaskId ? SEWING_SELF_RETURN_DEMO_ORDER : undefined
+    const exactOrder = formalOrder || demoOrder || selfOrder
     if (!exactOrder) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到生产单 ${productionOrderNo} 对应的可回货任务。`)
     return exactOrder
   }
   const demoOrder = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === productionOrderNo)
   if (demoOrder) return demoOrder
+  if (SEWING_SELF_RETURN_DEMO_ORDER.productionOrderNo === productionOrderNo) return SEWING_SELF_RETURN_DEMO_ORDER
   const formalOrders = listFormalReturnSourceOrders()
     .filter((item) => item.order.productionOrderNo === productionOrderNo)
     .map((item) => item.order)
@@ -1991,6 +2022,12 @@ export function listPostFinishingReturnRegistrationSources(): Array<{
     returnIndex,
     skuCount: order.skus.length,
   })))
+  const selfSources = [1, 2, 3, 4, 5].map((returnIndex) => ({
+    scanValue: getPostFinishingReturnSourceScanValue(SEWING_SELF_RETURN_DEMO_ORDER.productionOrderNo, returnIndex),
+    productionOrderNo: SEWING_SELF_RETURN_DEMO_ORDER.productionOrderNo,
+    returnIndex,
+    skuCount: SEWING_SELF_RETURN_DEMO_ORDER.skus.length,
+  }))
   const eligibleFormalSources = listFormalReturnSourceOrders().filter(({ order }) => {
     const registeredBySku = new Map<string, number>()
     state.deliveries
@@ -2016,7 +2053,7 @@ export function listPostFinishingReturnRegistrationSources(): Array<{
       sourceKind,
     }
   })
-  return [...demoSources, ...formalSources]
+  return [...demoSources, ...selfSources, ...formalSources]
 }
 
 export function registerPostFinishingFactoryReturn(input: {
@@ -2775,7 +2812,7 @@ function syncPostProcessStatus(task: PostFinishingPostTask, at: string): void {
 
 export function appendPostFinishingProcessCompletion(input: {
   postTaskId: string; processItem: PostFinishingProcessItem; quantities: Array<{ skuId: string; quantity: number }>
-  responsible: PostFinishingActor; actor: PostFinishingActor; operationId: string; nowMs?: number
+  responsible: PostFinishingActor; actor: PostFinishingActor; operationId: string; unprocessedReason?: string; nowMs?: number
 }): PostFinishingPostTask {
   assertPostFinishingWrite()
   assertPostProcessActor(input.actor)
@@ -2783,7 +2820,7 @@ export function appendPostFinishingProcessCompletion(input: {
   const task = findPostTask(input.postTaskId)
   const quantities = validateProcessQuantities(task, input.quantities)
   if (!input.operationId?.trim()) throw new PostFinishingFlowGateError('INVALID_STATUS', '缺少本次提交标识，请重新打开登记。')
-  const intent = JSON.stringify({ postTaskId: task.postTaskId, processItem: input.processItem, quantities, responsible: input.responsible, actor: input.actor })
+  const intent = JSON.stringify({ postTaskId: task.postTaskId, processItem: input.processItem, quantities, responsible: input.responsible, actor: input.actor, unprocessedReason: input.unprocessedReason?.trim() || '' })
   const existing = (state.processCompletions || []).find(row => row.operationId === input.operationId)
   if (existing) {
     if (existing.intent !== intent) throw new PostFinishingFlowGateError('INVALID_STATUS', '同次提交内容已变化，请重新打开登记。')
@@ -2800,14 +2837,14 @@ export function appendPostFinishingProcessCompletion(input: {
   const at = nowIso(input.nowMs)
   state.processCompletions ||= []
   state.processCompletions.push({ recordId: `PF-PC-${input.operationId}`, operationId: input.operationId, intent, postTaskId: task.postTaskId,
-    processItem: input.processItem, quantities, responsible: clone(input.responsible), recordedBy: clone(input.actor), recordedAt: at })
+    processItem: input.processItem, quantities, responsible: clone(input.responsible), recordedBy: clone(input.actor), recordedAt: at, ...(input.unprocessedReason?.trim() ? { unprocessedReason: input.unprocessedReason.trim() } : {}) })
   task.startedAt ||= at
   task.startedBy ||= clone(input.actor)
   state.schemaVersion = 3
   syncPostProcessStatus(task, at)
   appendBusinessLog({ stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
     action: `登记${input.processItem}完成`, actor: input.actor, operatedAt: at, afterStatus: task.status,
-    afterQuantity: total(quantities.map(row => row.quantity)), remark: `责任人：${input.responsible.actorName}；${quantities.map(row => `${row.skuId} ${row.quantity}件`).join('；')}` })
+    afterQuantity: total(quantities.map(row => row.quantity)), remark: `责任人：${input.responsible.actorName}；${quantities.map(row => `${row.skuId} ${row.quantity}件`).join('；')}${input.unprocessedReason?.trim() ? `；未处理原因：${input.unprocessedReason.trim()}` : ''}` })
   persist()
   return clone(task)
 }

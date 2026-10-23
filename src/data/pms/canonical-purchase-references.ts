@@ -1,6 +1,7 @@
 import { getMaterialArchiveByCode, getMaterialArchiveById, listAllMaterialSkuRecords, resolveMaterialSkuIdentity } from '../pcs-material-archive-repository.ts'
 import { listSkuArchives } from '../pcs-sku-archive-repository.ts'
-import { getCurrentTechPackVersionByStyleId, getTechnicalDataVersionContentById, listTechnicalDataVersions } from '../pcs-technical-data-version-repository.ts'
+import { getTechnicalDataVersionById, getTechnicalDataVersionContentById, listTechnicalDataVersions } from '../pcs-technical-data-version-repository.ts'
+import { getStyleCurrentTechPackVersionId } from '../pcs-style-archive-repository.ts'
 import { warehouseSeed } from '../wls/seed/shared-seed.ts'
 
 /** Read only the catalog collections procurement actually consumes. */
@@ -83,7 +84,8 @@ export function getPublishedPurchaseMaterials(spu: string) {
   const styleId = listSkuArchives().find(sku => sku.styleCode === spu)?.styleId
     || listTechnicalDataVersions().find(version => version.styleCode === spu)?.styleId
   if (!styleId) return undefined
-  const version = getCurrentTechPackVersionByStyleId(styleId)
+  const versionId = getStyleCurrentTechPackVersionId(styleId)
+  const version = versionId ? getTechnicalDataVersionById(versionId) : null
   if (!version || version.versionStatus !== 'PUBLISHED') return undefined
   const content = getTechnicalDataVersionContentById(version.technicalVersionId)
   const items = content?.bomPricingSnapshot?.bomItems || content?.bomItems || []

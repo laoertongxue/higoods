@@ -87,6 +87,8 @@ export interface BindingProcessActionRecord {
   unit: string
   confirmationKey: string
   operatorName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
   operatedAt: string
   remark: string
 }
