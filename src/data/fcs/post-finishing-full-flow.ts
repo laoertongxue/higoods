@@ -347,6 +347,21 @@ export interface PostFinishingWaitHandoverWarehouseMovement {
   operatedAt: string
 }
 
+/** 对两仓整条库存记录做库位移动；数量、批次和状态不变。 */
+export interface PostFinishingWarehouseLocationMove {
+  moveId: string
+  warehouseMode: 'wait-process' | 'wait-handover'
+  warehouseRecordId: string
+  deliveryOrderNo: string
+  productionOrderNo: string
+  fromLocationCode: string
+  toLocationCode: string
+  reason: string
+  quantities: Array<{ sku: PostFinishingAcceptanceSku; quantity: number }>
+  operator: PostFinishingActor
+  operatedAt: string
+}
+
 export interface PostFinishingReturnConfirmationLine {
   skuId: string
   skuCode: string
@@ -714,6 +729,7 @@ interface PostFinishingFullFlowState {
   defects: PostFinishingDefectRecord[]
   materialTransferOrders: PostFinishingMaterialTransferOrder[]
   materialStocks: PostFinishingMaterialStock[]
+  warehouseLocationMoves?: PostFinishingWarehouseLocationMove[]
 }
 
 export type PostFinishingFlowGateCode =
@@ -871,6 +887,7 @@ function emptyState(): PostFinishingFullFlowState {
     defects: [],
     materialTransferOrders: [],
     materialStocks: [],
+    warehouseLocationMoves: [],
   }
 }
 
@@ -3244,6 +3261,56 @@ export function setPostFinishingOutboundDestination(input: { outboundOrderId: st
 
 export function listPostFinishingFactoryReturns(productionOrderIds?: ReadonlySet<string>): PostFinishingFactoryReturnDelivery[] {
   return clone(productionOrderIds ? state.deliveries.filter(row => productionOrderIds.has(row.productionOrderId)) : state.deliveries)
+}
+
+export function listPostFinishingWarehouseLocationMoves(): PostFinishingWarehouseLocationMove[] {
+  return clone(state.warehouseLocationMoves || [])
+}
+
+export function movePostFinishingWarehouseLocation(input: {
+  mode: 'wait-process' | 'wait-handover'
+  locationCode: string
+  targetLocationCode: string
+  reason: string
+  actor: PostFinishingActor
+  nowMs?: number
+}): PostFinishingWarehouseLocationMove[] {
+  assertPostFinishingWrite()
+  if (!input.actor?.actorId?.trim() || !input.actor.actorName?.trim() || !/(仓管|仓库|后道主管)/.test(input.actor.roleName)) {
+    throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '请使用身份完整的仓库人员执行移库。')
+  }
+  const from = input.locationCode.trim(), to = input.targetLocationCode.trim(), reason = input.reason.trim()
+  if (!from) throw new PostFinishingFlowGateError('INVALID_STATUS', '请选择要移动的库位。')
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{1,31}$/.test(to)) throw new PostFinishingFlowGateError('INVALID_STATUS', '目标库位须为 2～32 位字母、数字、横线或下划线。')
+  if (from === to) throw new PostFinishingFlowGateError('INVALID_STATUS', '目标库位与原库位相同，不需要移库。')
+  if (!reason) throw new PostFinishingFlowGateError('INVALID_STATUS', '请填写移库原因。')
+  const records = input.mode === 'wait-process'
+    ? state.waitProcessWarehouseRecords.filter((row) => row.locationCode === from && row.status !== '已废弃')
+    : state.waitHandoverWarehouseRecords.filter((row) => row.locationCode === from && row.status === '待交出')
+  const movable = records.filter((row) => row.lines.some((line) => line.availableQty > 0))
+  if (!movable.length) throw new PostFinishingFlowGateError('INVALID_STATUS', '该库位没有可移动的在库数量。')
+  const at = nowIso(input.nowMs)
+  state.warehouseLocationMoves ||= []
+  const created = movable.map((row) => {
+    const move: PostFinishingWarehouseLocationMove = {
+      moveId: `PF-WLM-${String(state.warehouseLocationMoves!.length + 1).padStart(6, '0')}`,
+      warehouseMode: input.mode,
+      warehouseRecordId: row.warehouseRecordId,
+      deliveryOrderNo: row.deliveryOrderNo,
+      productionOrderNo: row.productionOrderNo,
+      fromLocationCode: from,
+      toLocationCode: to,
+      reason,
+      quantities: row.lines.filter((line) => line.availableQty > 0).map((line) => ({ sku: clone(line.sku), quantity: line.availableQty })),
+      operator: clone(input.actor),
+      operatedAt: at,
+    }
+    state.warehouseLocationMoves!.push(move)
+    row.locationCode = to
+    return clone(move)
+  })
+  persist()
+  return created
 }
 
 export function listPostFinishingWaitProcessWarehouseRecords(): PostFinishingWaitProcessWarehouseRecord[] {

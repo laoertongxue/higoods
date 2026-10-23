@@ -19,6 +19,7 @@ import {
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWaitProcessWarehouseMovements,
   listPostFinishingWaitProcessWarehouseRecords,
+  movePostFinishingWarehouseLocation,
   sendPostFinishingFactoryReturnToQc,
   type PostFinishingAcceptanceSku,
   type PostFinishingFactoryReturnDelivery,
@@ -268,6 +269,7 @@ function renderLocationContent(mode: WarehouseMode, rows: WarehouseInventoryRow[
     { key: 'number', title: '全部来源单据', width: 330, required: true, render: row => row.sourceNos.map(no => `<div class="font-mono text-xs">${escapeHtml(no)}</div>`).join('') },
     { key: 'quantity', title: '入仓 / 当前 / 出仓（件）', width: 210, required: true, render: row => `${row.inboundQty} / ${row.availableQty} / ${row.outboundQty}` },
     { key: 'status', title: '当前状态', width: 180, required: true, render: (row) => renderPostStatusBadge(row.status) },
+    { key: 'actions', title: '操作', width: 150, required: true, actionColumn: true, render: (row) => row.availableQty > 0 ? `<button type="button" class="text-xs text-blue-700 hover:underline" data-post-finishing-action="full-flow-move-location" data-location="${escapeHtml(row.locationCode)}">移动库位</button>` : '<span class="text-xs text-muted-foreground">无可移动库存</span>' },
   ]
   return renderPage(renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: '暂无库区库位记录。' }), renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing' }), '库区库位')
 }
@@ -532,6 +534,25 @@ export async function handlePostFinishingReturnFlowEvent(target: HTMLElement, ev
       warehouseUi.selectedSkuId = ''
       warehouseUi.selectedMaterialStockId = ''
       warehouseUi.showReturnLookup = false
+      refresh('')
+      return true
+    }
+    if (action === 'full-flow-move-location') {
+      const source = actionNode?.dataset.location || ''
+      if (!source) throw new Error('缺少原库位，请重新读取。')
+      const target = window.prompt(`将库位 ${source} 的在库库存整体移到哪个库位？`)?.trim() || ''
+      if (!target) return true
+      const reason = window.prompt('请填写移库原因。')?.trim() || ''
+      if (!reason) throw new Error('已取消移库：必须填写原因。')
+      const moved = await runPostFinishingCommand(() => movePostFinishingWarehouseLocation({
+        mode: currentWarehouseMode(),
+        locationCode: source,
+        targetLocationCode: target,
+        reason,
+        actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
+      }))
+      pageMessage = `已移动 ${moved.length} 条库存记录：${source} → ${target}；数量与批次保持不变。`
+      pageMessageTone = 'success'
       refresh('')
       return true
     }

@@ -90,7 +90,7 @@ const primaryIds: Record<string, string> = {
   waitHandoverWarehouseRecords: 'warehouseRecordId', waitHandoverWarehouseMovements: 'movementId',
   processCompletions: 'recordId', returnConfirmationVersions: 'confirmationVersionId', qcTasks: 'qcTaskId', postTasks: 'postTaskId',
   fullCoverages: 'coverageId', recheckOrders: 'recheckOrderId', outboundOrders: 'outboundOrderId', warehouseReceipts: 'receiptId',
-  defects: 'defectId', materialTransferOrders: 'transferOrderId', materialStocks: 'stockId',
+  defects: 'defectId', materialTransferOrders: 'transferOrderId', materialStocks: 'stockId', warehouseLocationMoves: 'moveId',
   ppicPromises: 'promiseId', ppicMakeups: 'makeupId', ppicAllocations: 'allocationId',
   ppicConfirmations: 'confirmationId', ppicConfigs: 'configId', ppicBases: 'basisId',
   ppicActions: 'actionId', ppicEvaluations: 'evaluationId',
