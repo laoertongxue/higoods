@@ -26,8 +26,9 @@
 | 单笔操作按来源读取 | 通过 | 印花、染色、水溶使用原模块 getter 读取当前单；完整列表及来源发现仍保持完整。5 项专项通过，包括三类实际领域来源与完整集合投影一致、后续原事实改变后读取新值、未知来源为空 |
 | 旧洗水正式对象与入口 | 通过 | main 对旧洗水读取的改动转到新加工事实桥；旧专属文件及相应旧测试退役，新只读边界契约替代。原正式退役证据保留其版本，未清理真实用户浏览器 |
 | 真实图片和打印防错 | 通过 | 32 项相邻页面检查覆盖两套 QC 打印、实际图码、坏图阻断与重试、库存打印冷开及刷新；手感模板未因本次查询修复改变 |
+| 上游加工单列表初始化竞态 | 通过 | 首次 Production c2b36c6b 核验实际捕获采购供应商档案在 PCS 准备前求值的异常。两个上游列表现保留 QC／PCS／FCS 读取并跳过其不消费的采购初始化；真实 renderCurrentPageContent 契约先失败、修复后与相邻契约共 22 项通过。修复后固定本地生产资产下，染色冷开、印花冷开、染色再次进入、随后进入面辅料采购共 4 项页面无异常且全部首屏图可读。此处仅记录本地修复验证，正式重发另以回执为准 |
 | 当前版本完整响应性能 | 不通过 | 首轮 365 样本有 3095ms 的 30 卷 PDF 和 1048ms 的 PDA 刷新。已修正 PDF 将外部 Python 内容审计计入响应的问题，并修复约 485ms 的静态 QC 查询扫描；后续实际 GTG 实收 CPU 剖析另定位约 1.6s 的全来源扫描，已改为按单读取。修复后正式性能仍待验收，不以负载解释删除慢值 |
-| Git 发布 | 不通过 | 首轮本地 main 与 GitHub main 已同为 63466cb5a9b6a7159fde5074dcffa7e8c2b9e914；Actions 39873633386 构建进行中。本文格式补正后的最终 SHA、Actions 与正式 HTTPS 仍以后续回执为准；用户于本会话明确确认“允许先推送，性能未验收”；发布按此例外执行，最终 SHA／Actions／HTTPS 状态另写回执 |
+| Git 发布 | 不通过 | 文档规范后的 c2b36c6bc8b3804a74446fe9d124cb7f11105e48 已在本地／GitHub main、Actions 39874071441 与正式 HTTPS 一致，1672 单测及 54 部署契约通过。正式页面进一步捕获并局部修复上游列表初始化竞态；本次修复后的最终 SHA、Actions 与 HTTPS 另写回执；用户于本会话明确确认“允许先推送，性能未验收”；发布按此例外执行，最终 SHA／Actions／HTTPS 状态另写回执 |
 
 ## 最终结论
 
@@ -51,6 +52,7 @@
 - `src/router/route-renderers-fcs.ts`
 - `src/router/routes-fcs.ts`
 - `tests/browser-contracts/pcs-record-db.test.ts`
+- `tests/unit/craft-entry-initialization.test.ts`
 - `tests/unit/production-context-hydration-concurrency.test.ts`
 - `tests/unit/pda-shipped-factory-process-read-scope.test.ts`
 - `tests/unit/pda-shipped-washing-read-scope.test.ts`
@@ -67,11 +69,19 @@
 ### 性能结论
 
 - 结论：不通过
-- 依据：采用项目 1000ms 门槛，首轮每族 5 次；超时和中断记录保留。后续采样遇主机负载约 54、CPU 空闲不足 1%、内存约 15GB 占用，仍不把超时自动删除或认定通过。已根据真实 CPU 调用剖析修复两处来源扫描；等待修复后可复现验收或用户明确先行发布例外。
+- 依据：采用项目 1000ms 门槛，首轮每族 5 次；超时和中断记录保留。后续采样遇主机负载约 54、CPU 空闲不足 1%、内存约 15GB 占用，仍不把超时自动删除或认定通过。已根据真实 CPU 调用剖析修复两处来源扫描；本次按用户明确确认先行发布，性能持续标记未验收。
+
+### 上游入口发布复核修正
+
+本项属于原需求的直接上游读取与发布核验，不改变 QC 建单、质检、整单手感决定或实物交接条件。对象为 `src/main.ts` 中两个加工单列表的初始化条件，以及执行实际页面入口函数的既有契约。此前新增 QC 来源准备先启动了限定 PCS 读取，随后旧有并行采购模块初始化可能在完整 PCS 准备前求值并抛错；页面仍显示不能作为无异常证据。现仅排除两个列表不消费的采购初始化，保留其 QC／PCS／FCS 顺序，后续进入采购页仍按原流程准备真实采购目录。
+
+原线上异常及堆栈保留在 `output/qc-main-publication-20261023/focused-upstream.json`；最小失败在 `qc-main-upstream-before-r2.log`，修复后 22 项契约在 `qc-main-upstream-fixed-unit.log`。`npx vite build` 成功（1m2s）；固定产物、源文件及资产哈希在 `upstream-runtime-manifest.json`，真实 4 项页面在 `upstream-local-audit.json`。未动供应商资料、采购代码或持久事实，未将此页面复核当作 1 秒性能验收。
 
 ### 验证命令
 
 - `npm run build`：通过
+- `npx vite build`：通过
+- `node --import tsx --test tests/unit/craft-entry-initialization.test.ts tests/unit/factory-qc-scoped-source.test.ts tests/unit/factory-qc-lazy-static-read.test.ts`：通过
 - `npx playwright test tests/post-finishing-main-integration.spec.ts tests/quality-management-print-ready.spec.ts tests/quality-inventory-generic-print-entry.spec.ts tests/quality-management-list-contract.spec.ts --workers=1 --reporter=json`：通过
 - `node --import tsx --test tests/unit/factory-qc-scoped-source.test.ts tests/unit/factory-qc-lazy-static-read.test.ts`：通过
 

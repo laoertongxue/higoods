@@ -78,14 +78,16 @@ test('factory profile uses its existing page owner without unrelated initializat
   assert.deepEqual(events, [])
 })
 
-test('craft entry leaves PMS pending, preserves PCS/FCS read gates and later procurement initializes normally', async () => {
+test('craft and printing/dyeing source lists leave PMS pending, preserve PCS/FCS read gates and later procurement initializes normally', async () => {
   const execute = actualFunction('renderCurrentPageContent'), events: string[] = []
   const dependencies = {
     authorizedCostCleanupError: undefined, isIsolatedCraftReadEntry,
     reloadForDynamicModuleLoadError: (error: unknown) => { throw error },
     Image: class { src = ''; decode() { return Promise.resolve() } },
     startPmsInitialization: () => { events.push('PMS started') },
-    loadModule: async (path: string) => path.includes('pms/runtime')
+    loadModule: async (path: string) => path.includes('factory-qc.ts')
+      ? { ensureFactoryQcRecords: async () => { events.push('QC sources') } }
+      : path.includes('pms/runtime')
       ? { hydratePmsLogsFromIdb: async () => { events.push('PMS logs') } }
       : path.includes('canonical-purchase-references')
         ? { ensurePurchaseCatalogState: async () => { events.push('catalog') } }
@@ -93,8 +95,11 @@ test('craft entry leaves PMS pending, preserves PCS/FCS read gates and later pro
     preparePageRouteEntry: async () => { events.push('FCS') },
     resolvePage: async (path: string) => { events.push('page');return path },
   }
-  assert.equal(await execute(dependencies, craft), craft)
-  assert.deepEqual(events, ['PCS', 'FCS', 'page'])
+  for (const path of [craft, '/fcs/craft/printing/work-orders', '/fcs/craft/dyeing/work-orders']) {
+    events.length = 0
+    assert.equal(await execute(dependencies, path), path)
+    assert.deepEqual(events, [...(path === craft ? [] : ['QC sources']), 'PCS', 'FCS', 'page'], path)
+  }
   events.length = 0
   assert.equal(await execute(dependencies, '/pms/material-purchase-orders'), '/pms/material-purchase-orders')
   assert.deepEqual(events, ['PMS started', 'PMS logs', 'catalog', 'FCS', 'page'])

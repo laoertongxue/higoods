@@ -1408,9 +1408,12 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
       || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     const factoryReceiptReadEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/pending-receipts$/.test(normalizedPathname)
+    // These source lists already prepare QC/PCS/FCS facts. Unrelated supplier
+    // archive module evaluation can otherwise race their scoped PCS hydration.
+    const factorySourceListEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/work-orders\/?$/.test(normalizedPathname)
     // Onboarding retains the existing PCS/FCS preparation and PDA handlers;
     // its form does not consume procurement initialization.
-    if (!normalizedPathname.startsWith('/fcs/quality-management/') && !isQualityInventoryEntry(normalizedPathname) && normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
+    if (!normalizedPathname.startsWith('/fcs/quality-management/') && !isQualityInventoryEntry(normalizedPathname) && normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !factorySourceListEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }
