@@ -3,6 +3,7 @@ import { getPostFinishingFlowText } from '../src/data/fcs/post-finishing-current
 
 async function currentPostId(page: Page): Promise<string> {
   await page.goto('/fcs/craft/post-finishing/work-orders')
+  await expect(page.getByText('打印加工单', { exact: true }).first()).toBeVisible()
   return page.evaluate(async () => {
     const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
     const task = flow.listPostFinishingFullFlowPostTasks()[0]
@@ -18,7 +19,7 @@ test('后道加工单列表进入专用打印预览并隐藏 Web 系统壳', asy
   await expect(page).toHaveURL(/\/fcs\/craft\/post-finishing\/print\?type=POST_ORDER/)
   await expect(page.locator('[data-testid="post-finishing-full-flow-print"]')).toBeVisible()
   await expect(page.getByText('后道加工单流转卡').first()).toBeVisible()
-  await expect(page.getByText(/HD-/).first()).toBeVisible()
+  await expect(page.getByText(/-HD/).first()).toBeVisible()
   await expect(page.getByText(/PO-QC-202608-/).first()).toBeVisible()
 
   await expect(page.locator('[data-shell-tab]')).toHaveCount(0)
@@ -32,22 +33,23 @@ test('专门后道工厂完整流程打印单包含正式单据区域', async ({
   await page.goto(`/fcs/print/preview?documentType=TASK_ROUTE_CARD&sourceType=POST_FINISHING_WORK_ORDER&sourceId=${encodeURIComponent(id)}`)
 
   await expect(page.getByText('后道加工单流转卡').first()).toBeVisible()
-  await expect(page.getByText('QC → 后道加工 → 处理后交出复核 → 成衣仓交接').first()).toBeVisible()
-  for (const label of ['扫码收货区', '质检区', '后道处理区', '处理后交出复核区', '交出区', '差异记录区', '签字区', '二维码区']) {
+  await expect(page.getByText('QC → 后道加工 → 后道出货单 → 实际发出 → 成衣仓接收').first()).toBeVisible()
+  await expect(page.getByText('处理后交出复核区', { exact: true })).toHaveCount(0)
+  for (const label of ['扫码收货区', '质检区', '后道处理区', '交出区', '差异记录区', '签字区', '二维码区']) {
     await expect(page.getByText(label).first()).toBeVisible()
   }
-  for (const label of ['计划成衣件数', '待质检成衣件数', '复核确认成衣件数', '待交出成衣件数', '差异成衣件数']) {
+  for (const label of ['计划成衣件数', '实际检查成衣件数', '正常放行成衣件数', '待交出成衣件数', '差异成衣件数']) {
     await expect(page.getByText(label).first()).toBeVisible()
   }
   await expect(page.getByText('系统占位图')).toHaveCount(0)
 })
 
 test('车缝厂已做后道时流程规则跳过后道节点', () => {
-  expect(getPostFinishingFlowText({ requiresPostFinishing: false })).toBe('QC → 成衣仓交接')
+  expect(getPostFinishingFlowText({ requiresPostFinishing: false })).toBe('QC → 后道出货单 → 实际发出 → 成衣仓接收')
 })
 
 test('独立后道加工单在打印链路中展示实际工序节点', () => {
-  expect(getPostFinishingFlowText({ requiresPostFinishing: true })).toBe('QC → 后道加工 → 处理后交出复核 → 成衣仓交接')
+  expect(getPostFinishingFlowText({ requiresPostFinishing: true })).toBe('QC → 后道加工 → 后道出货单 → 实际发出 → 成衣仓接收')
 })
 
 test('商品图片区、二维码区和打印按钮符合打印预览要求', async ({ page }) => {
@@ -80,6 +82,6 @@ test('旧任务流转卡路由兼容后道新模板', async ({ page }) => {
   await expect(page).toHaveURL(/\/fcs\/print\/task-route-card/)
   await expect(page.locator('[data-standalone-print-root]')).toBeVisible()
   await expect(page.getByText('后道加工单流转卡').first()).toBeVisible()
-  await expect(page.getByText('QC → 后道加工 → 处理后交出复核 → 成衣仓交接').first()).toBeVisible()
+  await expect(page.getByText('QC → 后道加工 → 后道出货单 → 实际发出 → 成衣仓接收').first()).toBeVisible()
   await expect(page.getByText('商品中心系统')).toHaveCount(0)
 })

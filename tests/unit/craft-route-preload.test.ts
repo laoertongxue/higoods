@@ -29,10 +29,10 @@ const reportPages = {
   '/fcs/craft/dyeing/reports': '/src/pages/process-factory/dyeing/reports.ts',
 }
 const reportReadInitialization = ['/src/data/pms/idb-storage.ts', '/src/data/fcs/production-context-records.ts', '/src/data/fcs/cutting/part-ticket-records.ts']
-const washingRead = ['/src/data/fcs/fabric-washing.ts', '/src/data/fcs/fabric-washing-repository.ts']
+const factoryQcRead = ['/src/data/fcs/factory-qc.ts', '/src/data/fcs/factory-qc-records.ts']
 const originalRoutes = [
   ['/fcs/sewing-outsourcing/daily-return-report', '/src/pages/sewing-outsourcing/daily-return-report.ts'],
-  ['/fcs/sewing-outsourcing/daily-return-summary', '/src/pages/sewing-outsourcing/daily-return-summary.ts'],
+  ['/fcs/sewing-outsourcing/daily-return-statistics', '/src/pages/sewing-outsourcing/daily-return-statistics.ts'],
   ['/fcs/sewing-outsourcing/returns', '/src/pages/sewing-outsourcing/returns.ts'],
   ['/fcs/progress/production-orders', '/src/pages/production-order-progress-tracking.ts'],
   ['/fcs/contracts/print', '/src/pages/production-contract-print.ts'],
@@ -42,7 +42,7 @@ const originalRoutes = [
   ['/fcs/pda/auth/login', '/src/pages/pda-login.ts'],
   ['/pms/purchase-suggestions', '/src/pages/pms/purchase-suggestions.ts'],
 ]
-const sources = [...new Set([...initialization, ...registry, ...Object.values(pages), ...Object.values(reportPages), ...washingRead, ...originalRoutes.map(([, source]) => source),
+const sources = [...new Set([...initialization, ...registry, ...Object.values(pages), ...Object.values(reportPages), ...factoryQcRead, ...originalRoutes.map(([, source]) => source),
   '/src/data/pms/idb-storage.ts', '/src/data/fcs/cutting/cutting-event-repository.ts',
   '/src/data/fcs/cutting/generated-cut-release.ts', '/src/main-handlers/pda-handlers.ts'])]
 const fileFor = (source: string) => `assets/fixture-${sources.indexOf(source)}.js`
@@ -231,7 +231,7 @@ test('four affected reports preload only their actual page and restoration closu
     for (const suffix of ['']) {
       const links = navigationLinks(path + suffix)
       const dyeing = path.endsWith('/reports')
-      const owners = [...new Set([page, ...registry, ...(dyeing ? [...initialization, ...washingRead] : reportReadInitialization)])]
+      const owners = [...new Set([page, ...registry, ...(dyeing ? [...initialization, ...factoryQcRead] : reportReadInitialization)])]
       const expected = owners.map(source => `/${fileFor(source)}`).concat('/assets/shared.js', '/assets/cycle.js').sort()
       assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expected, path + suffix)
       assert.equal(links.filter(link => link.as === 'fetch').length, dyeing ? 1 : 0, path)

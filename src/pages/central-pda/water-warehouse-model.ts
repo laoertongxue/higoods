@@ -1,12 +1,12 @@
 import { listFactoryReceipts, listReceivingAllocations, getHistoricalReceiptPosition } from '../../data/fcs/factory-receiving.ts'
 import { listFactoryInternalWarehouses } from '../../data/fcs/factory-internal-warehouse.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { listCentralWaterFacts, centralWaterInputStock } from './water-model.ts'
 import { centralWaterOutput, centralWaterReceiptHistory } from './water-output-model.ts'
 
 /** A receipt is a physical fact; allocation relates a portion to an order without receiving it again. */
 export function centralWaterWarehouse(factoryId:string){
-  return withWashingStaticRead(()=>{
+  return withFactoryProcessStaticRead(()=>{
     const facts=listCentralWaterFacts(factoryId),byId=new Map(facts.map(fact=>[fact.order.waterOrderId,fact])),allocations=listReceivingAllocations()
     const incoming=listFactoryReceipts(factoryId).flatMap(receipt=>receipt.lines.flatMap(line=>{
       const direct=line.waterOrderId&&byId.get(line.waterOrderId)

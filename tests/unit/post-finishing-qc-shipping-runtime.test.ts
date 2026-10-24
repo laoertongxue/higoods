@@ -1,3 +1,5 @@
+import {ensureQualityManagementRecords} from '../../src/data/fcs/quality-management-records.ts'
+await ensureQualityManagementRecords()
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { FINISHED_OUTBOUND_SEED, applyFinishedOutboundAction } from '../../src/data/wls/finished-outbound-orders.ts'
@@ -86,14 +88,14 @@ test('真实命令：100合格中40子单冻结A、余60改B；子单改B及实�
   flow.confirmPostFinishingFactoryReturn({ deliveryId: delivery.deliveryId, actor: actors.returnConfirmer, firstCounts: delivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })) })
   const qc = flow.sendPostFinishingFactoryReturnToQc({ deliveryId: delivery.deliveryId, actor: actors.sender })
   flow.claimPostFinishingQcTask({ qcTaskNo: qc.qcTaskNo, actor: actors.qcA })
-  flow.completePostFinishingQcTask({ qcTaskId: qc.qcTaskId, processItems: ['包装'], actor: actors.qcA, results: qc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })) })
+  flow.submitPostFinishingQcRound({qcTaskId:qc.qcTaskId,actor:actors.qcA,operationId:'priority-actual-round',lines:qc.lines.map(line=>({skuId:line.sku.skuId,passedQty:line.expectedQty,defectQty:0,returnQty:0,issues:[]}))})
+  flow.attachPostFinishingQcSignedPaper({qcTaskId:qc.qcTaskId,actor:actors.qcA,url:source.skus[0].imageUrl,name:'隔离契约纸单，非真实签字'})
+  flow.completePostFinishingQcTask({qcTaskId:qc.qcTaskId,actor:actors.qcA,processItems:['包装']})
   const post = flow.listPostFinishingFullFlowPostTasks()[0]!
   const skuId = source.skus[0]!.skuId
   flow.appendPostFinishingProcessCompletion({ postTaskId: post.postTaskId, processItem: '包装', quantities: [{ skuId, quantity: 40 }], operationId: 'QCU-PACK-40', responsible: actors.postOperator, actor: actors.postOperator })
-  const recheck = flow.submitPostFinishingForRecheck({ postTaskId: post.postTaskId, quantities: [{ skuId, quantity: 40 }], operationId: 'QCU-RECHECK-40', actor: actors.postOperator })
-  flow.claimPostFinishingRecheckOrder({ recheckOrderNo: recheck.recheckOrderNo, actor: actors.recheckerA })
-  for (const line of recheck.lines.filter(line => line.expectedQty > 0)) flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: recheck.recheckOrderId, skuId: line.sku.skuId, scannedBarcode: line.sku.barcode, actor: actors.recheckerA })
-  flow.completePostFinishingRecheckOrderFullFlow({ recheckOrderId: recheck.recheckOrderId, actor: actors.recheckerA, results: recheck.lines.map(line => ({ skuId: line.sku.skuId, handoverQty: line.expectedQty })) })
+  const prepared=flow.submitPostFinishingForOutbound({postTaskId:post.postTaskId,quantities:[{skuId,quantity:40}],operationId:'QCU-DIRECT-40',actor:actors.postOperator})
+  flow.dispatchPostFinishingOutboundOrder({outboundOrderId:prepared.outboundOrderId,actor:actors.postOperator})
   const child = flow.listPostFinishingFullFlowOutboundOrders()[0]!
   assert.equal(child.targetWarehouseId, 'WH-AC')
   await runtime.saveQcShippingDestination({ sourceId: qc.qcTaskId, warehouseId: 'WH-FM', expectedVersion: 0, operator: '数量契约计划员', reason: '剩余60供B仓' })
@@ -111,5 +113,26 @@ test('真实命令：100合格中40子单冻结A、余60改B；子单改B及实�
   assert.equal(projected.segments.reduce((s, row) => s + row.quantity, 0), 100)
   assert.equal(projected.segments.filter(row => row.position === 'warehouse').reduce((s, row) => s + row.quantity, 0), 40)
   assert.equal(flow.listPostFinishingWarehouseReceipts()[0]!.warehouseId, 'WH-FM')
+  const inventory=await import('../../src/data/wls/finished-inventory-records.ts')
+  const beforeInventory=inventory.captureFinishedInventoryState(),sku=child.lines[0].sku
+  try {
+    inventory.restoreFinishedInventoryState({...beforeInventory,lots:[{...beforeInventory.lots[0],id:'QCU-EXISTING-WH-FM-100',warehouseId:'WH-FM',warehouseName:'F&M WH',skuId:sku.skuId,skuCode:sku.skuCode,styleNo:sku.spuCode,quantity:100,quality:'正常',putaway:true}]})
+    const rows=runtime.readUnifiedQcShippingStockRows().filter(row=>row.sku===sku.skuCode&&row.warehouseName==='F&M WH')
+    assert.equal(rows.length,1,'同仓同SKU独立实收并入原行，不另造第二库存行')
+    assert.equal(rows[0].spotStock,140,'原100件与实际接收40件只相加一次')
+    assert.equal((rows[0] as any).physicalQuantity,140,'总实物数量必须同步；不能总库存100但正常库存140')
+  } finally { inventory.restoreFinishedInventoryState(beforeInventory) }
+
   assert.throws(() => flow.setPostFinishingOutboundDestination({ outboundOrderId: child.outboundOrderId, warehouseId: 'WH-AC', expectedWarehouseId: 'WH-FM', operator: '测试员', reason: '禁止改实收' }), /已实收/)
+})
+
+
+test('供货只读投影不携带标准树，修改返回数量或SKU不影响权威QC',async()=>{
+ const flow=await import('../../src/data/fcs/post-finishing-full-flow.ts')
+ const view=flow.listPostFinishingQcShippingFacts().find(row=>row.lines.length)!
+ const original=flow.getPostFinishingFullFlowQcTask(view.qcTaskId)!
+ assert.equal(view.inspection,undefined)
+ view.lines[0].expectedQty+=1;view.lines[0].sku.skuCode+='-NOT-SAVED'
+ const after=flow.getPostFinishingFullFlowQcTask(view.qcTaskId)!
+ assert.deepEqual(after,original)
 })

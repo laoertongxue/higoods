@@ -9,7 +9,7 @@ export async function renderPrintingSheetPreview(): Promise<string> {
   const confirmation = params.get('documentType') === 'PRINTING_CONFIRMATION'
   let paper: string, title: string
   try {
-    await (await import('../../data/fcs/fabric-washing-repository.ts')).ensureWashingRecords()
+    await (await import('../../data/fcs/factory-qc-records.ts')).ensureFactoryQcRecords()
     const input = { sourceType: 'PRINTING_WORK_ORDER' as const, sourceId: params.get('sourceId') || '', documentType: confirmation ? 'PRINTING_CONFIRMATION' as const : 'PRINTING_INFO_SHEET' as const }
     const document = confirmation ? buildPrintingConfirmationDocument(input) : buildPrintingInfoSheetDocument(input)
     title = document.documentTitle

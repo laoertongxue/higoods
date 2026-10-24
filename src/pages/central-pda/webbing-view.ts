@@ -1,5 +1,6 @@
 import type { CentralPdaLanguage } from './frame.ts'
 import { cb, ce, cn, ct, centralFormalName, centralTime, centralErrorText } from './ui.ts'
+import { pdaUi } from '../pda-mobile-ui.ts'
 import { getTmfPurchaseState, getTmfTipMaterialBalance } from '../../data/pms/tmf-material-purchases.ts'
 import { centralWebbingBaseLedger, webbingReturnBalance, type WebbingInput, type WebbingOrder, type WebbingTipIssue } from './webbing-model.ts'
 
@@ -29,9 +30,9 @@ export function webbingStatus(order: WebbingOrder, lang: CentralPdaLanguage) {
 }
 export function webbingIdentity(order: WebbingOrder, lang: CentralPdaLanguage) {
   const name = centralFormalName(order.material?.materialName, order.material?.materialSkuId || order.demands[0]?.materialSkuId || '', lang)
-  return `<article class="mb-3 flex gap-3 rounded-xl border bg-white p-3">${order.material?.materialImageUrl
-    ? `<button type="button" class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border" data-central-action="webbing-photo" data-central-value="${ce(order.material.materialImageUrl)}" aria-label="${ct(lang, 'photo')}"><img class="h-full w-full object-contain" data-webbing-photo src="${ce(order.material.materialImageUrl)}" alt="${ce(name)}"></button>`
-    : ''}<div class="min-w-0"><strong class="block break-words">${ce(name)}</strong><div class="break-words text-sm">${ce(order.material?.materialSkuId || '')}</div></div></article>`
+  return `<article class="${pdaUi.card} mb-3 flex gap-3 p-3">${order.material?.materialImageUrl
+    ? `<button type="button" class="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[#e2e6ec] bg-[#f1f3f6]" data-central-action="webbing-photo" data-central-value="${ce(order.material.materialImageUrl)}" aria-label="${ct(lang, 'photo')}"><img class="h-full w-full object-contain" data-webbing-photo src="${ce(order.material.materialImageUrl)}" alt="${ce(name)}"></button>`
+    : ''}<div class="min-w-0 flex-1"><strong class="block break-words text-[17px] font-semibold leading-6 text-[#1a293c]">${ce(name)}</strong><div class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${ce(order.material?.materialSkuId || '')}</div></div></article>`
 }
 export function webbingFacts(order: WebbingOrder, lang: CentralPdaLanguage) {
   const pieces = order.requiredPieces

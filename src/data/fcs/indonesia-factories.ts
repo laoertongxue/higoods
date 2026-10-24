@@ -127,7 +127,7 @@ export const indonesiaBanks = [
 
 // 能力标签
 export const capabilityTags = [
-  '车缝', '后整', '梭织', '毛织', '大货', '小单快反',
+  '车缝', '后道', '梭织', '毛织', '大货', '小单快反',
   '印花', '绣花', '染色', '棉', '涤纶', '真丝', '牛仔', '羽绒服', '外套'
 ]
 
@@ -383,7 +383,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Maya Indah',
     contactPhone: '+62 813-2222-3333',
     status: 'ACTIVE',
-    tags: ['车缝', '后整', '小单快反'],
+    tags: ['车缝', '后道', '小单快反'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 15000,
@@ -461,7 +461,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Linda Hartono',
     contactPhone: '+62 816-8888-9999',
     status: 'ACTIVE',
-    tags: ['车缝', '后整'],
+    tags: ['车缝', '后道'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 14000,
@@ -539,7 +539,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Bambang Wijaya',
     contactPhone: '+62 819-5050-6060',
     status: 'ACTIVE',
-    tags: ['车缝', '后整', '大货'],
+    tags: ['车缝', '后道', '大货'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 20000,
@@ -723,7 +723,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Dewi Kartika',
     contactPhone: '+62 815-9999-0000',
     status: 'ACTIVE',
-    tags: ['车缝', '后整'],
+    tags: ['车缝', '后道'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 4500,
@@ -827,7 +827,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Endang Puji',
     contactPhone: '+62 819-7777-8888',
     status: 'ACTIVE',
-    tags: ['车缝', '后整'],
+    tags: ['车缝', '后道'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 4800,
@@ -905,7 +905,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: '测试车缝主管',
     contactPhone: '+62 800-0000-0091',
     status: 'ACTIVE',
-    tags: ['车缝', '后整'],
+    tags: ['车缝', '后道'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 12000,

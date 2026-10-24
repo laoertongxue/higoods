@@ -19,6 +19,7 @@ import {
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWaitProcessWarehouseMovements,
   listPostFinishingWaitProcessWarehouseRecords,
+  movePostFinishingWarehouseLocation,
   sendPostFinishingFactoryReturnToQc,
   type PostFinishingAcceptanceSku,
   type PostFinishingFactoryReturnDelivery,
@@ -56,6 +57,7 @@ interface WarehouseBatch {
   outboundQty: number
   qcTaskNo?: string
   recheckOrderNo?: string
+  outboundOrderId?: string
   outboundOrderNo?: string
   sourceType?: '质检直达' | '后道加工后'
 }
@@ -168,6 +170,7 @@ function buildWaitHandoverInventory(records: PostFinishingWaitHandoverWarehouseR
       outboundQty: line.handedOverQty,
       qcTaskNo: record.qcTaskNo,
       recheckOrderNo: record.recheckOrderNo,
+      outboundOrderId: record.outboundOrderId,
       outboundOrderNo: record.outboundOrderNo,
       sourceType: record.sourceType,
     })
@@ -242,7 +245,7 @@ function renderMovementContent(mode: WarehouseMode, movements: WarehouseMovement
     { key: 'quantity', title: '数量', width: 170, required: true, align: 'center', render: (row) => `${row.quantities.reduce((sum, line) => sum + line.quantity, 0)} 件 / ${row.quantities.length} SKU` },
     { key: 'operator', title: '操作人', width: 180, required: true, render: (row) => `${escapeHtml(row.operator.actorName)}<div class="text-xs text-muted-foreground">${escapeHtml(row.operator.roleName)}</div>` },
   ]
-  return renderPage(renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: mode === 'wait-process' ? '确认回货后生成入仓流水，送检后生成出仓流水。' : '处理后数量与条码复核完成后生成入仓流水，成衣仓收货后生成交出流水。' }), renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing', pageSizeOptions: [10, 20, 50] }), '流水记录')
+  return renderPage(renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: mode === 'wait-process' ? '确认回货后生成入仓流水，送检后生成出仓流水。' : '准备出货后生成待出货入区流水，确认实际发出后生成交出流水。' }), renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing', pageSizeOptions: [10, 20, 50] }), '流水记录')
 }
 
 function renderLocationContent(mode: WarehouseMode, rows: WarehouseInventoryRow[], renderPage: WarehouseListRenderer): string {
@@ -266,6 +269,7 @@ function renderLocationContent(mode: WarehouseMode, rows: WarehouseInventoryRow[
     { key: 'number', title: '全部来源单据', width: 330, required: true, render: row => row.sourceNos.map(no => `<div class="font-mono text-xs">${escapeHtml(no)}</div>`).join('') },
     { key: 'quantity', title: '入仓 / 当前 / 出仓（件）', width: 210, required: true, render: row => `${row.inboundQty} / ${row.availableQty} / ${row.outboundQty}` },
     { key: 'status', title: '当前状态', width: 180, required: true, render: (row) => renderPostStatusBadge(row.status) },
+    { key: 'actions', title: '操作', width: 150, required: true, actionColumn: true, render: (row) => row.availableQty > 0 ? `<button type="button" class="text-xs text-blue-700 hover:underline" data-post-finishing-action="full-flow-move-location" data-location="${escapeHtml(row.locationCode)}">移动库位</button>` : '<span class="text-xs text-muted-foreground">无可移动库存</span>' },
   ]
   return renderPage(renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: '暂无库区库位记录。' }), renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing' }), '库区库位')
 }
@@ -321,7 +325,7 @@ function renderInventoryDrawer(mode: WarehouseMode, rows: WarehouseInventoryRow[
   const batchContent = batches.map((batch) => {
     const stageLinks = mode === 'wait-process'
       ? `<a data-post-finishing-action="full-flow-follow-link" data-nav="${warehousePath('wait-process')}?tab=returns&deliveryId=${encodeURIComponent(batch.deliveryId)}" class="text-blue-600 hover:underline">查看批次${batch.availableQty > 0 ? '并送检' : ''}</a>`
-      : `<a data-post-finishing-action="full-flow-follow-link" data-nav="/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(batch.recheckOrderNo || '')}" class="text-blue-600 hover:underline">复检单 ${escapeHtml(batch.recheckOrderNo || '—')}</a><a data-post-finishing-action="full-flow-follow-link" data-nav="/fcs/craft/post-finishing/outbound-orders?keyword=${encodeURIComponent(batch.outboundOrderNo || '')}" class="text-blue-600 hover:underline">出货单 ${escapeHtml(batch.outboundOrderNo || '—')}</a>`
+      : batch.outboundOrderId ? `<a data-post-finishing-action="full-flow-follow-link" data-nav="/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(batch.outboundOrderId)}" class="text-blue-600 hover:underline">出货单 ${escapeHtml(batch.outboundOrderNo || '—')}</a>` : `<span class="text-amber-700">原出货单身份待核对</span>`
     return `<article class="rounded-lg border p-3 text-sm" data-warehouse-batch="${escapeHtml(batch.warehouseRecordId)}">
       <div class="flex items-start justify-between gap-3">
         <div><div class="font-mono text-xs font-semibold">${escapeHtml(batch.deliveryOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.productionOrderNo)} · 第 ${batch.returnIndex} 次回货 · ${escapeHtml(batch.locationCode)}</div>${mode === 'wait-handover' ? `<div class="mt-1 text-xs font-medium text-blue-700">来源：${escapeHtml(batch.sourceType || '历史来源未标记')}</div>` : ''}</div>
@@ -530,6 +534,25 @@ export async function handlePostFinishingReturnFlowEvent(target: HTMLElement, ev
       warehouseUi.selectedSkuId = ''
       warehouseUi.selectedMaterialStockId = ''
       warehouseUi.showReturnLookup = false
+      refresh('')
+      return true
+    }
+    if (action === 'full-flow-move-location') {
+      const source = actionNode?.dataset.location || ''
+      if (!source) throw new Error('缺少原库位，请重新读取。')
+      const target = window.prompt(`将库位 ${source} 的在库库存整体移到哪个库位？`)?.trim() || ''
+      if (!target) return true
+      const reason = window.prompt('请填写移库原因。')?.trim() || ''
+      if (!reason) throw new Error('已取消移库：必须填写原因。')
+      const moved = await runPostFinishingCommand(() => movePostFinishingWarehouseLocation({
+        mode: currentWarehouseMode(),
+        locationCode: source,
+        targetLocationCode: target,
+        reason,
+        actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
+      }))
+      pageMessage = `已移动 ${moved.length} 条库存记录：${source} → ${target}；数量与批次保持不变。`
+      pageMessageTone = 'success'
       refresh('')
       return true
     }

@@ -358,7 +358,7 @@ export function resolveOutboundRoute(record: FactoryWarehouseOutboundRecord): st
 }
 
 export function resolveWaitProcessSourceRoute(item: FactoryWaitProcessStockItem): string {
-  if (item.washingOrderId) return `/fcs/pda/washing/${encodeURIComponent(item.washingOrderId)}`
+  if (item.stenterHandfeelOrderId) return `/fcs/pda/stenter-handfeel/${encodeURIComponent(item.stenterHandfeelOrderId)}`
   if (item.sourceRecordType === 'HANDOVER_RECEIVE' && item.sourceRecordId) {
     const handoverRecord = findPdaHandoverRecord(item.sourceRecordId)
     if (handoverRecord?.handoverId) return `/fcs/pda/handover/${handoverRecord.handoverId}`
@@ -372,7 +372,7 @@ export function resolveWaitProcessSourceRoute(item: FactoryWaitProcessStockItem)
 }
 
 export function resolveWaitHandoverRoute(item: FactoryWaitHandoverStockItem): string {
-  if (item.washingOrderId) return `/fcs/pda/washing/${encodeURIComponent(item.washingOrderId)}`
+  if (item.stenterHandfeelOrderId) return `/fcs/pda/stenter-handfeel/${encodeURIComponent(item.stenterHandfeelOrderId)}`
   if (item.handoverOrderId) return `/fcs/pda/handover/${item.handoverOrderId}`
   return '/fcs/pda/handover'
 }

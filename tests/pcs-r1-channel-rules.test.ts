@@ -9,8 +9,10 @@ import { synchronizePublishedChannelChanges } from '../src/data/pcs-channel-comm
 import { convertLegacyChannelSnapshot } from '../src/data/pcs-channel-legacy-conversion.ts'
 import { listSkuArchives, getSkuArchiveById } from '../src/data/pcs-sku-archive-repository.ts'
 import { listStyleArchives, getStyleArchiveById, getStyleArchiveStoreSnapshot, updateStyleArchive, replaceStyleArchiveStore } from '../src/data/pcs-style-archive-repository.ts'
-import { getTestingOrderById, listTestingOrders, updateTestingOrder, prepareTestingOrderChannelListing, completeTestingOrderChannelListing, hasPassedTestingOrder } from '../src/data/pcs-testing-order-repository.ts'
+import { getTestingOrderById, listTestingOrders, createTestingOrder, updateTestingOrder, advanceTestingOrder, completeSampleInbound, completeLabelStep, prepareTestingOrderChannelListing, completeTestingOrderChannelListing, hasPassedTestingOrder } from '../src/data/pcs-testing-order-repository.ts'
+import { buildPcsSampleTagCode } from '../src/data/pcs-sample-management.ts'
 import { getChannelWmsAvailability, synchronizeChannelWmsAvailability } from '../src/data/pcs-channel-wms-projection.ts'
+import { captureFinishedInventoryState, restoreFinishedInventoryState } from '../src/data/wls/finished-inventory-records.ts'
 import { stockRealtimeSeed } from '../src/data/wls/seed/stock-seed.ts'
 import { renderFinishedStockRealtime } from '../src/pages/wls/finished/stock-realtime.ts'
 import { renderPcsChannelProductListPage, renderPcsChannelProductDetailPage, renderPcsChannelProductEditPage, renderChannelSyncPanel, handlePcsChannelProductListInput, handlePcsChannelProductListEvent, hasUnsavedPcsChannelChanges, discardPcsChannelChanges } from '../src/pages/pcs-channel-products.ts'
@@ -318,8 +320,17 @@ test('SYNC-009/010 same internal availability is shared observations, not multip
  assert.equal(op.items[0].result,'不支持');assert.equal('inventory' in catalog.listChannelVariants(l.id)[0],false);assert.equal(before.variants.length,catalog.getPcsChannelCatalogSnapshot().variants.length)
 })
 test('CHAN-013/SYNC-011 test order selection uses canonical listing and precise action; passing production stays independent',()=>{
- const order=listTestingOrders().find(o=>o.status==='进行中'&&listSkuArchives().filter(s=>s.styleId===o.styleId&&o.skuCodes.includes(s.skuCode)).every(catalog.isChannelSkuSelectable))!
- assert.ok(order);const passed=hasPassedTestingOrder(order.styleId);updateTestingOrder(order.testingOrderId,{currentStepKey:'channel-listing'})
+ const candidate=listSkuArchives().find(sku=>catalog.isChannelSkuSelectable(sku)&&!listTestingOrders().some(order=>order.styleId===sku.styleId&&order.status==='进行中'))
+ assert.ok(candidate,'隔离测试需要尚无进行中测款单的合格款式')
+ const created=createTestingOrder({styleId:candidate.styleId,skuCodes:[candidate.skuCode]})
+ assert.ok(created.ok,created.message)
+ const order=created.order!;const passed=hasPassedTestingOrder(order.styleId)
+ // Enter the stage through the same guarded business actions as the real flow.
+ updateTestingOrder(order.testingOrderId,{logisticsCarrier:'隔离契约物流',logisticsTrackingNo:'CONTRACT-CHANNEL-SETUP'})
+ assert.equal(advanceTestingOrder(order.testingOrderId,'sample-inbound').ok,true)
+ assert.equal(completeSampleInbound(order.testingOrderId,'隔离契约样衣实收').ok,true)
+ for(const sku of order.skuCodes)assert.equal(completeLabelStep(order.testingOrderId,buildPcsSampleTagCode(sku)).ok,true)
+ assert.equal(advanceTestingOrder(order.testingOrderId,'channel-listing').ok,true)
  const result=prepareTestingOrderChannelListing(order.testingOrderId,{storeId:'ST-001',actionId:'test-action-1',shipMethod:'人头'})
  assert.equal(catalog.getChannelListing(result.listingId)!.platformProductId,'');assert.equal(getTestingOrderById(order.testingOrderId)!.currentStepKey,'channel-listing');assert.equal(completeTestingOrderChannelListing(order.testingOrderId).ok,false)
  for(const variant of catalog.listChannelVariants(result.listingId))catalog.saveChannelPrice({storeId:'ST-001',internalSkuId:variant.internalSkuId,externalVariantId:'',priceType:'regular',amount:149000,validFrom:'',validTo:''})
@@ -371,14 +382,16 @@ test('fixed current prototype scenarios expose success, partial, late, concurren
 
 test('SYNC-009/010 fixed shared SKU reads the exact WLS source across two PIDs and three external instances',()=>{
  const skuId='sku_r1_wms_tee_black_s',source=getChannelWmsAvailability(skuId)!
- assert.ok(source);assert.equal(source.skuCode,'SKU-GC-20001');assert.equal(source.unit,'件');assert.equal(source.available,608)
+ assert.ok(source);assert.equal(source.skuCode,'SKU-GC-20001');assert.equal(source.unit,'件');assert.equal(source.available,30)
  const mapped=catalog.getPcsChannelCatalogSnapshot().variants.filter(v=>v.internalSkuId===skuId)
  assert.equal(new Set(mapped.map(v=>v.listingId)).size,2);assert.equal(mapped.length,3)
  const before=JSON.stringify(stockRealtimeSeed),operations=synchronizeChannelWmsAvailability('channel-listing-wms-demo-1')
- assert.equal(operations.length,2);assert.deepEqual(operations.flatMap(o=>o.observedAvailability!.map(v=>v.quantity)),[608,608,608]);assert.equal(JSON.stringify(stockRealtimeSeed),before)
- const row=stockRealtimeSeed.find(r=>r.sku===source.skuCode&&r.spotStock>=7)!,occupied=row.spotOrderOccupiedQuantity
- try{row.spotOrderOccupiedQuantity=(occupied||0)+7;const changed=getChannelWmsAvailability(skuId)!;assert.equal(changed.available,601);assert.notEqual(changed.sourceVersion,source.sourceVersion);assert.deepEqual(synchronizeChannelWmsAvailability('channel-listing-wms-demo-1').flatMap(o=>o.observedAvailability!.map(v=>v.quantity)),[601,601,601])}finally{row.spotOrderOccupiedQuantity=occupied}
- assert.equal(getChannelWmsAvailability('sku_r1_tee_white_m'),null)
+ assert.equal(operations.length,2);assert.deepEqual(operations.flatMap(o=>o.observedAvailability!.map(v=>v.quantity)),[30,30,30]);assert.equal(JSON.stringify(stockRealtimeSeed),before)
+ const original=captureFinishedInventoryState(),changedState=structuredClone(original)
+ const row=changedState.exclusions.find(row=>row.skuId===skuId && row.active)!
+ try{row.quantity+=7;restoreFinishedInventoryState(changedState);const changed=getChannelWmsAvailability(skuId)!;assert.equal(changed.available,23);assert.notEqual(changed.sourceVersion,source.sourceVersion);assert.deepEqual(synchronizeChannelWmsAvailability('channel-listing-wms-demo-1').flatMap(o=>o.observedAvailability!.map(v=>v.quantity)),[23,23,23])}finally{restoreFinishedInventoryState(original)}
+ assert.equal(getChannelWmsAvailability('sku_r1_tee_white_m')?.available,50)
+ assert.equal(getChannelWmsAvailability('nonexistent-internal-sku'),null)
 })
 
 test('channel WLS source link applies an exact SKU filter on the existing warehouse page',()=>{

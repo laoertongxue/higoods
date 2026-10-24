@@ -4,7 +4,7 @@ import { localDateTimeText } from '../../utils.ts'
 import { hydrateIcons } from '../../components/shell.ts'
 import { readFactoryPdaExecutionUsers, normalizePdaLoginId, verifyPdaPassword } from '../../data/fcs/store-domain-pda.ts'
 import { listFactoryReceipts, type FactoryReceiptInput } from '../../data/fcs/factory-receiving.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { calculateYarnWeight } from '../../data/fcs/yarn-weight.ts'
 import { getFactoryMasterRecordById } from '../../data/fcs/factory-master-store.ts'
 import { isCentralPdaFactory } from '../../data/fcs/pda-experience-scope.ts'
@@ -16,6 +16,8 @@ import { renderCentralPdaFrame, type CentralPdaFrameInput, type CentralPdaTab } 
 import { centralSession as session, ensureCentralSessionAccount, saveCentralSessionPreference,
   registerCentralDraftDiscard, discardCentralDrafts, hasCentralDrafts } from './session.ts'
 import { cb, ce, cn, ct, centralFormalName, centralTime, centralNotice } from './ui.ts'
+import { renderCentralOperationMenu } from './operation-menu.ts'
+import { pdaEmpty, pdaUi } from '../pda-mobile-ui.ts'
 import { dt, dyeErrorText, dyeNumber, translateDyeNumber, dyeLocationLabel, dyeSpecification, dyeSourcePerson, dyeProcessingLabel, dyePartnerLabel } from './dye-ui.ts'
 import { centralDyeOutput, centralDyeDispatch, centralDyeLabelRevision, resolveCentralDyeOutputScan, saveCentralDyeRoll,
   printCentralDyeRolls, deleteCentralDyeRoll, stageCentralDyeRoll, addCentralDyeDispatchRoll, confirmCentralDyeDispatch, voidCentralDyeDispatch } from './dye-output-model.ts'
@@ -122,7 +124,7 @@ function sourceIdentity(source: CentralDyeIncoming) {
   return `<article class="mb-3 rounded-xl border border-slate-200 bg-white p-3"><div class="flex items-start gap-3">${material.imageUrl ? `<button type="button" data-central-action="photo" data-central-value="${ce(material.imageUrl)}" aria-label="${text('photo')}" class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border"><img data-central-dye-photo src="${ce(material.imageUrl)}" alt="${ce(name)}" class="h-full w-full object-contain"></button>` : ''}<div class="min-w-0"><strong class="break-words">${ce(name)}</strong><p class="break-words text-sm text-slate-600">${ce(material.sku)}</p><p class="break-words text-sm">${dyeText('batch')} · ${ce(material.batchNo)}</p><p class="break-words text-sm">${dyeText('specification')} · ${ce(dyeSpecification(material.specification, material.sku, lang()))}</p></div></div><p class="mt-2 break-words text-sm">${text('source')} · <strong>${ce(dyePartnerLabel(source.source.origin, lang()))}</strong><br>${ce(source.source.documentNo)} · ${ce(dyeSourcePerson(source.source.createdBy, lang()))}</p></article>${material.imageUrl ? '' : centralNotice(text('noPhoto'), true)}`
 }
 function scanForm() {
-  return `<label class="mb-2 block font-semibold" for="dye-scan">${text('scan')}</label><div class="mb-3 flex gap-2"><input id="dye-scan" data-central-dye-field="scan" autocomplete="off" inputmode="text" enterkeyhint="search" placeholder="${dyeText('scanHint')}" value="${ce(scan)}" class="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-400 bg-white p-3">${cb(text('identify'), 'scan')}</div>`
+  return `<label class="block px-1 text-[13px] font-medium leading-5 text-[#62748a]" for="dye-scan">${text('scan')}</label><div class="flex gap-2"><input id="dye-scan" data-central-dye-field="scan" autocomplete="off" inputmode="text" enterkeyhint="search" placeholder="${dyeText('scanHint')}" value="${ce(scan)}" class="h-14 min-w-0 flex-1 rounded-xl border border-[#bdcadb] bg-white px-3 text-[15px] text-[#1a293c] outline-none focus:border-[#2461ed]"><button type="button" class="min-h-14 shrink-0 rounded-xl bg-[#2461ed] px-4 text-[15px] font-semibold text-white" data-central-action="scan">${text('identify')}</button></div>`
 }
 function receiptInput(): FactoryReceiptInput {
   const { source, roll, position: selectedPosition, draft } = selection(), actor = session.account
@@ -243,7 +245,7 @@ function centralDyeUnit(unit: string) {
   return outputUnit(unit, lang())
 }
 function receipts(orderId?: string) {
-  return withWashingStaticRead(() => listFactoryReceipts(session.currentFactory).flatMap(receipt => receipt.lines.filter(line => line.dyeOrderId && (!orderId || line.dyeOrderId === orderId)).map(line => ({ receipt, line }))))
+  return withFactoryProcessStaticRead(() => listFactoryReceipts(session.currentFactory).flatMap(receipt => receipt.lines.filter(line => line.dyeOrderId && (!orderId || line.dyeOrderId === orderId)).map(line => ({ receipt, line }))))
 }
 function receiveHistory(orderId?: string, locationId?: string) {
   const rows = receipts(orderId).filter(({ line }) => !locationId || line.locationId === locationId).sort((a, b) => Date.parse(b.receipt.receivedAt.replace(' ', 'T')) - Date.parse(a.receipt.receivedAt.replace(' ', 'T')))
@@ -306,9 +308,9 @@ function frame(): CentralPdaFrameInput {
       const summary = tab === 'receive' && fabric
         ? `${dyeText('rollCount')} ${cn(sources.reduce((n, item) => n + item.remainingRolls.length, 0), lang())}`
         : `${dyeText(tab === 'receive' ? 'received' : 'inputLeft')} ${cn(tab === 'receive' ? row.received : row.availableInput, lang())} ${ce(centralDyeUnit(row.order.qtyUnit))}`
-      return `<button type="button" data-central-action="order" data-central-value="${ce(row.order.dyeOrderId)}" class="mb-3 flex w-full items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left"><img src="${ce(material?.imageUrl || row.imageUrl)}" alt="${ce(sku)}" class="h-14 w-14 shrink-0 object-contain"><span class="min-w-0"><strong class="block break-words">${ce(row.order.dyeOrderNo)}</strong><span class="block break-words text-sm">${ce(centralFormalName(name, sku, lang()))}</span><span class="mt-1 block text-sm">${summary}</span></span></button>`
-    }).join('') || centralNotice(text('empty'))
-    if (rows.length > limit) content += cb(text('more'), 'more')
+      return `<button type="button" data-central-action="order" data-central-value="${ce(row.order.dyeOrderId)}" class="${pdaUi.card} mb-2 flex w-full items-start gap-3 p-3 text-left"><img src="${ce(material?.imageUrl || row.imageUrl)}" alt="${ce(sku)}" class="h-16 w-16 shrink-0 rounded-lg border border-[#e2e6ec] bg-[#f1f3f6] object-contain"><span class="min-w-0 flex-1"><strong class="block break-words text-[16px] font-semibold leading-6 text-[#1a293c]">${ce(row.order.dyeOrderNo)}</strong><span class="mt-1 block break-words text-[13px] leading-5 text-[#62748a]">${ce(centralFormalName(name, sku, lang()))}</span><span class="mt-2 block text-[14px] leading-5 text-[#1a293c]">${summary}</span></span><span class="shrink-0 self-center text-[#8090a4]" aria-hidden="true">›</span></button>`
+    }).join('') || pdaEmpty(text('empty'))
+    if (rows.length > limit) content += `<button type="button" class="${pdaUi.secondaryButton}" data-central-action="more">${text('more')}</button>`
   }
   base.content = content
   return base
@@ -796,7 +798,12 @@ export async function handleCentralDyeEvent(target: Element, event?: Event) {
       for (const ui of waterStates.values()) ui.raw = translateDyeNumber(ui.raw, from, to)
       session.language = to; message = ''; errorMessage = false; saveCentralSessionPreference(); patch(); break
     }
-    case 'operation': overlay(`<h2 class="text-lg font-bold">${text('factory')}</h2>${listCentralDyeFactories().map(factory => cb(centralFormalName(factory.name, factory.id, lang()), 'factory', factory.id, factory.id === session.currentFactory)).join('')}${cb(dyeText('auxSpecial'), 'special')}${cb(lang()==='id'?'Pencetakan':'印花','print-entry')}<button type="button" class="min-h-12 w-full rounded-xl border bg-white p-3" data-central-nav="/fcs/pda/central/wash/receive">${lang()==='id'?'Pencucian':'洗水'}</button>`); break
+    case 'operation': overlay(`${renderCentralOperationMenu({ language: lang(), tab: route().tab, factoryId: session.currentFactory, currentPath: appStore.getState().pathname })}
+      <details class="mt-3 rounded-xl border border-[#dfe6ee] bg-white px-3">
+        <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 text-[15px] font-semibold text-[#1a293c]"><span>${text('factory')} · ${ce(centralFormalName(getFactoryMasterRecordById(session.currentFactory)?.name, session.currentFactory, lang()))}</span><span class="text-[#62748a]" aria-hidden="true">⌄</span></summary>
+        <div class="grid gap-2 border-t border-[#edf0f4] py-3">${listCentralDyeFactories().map(factory => `<button type="button" class="min-h-12 rounded-xl border px-3 py-2 text-left text-[15px] font-semibold ${factory.id === session.currentFactory ? 'border-[#2461ed] bg-[#edf3ff] text-[#2054c0]' : 'border-[#ced9e7] bg-white text-[#1a293c]'}" data-central-action="factory" data-central-value="${ce(factory.id)}">${ce(centralFormalName(factory.name, factory.id, lang()))}</button>`).join('')}</div>
+      </details>
+      <div class="mt-3">${cb(dyeText('auxSpecial'), 'special')}</div>`); break
     case 'print-entry': navigate('/fcs/pda/central/print/' + route().tab); break
     case 'special': navigate('/fcs/pda/central/' + route().tab); break
     case 'factory': if (listCentralDyeFactories().some(factory => factory.id === value)) { ensureCentralSessionAccount(value); saveCentralSessionPreference(); navigate(tabPath(route().tab) + '?factoryId=' + encodeURIComponent(value)) } break

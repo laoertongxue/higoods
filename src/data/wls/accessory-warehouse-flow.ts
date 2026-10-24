@@ -60,7 +60,7 @@ export interface AccessoryTransferLine {
 }
 export interface AccessoryTransfer {
   id: string
-  kind: 'GTP_TO_SITE' | 'SITE_TO_POST' | 'SITE_REASSIGN'
+  kind: 'GTP_TO_SITE' | 'SITE_TO_POST' | 'GTP_TO_POST' | 'SITE_REASSIGN'
   preparationId: string
   productionOrderId: string
   fromWarehouse: string
@@ -71,6 +71,13 @@ export interface AccessoryTransfer {
   history: AccessoryHistory[]
   createdAt: string
   createdBy: string
+  creationMode?: 'SYSTEM' | 'MANUAL'
+  manualSource?: 'PRODUCTION_ORDER' | 'GENERAL'
+  manualTransferNo?: string
+  manualProductionOrderNo?: string
+  manualStyleName?: string
+  manualStyleImageUrl?: string
+  manualRequestSignature?: string
   sourceTransferId?: string
   responsibilityKey?: string
   changeId?: string
@@ -155,7 +162,9 @@ function requireTransferRoute(transfer: AccessoryTransfer): void {
     ? transfer.fromWarehouse === ACCESSORY_GTP_WAREHOUSE && isSiteWarehouse(transfer.toWarehouse)
     : transfer.kind === 'SITE_TO_POST'
       ? isSiteWarehouse(transfer.fromWarehouse) && transfer.toWarehouse === ACCESSORY_POST_WAREHOUSE
-      : transfer.kind === 'SITE_REASSIGN' && isSiteWarehouse(transfer.fromWarehouse) && isSiteWarehouse(transfer.toWarehouse) && transfer.fromWarehouse !== transfer.toWarehouse
+      : transfer.kind === 'GTP_TO_POST'
+        ? transfer.fromWarehouse === ACCESSORY_GTP_WAREHOUSE && transfer.toWarehouse === ACCESSORY_POST_WAREHOUSE
+        : transfer.kind === 'SITE_REASSIGN' && isSiteWarehouse(transfer.fromWarehouse) && isSiteWarehouse(transfer.toWarehouse) && transfer.fromWarehouse !== transfer.toWarehouse
   requireValue(valid, 'INVALID_DESTINATION', '调拨类型与发出仓、目的仓不一致')
 }
 

@@ -24,6 +24,16 @@ import {
 } from '../data/fcs/wool-pda-task-access.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import { escapeHtml } from '../utils.ts'
+import {
+  pdaBackButton,
+  pdaDetails,
+  pdaEmpty,
+  pdaNotice,
+  pdaPill,
+  pdaSectionTitle,
+  pdaStickyFooter,
+  pdaUi,
+} from './pda-mobile-ui.ts'
 
 type WoolFactAction = Extract<
   WoolAllowedAction,
@@ -44,7 +54,7 @@ interface WoolActionDraft {
   batchNo: string
   proofText: string
   remark: string
-  completionPages: Partial<Record<CompletionSection, number>>
+  completionLimits: Partial<Record<CompletionSection, number>>
 }
 
 const ACTION_LABELS: Record<WoolFactAction, string> = {
@@ -78,7 +88,7 @@ const state: {
   surface: WoolPdaFactSurface
   overlay: null | { action: WoolFactAction; woolOrderId: string; commandId: string }
   draftsByAction: Partial<Record<WoolFactAction, WoolActionDraft>>
-  factPage: number
+  factLimit: number
   error: string
   feedback: string
 } = {
@@ -87,7 +97,7 @@ const state: {
   surface: 'EXECUTION',
   overlay: null,
   draftsByAction: {},
-  factPage: 1,
+  factLimit: 5,
   error: '',
   feedback: '',
 }
@@ -100,7 +110,7 @@ export function resetPdaWoolExecutionState(): void {
   state.surface = 'EXECUTION'
   state.overlay = null
   state.draftsByAction = {}
-  state.factPage = 1
+  state.factLimit = 5
   state.error = ''
   state.feedback = ''
 }
@@ -130,7 +140,7 @@ function syncTask(taskId: string, userId: string, surface: WoolPdaFactSurface): 
   state.surface = surface
   state.overlay = null
   state.draftsByAction = {}
-  state.factPage = 1
+  state.factLimit = 5
   state.error = ''
   state.feedback = ''
 }
@@ -194,7 +204,7 @@ function emptyDraft(outputSkuCode = ''): WoolActionDraft {
     batchNo: '',
     proofText: '',
     remark: '',
-    completionPages: {},
+    completionLimits: {},
   }
 }
 
@@ -229,21 +239,28 @@ function primaryAction(actions: WoolAllowedAction[], surface: WoolPdaFactSurface
   return null
 }
 
-function renderStyleIdentity(order: WoolWorkOrder): string {
+function renderStyleIdentity(order: WoolWorkOrder, projection: WoolMobileTaskProjection): string {
   const imageUrl = safeStyleImageUrl(order.styleImageUrl)
   const imageTitle = `${order.styleNo} · ${order.styleName}`
+  const stageLabel = order.stage === 'KNITTING' ? '横机加工单' : '缝盘加工单'
+  const statusTone = projection.processingStatus === 'COMPLETED' ? 'ready' : 'info'
   return `
-    <section class="rounded-lg border bg-card p-4">
-      <div class="flex gap-3">
+    <div class="flex items-start justify-between gap-3 px-1">
+      <div class="min-w-0">
+        <h1 class="break-words text-[26px] font-bold leading-8 text-[#1a293c]">${escapeHtml(order.woolOrderNo)}</h1>
+        <p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${stageLabel} · 生产单 ${escapeHtml(order.productionOrderNo)}</p>
+      </div>
+      ${pdaPill(projection.processingStatusLabel, statusTone)}
+    </div>
+    <section class="${pdaUi.card} p-3">
+      <div class="flex items-center gap-3">
         ${imageUrl
-          ? `<button type="button" class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${order.styleName}款式图片`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
-          : '<div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border bg-muted text-xs text-muted-foreground">暂无款式图片</div>'}
-        <div class="min-w-0 flex-1 space-y-1 text-sm">
-          <div class="font-semibold">${escapeHtml(order.woolOrderNo)}</div>
-          <div>款号：${escapeHtml(order.styleNo)}</div>
-          <div>款名：${escapeHtml(order.styleName)}</div>
-          <div>内部货号：${escapeHtml(order.internalStyleCode || '—')}</div>
-          <div class="text-xs text-muted-foreground">生产单：${escapeHtml(order.productionOrderNo)}</div>
+          ? `<button type="button" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#e2e6ec] bg-[#f1f3f6]" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${order.styleName}款式图片`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+          : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-[#e2e6ec] bg-[#f1f3f6] px-1 text-center text-xs text-[#62748a]">暂无款式图片</div>'}
+        <div class="min-w-0 flex-1">
+          <h2 class="break-words text-[17px] font-semibold leading-6 text-[#1a293c]">${escapeHtml(order.styleName)}</h2>
+          <p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${escapeHtml(order.styleNo)} · ${escapeHtml(order.woolOrderNo)}</p>
+          <p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">内部货号 ${escapeHtml(order.internalStyleCode || '—')}</p>
         </div>
       </div>
     </section>
@@ -257,23 +274,33 @@ function renderOutputReadiness(order: WoolWorkOrder, projection: WoolMobileTaskP
     const confirmed = line.requiredYarnSkus.filter((sku) => projection.confirmedYarnSkus.includes(sku))
     const missing = line.requiredYarnSkus.filter((sku) => !projection.confirmedYarnSkus.includes(sku))
     const summary = summaries.get(line.outputSkuCode)
+    const statusText = projection.processingStatus === 'COMPLETED'
+      ? '加工单已完成，仅可查看'
+      : ready
+        ? '可继续按实际产出填报'
+        : order.stage === 'LINKING'
+          ? (order.externalPieces.some(piece => piece.skuCode === line.outputSkuCode) ? '等待横机进度和末工艺回货片；已达可用量时不可继续填报' : '随横机自动填报，无需重复手工填报')
+          : missing.length
+            ? `缺少任一必需纱线时不可填报：${missing.join('、')}`
+            : '已达到计划数量的 150%'
+    const tone = projection.processingStatus === 'COMPLETED' ? 'ready' : ready ? 'info' : 'warn'
     return `
-      <article class="rounded-lg border p-3 text-sm">
-        <div class="font-medium">${escapeHtml(outputLabel(order, line.outputSkuCode))}</div>
-        <div class="mt-2 text-xs ${ready ? 'text-emerald-700' : 'text-amber-700'}">
-          ${projection.processingStatus === 'COMPLETED'
-            ? '加工单已完成，仅可查看'
-            : ready
-              ? `可填报；累计有效填报 ${summary?.effectiveReportedQty || 0}${line.qtyUnit} / 上限 ${summary?.reportLimitQty || 0}${line.qtyUnit}`
-              : order.stage === 'LINKING'
-                ? (order.externalPieces.some(piece => piece.skuCode === line.outputSkuCode) ? '等待横机进度和末工艺回货片；已达可用量时不可继续填报' : '随横机自动填报，无需重复手工填报')
-              : missing.length
-                ? `缺少任一必需纱线时不可填报：${escapeHtml(missing.join('、'))}`
-                : '已达到计划数量的 150%'}
+      <article class="${pdaUi.card} p-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h3 class="break-words text-[17px] font-semibold leading-6 text-[#1a293c]">${escapeHtml(outputLabel(order, line.outputSkuCode))}</h3>
+            <p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${escapeHtml(statusText)}</p>
+          </div>
+          ${pdaPill(projection.processingStatus === 'COMPLETED' ? '已完成' : ready ? '可填报' : '待条件', tone)}
         </div>
-        <div class="mt-1 text-xs text-muted-foreground">
-          ${order.stage === 'KNITTING' ? `必需纱线：${escapeHtml(line.requiredYarnSkus.join('、') || '未配置')}；已接收：${escapeHtml(confirmed.join('、') || '无')}` : `本 SKU 可用上限：${summary?.reportLimitQty || 0} 件；仅按对应进度与已维护外发片实收计算，不代表核验全部物理片齐套。`}
+        <div class="mt-3 flex items-end gap-1.5">
+          <span class="text-[28px] font-bold leading-none text-[#1a293c]">${summary?.effectiveReportedQty || 0}</span>
+          <span class="pb-0.5 text-[14px] text-[#62748a]">/ 上限 ${summary?.reportLimitQty || 0} ${escapeHtml(line.qtyUnit)}</span>
         </div>
+        <details class="mt-3 border-t border-[#edf0f4] pt-2">
+          <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between text-[13px] font-medium text-[#62748a]"><span>数量依据与纱线</span><span aria-hidden="true">⌄</span></summary>
+          <div class="space-y-1 pt-1 text-[13px] leading-5 text-[#62748a]">${order.stage === 'KNITTING' ? `<p>必需纱线：${escapeHtml(line.requiredYarnSkus.join('、') || '未配置')}</p><p>已接收：${escapeHtml(confirmed.join('、') || '无')}</p>` : `<p>本 SKU 可用上限：${summary?.reportLimitQty || 0} 件。</p><p>仅按对应进度与已维护外发片实收计算，不代表核验全部物理片齐套。</p>`}</div>
+        </details>
       </article>
     `
   }).join('')
@@ -287,38 +314,38 @@ function renderQtyChanges(record: WoolMobileFactRecord): string {
 }
 
 function renderFactList(projection: WoolMobileTaskProjection, expanded = false): string {
-  const pageSize = 5
   const total = projection.factRecords.length
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  state.factPage = Math.min(Math.max(state.factPage, 1), totalPages)
-  const records = projection.factRecords.slice((state.factPage - 1) * pageSize, state.factPage * pageSize)
+  const records = projection.factRecords.slice(0, state.factLimit)
+  const recordRows = records.map((record) => `
+    <article class="rounded-lg border border-[#e6ecf3] bg-[#f8fafc] p-3 text-[13px] leading-5">
+      <div class="flex items-start justify-between gap-2">
+        <b class="min-w-0 break-words text-[14px] text-[#1a293c]">${FACT_LABELS[record.recordType]}｜${escapeHtml(record.objectSkuCode)}</b>
+        <span class="shrink-0 text-[12px] text-[#62748a]">${escapeHtml(record.occurredAt)}</span>
+      </div>
+      <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+        <div><span class="block text-[12px] text-[#62748a]">原始数量</span><b>${record.originalQty ?? '—'}${escapeHtml(record.qtyUnit)}</b></div>
+        <div><span class="block text-[12px] text-[#62748a]">有效数量</span><b>${record.effectiveQty ?? '—'}${escapeHtml(record.qtyUnit)}</b></div>
+      </div>
+      ${record.receiverName ? `<p class="mt-2">接收方：${escapeHtml(record.receiverName)} · 下游实收 ${record.downstreamActualReceivedQty ?? '待确认'} · 差异 ${record.downstreamDifferenceQty ?? '—'}</p>` : ''}
+      ${record.differenceNote ? `<p class="mt-1 text-[#9a5908]">差异说明：${escapeHtml(record.differenceNote)}</p>` : ''}
+      ${record.remark ? `<p class="mt-1">备注：${escapeHtml(record.remark)}</p>` : ''}
+      <details class="mt-2 border-t border-[#e6ecf3] pt-2">
+        <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between text-[12px] font-medium text-[#62748a]"><span>记录、批次与凭证</span><span aria-hidden="true">⌄</span></summary>
+        <div class="space-y-1 pt-1 text-[12px] text-[#62748a]">
+          <p class="break-all">记录：${escapeHtml(record.recordId)}${record.recordLineId ? ` / ${escapeHtml(record.recordLineId)}` : ''}</p>
+          ${record.batchNo || record.deliveryNo ? `<p>批次：${escapeHtml(record.batchNo || '—')}；送货单：${escapeHtml(record.deliveryNo || '—')}</p>` : ''}
+          ${record.proofFiles.length ? `<p class="break-all">凭证：${record.proofFiles.map(escapeHtml).join('、')}</p>` : ''}
+          ${record.warehouseFlowIds.length ? `<p class="break-all">库存流水：${record.warehouseFlowIds.map(escapeHtml).join('、')}</p>` : ''}
+          <p>${escapeHtml(record.operatedBy)}｜${escapeHtml(record.occurredAt)}</p>
+          ${renderQtyChanges(record)}
+        </div>
+      </details>
+    </article>
+  `).join('') || '<div class="py-2 text-sm text-[#62748a]">暂无记录</div>'
   return `
     <div data-pda-wool-fact-list-root>
-    <details class="rounded-lg border bg-card" ${expanded ? 'open' : ''}>
-      <summary class="cursor-pointer px-4 py-3 text-sm font-medium">查看完整事实记录（${total}）</summary>
-      <div class="border-t p-3">
-        <div class="space-y-2">${records.map((record) => `
-          <article class="rounded border px-3 py-2 text-xs">
-            <div class="font-medium">${FACT_LABELS[record.recordType]}｜${escapeHtml(record.objectSkuCode)}</div>
-            <div class="mt-1">原始数量：${record.originalQty ?? '—'}${escapeHtml(record.qtyUnit)}；有效数量：${record.effectiveQty ?? '—'}${escapeHtml(record.qtyUnit)}</div>
-            <div class="mt-1">记录：${escapeHtml(record.recordId)}${record.recordLineId ? ` / ${escapeHtml(record.recordLineId)}` : ''}</div>
-            ${record.batchNo || record.deliveryNo ? `<div class="mt-1">批次：${escapeHtml(record.batchNo || '—')}；送货单：${escapeHtml(record.deliveryNo || '—')}</div>` : ''}
-            ${record.receiverName ? `<div class="mt-1">接收方：${escapeHtml(record.receiverName)}；下游实收：${record.downstreamActualReceivedQty ?? '待确认'}；差异：${record.downstreamDifferenceQty ?? '—'}；时间：${escapeHtml(record.downstreamReceivedAt || '待确认')}</div>` : ''}
-            ${record.differenceNote ? `<div class="mt-1">差异说明：${escapeHtml(record.differenceNote)}</div>` : ''}
-            ${record.proofFiles.length ? `<div class="mt-1">凭证：${record.proofFiles.map(escapeHtml).join('、')}</div>` : ''}
-            ${record.remark ? `<div class="mt-1">备注：${escapeHtml(record.remark)}</div>` : ''}
-            ${record.warehouseFlowIds.length ? `<div class="mt-1">库存流水：${record.warehouseFlowIds.map(escapeHtml).join('、')}</div>` : ''}
-            ${renderQtyChanges(record)}
-            <div class="mt-1 text-muted-foreground">${escapeHtml(record.operatedBy)}｜${escapeHtml(record.occurredAt)}</div>
-          </article>
-        `).join('') || '<div class="text-xs text-muted-foreground">暂无记录</div>'}</div>
-        <div class="mt-3 flex items-center justify-between text-xs">
-          <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-wool-action="fact-page" data-skip-page-rerender="true" data-page="${state.factPage - 1}" ${state.factPage <= 1 ? 'disabled' : ''}>上一页</button>
-          <span>第 ${state.factPage} / ${totalPages} 页，每页 ${pageSize} 条，共 ${total} 条</span>
-          <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-wool-action="fact-page" data-skip-page-rerender="true" data-page="${state.factPage + 1}" ${state.factPage >= totalPages ? 'disabled' : ''}>下一页</button>
-        </div>
-      </div>
-    </details></div>
+      ${pdaDetails(`完整事实记录（${total}）`, `<div class="space-y-2">${recordRows}</div>${total > records.length ? `<button type="button" class="mt-3 ${pdaUi.secondaryButton}" data-pda-wool-action="fact-more" data-skip-page-rerender="true">加载更多 · 已显示 ${records.length}/${total}</button>` : ''}`, expanded)}
+    </div>
   `
 }
 
@@ -339,7 +366,7 @@ function renderQtyDialog(
     const selected=pieces.find(p=>p.pieceKey===draft.pieceKey)
     if(selected)draft.outputSkuCode=selected.skuCode
     const max=selected?pieceAvailableQty(store,order,selected.pieceKey):0
-    return `<div class="space-y-3 p-4"><label class="block">选择外发片<select class="mt-1 h-10 w-full rounded border px-2" ${draftAttrs('pieceKey')}>${pieces.map(p=>`<option value="${escapeHtml(p.pieceKey)}" ${p.pieceKey===draft.pieceKey?'selected':''}>${escapeHtml(p.pieceName)} · ${escapeHtml(p.skuCode)}</option>`).join('')}</select></label><p class="text-sm">接收方：${escapeHtml(selected?.routeNodes[0]?.factoryName||'无可交出片')} · ${escapeHtml(selected?.routeNodes[0]?.craftName||'')}</p><label class="block">本次交出（片）<input type="number" min="1" max="${max}" step="1" class="mt-1 h-10 w-full rounded border px-3" ${draftAttrs('qty')} value="${escapeHtml(draft.qty)}"></label><p class="text-sm">本次最多 ${max} 片。不外发片随横机填报记录对应件数。</p></div>`
+    return `<div class="space-y-4 p-4"><label class="${pdaUi.label}">选择外发片<select class="mt-1 h-[52px] w-full rounded-xl border border-[#bdcadb] bg-white px-3 text-[16px] text-[#1a293c] outline-none focus:border-[#2461ed]" ${draftAttrs('pieceKey')}>${pieces.map(p=>`<option value="${escapeHtml(p.pieceKey)}" ${p.pieceKey===draft.pieceKey?'selected':''}>${escapeHtml(p.pieceName)} · ${escapeHtml(p.skuCode)}</option>`).join('')}</select></label><p class="text-sm leading-6 text-[#62748a]">接收方：${escapeHtml(selected?.routeNodes[0]?.factoryName||'无可交出片')} · ${escapeHtml(selected?.routeNodes[0]?.craftName||'')}</p><label class="${pdaUi.label}">本次交出（片）<span class="relative mt-1 block"><input type="number" min="1" max="${max}" step="1" class="${pdaUi.input} pr-12" ${draftAttrs('qty')} value="${escapeHtml(draft.qty)}"><span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[#62748a]">片</span></span></label><p class="text-sm leading-6 text-[#62748a]">本次最多 ${max} 片。不外发片随横机填报记录对应件数。</p></div>`
   }
   const candidates = action === 'REPORT_PROCESS'
     ? order.outputPlanLines.filter((line) => projection.readyOutputSkuCodes.includes(line.outputSkuCode))
@@ -359,15 +386,16 @@ function renderQtyDialog(
   }
   const selectedAvailability = projection.completionFacts.waitHandoverStocks.find((item) =>
     item.outputSkuCode === draft.outputSkuCode)
-  return `<div class="space-y-3 p-4">
-    <label class="block text-sm">${action === 'REPORT_PROCESS' ? '加工后 SKU' : '交出 SKU'}
-      <select class="mt-1 h-10 w-full rounded border px-3" ${draftAttrs('outputSkuCode')} ${candidates.length ? '' : 'disabled'}>${candidates.map((line) => `<option value="${escapeHtml(line.outputSkuCode)}" ${line.outputSkuCode === draft.outputSkuCode ? 'selected' : ''}>${escapeHtml(outputLabel(order, line.outputSkuCode))}｜${escapeHtml(summary(line.outputSkuCode))}</option>`).join('')}</select>
+  const selectedUnit = candidates.find((line) => line.outputSkuCode === draft.outputSkuCode)?.qtyUnit || ''
+  return `<div class="space-y-4 p-4">
+    <label class="${pdaUi.label}">${action === 'REPORT_PROCESS' ? '加工后 SKU' : '交出 SKU'}
+      <select class="mt-1 min-h-[52px] w-full rounded-xl border border-[#bdcadb] bg-white px-3 py-2 text-[16px] text-[#1a293c] outline-none focus:border-[#2461ed]" ${draftAttrs('outputSkuCode')} ${candidates.length ? '' : 'disabled'}>${candidates.map((line) => `<option value="${escapeHtml(line.outputSkuCode)}" ${line.outputSkuCode === draft.outputSkuCode ? 'selected' : ''}>${escapeHtml(outputLabel(order, line.outputSkuCode))}｜${escapeHtml(summary(line.outputSkuCode))}</option>`).join('')}</select>
     </label>
-    ${candidates.length ? '' : '<div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">当前没有可交出的 SKU。请返回核对有效加工填报、累计有效交出和默认库位库存。</div>'}
-    <label class="block text-sm">本次数量<input type="number" min="1" ${action === 'HANDOVER' ? `max="${selectedAvailability?.availableHandoverQty || 0}"` : ''} step="1" class="mt-1 h-10 w-full rounded border px-3" ${draftAttrs('qty')} value="${escapeHtml(draft.qty)}" ${candidates.length ? '' : 'disabled'}></label>
-    ${action === 'HANDOVER' ? `<div class="rounded border bg-muted/30 p-3 text-sm">接收方：${escapeHtml(order.downstreamTarget.receiverName || '交出去向未配置')}</div>` : ''}
-    <textarea class="min-h-16 w-full rounded border p-3 text-sm" placeholder="凭证文件名或地址，逗号/换行分隔" ${draftAttrs('proofText')}>${escapeHtml(draft.proofText)}</textarea>
-    <textarea class="min-h-16 w-full rounded border p-3 text-sm" placeholder="备注（可选）" ${draftAttrs('remark')}>${escapeHtml(draft.remark)}</textarea>
+    ${candidates.length ? '' : pdaNotice('当前没有可交出的 SKU。请返回核对有效加工填报、累计有效交出和默认库位库存。', 'warn')}
+    <label class="${pdaUi.label}">本次数量<span class="relative mt-1 block"><input type="number" min="1" ${action === 'HANDOVER' ? `max="${selectedAvailability?.availableHandoverQty || 0}"` : ''} step="1" class="${pdaUi.input} pr-14" ${draftAttrs('qty')} value="${escapeHtml(draft.qty)}" ${candidates.length ? '' : 'disabled'}><span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[#62748a]">${escapeHtml(selectedUnit)}</span></span></label>
+    ${action === 'HANDOVER' ? `<div class="rounded-xl border border-[#dfe6ee] bg-[#f8fafc] p-3 text-sm leading-6">接收方：${escapeHtml(order.downstreamTarget.receiverName || '交出去向未配置')}</div>` : ''}
+    <label class="${pdaUi.label}">凭证（可选）<textarea class="mt-1 min-h-20 w-full rounded-xl border border-[#bdcadb] bg-white p-3 text-[15px] font-normal text-[#1a293c] outline-none focus:border-[#2461ed]" placeholder="凭证文件名或地址，逗号/换行分隔" ${draftAttrs('proofText')}>${escapeHtml(draft.proofText)}</textarea></label>
+    <label class="${pdaUi.label}">备注（可选）<textarea class="mt-1 min-h-20 w-full rounded-xl border border-[#bdcadb] bg-white p-3 text-[15px] font-normal text-[#1a293c] outline-none focus:border-[#2461ed]" placeholder="填写本次说明" ${draftAttrs('remark')}>${escapeHtml(draft.remark)}</textarea></label>
   </div>`
 }
 
@@ -380,10 +408,8 @@ function renderMachineDialog(
   const currentMachineIds = new Set(projection.completionFacts.currentMachines.map((item) => item.machineId))
   const associations = new Map(store.machineAssociations.map((item) => [item.machineId, item]))
   const machines = listWoolMachineViews()
-  return `<div class="space-y-3 p-4">
-    <div class="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-      勾选本加工单当前使用的横机。保存的是整组最终关联；取消勾选会解除关联，选择其他加工单正在使用的横机会转移关联。
-    </div>
+  return `<div class="space-y-4 p-4">
+    ${pdaNotice('勾选本加工单当前使用的横机。保存的是整组最终关联；取消勾选会解除关联，选择其他加工单正在使用的横机会转移关联。', 'info')}
     <div class="space-y-2">${machines.map((machine) => {
       const association = associations.get(machine.machineId)
       const belongsToCurrent = currentMachineIds.has(machine.machineId)
@@ -398,12 +424,12 @@ function renderMachineDialog(
           : machine.status === 'REPAIR'
             ? '维修中'
             : '已停用'
-      return `<label class="flex items-start gap-3 rounded border p-3 text-sm ${unavailable ? 'bg-muted/40 text-muted-foreground' : ''}">
-        <input type="checkbox" class="mt-1" ${draftAttrs('selectedMachineIds', machine.machineId)} ${draft.selectedMachineIds.includes(machine.machineId) ? 'checked' : ''} ${unavailable ? 'disabled' : ''}>
+      return `<label class="flex min-h-[64px] items-start gap-3 rounded-xl border border-[#dfe6ee] bg-white p-3 text-sm ${unavailable ? 'bg-[#f1f5f9] text-[#62748a]' : ''}">
+        <input type="checkbox" class="mt-1 h-5 w-5" ${draftAttrs('selectedMachineIds', machine.machineId)} ${draft.selectedMachineIds.includes(machine.machineId) ? 'checked' : ''} ${unavailable ? 'disabled' : ''}>
         <span class="min-w-0 flex-1">
-          <span class="block font-medium">${escapeHtml(machine.machineNo)} / ${escapeHtml(machine.machineName)}</span>
-          <span class="mt-1 block text-xs">${escapeHtml(machine.machineModel)} · ${escapeHtml(machine.needleType)} · ${escapeHtml(statusLabel)}</span>
-          ${otherOrder ? `<span class="mt-1 block text-xs text-amber-700">当前关联 ${escapeHtml(otherOrder.woolOrderNo)}；保存后将转移到本单</span>` : ''}
+          <span class="block text-[15px] font-semibold leading-6 text-[#1a293c]">${escapeHtml(machine.machineNo)} / ${escapeHtml(machine.machineName)}</span>
+          <span class="mt-1 block text-[13px] leading-5">${escapeHtml(machine.machineModel)} · ${escapeHtml(machine.needleType)} · ${escapeHtml(statusLabel)}</span>
+          ${otherOrder ? `<span class="mt-1 block text-[13px] leading-5 text-[#9a5908]">当前关联 ${escapeHtml(otherOrder.woolOrderNo)}；保存后将转移到本单</span>` : ''}
         </span>
       </label>`
     }).join('') || '<div class="rounded border p-3 text-sm text-muted-foreground">暂无横机设备</div>'}</div>
@@ -416,14 +442,12 @@ function pagedSection(
   rows: string[],
   draft: WoolActionDraft,
 ): string {
-  const pageSize = 2
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
-  const page = Math.min(Math.max(draft.completionPages[key] || 1, 1), totalPages)
-  const visible = rows.slice((page - 1) * pageSize, page * pageSize)
-  return `<section class="rounded border p-3" data-completion-section="${key}">
-    <div class="font-medium">${title}</div>
-    <div class="mt-2 space-y-1 text-xs">${visible.join('') || '<div>暂无有效记录</div>'}</div>
-    ${rows.length > pageSize ? `<div class="mt-2 flex items-center justify-between text-xs"><button type="button" class="rounded border px-2 py-1 disabled:opacity-50" data-pda-wool-action="completion-page" data-skip-page-rerender="true" data-section="${key}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button><span>${page}/${totalPages}，共 ${rows.length} 条</span><button type="button" class="rounded border px-2 py-1 disabled:opacity-50" data-pda-wool-action="completion-page" data-skip-page-rerender="true" data-section="${key}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>下一页</button></div>` : ''}
+  const limit = draft.completionLimits[key] || 2
+  const visible = rows.slice(0, limit)
+  return `<section class="rounded-xl border border-[#dfe6ee] bg-white p-3" data-completion-section="${key}">
+    <div class="text-[15px] font-semibold leading-6 text-[#1a293c]">${title}</div>
+    <div class="mt-2 space-y-2 text-[13px] leading-5 text-[#1a293c]">${visible.join('') || '<div class="text-[#62748a]">暂无有效记录</div>'}</div>
+    ${rows.length > visible.length ? `<button type="button" class="mt-3 ${pdaUi.secondaryButton}" data-pda-wool-action="completion-more" data-skip-page-rerender="true" data-section="${key}">加载更多 · 已显示 ${visible.length}/${rows.length}</button>` : ''}
   </section>`
 }
 
@@ -459,10 +483,10 @@ function renderCompleteDialog(projection: WoolMobileTaskProjection, draft: WoolA
   const order = readWoolStore().workOrders[projection.woolOrderId]
   const facts = projection.completionFacts
   return `<div class="space-y-3 p-4 text-sm">
-    <div class="rounded border border-amber-300 bg-amber-50 p-3 font-medium text-amber-900">请核对当前事实。系统会校验填报、交出和下游实际接收，未满足条件无法完单。</div>
+    ${pdaNotice('请核对当前事实。系统会校验填报、交出和下游实际接收，未满足条件无法完单。', 'warn')}
     ${COMPLETION_SECTION_KEYS.map((key) => renderCompletionFactSection(facts, key, draft)).join('')}
-    <div class="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">${order.stage === 'KNITTING' ? '确认完成后，系统解除当前关联横机。' : '确认完成前，系统核对最终交出与下游接收。'}</div>
-    <textarea class="min-h-16 w-full rounded border p-3 text-sm" placeholder="完成备注（可选）" ${draftAttrs('remark')}>${escapeHtml(draft.remark)}</textarea>
+    ${pdaNotice(order.stage === 'KNITTING' ? '确认完成后，系统解除当前关联横机。' : '确认完成前，系统核对最终交出与下游接收。', 'info')}
+    <label class="${pdaUi.label}">完成备注（可选）<textarea class="mt-1 min-h-20 w-full rounded-xl border border-[#bdcadb] bg-white p-3 text-[15px] font-normal text-[#1a293c] outline-none focus:border-[#2461ed]" placeholder="填写本次完单说明" ${draftAttrs('remark')}>${escapeHtml(draft.remark)}</textarea></label>
   </div>`
 }
 
@@ -479,12 +503,12 @@ function renderOverlay(order: WoolWorkOrder, projection: WoolMobileTaskProjectio
       : action === 'ASSOCIATE_MACHINE'
         ? renderMachineDialog(order, projection, draft)
         : renderCompleteDialog(projection, draft)
-  return `<div class="fixed inset-0 z-[140] flex items-end bg-black/40 sm:items-center sm:p-4">
-    <section class="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-background sm:mx-auto sm:max-w-lg sm:rounded-lg">
-      <header class="sticky top-0 flex items-center justify-between border-b bg-background px-4 py-3"><h2 class="font-semibold">${ACTION_LABELS[action]}${action === 'COMPLETE' ? '二次确认' : ''}</h2><button type="button" class="rounded border px-3 py-1 text-sm" data-pda-wool-action="close-overlay" data-skip-page-rerender="true">关闭</button></header>
-      ${state.error ? `<div class="mx-4 mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" data-pda-wool-error>${escapeHtml(state.error)}</div>` : ''}
+  return `<div class="fixed inset-0 z-[140] flex items-end bg-[#13283b66] sm:items-center sm:p-4">
+    <section class="max-h-[92vh] w-full overflow-y-auto overflow-x-hidden rounded-t-2xl bg-[#f2f5f9] sm:mx-auto sm:max-w-lg sm:rounded-2xl">
+      <header class="sticky top-0 z-10 flex min-h-14 items-center justify-between gap-2 border-b border-[#dfe6ee] bg-white px-4"><h2 class="min-w-0 break-words text-[18px] font-semibold leading-6 text-[#1a293c]">${ACTION_LABELS[action]}${action === 'COMPLETE' ? '二次确认' : ''}</h2><button type="button" class="min-h-12 shrink-0 px-2 text-[14px] text-[#62748a]" data-pda-wool-action="close-overlay" data-skip-page-rerender="true">关闭</button></header>
+      ${state.error ? `<div class="px-4 pt-3" data-pda-wool-error>${pdaNotice(state.error, 'danger')}</div>` : ''}
       ${body}
-      <footer class="sticky bottom-0 flex gap-2 border-t bg-background p-4"><button type="button" class="h-10 flex-1 rounded border" data-pda-wool-action="close-overlay" data-skip-page-rerender="true">取消</button><button type="button" class="h-10 flex-1 rounded bg-primary font-medium text-primary-foreground disabled:opacity-50" data-pda-wool-action="save-fact" data-skip-page-rerender="true" ${canSubmit ? '' : 'disabled'}>${action === 'COMPLETE' ? '确认完成加工单' : `保存${ACTION_LABELS[action]}`}</button></footer>
+      <footer class="sticky bottom-0 z-10 flex gap-2 border-t border-[#dfe6ee] bg-white p-3 pb-[max(12px,env(safe-area-inset-bottom))]"><button type="button" class="min-h-[52px] flex-1 rounded-xl border border-[#ccd8e7] bg-white px-3 text-[15px] font-semibold text-[#62748a]" data-pda-wool-action="close-overlay" data-skip-page-rerender="true">取消</button><button type="button" class="min-h-[52px] flex-1 rounded-xl bg-[#2461ed] px-3 text-[16px] font-semibold text-white disabled:bg-[#aebfd8]" data-pda-wool-action="save-fact" data-skip-page-rerender="true" ${canSubmit ? '' : 'disabled'}>${action === 'COMPLETE' ? '确认完成加工单' : `保存${ACTION_LABELS[action]}`}</button></footer>
     </section>
   </div>`
 }
@@ -517,18 +541,19 @@ export function renderPdaWoolFactContent(
   const availableSurfaceActions = surfaceActions(projection.allowedActions, surface)
   const primary = primaryAction(projection.allowedActions, surface)
   const secondary = availableSurfaceActions.filter((action) => action !== primary)
-  return `<div class="space-y-3 p-4" data-pda-wool-root data-task-id="${escapeHtml(taskId)}" data-wool-order-id="${escapeHtml(order.woolOrderId)}" data-wool-surface="${surface}" data-wool-show-back="${showBack ? 'true' : 'false'}">
-    ${showBack ? '<button type="button" class="text-sm text-muted-foreground" data-pda-execd-action="back" data-skip-page-rerender="true">← 返回</button>' : ''}
-    ${state.error && !state.overlay ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" data-pda-wool-error>${escapeHtml(state.error)}</div>` : ''}
-    ${state.feedback ? `<div class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">${escapeHtml(state.feedback)}</div>` : ''}
-    ${renderStyleIdentity(order)}
-    <section class="rounded-lg border bg-card p-4"><div class="flex items-center justify-between"><h2 class="font-semibold">${order.stage === 'KNITTING' ? '可填报 SKU 与纱线' : '可缝盘 SKU 与回货'}</h2><span class="rounded border px-2 py-1 text-xs">${projection.processingStatusLabel}</span></div><div class="mt-3 space-y-2">${renderOutputReadiness(order, projection)}</div></section>
+  return `<div class="${pdaUi.page}" data-pda-wool-root data-task-id="${escapeHtml(taskId)}" data-wool-order-id="${escapeHtml(order.woolOrderId)}" data-wool-surface="${surface}" data-wool-show-back="${showBack ? 'true' : 'false'}">
+    ${showBack ? pdaBackButton('back', true) : ''}
+    ${state.error && !state.overlay ? `<div data-pda-wool-error>${pdaNotice(state.error, 'danger')}</div>` : ''}
+    ${state.feedback ? pdaNotice(state.feedback, 'ready') : ''}
+    ${renderStyleIdentity(order, projection)}
+    ${pdaSectionTitle(getSurfaceTitle(surface), order.stage === 'KNITTING' ? '横机产出' : '缝盘产出')}
+    <div class="space-y-2">${renderOutputReadiness(order, projection)}</div>
     ${renderFactList(projection)}
-    <section class="rounded-lg border bg-card p-4"><h2 class="text-sm font-semibold">${escapeHtml(getSurfaceTitle(surface))}</h2>
-      ${primary ? `<button type="button" class="mt-3 h-12 w-full rounded-lg bg-primary text-base font-semibold text-primary-foreground" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${primary}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[primary]}</button>` : `<div class="mt-3 rounded border bg-muted/30 p-3 text-sm text-muted-foreground">${escapeHtml(getSurfaceEmptyText(surface, projection))}</div>`}
-      ${secondary.length ? `<details class="mt-3"><summary class="cursor-pointer text-sm text-muted-foreground">其他可操作</summary><div class="mt-2 grid grid-cols-2 gap-2">${secondary.map((action) => `<button type="button" class="h-9 rounded border text-sm" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${action}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[action]}</button>`).join('')}</div></details>` : ''}
-    </section>
+    ${secondary.length ? pdaDetails('其他可操作', `<div class="space-y-2">${secondary.map((action) => `<button type="button" class="${pdaUi.actionRow}" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${action}" data-wool-order-id="${escapeHtml(order.woolOrderId)}"><span class="min-w-0 text-[16px] font-semibold leading-6 text-[#1a293c]">${ACTION_LABELS[action]}</span><span class="shrink-0 text-[#8090a4]" aria-hidden="true">›</span></button>`).join('')}</div>`) : ''}
     <div data-pda-wool-overlay-root>${renderOverlay(order, projection)}</div>
+    ${primary
+      ? pdaStickyFooter(`<button type="button" class="${pdaUi.primaryButton}" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${primary}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[primary]}</button>`)
+      : pdaEmpty(getSurfaceEmptyText(surface, projection))}
   </div>`
 }
 
@@ -672,16 +697,16 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
     refreshOverlay(root, order)
     return true
   }
-  if (action === 'fact-page') {
-    state.factPage = Math.max(1, Number(actionNode.dataset.page || 1))
+  if (action === 'fact-more') {
+    state.factLimit += 5
     refreshFactList(root, order)
     return true
   }
-  if (action === 'completion-page' && state.overlay?.action === 'COMPLETE') {
+  if (action === 'completion-more' && state.overlay?.action === 'COMPLETE') {
     const section = actionNode.dataset.section as CompletionSection
     if (!COMPLETION_SECTION_KEYS.includes(section)) return true
     const draft = draftFor('COMPLETE', projection)
-    draft.completionPages[section] = Math.max(1, Number(actionNode.dataset.page || 1))
+    draft.completionLimits[section] = (draft.completionLimits[section] || 2) + 2
     refreshCompletionSection(root, order, section)
     return true
   }

@@ -1,11 +1,11 @@
-import { sameProcessLedgerRow, splitWashingLedger } from './fabric-washing-storage-bridge.ts'
+import { sameProcessLedgerRow, splitFactoryProcessLedger } from './factory-process-storage.ts'
 
 /** Record-owner overlays may reorder identified collections; node/roll order remains significant. */
 export function sameDyeExecutionSnapshot(saved: string | null, expected: string): boolean {
   if (saved === expected) return true
   if (!saved) return false
   try {
-    const rows = splitWashingLedger(saved), wanted = splitWashingLedger(expected)
+    const rows = splitFactoryProcessLedger(saved), wanted = splitFactoryProcessLedger(expected)
     const indexed = new Map(rows.map(row => [row.path + '/' + row.key, row]))
     const expectedIds = new Set(wanted.map(row => row.path + '/' + row.key))
     if (rows.length !== wanted.length || indexed.size !== rows.length || expectedIds.size !== wanted.length

@@ -4,6 +4,8 @@ import { getPrintingMaterialReceiptOptions } from '../../../data/fcs/printing-ma
 import { getProcessOrderTaskRelationView } from '../../../data/fcs/process-order-task-links.ts'
 import type { PrintingWorkOrderBusinessRecord } from '../../../data/fcs/printing-work-order-business.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { printingHandfeelOrders } from '../../../data/fcs/factory-qc-views.ts'
+import { handfeelStatus } from '../../../data/fcs/factory-qc-model.ts'
 
 // Object-scoped memoization: list rows live only until the next list reload.
 // Detail/print readers receive fresh projected objects and never reuse old facts.
@@ -31,11 +33,9 @@ export function printingUpstreamNames(order: PrintingWorkOrderBusinessRecord): s
 }
 export function renderPrintingRelations(order: PrintingWorkOrderBusinessRecord, direction: 'upstream' | 'downstream'): string {
   if(direction==='downstream'){
-    const washes=printingWashingOrders(order.workOrderId)
-    if(washes.length){
-      const washingRolls=new Set(washes.flatMap(wash=>wash.rolls.map(roll=>roll.sourceRollId)))
-      const remaining=order.barcodes.filter(roll=>!washingRolls.has(roll.id))
-      return `<div class="space-y-2" data-printing-downstream><p class="font-medium text-slate-500">下游</p>${washes.map(wash=>`<section class="space-y-1"><p>下道：洗水</p><p>接收方：${escapeHtml(wash.assignedFactoryName||'GTG')} (染厂)</p><p>接收方编号：${escapeHtml(wash.assignedFactoryId||'ID-F003')}</p><a class="text-blue-700 hover:underline" href="/fcs/craft/dyeing/washing/work-orders/${encodeURIComponent(wash.id)}" target="_blank" rel="noopener">${escapeHtml(wash.no)}</a><p>${wash.rolls.length} 卷 · ${wash.rolls.reduce((n,r)=>n+r.inputQty,0)} ${escapeHtml(wash.rolls[0]?.unit||'')} · ${escapeHtml(wash.handFeel)}</p></section>`).join('')}${remaining.length?`<section class="border-t pt-2"><p>其余 ${remaining.length} 卷原去向：${escapeHtml(order.receivingTargetName||'待核对')}</p></section>`:''}</div>`
+    const handfeelOrders = printingHandfeelOrders(order.workOrderId)
+    if(handfeelOrders.length){
+      return `<div class="space-y-2" data-printing-downstream><p class="font-medium text-slate-500">下游</p>${handfeelOrders.map(handfeel => `<section class="space-y-1"><p>下道：定型机手感</p><p>承接厂：GTG (染厂)</p><p>承接厂编号：${escapeHtml(handfeel.factoryId)}</p><a class="text-blue-700 hover:underline" href="/fcs/craft/dyeing/stenter-handfeel/work-orders/${encodeURIComponent(handfeel.id)}" data-nav="/fcs/craft/dyeing/stenter-handfeel/work-orders/${encodeURIComponent(handfeel.id)}">${escapeHtml(handfeel.no)}</a><p>${handfeel.rolls.length} 卷 · ${[...new Set(handfeel.rolls.map(roll => roll.unit))].map(unit => `${Number(handfeel.rolls.filter(roll => roll.unit === unit).reduce((sum, roll) => sum + roll.inputQty, 0).toFixed(4))} ${escapeHtml(unit)}`).join(' / ')} · ${escapeHtml(handfeel.handFeel || '目标手感待补充')}</p><p>${escapeHtml(handfeelStatus(handfeel))} · 已移交 ${handfeel.rolls.filter(roll => !!roll.sentAt).length} 卷 · GTG实收 ${handfeel.rolls.filter(roll => !!roll.receivedAt).length} 卷</p><p class="text-xs text-slate-500">加工后下游：${escapeHtml(handfeel.source.target.kind === 'UNKNOWN' ? '待核对' : handfeel.source.target.name)}</p></section>`).join('')}</div>`
     }
     if(order.matchStatus&&order.matchStatus!=='MATCHED')return '<div data-printing-downstream><p class="font-medium text-slate-500">下游</p><p class="mt-1 text-amber-700">待匹配生产单后确认下游</p></div>'
   }
@@ -96,4 +96,3 @@ export function printingInputIdentity(order: PrintingWorkOrderBusinessRecord) {
   if (!actual && !order.historicalInputQuantityUnknown && order.actualInput.receivedQty === 0) return { ...order.plannedInput, identityLabel: '计划投入' }
   return { ...order.plannedInput, sku: actual || '', materialName: actual && !/[\u4e00-\u9fff]/.test(actual) ? `实际物料 ${actual}（名称待补充）` : actual || '实际投入物料待补录', imageUrl: '', imageAlt: '实际投入物料图片待补充', gsm: 0, widthCm: 0, identityLabel: '实际投入' }
 }
-import { printingWashingOrders } from '../../../data/fcs/fabric-washing-views.ts'

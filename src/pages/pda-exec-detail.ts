@@ -1,8 +1,7 @@
-import { renderWashingJudgmentPanel } from './process-factory/dyeing/washing/work-orders.ts'
+import { qcIdForSource } from '../data/fcs/factory-qc-model.ts'
 import { isCurrentPdaExecutionInScope } from './pda-third-party-scope.ts'
 import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
-import { runWaterSolubleActionCommand, runWaterSolubleRecordCommand } from '../data/fcs/water-soluble-records.ts'
-import type { WaterSolublePdaActionInput } from '../data/fcs/water-soluble-task-domain.ts'
+import { executeWaterSolublePdaAction } from '../data/fcs/water-soluble-task-domain.ts'
 import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { getProcessOrderReceivingFacts } from '../data/fcs/factory-receiving.ts'
 import { localProductFixtureImageUrl } from '../data/pcs-product-archive-fixtures.ts'
@@ -219,6 +218,7 @@ import {
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 import { renderPdaPostFinishingExecutionPage } from './pda-post-finishing-exec-detail'
+import { pdaBackButton, pdaDetails, pdaDetailRow, pdaEmpty, pdaNotice, pdaPill, pdaSectionTitle, pdaUi } from './pda-mobile-ui.ts'
 import {
   handlePdaWoolExecutionEvent,
   renderPdaWoolExecutionContent,
@@ -314,13 +314,22 @@ const detailState: PdaExecDetailState = {
 let waterOverlaySequence = 0
 const waterPrimaryActionTokens = new Map<string, string>()
 const pendingWaterActions = new Set<string>()
-async function runLegacyWaterAction(control: HTMLElement, input: WaterSolublePdaActionInput) {
-  const intent = JSON.stringify(input)
-  if (control.dataset.waterCommandIntent !== intent) { control.dataset.waterCommandIntent = intent; control.dataset.waterCommandId = crypto.randomUUID() }
-  const fields = [...(control.closest?.('[role="dialog"]')?.querySelectorAll<HTMLInputElement>('input,select,textarea') || [])].map(field => ({ field, disabled: field.disabled }))
-  fields.forEach(({ field }) => { field.disabled = true })
-  try { return await runWaterSolubleActionCommand(input, control.dataset.waterCommandId) }
-  finally { fields.forEach(({ field, disabled }) => { if (field.isConnected) field.disabled = disabled }) }
+async function persistIndependentWaterAction<T>(node: HTMLElement, actionKey: string, orderId: string, recipe: () => T): Promise<T | undefined> {
+  if (pendingWaterActions.has(actionKey)) return undefined
+  pendingWaterActions.add(actionKey)
+  const scope = node.closest<HTMLElement>('[data-testid="pda-water-soluble-overlay"], [data-testid="pda-water-soluble-detail-content"]')
+  const controls = [...(scope?.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('button, input, select, textarea') ?? [])]
+  if (node instanceof HTMLButtonElement && !controls.includes(node)) controls.push(node)
+  const disabled = controls.map(control => control.disabled), oldText = node.textContent
+  controls.forEach(control => { control.disabled = true })
+  if (node instanceof HTMLButtonElement) node.textContent = '处理中…'
+  try { return await runDesignRevisionFcsCommand(orderId, recipe) }
+  catch (error) { showPdaExecDetailToast(error instanceof Error ? error.message : '本次未保存，请保留输入后重试。'); return undefined }
+  finally {
+    pendingWaterActions.delete(actionKey)
+    controls.forEach((control, index) => { if (control.isConnected) control.disabled = disabled[index] })
+    if (node.isConnected) node.textContent = oldText
+  }
 }
 let dyeWaterOverlaySequence = 0
 let dyeCompletionActionSequence = 0
@@ -2889,101 +2898,64 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
   const waitQcQty = task.waitQcQty + task.qcInProgressQty
   const shouldGoHandover = task.currentStatus === '待上游交出' || task.currentStatus === '待收货'
   const isAccepted = task.acceptanceStatus === 'ACCEPTED'
-  const currentActions = [
-    !isAccepted
-      ? `<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" href="/fcs/pda/task-receive/${encodeURIComponent(task.postTaskId)}?returnTo=/fcs/pda/exec">去接单</a>`
-      : '',
-    isAccepted && shouldGoHandover
-      ? '<a class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/return-confirm">扫描送货单确认实收</a>'
-      : '',
-    task.waitQcQty > 0
-      ? `<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/craft/post-finishing/qc-workbench">前往 Web 执行质检</a>`
-      : '',
-    postOrders[0]
-      ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-task-open-order" data-post-order-id="${escapeHtml(postOrders[0].postOrderId)}">处理后道加工单</button>`
-      : '',
-  ].filter(Boolean).join('')
-  const postRows = postOrders.map((item) => `
-    <tr>
-      <td class="px-3 py-2 font-mono">${renderPdaObjectCode({
-        objectType: 'PROCESS_DOC',
-        objectId: item.postOrderNo,
-        relatedProductionOrderNo: item.sourceProductionOrderNo,
-      })}</td>
-      <td class="px-3 py-2">${escapeHtml(item.postProcessItems.join('、') || '无后道加工单')}</td>
-      <td class="px-3 py-2">${escapeHtml(item.postStatus)}</td>
-    </tr>
-  `).join('')
+  const actions: Array<{ label: string; href?: string; attrs?: string }> = []
+  if (!isAccepted) actions.push({ label: '去接单', href: `/fcs/pda/task-receive/${encodeURIComponent(task.postTaskId)}?returnTo=/fcs/pda/exec` })
+  if (isAccepted && shouldGoHandover) actions.push({ label: '扫描送货单确认实收', href: '/fcs/pda/post-finishing/return-confirm' })
+  if (task.waitQcQty > 0) actions.push({ label: '前往 Web 执行质检', href: '/fcs/craft/post-finishing/qc-workbench' })
+  if (postOrders[0]) actions.push({ label: '处理后道加工单', attrs: `data-pda-execd-action="post-task-open-order" data-post-order-id="${escapeHtml(postOrders[0].postOrderId)}"` })
+  const currentActions = actions.map((action, index) => action.href
+    ? `<a class="${index === 0 ? pdaUi.primaryButton : pdaUi.secondaryButton}" href="${escapeHtml(action.href)}">${escapeHtml(action.label)}</a>`
+    : `<button type="button" class="${index === 0 ? pdaUi.primaryButton : pdaUi.secondaryButton}" ${action.attrs}>${escapeHtml(action.label)}</button>`).join('')
+  const postRows = postOrders.map((item) => `<article class="${pdaUi.card} p-3"><div class="flex items-start justify-between gap-2"><div class="min-w-0 break-all font-mono text-[14px] font-semibold leading-6 text-[#1a293c]">${renderPdaObjectCode({
+    objectType: 'PROCESS_DOC',
+    objectId: item.postOrderNo,
+    relatedProductionOrderNo: item.sourceProductionOrderNo,
+  })}</div>${pdaPill(item.postStatus, item.postStatus === '已完成' ? 'ready' : 'warn')}</div><p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${escapeHtml(item.postProcessItems.join('、') || '无后道加工单')}</p></article>`).join('')
+  const statusTone = task.currentStatus.includes('完成') || task.currentStatus.includes('已') ? 'ready' : task.currentStatus.startsWith('待') ? 'warn' : 'info'
 
   const content = `
-    <div class="space-y-4 bg-background p-4 pb-6">
-      <div class="flex items-center gap-2">
-        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
-          <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
-          返回
-        </button>
-        <h1 class="text-base font-semibold">后道生产任务</h1>
+    <div class="${pdaUi.page}">
+      ${pdaBackButton()}
+      <div class="flex items-start justify-between gap-3 px-1">
+        <div class="min-w-0">
+          <h1 class="break-words text-[26px] font-bold leading-8 text-[#1a293c]">${escapeHtml(task.postTaskNo)}</h1>
+          <p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">生产单 ${escapeHtml(task.productionOrderNo)} · ${escapeHtml(task.spuName)}</p>
+        </div>
+        ${pdaPill(task.currentStatus, statusTone)}
       </div>
 
-      <article class="rounded-lg border bg-card">
-        <header class="border-b px-4 py-3">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-sm font-semibold">${renderPdaObjectCode({
-              objectType: 'QC_MASTER_ORDER',
-              objectId: task.postTaskId,
-              label: task.postTaskNo,
-              relatedProductionOrderNo: task.productionOrderNo,
-            })}</span>
-            <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(task.currentStatus)}</span>
-          </div>
-        </header>
-        <div class="grid gap-3 p-4 text-xs">
-          <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-            <span class="text-muted-foreground">生产单</span>
-            <span class="font-medium">${renderPdaObjectCode({
-              objectType: 'PRODUCTION_ORDER',
-              objectId: task.productionOrderNo,
-            })}</span>
-            <span class="text-muted-foreground">款式</span>
-            <span>${escapeHtml(task.spuName)}</span>
-            <span class="text-muted-foreground">后道工厂</span>
-            <span>${escapeHtml(task.managedPostFactoryName)}</span>
-            <span class="text-muted-foreground">上游来源</span>
-            <span>${escapeHtml(task.sourceFactoryNames.join('、') || '待上游交出')}</span>
-            <span class="text-muted-foreground">当前节点</span>
-            <span>${escapeHtml(task.currentNode)}</span>
-            <span class="text-muted-foreground">计划数量</span>
-            <span>${task.plannedGarmentQty} ${escapeHtml(task.qtyUnit)}</span>
-            <span class="text-muted-foreground">未质检数量</span>
-            <span>${waitQcQty} ${escapeHtml(task.qtyUnit)}</span>
-            <span class="text-muted-foreground">待交出数量</span>
-            <span>${task.waitHandoverQty} ${escapeHtml(task.qtyUnit)}</span>
-          </div>
+      <section class="${pdaUi.card} p-3">
+        <div class="rounded-lg border-l-4 border-[#2461ed] bg-[#f8fafc] p-3">
+          <p class="text-[13px] leading-5 text-[#62748a]">后道来源</p>
+          <p class="mt-1 break-words text-[15px] font-semibold leading-6 text-[#1a293c]">${escapeHtml(task.sourceFactoryNames.join('、') || '待上游交出')} → ${escapeHtml(task.managedPostFactoryName)}</p>
+          <p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">当前节点 ${escapeHtml(task.currentNode)}</p>
         </div>
-      </article>
-
-      <article class="rounded-lg border bg-card">
-        <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">当前可执行动作</h2></header>
-        <div class="grid gap-2 p-4">
-          ${currentActions || '<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">当前没有可执行动作</div>'}
+        <div class="mt-2">
+          ${pdaDetailRow('生产单', renderPdaObjectCode({ objectType: 'PRODUCTION_ORDER', objectId: task.productionOrderNo }))}
+          ${pdaDetailRow('后道工厂', escapeHtml(task.managedPostFactoryName))}
+          ${pdaDetailRow('上游来源', escapeHtml(task.sourceFactoryNames.join('、') || '待上游交出'))}
         </div>
-      </article>
+      </section>
 
-      <article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        质检已经收口为 Web 专属操作；此 PDA 页面不再创建、领取或完成质检单。
-      </article>
-
-      <article class="rounded-lg border bg-card">
-        <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">后道与复检入口</h2></header>
-        <div class="space-y-3 p-4">
-          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">后道加工单</th><th class="px-3 py-2">后道项目</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${postRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无后道加工单</td></tr>'}</tbody></table></div>
-          <div class="grid grid-cols-2 gap-2"><a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/pda/post-finishing/execute">扫描后道加工单</a><a class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/recheck">扫描复检单</a></div>
+      <section class="${pdaUi.card} p-3">
+        <p class="text-[13px] leading-5 text-[#62748a]">计划数量</p>
+        <p class="mt-1 text-[28px] font-bold leading-none text-[#1a293c]">${task.plannedGarmentQty} <span class="text-[14px] font-normal text-[#62748a]">${escapeHtml(task.qtyUnit)}</span></p>
+        <div class="mt-3">
+          ${pdaDetailRow('未质检数量', `${waitQcQty} ${escapeHtml(task.qtyUnit)}`)}
+          ${pdaDetailRow('待交出数量', `${task.waitHandoverQty} ${escapeHtml(task.qtyUnit)}`)}
         </div>
-      </article>
+      </section>
+
+      ${pdaSectionTitle('当前可执行动作')}
+      <section class="${pdaUi.card} p-3">${currentActions || pdaEmpty('当前没有可执行动作')}</section>
+
+      ${pdaNotice('质检已经收口为 Web 专属操作；此 PDA 页面不再创建、领取或完成质检单。', 'info')}
+
+      ${pdaDetails(`后道加工与出货（${postOrders.length} 张）`, `<div class="space-y-2">${postRows || '<p class="text-sm text-[#62748a]">暂无后道加工单</p>'}</div><a class="${pdaUi.secondaryButton} mt-3" href="/fcs/pda/post-finishing/execute">扫描后道加工单</a>`)}
     </div>
   `
   void execId
-  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true, hideBottomNav: true })
 }
 
 
@@ -3765,7 +3737,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
       ${handoverOrder ? renderHandoverOrderCard(handoverOrder) : ''}
       ${renderPdaSewingDeliveryProgress(getSewingDeliverySlaView(task.taskId), getQtyUnitLabel(task.qtyUnit))}
-      ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) + renderWashingJudgmentPanel(printWorkOrder.printOrderId,true) : ''}
+      ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) + `<section class="rounded-lg border bg-white p-3"><a class="inline-block min-h-11 rounded border px-3 py-2 text-blue-700" href="/fcs/craft/printing/qc-orders/${encodeURIComponent(qcIdForSource({ kind: 'PRINTING', id: printWorkOrder.printOrderId }))}" data-nav="/fcs/craft/printing/qc-orders/${encodeURIComponent(qcIdForSource({ kind: 'PRINTING', id: printWorkOrder.printOrderId }))}">查看印花QC单</a><p class="mt-2 text-sm text-slate-500">逐卷质检和整单手感决定在QC单记录。</p></section>` : ''}
       ${mobileTaskAccess.canOpenMobileExecution && dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}
       ${specialCraftExecutionPanel}
 
@@ -4423,6 +4395,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
   }
 
   if (action.startsWith('water-')) {
+    if (pendingWaterActions.size) return true
     if (action === 'water-close-overlay') {
       clearWaterSolubleOverlay()
       return true
@@ -4496,12 +4469,9 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
     if (action === 'water-go-handover') {
       if (rejectOfflinePdaMutation()) return true
       try {
-        const ensured = await runWaterSolubleRecordCommand(orderId, () => {
-          const latest = getWaterSolubleWorkOrderById(orderId),error = validateWaterSolublePdaActor(session,latest?.factoryId,'HANDOVER')
-          if (error || latest?.status !== expectedStatus) throw new Error(error || '当前步骤已更新，请重新核对。')
-          return ensureHandoverOrderForStartedTask(order.taskId)
-        })
-        if (sameWaterView()) appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
+        const ensured = await persistIndependentWaterAction(actionNode, `${orderId}:HANDOVER:${order.status}`, orderId, () => ensureHandoverOrderForStartedTask(order.taskId))
+        if (!ensured || !sameWaterView()) return true
+        appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
       } catch (error) {
         if (sameWaterView()) showPdaExecDetailToast(error instanceof Error ? error.message : '交出单创建失败，请重试。')
       }
@@ -4535,24 +4505,14 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       }
       if (rejectOfflinePdaMutation('[data-pda-execd-field="waterReason"]')) return true
       const actionKey = `${orderId}:COMPLETE:${order.status}`
-      if (pendingWaterActions.has(actionKey)) return true
-      pendingWaterActions.add(actionKey)
-      const button = actionNode as HTMLButtonElement
-      const oldText = button.textContent || '确认完成'
-      button.disabled = true
-      button.textContent = '处理中…'
-      const result = await runLegacyWaterAction(actionNode, { action: 'COMPLETE', orderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor: session })
-      pendingWaterActions.delete(actionKey)
-      if (!sameWaterView()) return true
+      const result = await persistIndependentWaterAction(actionNode, actionKey, orderId, () => executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor: session }))
+      if (!result || !sameWaterView()) return true
       showPdaExecDetailToast(result.message)
       if (result.ok) {
         detailState.waterOverlay = null
         detailState.waterCompletionDraft = { taskId: '', orderId: '', completedQty: '', reason: '' }
         refreshWaterSolubleOverlay()
         refreshWaterSolubleDetail(orderId)
-      } else if (button.isConnected) {
-        button.disabled = false
-        button.textContent = oldText
       }
       return true
     }
@@ -4565,48 +4525,27 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       }
       if (rejectOfflinePdaMutation()) return true
       const actionKey = `${orderId}:RESOLVE_PAUSE:${order.status}`
-      if (pendingWaterActions.has(actionKey)) return true
-      pendingWaterActions.add(actionKey)
-      const button = actionNode as HTMLButtonElement
-      const oldText = button.textContent || '确认处理'
-      button.disabled = true
-      button.textContent = '处理中…'
-      const result = await runLegacyWaterAction(actionNode, { action: 'RESOLVE_PAUSE', orderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: session })
-      pendingWaterActions.delete(actionKey)
-      if (!sameWaterView()) return true
+      const result = await persistIndependentWaterAction(actionNode, actionKey, orderId, () => executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: session }))
+      if (!result || !sameWaterView()) return true
       showPdaExecDetailToast(result.message)
       if (result.ok) {
         detailState.waterOverlay = null
         refreshWaterSolubleOverlay()
         refreshWaterSolubleDetail(orderId)
-      } else if (button.isConnected) {
-        button.disabled = false
-        button.textContent = oldText
       }
       return true
     }
 
     if (rejectOfflinePdaMutation()) return true
     const actionKey = `${orderId}:${action}:${order.status}`
-    if (pendingWaterActions.has(actionKey)) return true
-    pendingWaterActions.add(actionKey)
-    const button = actionNode as HTMLButtonElement
-    const oldText = button.textContent || ''
-    button.disabled = true
-    button.textContent = '处理中…'
-    const result = action === 'water-receive-input'
-      ? executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: order.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(document.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: document.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: document.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: session })
-      : action === 'water-finish-document'
-        ? await runLegacyWaterAction(actionNode, { action: 'FINISH_DOCUMENT', orderId, taskId: order.taskId, expectedStatus: 'WAIT_MANUAL_COMPLETION', expectedNode: 'FINISH_DOCUMENT', actor: session })
-        : await runLegacyWaterAction(actionNode, { action: 'START', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: order.status==='WAIT_HANDOVER'?'HANDOVER':order.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: session })
-    pendingWaterActions.delete(actionKey)
-    if (!sameWaterView()) return true
+    const result = await persistIndependentWaterAction(actionNode, actionKey, orderId, () => {
+      if (action === 'water-receive-input') return executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: order.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(document.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: document.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: document.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: session })
+      if (action === 'water-finish-document') return executeWaterSolublePdaAction({ action: 'FINISH_DOCUMENT', orderId, taskId: order.taskId, expectedStatus: 'WAIT_MANUAL_COMPLETION', expectedNode: 'FINISH_DOCUMENT', actor: session })
+      return executeWaterSolublePdaAction({ action: 'START', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: order.status==='WAIT_HANDOVER'?'HANDOVER':order.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: session })
+    })
+    if (!result || !sameWaterView()) return true
     showPdaExecDetailToast(result.message)
     if (result.ok) refreshWaterSolubleDetail(orderId)
-    else if (button.isConnected) {
-      button.disabled = false
-      button.textContent = oldText
-    }
     return true
   }
 

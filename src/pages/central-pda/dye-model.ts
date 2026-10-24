@@ -5,7 +5,7 @@ import { getDyeWorkOrderById, executeDyePdaProcessing, listDyeVatOptions, getDye
 import { eligibleReceivingSource, listFactoryReceivingSources, listFactoryReceipts, getFactoryReceiptLocations,
   prepareFactoryReceipt, type FactoryReceiptInput,
   type FactoryReceivingSource, type FactoryReceivingSourceLine } from '../../data/fcs/factory-receiving.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { confirmFactoryMaterialReceipt } from '../../data/fcs/factory-receiving-links.ts'
 import { runDyeingRecordCommand } from '../../data/fcs/dyeing-records.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
@@ -22,7 +22,7 @@ export interface CentralDyeIncoming {
 
 /** Fixed demonstrations remain read-only; action commands own all persisted deltas. */
 export function listCentralDyeFacts(factoryId?: string): DyeQuantityFact[] {
-  return withWashingStaticRead(() => getDyeingQuantityFacts().filter(fact => {
+  return withFactoryProcessStaticRead(() => getDyeingQuantityFacts().filter(fact => {
     const factory = getFactoryMasterRecordById(fact.order.dyeFactoryId)
     return !!factory && isCentralPdaFactory(factory) && (!factoryId || factory.id === factoryId)
   }))
@@ -40,7 +40,7 @@ export function getCentralDyeFact(orderId: string, factoryId: string) {
 export function listCentralDyeIncoming(factoryId: string, orderId?: string): CentralDyeIncoming[] {
   const facts = listCentralDyeFacts(factoryId)
   const ids = new Set(facts.filter(fact => !orderId || fact.order.dyeOrderId === orderId).map(fact => fact.order.dyeOrderId))
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const receipts = listFactoryReceipts(factoryId).flatMap(receipt => receipt.lines)
     return listFactoryReceivingSources(factoryId).filter(eligibleReceivingSource).flatMap(source => source.lines
       .filter(line => !!line.dyeOrderId && ids.has(line.dyeOrderId))
@@ -58,11 +58,11 @@ export function listCentralDyeIncoming(factoryId: string, orderId?: string): Cen
 
 export const centralDyeReceiptLocations = getFactoryReceiptLocations
 export const centralDyeVatOptions = listDyeVatOptions
-export const centralDyeDownstream = (id: string) => withWashingStaticRead(() => getDyeDispatchPartner(id))
+export const centralDyeDownstream = (id: string) => withFactoryProcessStaticRead(() => getDyeDispatchPartner(id))
 /** Resolve the actual receiver from its saved receipt, never from a role or a
  * record number. Older non-factory receipts retain their recorded person. */
 export function centralDyeReceiver(record: { handoverRecordId?: string; recordId: string; receiverWrittenBy?: string; receiverWrittenAt?: string }) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const id = record.handoverRecordId || record.recordId
     const sources = new Set(listFactoryReceivingSources(undefined, true).filter(source => source.originalRecordId === id).map(source => source.id))
     const receipt = listFactoryReceipts().slice().reverse().find(receipt => receipt.operatorName === record.receiverWrittenBy

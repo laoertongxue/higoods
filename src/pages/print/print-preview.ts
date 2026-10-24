@@ -1,7 +1,5 @@
-import { savePartTicketAction } from '../../data/fcs/cutting/part-ticket-records.ts'
 import { buildUnifiedPrintPreviewLink } from '../../data/fcs/print-service.ts'
 import { appStore } from '../../state/store.ts'
-import { recordActualFeiTicketFirstPrintFromPreview } from '../process-factory/cutting/fei-tickets.ts'
 import { escapeHtml } from '../../utils.ts'
 import type {
   PrintDocumentBuildInput,
@@ -9,10 +7,6 @@ import type {
   PrintSourceType,
 } from '../../data/fcs/print-service.ts'
 import { renderUnifiedPrintStyles } from './print-styles.ts'
-import {
-  listManualFeiTicketSources,
-  recordManualFeiTicketPrint,
-} from '../../data/fcs/cutting/manual-fei-tickets.ts'
 
 type PrintAdapter = Pick<typeof import('../../data/fcs/print-template-registry.ts'), 'buildPrintDocument' | 'renderPrintDocument'>
 /** 任务单、领料单、部位票和中转袋标签只加载对应模板。 */
@@ -35,8 +29,8 @@ async function loadPrintAdapter(documentType: PrintDocumentType, sourceId?: stri
     const qc = await import('./templates/post-finishing-qc-print-template.ts')
     return {
       buildPrintDocument(input) {
-        if (input.documentType === 'PRODUCTION_QC_MASTER') {
-          if (input.sourceType !== 'POST_FINISHING_TASK') throw new Error('生产单质检总单来源类型不匹配，请返回后道任务重新打印。')
+        if (documentType === 'PRODUCTION_QC_MASTER') {
+          if (input.sourceType !== 'POST_FINISHING_TASK') throw new Error('质检主单打印来源类型不匹配，请返回质检清单重新打印。')
           return qc.buildProductionQcMasterPrintDocument(input)
         }
         if (input.sourceType !== 'POST_FINISHING_QC_ORDER') throw new Error('质检单打印来源类型不匹配，请返回质检清单重新打印。')
@@ -127,7 +121,8 @@ function parseSkuData(value: string | null): PrintDocumentBuildInput['skuData'] 
   }
 }
 
-function hasMatchedManualFeiTicket(sourceId: string): boolean {
+async function hasMatchedManualFeiTicket(sourceId: string): Promise<boolean> {
+  const { listManualFeiTicketSources } = await import('../../data/fcs/cutting/manual-fei-tickets.ts')
   const sourceIds = new Set(decodeParam(sourceId).split(',').map((item) => item.trim()).filter(Boolean))
   return listManualFeiTicketSources().some((record) =>
     [record.feiTicketId, record.feiTicketNo, record.sourceOutputLineId].some((value) => sourceIds.has(value)),
@@ -246,11 +241,13 @@ export async function handleUnifiedPrintPreviewEvent(target: HTMLElement): Promi
   const action = actionNode.dataset.printPreviewAction
   if (action !== 'print' && action !== 'download-pdf') return false
   const input = resolveInput()
-  if (['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER'].includes(input.documentType)) {
-    const qc = await import('./templates/post-finishing-qc-print-template.ts')
-    const button = document.querySelector<HTMLElement>('[data-qc-shipping-print]')
-    if (button) return qc.handleQcShippingPriorityPrint(button)
-    throw new Error('未找到QC打印来源，请重新打开预览。')
+  if (['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(input.documentType)
+    || (input.documentType === 'TASK_ROUTE_CARD' && input.sourceType === 'POST_FINISHING_WORK_ORDER')) {
+    target.dataset.pmsEventHandledLocally = 'true'
+    const priorityButton=document.querySelector<HTMLElement>('[data-qc-shipping-print]')
+    if(priorityButton)return (await import('./templates/post-finishing-qc-print-template.ts')).handleQcShippingPriorityPrint(priorityButton)
+    await (await import('./post-finishing-print-ready.ts')).preparePostFinishingPrint(actionNode)
+    return true
   }
   if (input.documentType === 'PICKUP_SLIP') {
     void preparePickupSlipPrint(actionNode)
@@ -262,8 +259,16 @@ export async function handleUnifiedPrintPreviewEvent(target: HTMLElement): Promi
   }
   if (action === 'print') {
     if (input.documentType === 'FEI_TICKET_LABEL' || input.documentType === 'FEI_TICKET_REPRINT_LABEL') {
+      target.dataset.pmsEventHandledLocally = 'true'
       const document = (await loadPrintAdapter(input.documentType)).buildPrintDocument(input)
       try {
+        // Only actual cutting-label printing reads/writes cutting ticket facts.
+        // Keep the original synchronous action inside its atomic save boundary.
+        const [{ savePartTicketAction }, { recordActualFeiTicketFirstPrintFromPreview }, { recordManualFeiTicketPrint }] = await Promise.all([
+          import('../../data/fcs/cutting/part-ticket-records.ts'),
+          import('../process-factory/cutting/fei-tickets.ts'),
+          import('../../data/fcs/cutting/manual-fei-tickets.ts'),
+        ])
         await savePartTicketAction({ intent: JSON.stringify(input), action: () => {
       if (input.documentType === 'FEI_TICKET_LABEL') {
         recordActualFeiTicketFirstPrintFromPreview({
@@ -419,7 +424,7 @@ export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumen
   const operationReason = getOperationReason()
   if (
     resolved.documentType === 'FEI_TICKET_REPRINT_LABEL'
-    && hasMatchedManualFeiTicket(resolved.sourceId)
+    && await hasMatchedManualFeiTicket(resolved.sourceId)
     && !operationReason
   ) {
     return renderPreviewFailure('手动菲票补打必须填写补打原因，请返回菲票明细重新发起补打。', '/fcs/craft/cutting/fei-tickets')
@@ -432,7 +437,7 @@ export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumen
       // Print routes are also direct entry points. Read their own persisted
       // source instead of depending on a prior visit to a factory page.
       const records = await import('../../data/fcs/post-finishing-records.ts')
-      await records.ensurePostFinishingRecordState()
+      await records.ensurePreparedPostFinishingRecordState()
       const failure = records.getPostFinishingStorageFailure()
       if (failure) throw new Error(failure)
     }

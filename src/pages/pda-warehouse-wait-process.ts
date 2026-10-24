@@ -3,6 +3,7 @@ import {
   type FactoryWaitProcessStockItem,
   updateWaitProcessStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
+import { stenterImage, installStenterImages } from './process-factory/dyeing/stenter-handfeel/presentation.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { KOL_GOTO_FACTORY_ID, OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
@@ -1822,6 +1823,7 @@ export function renderPdaWarehouseWaitProcessPage(): string {
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitProcessPage()
 
   const rows = getRows()
+  if (rows.some(row => row.stenterHandfeelOrderId)) installStenterImages()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
       ${renderWarehouseSummaryHeader('待加工仓', '中转仓接收确认后进入待加工仓，并承接入库记录。', runtime.overview)}
@@ -1841,6 +1843,7 @@ export function renderPdaWarehouseWaitProcessPage(): string {
                         ${renderStatusPill(row.status)}
                       </div>
                       <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                        ${row.stenterHandfeelOrderId ? `<div class="mb-3 flex items-center gap-3">${stenterImage(row.photoList[0] || '', row.itemName)}<span>${escapeHtml(row.itemName)}<br>${escapeHtml(row.materialSku || '')}</span></div>` : ''}
                         <div>物料 / 裁片类型：${escapeHtml(`${row.itemKind} / ${row.itemName}`)}</div>
                         <div>来源动作：${escapeHtml(getWaitProcessSourceActionLabel(row))}</div>
                         <div>面料 SKU / 裁片部位：${escapeHtml(row.materialSku || row.partName || '-')}</div>

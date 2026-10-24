@@ -10,6 +10,8 @@ import { type FactoryReceiptInput } from '../../data/fcs/factory-receiving.ts'
 import { renderCentralPdaFrame, type CentralPdaFrameInput, type CentralPdaTab } from './frame.ts'
 import { centralSession as session, ensureCentralSessionAccount, saveCentralSessionPreference, registerCentralDraftDiscard, discardCentralDrafts, hasCentralDrafts } from './session.ts'
 import { cb, ce, ct, centralNotice, centralFormalName } from './ui.ts'
+import { renderCentralOperationMenu } from './operation-menu.ts'
+import { pdaEmpty, pdaUi } from '../pda-mobile-ui.ts'
 import { dyeNumber, translateDyeNumber } from './dye-ui.ts'
 import { waterNumber as cn, wt, waterUnit, waterStatus, waterErrorText, waterCompletionInput, waterFactsSummary, waterNeedsNote, waterNoteField, type WaterWorkDraft } from './water-ui.ts'
 import { listCentralWaterFacts, centralWaterFactories, centralWaterFact, centralWaterIncoming, centralWaterRevision, saveCentralWaterReceipt, saveCentralWaterAction, type CentralWaterAction } from './water-model.ts'
@@ -144,7 +146,7 @@ function primary(): CentralPdaFrameInput['primary'] {
   if(error&&result)result.disabled=true
   return result
 }
-function scanForm() { return `<div class="my-3 flex items-end gap-2"><label class="min-w-0 flex-1 text-base font-semibold">${t('scan')}<input class="mt-2 min-h-12 w-full rounded-xl border bg-white p-3" data-central-water-field="scan" value="${ce(scan)}" autocomplete="off" inputmode="text"></label>${cb(t('identify'),'water-identify')}</div>` }
+function scanForm() { return `<div class="space-y-1"><label class="block px-1 text-[13px] font-medium leading-5 text-[#62748a]">${t('scan')}</label><div class="flex gap-2"><input class="h-14 min-w-0 flex-1 rounded-xl border border-[#bdcadb] bg-white px-3 text-[15px] text-[#1a293c] outline-none focus:border-[#2461ed]" data-central-water-field="scan" value="${ce(scan)}" autocomplete="off" inputmode="text"><button type="button" class="min-h-14 shrink-0 rounded-xl bg-[#2461ed] px-4 text-[15px] font-semibold text-white" data-central-action="water-identify">${t('identify')}</button></div></div>` }
 function loginForm() { return `<label class="my-3 block">${t('account')}<input class="mt-2 min-h-12 w-full rounded-xl border bg-white p-3" data-central-water-login="account" autocomplete="username" value="${ce(login.account)}"></label><label class="my-3 block">${t('password')}<input class="mt-2 min-h-12 w-full rounded-xl border bg-white p-3" data-central-water-login="password" type="password" autocomplete="current-password" value="${ce(login.password)}"></label>${cb(t('login'),'water-login',undefined,true)}` }
 function warehouseContent() {
   const owner=session.currentFactory+'|'+session.account?.userId
@@ -171,7 +173,7 @@ function frameContent():CentralPdaFrameInput {
   let content=`<div data-central-water-feedback>${feedback()}</div>`
   if(r.orderId){base.heading=r.tab==='receive'?text('receiving'):text('order');base.backPath=tabPath(r.tab)
     if(!r.fact){base.content=content+centralNotice(t('empty'));return base}
-    content+=cb(lang()==='id'?'Pindai order berikutnya':'扫下一单','water-open-scan')+(scanOpen?scanForm():'')+waterIdentity(r.fact,lang())
+    content+=waterIdentity(r.fact,lang())+`<button type="button" class="${pdaUi.actionRow} mt-2" data-central-action="water-open-scan"><span class="text-[16px] font-semibold text-[#1a293c]">${lang()==='id'?'Pindai order berikutnya':'扫下一单'}</span><span class="text-[#8090a4]" aria-hidden="true">›</span></button>`+(scanOpen?scanForm():'')
     if(r.tab==='receive')content+=renderWaterReceive(r.fact,ui().sourceKey||incoming().selected?.key||'',receiveDraft(),lang())
     else if(r.tab==='warehouse')content+=waterFactsSummary(r.fact,lang())+renderWaterReceipts(r.orderId,session.currentFactory,ui().receiptScope,lang())
     else{content+=waterFactsSummary(r.fact,lang())+`<div class="mb-3 grid grid-cols-3 gap-2">${(['work','output','receipt'] as const).map(view=>cb(lang()==='id'?({work:'Proses',output:'Kirim',receipt:'Diterima'})[view]:({work:'加工',output:'交出',receipt:'实收'})[view],'water-view',view,ui().view===view)).join('')}</div>`
@@ -179,7 +181,7 @@ function frameContent():CentralPdaFrameInput {
     base.primary=r.tab==='warehouse'?undefined:primary()
   }else if(r.tab==='warehouse')content+=warehouseContent()
   else{content+=scanForm();const incomingRows=centralWaterIncoming(session.currentFactory),matches=scan.trim().toLowerCase(),facts=listCentralWaterFacts(session.currentFactory).filter(f=>r.tab!=='receive'||incomingRows.some(row=>row.orderId===f.order.waterOrderId&&row.remaining>0)).filter(f=>scanCandidates?scanCandidates.includes(f.order.waterOrderId):!matches||[f.order.waterOrderNo,f.order.taskNo,f.order.materialCode].some(v=>v.toLowerCase().includes(matches)))
-    content+=facts.slice(0,limit).map(f=>`<button type="button" data-central-action="water-order" data-central-value="${ce(f.order.waterOrderId)}" class="mb-3 flex w-full items-center gap-3 rounded-xl border bg-white p-3 text-left">${f.image?.material?`<img src="${ce(f.image.material)}" alt="${ce(f.order.materialCode)}" class="h-14 w-14 shrink-0 object-contain">`:''}<span class="min-w-0"><strong class="block break-words">${ce(f.order.waterOrderNo)}</strong><span class="block break-words text-sm">${ce(f.order.materialCode)}</span><span class="block text-sm">${waterStatus(f.order.status,lang())}</span></span></button>`).join('')||centralNotice(t('empty'));if(facts.length>limit)content+=cb(t('more'),'water-more')}
+    content+=facts.slice(0,limit).map(f=>`<button type="button" data-central-action="water-order" data-central-value="${ce(f.order.waterOrderId)}" class="${pdaUi.card} mb-2 flex w-full items-start gap-3 p-3 text-left">${f.image?.material?`<img src="${ce(f.image.material)}" alt="${ce(f.order.materialCode)}" class="h-16 w-16 shrink-0 rounded-lg border border-[#e2e6ec] bg-[#f1f3f6] object-contain">`:''}<span class="min-w-0 flex-1"><strong class="block break-words text-[16px] font-semibold leading-6 text-[#1a293c]">${ce(f.order.waterOrderNo)}</strong><span class="mt-1 block break-words text-[13px] leading-5 text-[#62748a]">${ce(f.order.materialCode)}</span><span class="mt-2 block text-[14px] leading-5 text-[#1a293c]">${waterStatus(f.order.status,lang())}</span></span><span class="shrink-0 self-center text-[#8090a4]" aria-hidden="true">›</span></button>`).join('')||pdaEmpty(t('empty'));if(facts.length>limit)content+=`<button type="button" class="${pdaUi.secondaryButton}" data-central-action="water-more">${t('more')}</button>`}
   base.content=content;return base
 }
 function refreshFooter(){
@@ -286,7 +288,7 @@ export async function handleCentralWaterEvent(target:Element,event?:Event):Promi
     else if(action==='logout'){if(hasCentralDrafts())requestConfirmation('logout',`<p>${t('unsent')}</p>${cb(t('discard'),'water-logout-confirm',undefined,true)}${cb(t('cancel'),'water-overlay-close')}`);else logout()}
     else if(action==='water-logout-confirm'){takeConfirmation('logout');logout()}
     else if(action==='water-login'){const user=readFactoryPdaExecutionUsers().find(u=>normalizePdaLoginId(u.loginId)===normalizePdaLoginId(login.account));if(!user||!verifyPdaPassword(login.password,user.passwordHash))throw new Error('WATER_loginFail');if(user.status!=='ACTIVE')throw new Error('WATER_locked');const factory=getFactoryMasterRecordById(user.factoryId);if(!factory||factory.status!=='active'||!isCentralPdaFactory(factory))throw new Error('WATER_centralOnly');discardCentralDrafts();session.currentFactory=user.factoryId;session.account=user;session.signedOut=false;login={account:'',password:''};saveCentralSessionPreference();navigate(tabPath('receive'))}
-    else if(action==='operation')overlay(cb(text('water'),'water-overlay-close')+cb(lang()==='id'?'Pencelupan':'染色','water-go-dye')+cb(lang()==='id'?'Proses tambahan / khusus':'辅助 / 特种工艺','water-go-special')+cb(lang()==='id'?'Pencetakan':'印花','water-go-print') + `<button type="button" class="min-h-12 w-full rounded-xl border bg-white p-3" data-central-nav="/fcs/pda/central/wash/receive">${lang()==='id'?'Pencucian':'洗水'}</button>`)
+    else if(action==='operation')overlay(renderCentralOperationMenu({ language: lang(), tab: route().tab, factoryId: session.currentFactory, currentPath: appStore.getState().pathname })+`<div class="mt-3">${cb(lang()==='id'?'Proses tambahan / khusus':'辅助 / 特种工艺','water-go-special')}</div>`)
     else if(action==='water-go-print')navigate('/fcs/pda/central/print/'+r.tab)
     else if(action==='water-go-dye')navigate('/fcs/pda/central/dye/'+r.tab)
     else if(action==='water-go-special')navigate('/fcs/pda/central/'+r.tab)

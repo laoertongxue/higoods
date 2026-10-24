@@ -27,6 +27,7 @@ interface PdaTabConfig {
 interface PdaFrameOptions {
   headerTitle?: string
   disableTodoAutoOpen?: boolean
+  hideBottomNav?: boolean
 }
 
 const MOBILE_APP_TABS: PdaTabConfig[] = [
@@ -84,29 +85,26 @@ function syncTodoModalAutoOpen(disableAutoOpen = false): void {
   shownTodoSessionKey = sessionKey
 }
 
-function getTabTitle(activeTab: PdaTabKey | null, headerTitle?: string): string {
-  if (headerTitle) return headerTitle
-  if (!activeTab) return '工厂端移动应用'
-  return getVisibleMobileAppTabs().find((tab) => tab.key === activeTab)?.label ?? '工厂端移动应用'
-}
 
 function renderTodoTrigger(activeCount: number): string {
   return `
     <button
       type="button"
-      class="relative inline-flex h-9 items-center justify-center rounded-full border bg-background px-3 text-foreground transition hover:bg-muted"
+      class="relative flex min-h-12 min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[12px] font-medium leading-4 text-[#2458aa] transition hover:bg-[#e9f0fd]"
       data-pda-shell-action="open-todo-modal"
       data-pda-todo-trigger="true"
       aria-label="打开当前待办"
       title="当前待办"
     >
-      <i data-lucide="bell" class="h-4 w-4"></i>
-      <span class="ml-1 text-xs font-medium">待办</span>
-      ${
-        activeCount > 0
-          ? `<span class="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-destructive-foreground">${activeCount}</span>`
-          : ''
-      }
+      <span class="relative flex items-center justify-center">
+        <i data-lucide="bell" class="h-5 w-5"></i>
+        ${
+          activeCount > 0
+            ? `<span class="absolute -right-2 -top-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#e23b3b] px-1 text-[10px] font-semibold leading-[18px] text-white">${activeCount}</span>`
+            : ''
+        }
+      </span>
+      <span>待办</span>
     </button>
   `
 }
@@ -118,29 +116,21 @@ function getPdaRoleDisplayName(roleId: string, factoryId: string): string {
 function renderAccountTrigger(): string {
   const runtime = getPdaRuntimeContext()
   if (!runtime) return ''
-  const shortName = runtime.userName.trim() || runtime.loginId
   return `
     <button
       type="button"
-      class="inline-flex h-9 max-w-[112px] items-center gap-1 rounded-full border bg-background px-2.5 text-xs font-medium text-foreground transition hover:bg-muted"
+      class="flex min-h-12 min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[12px] font-medium leading-4 text-[#2458aa] transition hover:bg-[#e9f0fd]"
       data-pda-shell-action="open-account-modal"
       aria-label="打开账号信息"
       title="${escapeHtml(`${runtime.userName} / ${runtime.loginId}`)}"
     >
-      <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">${escapeHtml(shortName.slice(0, 1))}</span>
-      <span class="min-w-0 truncate">${escapeHtml(shortName.slice(0, 4))}</span>
-      <i data-lucide="chevron-down" class="h-3.5 w-3.5 shrink-0"></i>
+      <i data-lucide="user-round" class="h-5 w-5"></i>
+      <span>账号</span>
     </button>
   `
 }
 
-function getPdaFactoryCodeLabel(factoryId: string): string {
-  if (!factoryId) return ''
-  if (factoryId === 'ID-F090') return 'F090'
-  return factoryId
-}
-
-function renderPdaTopBar(activeTab: PdaTabKey | null, headerTitle?: string): string {
+function renderPdaTopBar(headerTitle?: string): string {
   const runtime = getPdaRuntimeContext()
   let todoTrigger = renderTodoTrigger(0)
   if (runtime) {
@@ -151,14 +141,15 @@ function renderPdaTopBar(activeTab: PdaTabKey | null, headerTitle?: string): str
     }
   }
   const factoryTitle = runtime?.factoryName || '工厂端移动应用'
-  const factoryCode = runtime ? getPdaFactoryCodeLabel(runtime.factoryId) : ''
-  const subtitle = runtime && factoryCode ? `${getTabTitle(activeTab, headerTitle)} · ${factoryCode}` : getTabTitle(activeTab, headerTitle)
+  const identity = factoryTitle
+  const accountName = runtime?.userName.trim() || ''
+  const context = [accountName, headerTitle].filter(Boolean).join(' · ')
   return `
-    <header class="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
-      <div class="flex items-center gap-3">
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-semibold text-foreground" title="${escapeHtml(runtime ? formatFactoryDisplayName(runtime.factoryName, runtime.factoryId) : factoryTitle)}">${escapeHtml(factoryTitle)}</div>
-          <div class="truncate text-[11px] text-muted-foreground">${escapeHtml(subtitle)}</div>
+    <header class="sticky top-0 z-20 border-b border-[#dce4ed] bg-white px-3 py-2">
+      <div class="flex items-center gap-2">
+        <div class="min-w-0 flex-1 leading-tight">
+          <div class="truncate text-[15px] font-bold text-[#1c2c40]" title="${escapeHtml(identity)}">${escapeHtml(identity)}</div>
+          <div class="truncate text-[12px] text-[#52667d]" title="${escapeHtml(context)}">${escapeHtml(context)}</div>
         </div>
         ${todoTrigger}
         ${renderAccountTrigger()}
@@ -182,7 +173,7 @@ function renderTodoModal(): string {
         data-pda-shell-action="close-todo-modal"
         aria-label="关闭当前待办"
       ></button>
-      <section class="absolute bottom-[72px] left-0 right-0 rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
+      <section class="absolute bottom-16 left-0 right-0 rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-semibold text-foreground">当前待办</h2>
@@ -273,7 +264,7 @@ function renderAccountModal(): string {
         data-pda-shell-action="close-account-modal"
         aria-label="关闭账号信息"
       ></button>
-      <section class="absolute bottom-[72px] left-0 right-0 rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
+      <section class="absolute bottom-16 left-0 right-0 rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
         <div class="flex items-start justify-between gap-3">
           <div>
             <h2 class="text-base font-semibold text-foreground">当前账号</h2>
@@ -351,20 +342,21 @@ function renderAccountModal(): string {
 
 export function renderPdaBottomNav(activeTab: PdaTabKey | null): string {
   return `
-    <nav class="absolute bottom-0 left-0 right-0 z-10 flex h-[72px] items-center justify-around border-t bg-background px-1" data-pda-bottom-nav="true">
+    <nav class="absolute bottom-0 left-0 right-0 z-10 flex min-h-16 items-stretch border-t border-[#dfe6ee] bg-white px-1 pb-[env(safe-area-inset-bottom)]" data-pda-bottom-nav="true">
       ${getVisibleMobileAppTabs().map((tab) => {
         const active = tab.key === activeTab
         return `
           <button
             type="button"
-            class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2 transition-colors ${toClassName(
-              active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+            class="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2 text-[11px] leading-4 transition-colors ${toClassName(
+              active ? 'font-semibold text-[#2461ed]' : 'text-[#738198] hover:text-[#1a293c]',
             )}"
             data-nav="${tab.href}"
             data-pda-tab="${tab.key}"
           >
-            <i data-lucide="${tab.icon}" class="h-5 w-5 shrink-0"></i>
-            <span class="text-center text-[10px] font-medium leading-tight">${escapeHtml(tab.label)}</span>
+            ${active ? '<span class="absolute top-0 h-[3px] w-7 rounded-full bg-[#2461ed]" aria-hidden="true"></span>' : ''}
+            <i data-lucide="${tab.icon}" class="h-[22px] w-[22px] shrink-0"></i>
+            <span class="text-center font-medium leading-tight">${escapeHtml(tab.label)}</span>
           </button>
         `
       }).join('')}
@@ -385,12 +377,12 @@ export function renderPdaFrame(content: string, activeTab: PdaTabKey | null, opt
 
   syncTodoModalAutoOpen(Boolean(options.disableTodoAutoOpen))
   return `
-    <section class="relative flex h-screen min-h-0 flex-col overflow-hidden bg-background">
-      ${renderPdaTopBar(activeTab, options.headerTitle)}
-      <div class="min-h-0 flex-1 overflow-y-auto pb-[72px]" data-pda-scroll-container="true">
+    <section class="relative flex h-screen min-h-0 flex-col overflow-hidden bg-[#f2f5f9]">
+      ${renderPdaTopBar(options.headerTitle)}
+      <div class="min-h-0 flex-1 overflow-y-auto bg-[#f2f5f9] ${options.hideBottomNav ? '' : 'pb-16'}" data-pda-scroll-container="true">
         ${content}
       </div>
-      ${renderPdaBottomNav(activeTab)}
+      ${options.hideBottomNav ? '' : renderPdaBottomNav(activeTab)}
       ${renderTodoModal()}
       ${renderAccountModal()}
     </section>

@@ -2,17 +2,16 @@ import { listFactoryReceipts, listReceivingAllocations, getFactoryReceivingSourc
 import { confirmFactoryMaterialReceipt, allocateReceivedMaterialToOrder, listReceivingAllocationTargets, remainingReceivingAllocationQty } from '../../data/fcs/factory-receiving-links.ts'
 import { runPrintingRecordCommand } from '../../data/fcs/printing-records.ts'
 import { assertCentralPrintingActor } from '../../data/fcs/printing-task-domain.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { centralPrintEntryFactory, centralPrintFact } from './print-model.ts'
 
 /** Original Web preparation: allocation transfers received stock, never receives it again. */
 export function centralPrintPreparation(factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const allocations = listReceivingAllocations()
     return listFactoryReceipts(factoryId).flatMap(receipt => receipt.lines
       .filter(line => getFactoryReceivingSource(line.sourceId)?.processCode === 'PRINT' && line.qty > 0 && line.material.kind !== 'WOOL_PIECE'
-        && (!line.washingOrderId || line.washingDirection === 'AFTER_WASH')
         && !line.printingOrderId && !line.dyeOrderId && !line.waterOrderId && !line.woolOrderId)
       .map(line => ({ receipt, line, remaining: remainingReceivingAllocationQty(line.id),
         allocations: allocations.filter(allocation => allocation.receiptLineId === line.id),
@@ -53,10 +52,10 @@ export async function saveCentralPrintAllocation(request: PrintAllocationRequest
 
 export function centralPrintStockIncoming(factoryId: string) {
   if (centralPrintEntryFactory([factoryId]) !== factoryId) throw Error('PRINT_centralOnly')
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const receipts = listFactoryReceipts(factoryId).flatMap(receipt => receipt.lines)
     return listFactoryReceivingSources(factoryId).filter(source => source.processCode === 'PRINT' && eligibleReceivingSource(source))
-      .flatMap(source => source.lines.filter(line => line.material.kind !== 'WOOL_PIECE' && !line.printingOrderId && !line.dyeOrderId && !line.waterOrderId && !line.woolOrderId && !line.woolCraftOrderId && !line.washingOrderId)
+      .flatMap(source => source.lines.filter(line => line.material.kind !== 'WOOL_PIECE' && !line.printingOrderId && !line.dyeOrderId && !line.waterOrderId && !line.woolOrderId && !line.woolCraftOrderId)
         .map(line => { const received = receipts.filter(receipt => receipt.sourceId === source.id && receipt.sourceLineId === line.id), codes = new Set(received.flatMap(receipt => receipt.rolls?.map(roll => roll.barcode) || []))
           return { key: source.id + '|' + line.id, orderId: '', source, line, received, remainingRolls: line.rolls.filter(roll => !codes.has(roll.barcode)) }
         }))

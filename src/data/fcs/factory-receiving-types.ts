@@ -11,13 +11,13 @@ export interface FactoryReceivingSourceLine {
   measurementBasis?: 'CONTINUOUS_LENGTH'
   id:string; material:ReceivingMaterial; plannedQty:number; unit:string; sentQty:number
   rolls:SourceRoll[]; label:string; yarn?:YarnWeight
-  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; washingOrderId?:string; washingDirection?:'TO_WASH'|'AFTER_WASH'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
+  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; stenterHandfeelOrderId?:string; handfeelDirection?:'TO_HANDFEEL'|'AFTER_HANDFEEL'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
 }
 export interface FactoryReceivingSource {
   id:string; documentNo:string; type:'TRANSFER'|'ISSUE'|'HANDOUT'; origin:DyePartner
   targetFactoryId:string; targetFactoryName:string; createdAt:string; createdBy:string
   approvedAt?:string; approvedBy?:string; handedOutAt?:string; voidedAt?:string
-  processCode?:'PRINT'|'WASH';waterBatchId?:string;lines:FactoryReceivingSourceLine[]; workOrderNo?:string; originalRecordId?:string
+  processCode?:'PRINT'|'STENTER_HANDFEEL';waterBatchId?:string;lines:FactoryReceivingSourceLine[]; workOrderNo?:string; originalRecordId?:string
 }
 export interface FactoryDeliveryLine {
   id:string; sourceId:string; sourceLineId:string; qty:number; unit:string; rollBarcodes:string[]
@@ -38,7 +38,7 @@ export interface FactoryReceiptInput {
 export interface FactoryReceiptLine extends FactoryReceiptLineInput {
   id:string; material:ReceivingMaterial; qty:number;unit:'Yard'|'kg'|'片'|'米';yarn?:YarnWeight
   sourceDocumentNo:string; sourceType:FactoryReceivingSource['type']; origin:DyePartner
-  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; washingOrderId?:string; washingDirection?:'TO_WASH'|'AFTER_WASH'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
+  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; stenterHandfeelOrderId?:string; handfeelDirection?:'TO_HANDFEEL'|'AFTER_HANDFEEL'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
 }
 export interface FactoryReceipt extends Omit<FactoryReceiptInput,'lines'> {lines:FactoryReceiptLine[]; fingerprint:string}
-export interface ReceivingAllocation {id:string;receiptLineId:string;washingOrderId?:string; washingDirection?:'TO_WASH'|'AFTER_WASH'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;qty:number;operatorName:string;at:string}
+export interface ReceivingAllocation {id:string;receiptLineId:string;stenterHandfeelOrderId?:string; handfeelDirection?:'TO_HANDFEEL'|'AFTER_HANDFEEL'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;qty:number;operatorName:string;at:string}

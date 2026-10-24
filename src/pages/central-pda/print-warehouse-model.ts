@@ -5,14 +5,14 @@ import { findPdaHandoverRecord } from '../../data/fcs/pda-handover-events.ts'
 import { getPrintingWorkOrderById } from '../../data/fcs/printing-task-domain.ts'
 import { getFactoryMasterRecordById } from '../../data/fcs/factory-master-store.ts'
 import { isCentralPdaFactory } from '../../data/fcs/pda-experience-scope.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { printingEventTimestamp } from '../../data/fcs/printing-statistics.ts'
 
 /** Read-only physical presentation. Original Web quantities and record ownership remain unchanged. */
 export function readCentralPrintWarehouse(factoryId: string) {
   const factory = getFactoryMasterRecordById(factoryId)
   if (!factory || !isCentralPdaFactory(factory)) throw new Error('PRINT_centralOnly')
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const view = getPrintingWarehouseView({ factoryId })
     const warehouses = listFactoryInternalWarehouses().filter(warehouse => warehouse.factoryId === factoryId)
     const positions = warehouses.flatMap(warehouse => warehouse.areaList.flatMap(area =>

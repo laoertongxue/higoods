@@ -34,6 +34,11 @@ const TASK_RECEIPT_CLI_SOURCE = readFileSync(
 )
 const TASK_RECEIPT_CLI_PATH = join(process.cwd(), 'scripts/task-completion-receipt.ts')
 const CLI_PROBE_PATH = 'src/pages/fcs/craft/cutting/supplement-management.ts'
+const DELEGATED_PATHS = [
+  'docs/agent-rules/storage.md',
+  'docs/agent-rules/interface.md',
+  'docs/agent-rules/verification.md',
+]
 
 const AGENTS_SOURCE = [
   '# AGENTS.md',
@@ -56,6 +61,14 @@ function workspaceWithAgents(t: test.TestContext, source = AGENTS_SOURCE): strin
   const workspace = mkdtempSync(join(tmpdir(), 'instruction-context-'))
   t.after(() => rmSync(workspace, { recursive: true, force: true }))
   writeFileSync(join(workspace, 'AGENTS.md'), source)
+  return workspace
+}
+
+function workspaceWithDelegatedRules(t: test.TestContext, paths = DELEGATED_PATHS): string {
+  const links = [...paths].reverse().map((path) => `[专项规则](${path})`).join('\n')
+  const workspace = workspaceWithAgents(t, `${AGENTS_SOURCE}\n${links}\n`)
+  mkdirSync(join(workspace, 'docs/agent-rules'), { recursive: true })
+  for (const path of paths) writeFileSync(join(workspace, path), `# ${path}\r\n专项规则原始内容\r\n`)
   return workspace
 }
 
@@ -400,8 +413,108 @@ test('采集不含阶段轨迹的根 AGENTS 指令上下文', (t) => {
       evidenceFields: ['revision', 'route', 'checks', 'codegraph'],
     },
   ])
+  assert.equal(Object.hasOwn(receipt, 'delegatedSources'), false)
   assert.deepEqual(parseInstructionContext(JSON.stringify(receipt)), receipt)
   assert.equal(instructionContextsEqual(receipt, structuredClone(receipt)), true)
+})
+
+test('根链接的三个专项按固定顺序绑定原始字节，根哈希仍只覆盖根文件', (t) => {
+  const workspace = workspaceWithDelegatedRules(t)
+  const receipt = captureInstructionContext({ workspace, taskBoundary: '绑定专项规则' })
+
+  assert.deepEqual(receipt.delegatedSources, DELEGATED_PATHS.map((path) => ({
+    path,
+    algorithm: 'sha256',
+    contentHash: createHash('sha256').update(readFileSync(join(workspace, path))).digest('hex'),
+  })))
+  assert.equal(receipt.source.contentHash,
+    createHash('sha256').update(readFileSync(join(workspace, 'AGENTS.md'))).digest('hex'))
+  assert.deepEqual(parseInstructionContext(JSON.stringify(receipt)), receipt)
+  assert.doesNotThrow(() => assertInstructionContextCurrent(receipt, { workspace }))
+})
+
+test('只捕获根明确链接的白名单专项，不扫描普通提及、图片或其他文档', (t) => {
+  const workspace = workspaceWithDelegatedRules(t, [DELEGATED_PATHS[0]!])
+  const source = `${AGENTS_SOURCE}\n[存储](<${DELEGATED_PATHS[0]}> "存储规则")\n`
+    + `${DELEGATED_PATHS[1]}\n![图片](${DELEGATED_PATHS[2]})\n[其他文档](docs/unrelated.md)\n`
+  writeFileSync(join(workspace, 'AGENTS.md'), source)
+  const receipt = captureInstructionContext({ workspace, taskBoundary: '仅绑定明确声明' })
+
+  assert.deepEqual(receipt.delegatedSources?.map((item) => item.path), [DELEGATED_PATHS[0]])
+  writeFileSync(join(workspace, DELEGATED_PATHS[1]!), '未声明规则的变动')
+  assert.doesNotThrow(() => assertInstructionContextCurrent(receipt, { workspace }))
+})
+
+test('任一已声明专项变化使上下文失效，遗漏专项绑定也不能冒充当前上下文', (t) => {
+  const workspace = workspaceWithDelegatedRules(t)
+  const receipt = captureInstructionContext({ workspace, taskBoundary: '专项改动使收据过期' })
+  for (const path of DELEGATED_PATHS) {
+    const original = readFileSync(join(workspace, path))
+    writeFileSync(join(workspace, path), Buffer.concat([original, Buffer.from('新增规则\n')]))
+    const changed = captureInstructionContext({ workspace, taskBoundary: receipt.taskBoundary })
+    assert.equal(changed.source.contentHash, receipt.source.contentHash, '专项变动不改变根字节哈希')
+    assert.equal(instructionContextsEqual(receipt, changed), false, path)
+    assert.throws(() => assertInstructionContextCurrent(receipt, { workspace }), /已变化|过期/, path)
+    writeFileSync(join(workspace, path), original)
+  }
+  const withoutDelegatedSources = structuredClone(receipt)
+  delete withoutDelegatedSources.delegatedSources
+  assert.throws(() => assertInstructionContextCurrent(withoutDelegatedSources, { workspace }), /已变化|过期/)
+  assert.doesNotThrow(() => assertInstructionContextCurrent(receipt, { workspace }))
+})
+
+test('声明专项缺失或不是常规文件时失败关闭，不能保留旧绑定', (t) => {
+  const workspace = workspaceWithDelegatedRules(t, [DELEGATED_PATHS[0]!])
+  const receipt = captureInstructionContext({ workspace, taskBoundary: '检查缺失专项' })
+  const path = join(workspace, DELEGATED_PATHS[0]!)
+  rmSync(path)
+  assert.throws(() => captureInstructionContext({ workspace, taskBoundary: receipt.taskBoundary }), /专项规则/)
+  assert.throws(() => assertInstructionContextCurrent(receipt, { workspace }), /专项规则/)
+  mkdirSync(path)
+  assert.throws(() => captureInstructionContext({ workspace, taskBoundary: receipt.taskBoundary }), /专项规则.*常规文件/)
+})
+
+test('专项文件和每级父目录的符号链接均被拒绝，包括工作区内目标', (t) => {
+  const outside = workspaceWithDelegatedRules(t, [DELEGATED_PATHS[0]!])
+  for (const location of ['file-inside', 'file-outside', 'docs', 'agent-rules']) {
+    const workspace = workspaceWithDelegatedRules(t, [DELEGATED_PATHS[0]!])
+    const filePath = join(workspace, DELEGATED_PATHS[0]!)
+    if (location.startsWith('file-')) {
+      const target = location === 'file-inside'
+        ? join(workspace, 'storage-source.md')
+        : join(outside, DELEGATED_PATHS[0]!)
+      if (location === 'file-inside') fs.renameSync(filePath, target)
+      else rmSync(filePath)
+      symlinkSync(target, filePath)
+    } else {
+      const directory = location === 'docs' ? 'docs' : 'docs/agent-rules'
+      rmSync(join(workspace, directory), { recursive: true })
+      symlinkSync(join(outside, directory), join(workspace, directory))
+    }
+    assert.throws(
+      () => captureInstructionContext({ workspace, taskBoundary: '拒绝符号链接专项' }),
+      /专项规则|符号链接/,
+      location,
+    )
+  }
+})
+
+test('parser 拒绝未知、越界、重复、乱序及哈希无效的专项来源', (t) => {
+  const workspace = workspaceWithDelegatedRules(t)
+  const receipt = captureInstructionContext({ workspace, taskBoundary: '校验专项绑定结构' })
+  const sources = receipt.delegatedSources!
+  const invalidSources = [
+    [],
+    [{ ...sources[0], path: 'docs/other.md' }],
+    [{ ...sources[0], path: '../docs/agent-rules/storage.md' }],
+    [{ ...sources[0], algorithm: 'sha1' }],
+    [{ ...sources[0], contentHash: 'not-a-hash' }],
+    [sources[0], sources[0]],
+    [...sources].reverse(),
+  ]
+  for (const delegatedSources of invalidSources) {
+    assert.throws(() => parseInstructionContext({ ...receipt, delegatedSources }), /delegatedSources|专项规则来源/)
+  }
 })
 
 test('要求阶段轨迹时加入对应规则绑定且顺序稳定', (t) => {

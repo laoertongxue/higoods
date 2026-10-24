@@ -2,7 +2,7 @@ import {
   installAccessoryPostFinishingReadBridge, readLegacyPostFinishingMaterialState, resolvePostFinishingResponsibility,
   type PostFinishingActor, type PostFinishingMaterialTransferOrder, type PostFinishingMaterialStock,
 } from '../fcs/post-finishing-full-flow.ts'
-import { ensurePostFinishingRecordState, getPostFinishingStorageFailure } from '../fcs/post-finishing-records.ts'
+import { ensurePreparedPostFinishingRecordState, getPostFinishingStorageFailure } from '../fcs/post-finishing-records.ts'
 import { readPcsRecords, type PcsStoredFile } from '../pcs-record-db.ts'
 import { prepareAccessoryWarehouseSources, listAccessoryPreparations, listAccessoryPreparationProductionIdentities } from './accessory-warehouse-sources.ts'
 import { accessoryRecord, ensureAccessoryWarehouseRecords, listAccessoryRecords, saveAccessoryWarehouseAction } from './accessory-warehouse-records.ts'
@@ -29,28 +29,33 @@ const batches = () => listAccessoryRecords<Batch>('migration').filter(row => row
 const archives = () => listAccessoryRecords<Archive>('migration').filter(row => row.kind === 'post-legacy-archive')
 const preparationFor = (id: string) => listAccessoryPreparations().find(row => row.productionOrderId === id || row.productionOrderNo === id)
 const managed = (id: string) => listAccessoryPreparationProductionIdentities(new Set([id])).has(id)
-function activeTransfer(row: AccessoryTransfer & { legacyPostBatchId?: string }): boolean { return row.kind === 'SITE_TO_POST' && row.toWarehouse === ACCESSORY_POST_WAREHOUSE && row.status !== '已作废' && (!row.legacyPostBatchId || batches().some(batch => batch.id === row.legacyPostBatchId && batch.phase === 'COMPLETE')) }
+function activeTransfer(row: AccessoryTransfer & { legacyPostBatchId?: string }): boolean { return (row.kind === 'SITE_TO_POST' || row.kind === 'GTP_TO_POST') && row.toWarehouse === ACCESSORY_POST_WAREHOUSE && row.status !== '已作废' && (!row.legacyPostBatchId || batches().some(batch => batch.id === row.legacyPostBatchId && batch.phase === 'COMPLETE')) }
 function postTransfers() { return allTransfers().filter(activeTransfer).map(row => { requireValue(splitAccessoryLinesForTask(row.lines, 'SEWING').postLines.length === row.lines.length, '后道调拨明细包含不属于本次后道范围的物料，需核对原单。'); return row }) }
 function requireValue(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
 function postNumber(transfer: AccessoryTransfer, preparation = listAccessoryPreparations().find(row => row.id === transfer.preparationId)): string {
+  if (transfer.manualTransferNo) return transfer.manualTransferNo
   const same = allTransfers().filter(row => row.kind === 'SITE_TO_POST' && row.preparationId === transfer.preparationId).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
   return `HD-${preparation?.productionOrderNo || '历史辅料'}-${String(same.findIndex(row => row.id === transfer.id) + 1).padStart(2, '0')}`
 }
 const locationName = (id: string) => postLocations.find(row => row.id === id)?.locationCode || '历史库位待核对'
 function project(transfer: AccessoryTransfer, preparation = listAccessoryPreparations().find(row => row.id === transfer.preparationId)): PostFinishingMaterialTransferOrder {
-  requireValue(preparation, '后道调拨缺少对应生产单配料资料，请重新读取。')
+  const manual = transfer.creationMode === 'MANUAL' || transfer.kind === 'GTP_TO_POST'
+  requireValue(preparation || manual, '后道调拨缺少对应生产单配料资料，请重新读取。')
   const receipt = listAccessoryRecords<AccessoryReceipt>('receipt').find(row => row.transferId === transfer.id && row.status !== '已取消')
   const received = transfer.status === '已收货'
   return {
     transferOrderId: transfer.id, transferOrderNo: postNumber(transfer, preparation), productionOrderId: transfer.productionOrderId,
-    productionOrderNo: preparation.productionOrderNo, styleNo: '', styleName: preparation.styleName, styleImageUrl: preparation.styleImageUrl,
+    productionOrderNo: manual ? (transfer.manualProductionOrderNo || '通用物料') : preparation!.productionOrderNo,
+    styleNo: '', styleName: manual ? (transfer.manualStyleName || '人工辅料调拨') : preparation!.styleName,
+    styleImageUrl: manual ? (transfer.manualStyleImageUrl || '') : preparation!.styleImageUrl,
     sewingTaskNo: '', responsibility: resolvePostFinishingResponsibility('INDEPENDENT_SEWING', transfer.createdAt),
     sourceWarehouseName: listAccessoryWarehouses().find(row => row.code === transfer.fromWarehouse)?.name || '历史来源仓',
     targetWarehouseName: 'DLN 后道工厂', targetAreaName: '后道辅料暂存区（演示）',
     targetLocationCode: received && receipt ? [...new Set(receipt.lines.map(line => locationName(line.locationId)))].join(' / ') : '收货时选择',
     status: received ? '已入库' : transfer.status === '已出库待收货' ? '待入库' : '待调拨',
+    creationMode: manual ? 'MANUAL' : 'SYSTEM', manualSource: transfer.manualSource,
     lines: transfer.lines.map(line => ({ transferLineId: line.id, materialName: line.materialName, materialCode: line.materialSku, materialSpuCode: '', specification: [line.color, line.spec].filter(Boolean).join(' · '), unit: line.unit, requestedQty: line.qty, preparedQty: line.qty, imageUrl: line.imageUrl })),
-    statusHistory: transfer.history.map(item => ({ status: item.action.includes('收货') || item.action.includes('入库') ? '已入库' : item.action.includes('出库') ? '待入库' : '待调拨', operatedAt: item.at, operatorName: item.by, remark: item.detail })),
+    statusHistory: transfer.history.map(item => ({ status: item.action.includes('收货') || item.action.includes('入库') ? '已入库' : item.action.includes('出库') ? '待入库' : '待调拨', action: item.action, operatedAt: item.at, operatorName: item.by, remark: item.detail })),
     createdAt: transfer.createdAt, updatedAt: transfer.receivedAt || transfer.dispatchedAt || transfer.createdAt,
     inboundAt: transfer.receivedAt, inboundBy: received ? { actorId: 'ACCESSORY-DLN-RECEIVER', actorName: transfer.receivedBy || '历史后道仓管', roleName: '后道仓管' } : undefined,
   }
@@ -64,7 +69,7 @@ export function listManagedAccessoryPostTransfers(): PostFinishingMaterialTransf
 }
 export function isManagedAccessoryPostTransfer(id: string): boolean {
   const transfers = postTransfers()
-  if (transfers.some(row => row.id === id)) return true
+  if (transfers.some(row => row.id === id || row.manualTransferNo === id)) return true
   if (!id.startsWith('HD-')) return false
   // 正式单号才读取配料来源，旧单/其他业务 ID 不为每行重复投影整张生产单清单。
   const preparations = new Map(listAccessoryPreparations().map(row => [row.id, row]))
@@ -155,10 +160,10 @@ async function readSources(): Promise<void> {
   sourceRows.forEach(row => collectExistingFiles(row.value))
   sourceFiles = read.files.filter(file => fileIds.has(file.id))
 }
-export async function prepareAccessoryPostFinishing(): Promise<void> {
+export async function prepareAccessoryPostFinishing(options:{readOnly?:boolean}={}): Promise<void> {
   prepared = false
-  await prepareAccessoryWarehouseSources()
-  await ensurePostFinishingRecordState()
+  await prepareAccessoryWarehouseSources({postFinishingReadOnly:options.readOnly})
+  await ensurePreparedPostFinishingRecordState()
   requireValue(!getPostFinishingStorageFailure(), getPostFinishingStorageFailure())
   await readSources()
   prepared = true
@@ -302,16 +307,16 @@ export async function exportLegacyAccessoryPostBackup(): Promise<Blob> {
 }
 export async function receiveAccessoryPostTransfer(input: { id: string; actor: AccessoryWarehouseActor; commandId: string; lines: AccessoryReceiptLine[]; at: string }): Promise<{ transfer: PostFinishingMaterialTransferOrder; alreadyInbound: boolean }> {
   await prepareAccessoryPostFinishing()
-  const transfer = postTransfers().find(row => row.id === input.id || postNumber(row) === input.id)
+  const transfer = postTransfers().find(row => row.id === input.id || row.manualTransferNo === input.id || postNumber(row) === input.id)
   requireValue(transfer, '没有找到当前后道辅料调拨单。')
   requireValue(input.actor.role === '仓管' && input.actor.warehouseCode === 'DLN' && input.actor.name.trim(), '仅 DLN 后道仓管可确认辅料收货上架。')
-  const prep = preparationFor(transfer.productionOrderId)!
-  const relevant = sourceRows.filter(row => row.value.productionOrderNo === prep.productionOrderNo || ('productionOrderId' in row.value && row.value.productionOrderId === prep.productionOrderId))
+  const prep = preparationFor(transfer.productionOrderId)
+  const relevant = prep ? sourceRows.filter(row => row.value.productionOrderNo === prep.productionOrderNo || ('productionOrderId' in row.value && row.value.productionOrderId === prep.productionOrderId)) : []
   if (relevant.length) await migratePreparedLegacyAccessoryPost({ commandId: `${input.commandId}:legacy`, at: input.at, actor: input.actor.name })
   requireValue(relevant.every(source => archives().some(archive => archive.sourceKey === source.key && archive.sourceFingerprint === source.fingerprint && batches().some(batch => batch.id === archive.batchId && batch.phase === 'COMPLETE'))), '本单原后道辅料资料尚未归档核验，请先保留原资料并完成核对。')
   const receipt = listAccessoryRecords<AccessoryReceipt>('receipt').find(row => row.transferId === transfer.id && row.warehouseCode === 'DLN' && row.status !== '已取消')
   requireValue(receipt, '后道接收事项已取消或失效，请重新读取。')
-  if (transfer.status === '已收货') { requireValue(JSON.stringify([...input.lines].sort((a, b) => a.lineId.localeCompare(b.lineId))) === JSON.stringify([...receipt.lines].sort((a, b) => a.lineId.localeCompare(b.lineId))), '该单已收货，本次数量或库位与原收货不同，未再次保存。'); return { transfer: project(transfer), alreadyInbound: true } }
+  if (transfer.status === '已收货') { requireValue(JSON.stringify([...input.lines].sort((a, b) => a.lineId.localeCompare(b.lineId))) === JSON.stringify([...receipt.lines].sort((a, b) => a.lineId.localeCompare(b.lineId))), '该单已收货，本次数量或库位与原收货不同，未再次保存。'); return { transfer: project(transfer, prep), alreadyInbound: true } }
   const result = buildAccessoryReceiveChange({ transfer, receipt, lines: input.lines, locations: listAccessoryPostLocations(), stocks: listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock')), actor: input.actor, commandId: input.commandId, at: input.at })
   const saved = await saveAccessoryWarehouseAction({ commandId: input.commandId, intent: `receive-post:${transfer.id}`, result: result.transfer, change: result.change })
   return { transfer: project(saved, prep), alreadyInbound: false }

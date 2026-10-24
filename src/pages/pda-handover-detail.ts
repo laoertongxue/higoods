@@ -1,3 +1,5 @@
+import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
+import { getPostFinishingFullFlowOutboundOrder, dispatchPostFinishingOutboundOrder, receivePostFinishingOutboundOrder } from '../data/fcs/post-finishing-full-flow.ts'
 import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 import { runCuttingEventAction } from '../data/fcs/cutting/cutting-event-repository.ts'
 import { listSpecialCraftReturnSourceCandidates, listSpecialCraftTicketReturnFacts, submitSpecialCraftBagReturn, validateSpecialCraftTicketReceipts } from '../data/fcs/cutting/transfer-bag-operations.ts'
@@ -96,7 +98,7 @@ import {
   getTransferBagContentDisplayItems,
 } from '../data/fcs/cutting/sewing-dispatch.ts'
 import { buildWaitHandoverLifecycleByBagCode } from './process-factory/cutting/wait-handover-runtime.ts'
-import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-current-read-model.ts'
+import { FULL_CAPABILITY_FACTORY_ID, isPostFinishingFactoryId } from '../data/fcs/post-finishing-current-read-model.ts'
 import { createPdaPickupDisputeCase } from '../helpers/fcs-pda-pickup-dispute'
 import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { renderPdaFrame } from './pda-shell'
@@ -2326,6 +2328,78 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
   finally { handoverLinkReadFrame = previousFrame }
 }
 
+const pendingPostOutboundDispatch = new Set<string>()
+interface OriginalPostReceiptDraft {
+  quantities: Record<string,string>
+  authorization: string
+  reason: string
+  responsibility: boolean
+  error: string
+}
+const originalPostReceiptDrafts = new Map<string,OriginalPostReceiptDraft>()
+function originalPostReceiptDraft(outboundId:string):OriginalPostReceiptDraft {
+  let draft=originalPostReceiptDrafts.get(outboundId)
+  if(!draft){draft={quantities:{},authorization:'',reason:'',responsibility:false,error:''};originalPostReceiptDrafts.set(outboundId,draft)}
+  return draft
+}
+function refreshOriginalPostOutbound(headId:string):void {
+  const head=findPdaHandoverHead(headId),old=document.querySelector('[data-post-original-page]')
+  if(!head||!old)return
+  const container=document.createElement('div')
+  container.innerHTML=renderOriginalPostOutboundContent(head)
+  const next=container.firstElementChild
+  if(next)old.replaceWith(next)
+}
+function syncOriginalPostReceiptInputs(root:Element):void {
+  const id=(root as HTMLElement).dataset.outboundId||'',outbound=getPostFinishingFullFlowOutboundOrder(id)
+  if(!outbound)return
+  const draft=originalPostReceiptDraft(id)
+  root.querySelectorAll<HTMLInputElement>('[data-post-receipt-sku]').forEach(input=>{draft.quantities[input.dataset.postReceiptSku||'']=input.value})
+  draft.authorization=root.querySelector<HTMLInputElement>('[data-post-receipt-authorization]')?.value||''
+  draft.reason=root.querySelector<HTMLTextAreaElement>('[data-post-receipt-reason]')?.value||''
+  draft.responsibility=!!root.querySelector<HTMLInputElement>('[data-post-receipt-responsibility]')?.checked
+  const filled=outbound.lines.filter(line=>(draft.quantities[line.sku.skuId]||'').trim()!=='')
+  const different=filled.filter(line=>Number(draft.quantities[line.sku.skuId])!==line.outboundQty)
+  const summary=root.querySelector('[data-post-receipt-summary]')
+  if(summary)summary.textContent=filled.length===outbound.lines.length?`本单实际发出 ${outbound.lines.reduce((sum,line)=>sum+line.outboundQty,0)} 件；本次实收 ${filled.reduce((sum,line)=>sum+Number(draft.quantities[line.sku.skuId]||0),0)} 件；${different.length} 个SKU有差异。`:`尚有 ${outbound.lines.length-filled.length} 个SKU未填实收；尚未保存。`
+  const authorization=root.querySelector<HTMLElement>('[data-post-receipt-authorization-block]')
+  if(authorization)authorization.hidden=different.length===0
+}
+function renderOriginalPostOutboundContent(head:PdaHandoverHead):string {
+  const outbound=getPostFinishingFullFlowOutboundOrder(head.sourceDocId||head.sourceDocNo||'')
+  if(!outbound)return '<div class="p-4" data-post-original-page>未找到原后道出货单，请返回重新扫描。</div>'
+  const history=getPdaHandoverRecordsByHead(head.handoverId),runtime=getPdaRuntimeContext()
+  const canDispatch=!!runtime&&isPostFinishingFactoryId(runtime.factoryId)
+  const canReceive=!!runtime&&outbound.status==='待仓库接收'
+  const draft=originalPostReceiptDraft(outbound.outboundOrderId)
+  const different=outbound.lines.some(line=>draft.quantities[line.sku.skuId]?.trim() && Number(draft.quantities[line.sku.skuId])!==line.outboundQty)
+  return `<div class="space-y-4 p-4" data-post-original-page data-skip-page-rerender="true"><button data-pda-handoverd-action="back" class="h-10 rounded border px-4">返回</button>
+    <article class="space-y-3 rounded-xl border bg-card p-4" data-post-original-outbound><h1 class="break-all text-lg font-semibold">${escapeHtml(outbound.outboundOrderNo)}</h1><p class="text-sm">${escapeHtml(outbound.status)}</p>
+      <p class="text-xs text-muted-foreground">${canReceive?'成衣仓接收人员逐项填写实际收到的件数；实收与原发出量分开保存。':'核对本单全部 SKU 和件数后确认实际发出。'}</p>
+      <div data-post-receipt-form data-outbound-id="${escapeHtml(outbound.outboundOrderId)}" data-handover-id="${escapeHtml(head.handoverId)}" class="space-y-3">
+      ${draft.error?`<p role="alert" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" data-post-receipt-error>${escapeHtml(draft.error)}</p>`:''}
+      ${outbound.lines.map(line=>`<article class="rounded border p-3" data-post-receipt-line="${escapeHtml(line.sku.skuId)}"><div class="flex gap-3"><button type="button" data-pda-image-preview-url="${escapeHtml(line.sku.imageUrl||'')}" data-pda-image-preview-title="${escapeHtml(line.sku.spuName)}"><img class="h-16 w-14 object-contain" src="${escapeHtml(line.sku.imageUrl||'')}" alt="${escapeHtml(line.sku.spuName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="text-xs text-red-700">图片加载失败</span></button><div class="min-w-0 text-sm"><b class="break-all">${escapeHtml(line.sku.skuCode)}</b><div>${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div><div>本单 ${line.outboundQty} ${escapeHtml(line.sku.qtyUnit)} · 仓库实收 ${line.receivedQty===undefined?'未接收':line.receivedQty}</div></div></div>${canReceive?`<label class="mt-3 block text-sm">本SKU实际收到（件）<input class="mt-1 h-12 w-full rounded border px-3 text-right text-base" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(draft.quantities[line.sku.skuId]||'')}" data-pda-handoverd-field="postReceiptQuantity" data-post-receipt-sku="${escapeHtml(line.sku.skuId)}" aria-label="${escapeHtml(`${line.sku.skuCode} ${line.sku.colorName} ${line.sku.sizeName} 实收数量`)}"></label>`:''}</article>`).join('')}
+      ${canReceive?`<p class="rounded bg-blue-50 p-3 text-sm" data-post-receipt-summary>填写全部SKU的真实实收数量；尚未保存。</p><div class="space-y-3 rounded border border-amber-200 bg-amber-50 p-3" data-post-receipt-authorization-block ${different?'':'hidden'}><p class="text-sm">任一SKU实收与原发出量不同，须填写差异原因并扫描原有效动态授权码；不按整单抵消。</p><label class="block text-sm">差异原因<textarea class="mt-1 w-full rounded border p-2" data-pda-handoverd-field="postReceiptReason" data-post-receipt-reason>${escapeHtml(draft.reason)}</textarea></label><label class="block text-sm">动态授权码<input class="mt-1 h-12 w-full rounded border px-3" data-pda-handoverd-field="postReceiptAuthorization" data-post-receipt-authorization value="${escapeHtml(draft.authorization)}"></label></div><label class="flex gap-2 rounded border p-3 text-sm"><input type="checkbox" class="mt-1 h-5 w-5 shrink-0" data-pda-handoverd-field="postReceiptResponsibility" data-post-receipt-responsibility ${draft.responsibility?'checked':''}><span>本人 ${escapeHtml(runtime!.userName)} 本次承担成衣仓接收责任，已按上述SKU实际点数。</span></label><button class="h-12 w-full rounded bg-primary text-primary-foreground" data-pda-handoverd-action="receive-post-outbound" data-outbound-id="${escapeHtml(outbound.outboundOrderId)}" data-handover-id="${escapeHtml(head.handoverId)}">确认本单成衣仓实际接收</button>`:''}
+      </div>
+      ${outbound.status==='待出货'&&canDispatch?`<button class="h-12 w-full rounded bg-primary text-primary-foreground" data-pda-handoverd-action="dispatch-post-outbound" data-outbound-id="${escapeHtml(outbound.outboundOrderId)}" data-handover-id="${escapeHtml(head.handoverId)}">确认本单实际发出</button>`:`<p class="text-sm">实际发出：${escapeHtml(outbound.dispatchedAt||'历史时间未记录')} · ${escapeHtml(outbound.dispatchedBy?.actorName||'历史人员未记录')}</p>`}
+      ${outbound.receivedAt?`<p class="rounded bg-green-50 p-3 text-sm" role="status">成衣仓实收已保存：${escapeHtml(outbound.receivedAt)} · ${escapeHtml(outbound.receivedBy?.actorName||'')}。本单不重复入仓。</p>`:''}
+      <a class="inline-flex h-10 items-center text-blue-700" href="/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(outbound.outboundOrderId)}">查看出货单与仓库实收</a>
+    </article>${history.length?`<details class="rounded border p-3"><summary>历史通用交出记录（只读）</summary>${history.map(record=>`<p class="mt-2 text-xs">${escapeHtml(record.recordId)} · ${escapeHtml(record.skuCode||'SKU未记录')} · 交出 ${record.submittedQty??0} · 实收 ${record.receiverWrittenQty??'未确认'}</p>`).join('')}</details>`:''}</div>`
+}
+let originalPostReceiptLeaveGuardInstalled=false
+function hasUnsavedOriginalPostReceipt():boolean {
+  return typeof document!=='undefined' && [...document.querySelectorAll<HTMLInputElement>('[data-post-receipt-sku]')].some(input=>input.value.trim()!=='')
+}
+function renderPostFinishingOriginalOutbound(head:PdaHandoverHead):string {
+  if(typeof window!=='undefined'&&!originalPostReceiptLeaveGuardInstalled){
+    originalPostReceiptLeaveGuardInstalled=true
+    window.addEventListener('beforeunload',event=>{if(hasUnsavedOriginalPostReceipt()){event.preventDefault();event.returnValue=''}})
+    document.addEventListener('click',event=>{if(!(event.target as Element)?.closest?.('a[href],a[data-nav]')||!hasUnsavedOriginalPostReceipt())return;if(!window.confirm('成衣仓实收输入尚未保存，确认离开？')){event.preventDefault();event.stopImmediatePropagation()}},true)
+  }
+
+  return renderPdaFrame(renderOriginalPostOutboundContent(head),'handover')
+}
+
 function renderPdaHandoverDetailContents(eventId: string): string {
   const candidate = findPdaHandoverHead(eventId)
   const head = isCurrentPdaHandoverInScope(candidate) ? candidate : undefined
@@ -2341,6 +2415,8 @@ function renderPdaHandoverDetailContents(eventId: string): string {
     `
     return renderPdaFrame(content, 'handover')
   }
+
+  if (isPostFinishingHandoutHead(head)) return renderPostFinishingOriginalOutbound(head)
 
   if (head.processBusinessCode === 'SPECIAL_CRAFT') {
     const content = `
@@ -2454,6 +2530,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
     if (!isCurrentPdaHandoverInScope(findPdaHandoverHead(currentId))
       || targetId && (targetId !== currentId || !isCurrentPdaHandoverInScope(findPdaHandoverHead(targetId)))) return true
   }
+  if(target.closest('[data-post-receipt-sku], [data-post-receipt-authorization], [data-post-receipt-reason], [data-post-receipt-responsibility]')) {const root=target.closest('[data-post-receipt-form]');if(root)syncOriginalPostReceiptInputs(root);return true}
   const fieldNode = target.closest<HTMLElement>('[data-pda-handoverd-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -2594,6 +2671,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
   }
 
   if (action === 'back') {
+    if(hasUnsavedOriginalPostReceipt()&&!window.confirm('成衣仓实收输入尚未保存，确认离开？'))return true
     appStore.navigate('/fcs/pda/handover')
     return true
   }
@@ -2855,6 +2933,62 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
       const message = error instanceof Error ? error.message : '交出记录新增失败'
       showPdaHandoverDetailToast(message)
     }
+    return true
+  }
+
+  if (action === 'dispatch-post-outbound') {
+    const outbound = getPostFinishingFullFlowOutboundOrder(actionNode.dataset.outboundId || '')
+    if (!outbound || outbound.status !== '待出货') { showPdaHandoverDetailToast('当前出货单已更新，请重新查看。'); return true }
+    if (pendingPostOutboundDispatch.has(outbound.outboundOrderId)) return true
+    const runtime = getPdaRuntimeContext()
+    if (!runtime) {showPdaHandoverDetailToast('请先登录 PDA。');return true}
+    if (!isPostFinishingFactoryId(runtime.factoryId)) {showPdaHandoverDetailToast('请由当前后道工厂账号确认本单实际发出。');return true}
+    const lines = outbound.lines.map(line=>`${line.sku.skuCode} / ${line.sku.colorName} / ${line.sku.sizeName}：${line.outboundQty}${line.sku.qtyUnit}`).join('\n')
+    if (!window.confirm(`确认以下全部成衣已经实际发出？\n${outbound.outboundOrderNo}\n${lines}`)) return true
+    pendingPostOutboundDispatch.add(outbound.outboundOrderId)
+    try {
+      await runPostFinishingCommand(()=>dispatchPostFinishingOutboundOrder({outboundOrderId:outbound.outboundOrderId,actor:{actorId:runtime.userId,actorName:runtime.userName,roleName:'后道操作员'}}))
+      refreshOriginalPostOutbound(actionNode.dataset.handoverId||'')
+      showPdaHandoverDetailToast('实际发出已保存，等待成衣仓确认实收。')
+    } catch(error) { showPdaHandoverDetailToast(`本次未保存：${error instanceof Error?error.message:String(error)}`) }
+    finally {pendingPostOutboundDispatch.delete(outbound.outboundOrderId)}
+    return true
+  }
+
+  if(action==='receive-post-outbound') {
+    const id=actionNode.dataset.outboundId||'',outbound=getPostFinishingFullFlowOutboundOrder(id)
+    const root=actionNode.closest('[data-post-receipt-form]')
+    if(!outbound||!root)return true
+    if(pendingPostOutboundDispatch.has(id))return true
+    syncOriginalPostReceiptInputs(root)
+    const draft=originalPostReceiptDraft(id),runtime=getPdaRuntimeContext()
+    try {
+      if(!runtime)throw new Error('请先登录PDA，以实际接收人身份保存。')
+      if(outbound.status!=='待仓库接收')throw new Error('本单尚未实际发出或已完成实收，请重新读取。')
+      if(!draft.responsibility)throw new Error('须由实际接收人确认本次成衣仓接收责任。')
+      const receivedQuantities=outbound.lines.map(line=>{
+        const raw=draft.quantities[line.sku.skuId]?.trim()||'',receivedQty=Number(raw)
+        if(!raw||!Number.isSafeInteger(receivedQty)||receivedQty<0)throw new Error(`${line.sku.skuCode} 的实收必须填写0或正整数件。`)
+        return {skuId:line.sku.skuId,receivedQty}
+      })
+      const hasDifference=outbound.lines.some(line=>receivedQuantities.find(row=>row.skuId===line.sku.skuId)!.receivedQty!==line.outboundQty)
+      if(hasDifference&&(!draft.reason.trim()||!draft.authorization.trim()))throw new Error('SKU实收存在差异，须填写差异原因并扫描有效动态授权码。')
+      const detail=outbound.lines.map(line=>`${line.sku.skuCode} / ${line.sku.colorName} / ${line.sku.sizeName}：发出${line.outboundQty}，实收${receivedQuantities.find(row=>row.skuId===line.sku.skuId)!.receivedQty}件`).join('\n')
+      if(!window.confirm(`${runtime.userName} 确认本次承担成衣仓接收责任并保存实际点数？\n${outbound.outboundOrderNo}\n${detail}${hasDifference?'\n差异及原动态授权同时保存。':''}\n本单只登记一次实收，不修改此前发出事实。`))return true
+      pendingPostOutboundDispatch.add(id)
+      if(actionNode instanceof HTMLButtonElement)actionNode.disabled=true
+      await runPostFinishingCommand(()=>receivePostFinishingOutboundOrder({outboundOrderNo:outbound.outboundOrderNo,
+        actor:{actorId:runtime.userId,actorName:runtime.userName,roleName:'仓库收货人员'},receivedQuantities,
+        authorization:hasDifference?{scanValue:draft.authorization.trim(),differenceReason:draft.reason.trim()}:undefined}),{operationId:`pda-original-post-receive:${id}`,intent:JSON.stringify({id,actorId:runtime.userId,receivedQuantities,reason:draft.reason,authorization:draft.authorization})})
+      originalPostReceiptDrafts.delete(id)
+      refreshOriginalPostOutbound(actionNode.dataset.handoverId||'')
+      showPdaHandoverDetailToast('成衣仓逐SKU实收已保存，本单不重复入仓。')
+    } catch(error) {
+      draft.error=`本次未保存：${error instanceof Error?error.message:String(error)}；当前输入保留，可核对后重试。`
+      let notice=root.querySelector('[data-post-receipt-error]')
+      if(!notice){notice=document.createElement('p');notice.setAttribute('data-post-receipt-error','');notice.setAttribute('role','alert');notice.className='rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700';root.prepend(notice)}
+      notice.textContent=draft.error
+    } finally {pendingPostOutboundDispatch.delete(id);if(actionNode instanceof HTMLButtonElement)actionNode.disabled=false}
     return true
   }
 

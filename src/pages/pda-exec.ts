@@ -72,6 +72,7 @@ import {
   syncMilestoneOverdueExceptions,
 } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
+import { pdaNotice, pdaUi } from './pda-mobile-ui.ts'
 import {
   buildPdaExecProgressiveSlice,
   renderPdaExecAutoLoadSentinel,
@@ -1834,17 +1835,22 @@ export function renderPdaExecPage(): string {
   }
   if (selectedFactoryId === DEDICATED_POST_FACTORY_ID || selectedFactoryId === 'ID-F002') {
     const content = `
-      <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
-        <main class="flex-1 p-4">
-          <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4" data-pda-post-finishing-entry>
-            <h1 class="text-base font-semibold text-blue-950">后道现场执行</h1>
-            <p class="mt-1 text-xs leading-5 text-blue-800">精确扫描后道加工单或复检单；质检只在 Web 端进行。</p>
-            <div class="mt-4 grid grid-cols-2 gap-3">
-              <button type="button" class="h-12 rounded-2xl bg-blue-600 text-sm font-semibold text-white" data-nav="/fcs/pda/post-finishing/execute">后道加工</button>
-              <button type="button" class="h-12 rounded-2xl border border-blue-300 bg-white text-sm font-semibold text-blue-800" data-nav="/fcs/pda/post-finishing/recheck">后道复检</button>
-            </div>
-          </section>
-        </main>
+      <div class="${pdaUi.page}" data-testid="pda-exec-page">
+        <div class="px-1 pt-1">
+          <h1 class="text-[26px] font-bold leading-8 text-[#1a293c]">执行</h1>
+          <p class="mt-1 text-[13px] leading-5 text-[#62748a]">后道现场执行</p>
+        </div>
+        <section data-pda-post-finishing-entry>
+          <p class="px-1 text-[13px] leading-5 text-[#62748a]">扫码进入后道加工</p>
+          <button type="button" class="${pdaUi.actionRow} mt-2" data-nav="/fcs/pda/post-finishing/execute">
+            <span class="min-w-0">
+              <b class="block text-[17px] font-semibold leading-6 text-[#1a293c]">扫后道完整单号</b>
+              <small class="mt-1 block text-[13px] leading-5 text-[#62748a]">分项加工，多次复检与出货</small>
+            </span>
+            <span class="shrink-0 text-[#8090a4]" aria-hidden="true">›</span>
+          </button>
+        </section>
+        ${pdaNotice('质检在原质检工作台进行；PDA 只处理加工、复检与出货。', 'info')}
       </div>
     `
     return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })

@@ -1,12 +1,12 @@
 import { getDyeingWarehouseView } from '../../data/fcs/dyeing-warehouse-view.ts'
 import { listFactoryInternalWarehouses } from '../../data/fcs/factory-internal-warehouse.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { listCentralDyeFacts } from './dye-model.ts'
 
 /** Read the same actual balances and registry as Web; never allocate output
  * summaries or historical unlocated stock to an invented shelf. */
 export function centralDyeWarehouse(factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const facts = listCentralDyeFacts(factoryId), ids = new Set(facts.map(fact => fact.order.dyeOrderId))
     const view = getDyeingWarehouseView({ factoryId })
     return {

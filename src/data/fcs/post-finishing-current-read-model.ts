@@ -8,6 +8,7 @@ import {
   POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS,
   getPostFinishingFullFlowPostTask,
   getPostFinishingProcessProgress,
+  getPostFinishingQcInspectionSummary,
   type PostFinishingProcessItem,
   listPostFinishingFactoryReturns,
   listPostFinishingFullFlowOutboundOrders,
@@ -15,6 +16,7 @@ import {
   listPostFinishingTaskQuantitySummaries,
   listPostFinishingTaskChildQuantitySummaries,
   listPostFinishingFullFlowQcTasks,
+  getPostFinishingFullFlowQcTask,
   listPostFinishingFullFlowRecheckOrders,
   listPostFinishingWaitHandoverWarehouseRecords,
   type PostFinishingAcceptanceSku,
@@ -44,8 +46,8 @@ export function isPostFinishingFactoryId(factoryId: string): boolean {
   return factoryId === DEDICATED_POST_FACTORY_ID || factoryId === 'ID-F002'
 }
 
-export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '复检'
-export type PostFinishingTaskStatus = '待上游交出' | '待收货' | '待质检' | '质检中' | '待后道' | '后道中' | '待复检' | '待交出' | '待人工完成' | '已完成'
+export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '出货' | '复检'
+export type PostFinishingTaskStatus = '待上游交出' | '待收货' | '待质检' | '质检中' | '待后道' | '后道中' | '待出货' | '待复检' | '待交出' | '待人工完成' | '已完成'
 
 export interface PostFinishingSkuLine {
   skuLineId: string
@@ -94,6 +96,8 @@ export interface PostFinishingTaskView {
   waitQcQty: number
   qcInProgressQty: number
   qcDoneQty: number
+  qcReleasedQty?: number
+  waitOutboundQty?: number
   waitPostQty: number
   postDoingQty: number
   postDoneQty: number
@@ -139,6 +143,9 @@ export interface PostFinishingQcSkuResult {
   colorName: string
   sizeName: string
   inspectedQty: number
+  inspectionKnown?: boolean
+  uninspectedReleaseQty?: number
+  releasedQty?: number
   qualifiedQty: number
   unqualifiedQty: number
   reworkQty: number
@@ -152,6 +159,7 @@ export interface PostFinishingQcSkuResult {
   sourceChargeback?: { currency: 'IDR'; unitAmount: number; amount: number; reason: '后道工厂接收返工' }
   responsibleFactoryId?: string
   responsibleFactoryName?: string
+  inspectionIssueSummaries?: string[]
   defectReasonItems: PostFinishingQcDefectReasonItem[]
   postProjectJudgements: Array<{ projectName: PostFinishingProcessItem; needed: boolean; qty: number; buttonAttachMode?: '人工装扣' | '机器装扣' }>
   qtyUnit: string
@@ -378,6 +386,7 @@ interface QcProjectionSnapshot {
 interface WorkOrderProjectionSnapshot extends QcProjectionSnapshot {
   qcTasks: ReturnType<typeof listPostFinishingFullFlowQcTasks>
   rechecks: RecheckSnapshot
+  outbounds: ReturnType<typeof listPostFinishingFullFlowOutboundOrders>
   waitHandovers: ReturnType<typeof listPostFinishingWaitHandoverWarehouseRecords>
 }
 type TaskChildSnapshot = ReturnType<typeof listPostFinishingTaskChildQuantitySummaries>
@@ -398,7 +407,8 @@ function workOrderProjectionSnapshot(task?: PostFinishingPostTask): WorkOrderPro
     deliveries: listPostFinishingFactoryReturns(),
     factories: listFactoryMasterRecords(),
     qcTasks: listPostFinishingFullFlowQcTasks(),
-    rechecks: listPostFinishingFullFlowRecheckOrders(undefined, postTaskIds),
+    rechecks: [],
+    outbounds: listPostFinishingFullFlowOutboundOrders().filter(row=>!postTaskIds || (!!row.postTaskId && postTaskIds.has(row.postTaskId))),
     waitHandovers: listPostFinishingWaitHandoverWarehouseRecords(undefined, postTaskIds),
   }
 }
@@ -428,15 +438,13 @@ function taskStatus(orderId: string, productionOrderNo: string, snapshot: TaskPr
   const postTasks = snapshot.postTasks.filter((item) => item.productionOrderNo === productionOrderNo)
   const rechecks = snapshot.rechecks.filter((item) => item.productionOrderNo === productionOrderNo)
   const outbounds = snapshot.outbounds.filter((item) => deliveries.some((delivery) => delivery.deliveryId === item.deliveryId))
-  if (rechecks.some((item) => item.status === '复检中' || item.status === '条码异常待重贴')) return '待复检'
-  if (rechecks.some((item) => item.status === '待复检')) return '待复检'
   if (postTasks.some((item) => item.status === '后道中')) return '后道中'
   if (postTasks.some((item) => item.status === '待后道')) return '待后道'
   if (qcTasks.some((item) => item.status === '质检中')) return '质检中'
   if (qcTasks.some((item) => item.status === '待质检' || item.status === '待送检')) return '待质检'
   if (deliveries.some((item) => !item.confirmedAt)) return '待收货'
   if (deliveries.some((delivery) => delivery.confirmedAt && !qcTasks.some((qc) => qc.deliveryId === delivery.deliveryId))) return '待质检'
-  if (postTasks.some(task => task.availableForRecheckQty > 0)) return '待复检'
+  if (postTasks.some(task => getPostFinishingProcessProgress(task.postTaskId).availableForOutboundQty > 0) || outbounds.some(row=>row.status==='待出货')) return '待出货'
   if (outbounds.some((item) => item.status !== '已接收入库')) return '待交出'
   const formalOrder = productionOrders.find((item) => item.productionOrderId === orderId)
   if (formalOrder?.status === 'COMPLETED') return '已完成'
@@ -449,17 +457,22 @@ function taskStatus(orderId: string, productionOrderNo: string, snapshot: TaskPr
   return deliveries.length ? '待质检' : '待上游交出'
 }
 
-export function listPostFinishingTasks(productionOrderIds?: ReadonlySet<string>): PostFinishingTaskView[] {
+function listPostFinishingTaskSources() {
   const formalSources = buildFormalPostFinishingReturnSources({
     productionOrders,
     runtimeTasks: readRuntimeTasks<RuntimeProcessTask>(),
     woolStore: readPostFinishingWoolSourceStore(),
     specialCraftTaskOrders: readPostFinishingSpecialCraftSourceTaskOrders(),
   })
-  const sources = [...POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS, ...formalSources].filter(source => !productionOrderIds || productionOrderIds.has(source.productionOrderId))
+  return [...POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS, ...formalSources]
+}
+
+export function listPostFinishingTasks(productionOrderIds?: ReadonlySet<string>): PostFinishingTaskView[] {
+  const sources = listPostFinishingTaskSources().filter(source => !productionOrderIds || productionOrderIds.has(source.productionOrderId))
   const deliveries = listPostFinishingFactoryReturns(productionOrderIds)
   const productionOrderNos = productionOrderIds ? new Set([...sources.map(source => source.productionOrderNo), ...deliveries.map(row => row.productionOrderNo)]) : undefined
   const children = listPostFinishingTaskChildQuantitySummaries(productionOrderNos)
+  const outboundQuantityById=new Map(listPostFinishingFullFlowOutboundOrders().map(row=>[row.outboundOrderId,row.lines.reduce((n,line)=>n+line.outboundQty,0)]))
   const snapshot: TaskProjectionSnapshot = {
     deliveries,
     qcTasks: listPostFinishingFullFlowQcTasks(productionOrderNos),
@@ -505,13 +518,15 @@ export function listPostFinishingTasks(productionOrderIds?: ReadonlySet<string>)
     const rechecks = snapshot.rechecks.filter((item) => item.productionOrderNo === order.productionOrderNo)
     const waitHandover = snapshot.waitHandovers.filter((item) => item.productionOrderNo === order.productionOrderNo)
     const receivedQty = sum(deliveries.flatMap((delivery) => delivery.lines.map((line) => line.confirmedQty || 0)))
-    const qcDoneQty = sum(qcTasks.flatMap((task) => task.results?.map((line) => line.expectedQty) || []))
+    const qcDoneQty = sum(qcTasks.map(task=>getPostFinishingQcInspectionSummary(task)?.inspectedQty || 0))
+    const qcCompletedBatchQty=sum(qcTasks.filter(task=>task.status==='质检完成').flatMap(task=>task.lines.map(line=>line.expectedQty)))
+    const qcReleasedQty=sum(qcTasks.filter(task=>task.status==='质检完成').flatMap(task=>(task.results||[]).map(line=>line.releasedQty??line.passedQty)))
     const postDoneQty = sum(postTasks.map(task => task.totalCompletedQty))
     const recheckDoneQty = sum(rechecks.filter((item) => item.status === '复检完成').map(item => item.totalHandoverQty))
     const currentStatus = taskStatus(order.productionOrderId, order.productionOrderNo, snapshot)
     const formalOrder = productionOrders.find((item) => item.productionOrderId === order.productionOrderId)
     const orderSources = sources.filter((item) => item.productionOrderId === order.productionOrderId)
-    const createdAt = deliveries[0]?.registeredAt || '2026-08-01T08:00:00+07:00'
+    const createdAt = deliveries[0]?.registeredAt || ''
     const updatedAt = [createdAt, ...deliveries.map((item) => item.confirmedAt || item.registeredAt), ...qcTasks.map((item) => item.completedAt || item.createdAt), ...postTasks.map((item) => item.completedAt || qcTasks.find((qc) => qc.qcTaskId === item.qcTaskId)?.createdAt || createdAt), ...rechecks.map((item) => item.completedAt || qcTasks.find((qc) => qc.qcTaskId === item.qcTaskId)?.createdAt || createdAt)].sort().at(-1) || createdAt
     return {
       postTaskId: `PF-TASK-${order.productionOrderId}`,
@@ -546,18 +561,20 @@ export function listPostFinishingTasks(productionOrderIds?: ReadonlySet<string>)
       currentStatus,
       currentNode: currentStatus,
       receivedQty,
-      waitQcQty: Math.max(receivedQty - qcDoneQty, 0),
+      waitQcQty: Math.max(receivedQty - qcCompletedBatchQty, 0),
       qcInProgressQty: sum(qcTasks.filter((item) => item.status === '质检中').flatMap((item) => item.lines.map((line) => line.expectedQty))),
       qcDoneQty,
+      qcReleasedQty,
+      waitOutboundQty:sum(snapshot.outbounds.filter(row=>row.productionOrderNo===order.productionOrderNo&&row.status==='待出货').map(row=>outboundQuantityById.get(row.outboundOrderId)||0)),
       waitPostQty: sum(postTasks.filter((item) => item.status === '待后道').map(item => item.totalExpectedQty)),
       postDoingQty: sum(postTasks.filter(item => item.status === '后道中').map(task => task.totalExpectedQty - task.totalCompletedQty)),
       postDoneQty,
-      waitRecheckQty: sum(postTasks.map(task => task.availableForRecheckQty)) + sum(rechecks.filter((item) => item.status !== '复检完成').map(item => item.totalExpectedQty)),
-      recheckDoneQty,
+      waitRecheckQty: 0,
+      recheckDoneQty: 0,
       waitHandoverQty: sum(waitHandover.map(item => item.totalAvailableQty)),
       qcOrderCount: qcTasks.length,
       postOrderCount: postTasks.length,
-      recheckOrderCount: rechecks.length,
+      recheckOrderCount: 0,
       acceptanceStatus: deliveries.length ? 'ACCEPTED' : 'PENDING',
       acceptedAt: deliveries[0]?.registeredAt,
       acceptedBy: deliveries.length ? DEDICATED_POST_FACTORY_NAME : undefined,
@@ -568,19 +585,37 @@ export function listPostFinishingTasks(productionOrderIds?: ReadonlySet<string>)
 }
 
 export function getPostFinishingTaskById(taskId: string): PostFinishingTaskView | undefined {
+  // 正式任务ID/编号已有生产单归属，直达时无需复制其他生产单的质检快照。
+  // 原上游任务号仍按既有别名匹配，不能把它误当成本对象编号。
+  if (taskId.startsWith('PF-TASK-')) {
+    const task = listPostFinishingTasks(new Set([taskId.slice('PF-TASK-'.length)]))
+      .find(item => item.postTaskId === taskId)
+    if (task) return task
+  } else if (taskId.startsWith('PF-')) {
+    const task = getPostFinishingTaskByProductionOrder(taskId.slice('PF-'.length))
+    if (task?.postTaskNo === taskId) return task
+  }
   return listPostFinishingTasks().find((item) => item.postTaskId === taskId || item.postTaskNo === taskId || item.sourceTaskNos.includes(taskId))
 }
 
 export function getPostFinishingTaskByProductionOrder(orderIdOrNo: string): PostFinishingTaskView | undefined {
-  return listPostFinishingTasks().find((item) => item.productionOrderId === orderIdOrNo || item.productionOrderNo === orderIdOrNo)
+  // 保留车缝、毛织和特殊工艺的实际来源，来源退役后的历史仍通过原回货单保留。
+  const productionOrderIds = new Set<string>()
+  for (const order of [...listPostFinishingTaskSources(), ...listPostFinishingFactoryReturns()]) {
+    if (order.productionOrderId === orderIdOrNo || order.productionOrderNo === orderIdOrNo) productionOrderIds.add(order.productionOrderId)
+  }
+  if (!productionOrderIds.size) return undefined
+  return listPostFinishingTasks(productionOrderIds).find((item) => item.productionOrderId === orderIdOrNo || item.productionOrderNo === orderIdOrNo)
 }
 
 function buildQcSkuResults(task: PostFinishingQcTask, delivery: DeliverySnapshot[number] | undefined, factories: QcProjectionSnapshot['factories']): PostFinishingQcSkuResult[] {
-  const demoReworkUnitAmountIdr = task.productionOrderId.startsWith('PF-ACCEPT-PO-') ? 5000 : 0
+  const demoReworkUnitAmountIdr = 0
+  const inspection = getPostFinishingQcInspectionSummary(task)
   return task.lines.map((line) => {
     const result = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    const qualifiedQty = result?.passedQty || 0
-    const unqualifiedQty = (result?.returnQty || 0) + (result?.defectQty || 0)
+    const actual = inspection?.lines.find(row=>row.skuId===line.sku.skuId)
+    const qualifiedQty = actual?.passedQty ?? 0
+    const unqualifiedQty = actual ? actual.returnQty + actual.defectQty : 0
     const receiver = result?.returnReceiver
       ? factories.find((factory) => factory.name === result.returnReceiver)
       : undefined
@@ -615,11 +650,14 @@ function buildQcSkuResults(task: PostFinishingQcTask, delivery: DeliverySnapshot
       skuImageUrl: line.sku.imageUrl,
       colorName: line.sku.colorName,
       sizeName: line.sku.sizeName,
-      inspectedQty: result?.expectedQty || 0,
+      inspectedQty: actual?.inspectedQty || 0,
+      inspectionKnown:!!inspection,
+      uninspectedReleaseQty:task.status==='质检完成'?(result?.uninspectedQty||0):0,
+      releasedQty:result?.releasedQty??result?.passedQty??0,
       qualifiedQty,
       unqualifiedQty,
-      reworkQty: result?.returnQty || 0,
-      defectAcceptedQty: result?.defectQty || 0,
+      reworkQty: actual?.returnQty ?? 0,
+      defectAcceptedQty: actual?.defectQty ?? 0,
       platformReasonQty,
       factoryReasonQty: Math.max(unqualifiedQty - platformReasonQty, 0),
       reworkReceiveFactoryId: receiver?.id,
@@ -631,8 +669,9 @@ function buildQcSkuResults(task: PostFinishingQcTask, delivery: DeliverySnapshot
         : undefined,
       responsibleFactoryId: delivery?.sewingFactoryId,
       responsibleFactoryName: delivery?.sewingFactoryName,
+      inspectionIssueSummaries:task.inspection?.rounds.flatMap(round=>round.lines.filter(row=>row.skuId===line.sku.skuId).flatMap(row=>(row.issues||[]).map(issue=>`${(task.inspection!.snapshot.skuSnapshots?.find(sku=>sku.skuId===line.sku.skuId)?.snapshot || task.inspection!.snapshot).items.find(item=>item.id===issue.itemId)?.name || issue.itemId}${issue.note?`：${issue.note}`:''}`))),
       defectReasonItems,
-      postProjectJudgements: (task.frozenProcessItems || []).map((projectName) => ({ projectName, needed: true, qty: qualifiedQty })),
+      postProjectJudgements: (task.frozenProcessItems || []).map((projectName) => ({ projectName, needed: true, qty: result?.releasedQty ?? qualifiedQty })),
       qtyUnit: line.sku.qtyUnit,
       remark: result?.returnReason,
     }
@@ -691,15 +730,16 @@ function toQcAction(task: PostFinishingQcTask, snapshot: QcProjectionSnapshot): 
   action.postOrderId = task.postTaskId || ''
   action.postOrderNo = task.postTaskNo || ''
   action.linkedQcOrderId = task.qcTaskId
-  action.sourceFactoryName = delivery?.sewingFactoryName || ''
+  action.sourceFactoryName = task.sourceKind==='WAREHOUSE_STOCK'?task.sourceWarehouseName || '原仓待核对':delivery?.sewingFactoryName || ''
   action.warehouseAllocations = [{
     warehouseRecordId: `PF-WAIT-${task.deliveryId}`,
-    postTaskId: `PF-TASK-${task.productionOrderId}`,
+    postTaskId: task.sourceKind==='WAREHOUSE_STOCK'?'':`PF-TASK-${task.productionOrderId}`,
     productionOrderNo: task.productionOrderNo,
     sourceFactoryId: delivery?.sewingFactoryId,
     sourceFactoryName: delivery?.sewingFactoryName || '',
     qcQty: inspectedQty,
   }]
+  action.diffGarmentQty = 0 // QC records inspection outcomes; receipt differences belong to receipt confirmation.
   action.inspectedGarmentQty = inspectedQty
   action.passedGarmentQty = passedQty
   action.defectiveGarmentQty = unqualifiedQty
@@ -710,12 +750,12 @@ function toQcAction(task: PostFinishingQcTask, snapshot: QcProjectionSnapshot): 
   return action
 }
 
-function workOrderSkuLines(task: PostFinishingPostTask, rechecks: RecheckSnapshot): PostFinishingSkuLine[] {
+function workOrderSkuLines(task: PostFinishingPostTask, outbounds: ReturnType<typeof listPostFinishingFullFlowOutboundOrders>): PostFinishingSkuLine[] {
   return task.lines.map((line) => toSkuLine(line.sku, {
     plannedQty: line.expectedQty,
     receivedQty: line.expectedQty,
     availableQty: line.expectedQty,
-    handedOverQty: sum(rechecks.flatMap(row => row.lines.filter(q => q.sku.skuId === line.sku.skuId).map(q => q.handoverQty || 0))),
+    handedOverQty: sum(outbounds.filter(row=>row.status!=='待出货').flatMap(row => row.lines.filter(q => q.sku.skuId === line.sku.skuId).map(q => q.outboundQty))),
   }))
 }
 
@@ -729,7 +769,7 @@ function toReceiveAction(task: PostFinishingPostTask, skuLines: PostFinishingSku
 function toPostAction(task: PostFinishingPostTask, skuLines: PostFinishingSkuLine[], progress: ProcessProgress): PostFinishingActionRecord {
   const action = blankAction({ id: task.postTaskId, no: task.postTaskNo, type: '后道', status: task.status, lines: skuLines,
     submitted: sum(task.lines.map((line) => line.expectedQty)), accepted: progress.totalCompletedQty,
-    operator: [...new Set(progress.records.map(row => row.responsible.actorName))].join('、') || (task.executionModel ? undefined : '历史合并记录'), startedAt: task.startedAt, finishedAt: task.completedAt })
+    operator: [...new Set(progress.records.map(row => row.responsible.actorName))].join('、') || undefined, startedAt: task.startedAt, finishedAt: task.completedAt })
   action.completedPostGarmentQty = progress.totalCompletedQty
   return action
 }
@@ -749,11 +789,12 @@ function toWorkOrder(task: PostFinishingPostTask, snapshot: WorkOrderProjectionS
   const delivery = snapshot.deliveries.find((item) => item.deliveryId === task.deliveryId)
   const qc = snapshot.qcTasks.find((item) => item.qcTaskId === task.qcTaskId)
   const progress = getPostFinishingProcessProgress(task)
-  const rechecks = snapshot.rechecks.filter(item => item.postTaskId === task.postTaskId)
+  const rechecks:RecheckSnapshot = []
+  const outbounds=snapshot.outbounds.filter(item=>item.postTaskId===task.postTaskId)
   const recheck = rechecks.find(item => item.status !== '复检完成') || rechecks[0]
   const waitHandovers = snapshot.waitHandovers.filter(item => item.postTaskId === task.postTaskId)
   const waitHandover = waitHandovers.find(item => item.status !== '已交出') || waitHandovers[0]
-  const skuLines = workOrderSkuLines(task, rechecks)
+  const skuLines = workOrderSkuLines(task, outbounds)
   const plannedQty = sum(task.lines.map((line) => line.expectedQty))
   const recheckQty = sum(rechecks.flatMap(row => row.status === '复检完成' ? row.lines.map(line => line.handoverQty || 0) : []))
   const emptyReceive = toReceiveAction(task, skuLines, delivery)
@@ -766,7 +807,7 @@ function toWorkOrder(task: PostFinishingPostTask, snapshot: WorkOrderProjectionS
   const handoverAction = blankAction({
     id: waitHandovers.length > 1 ? '' : waitHandover?.outboundOrderId || '',
     no: waitHandovers.length > 1 ? waitHandovers.map(row => row.outboundOrderNo).join('、') : waitHandover?.outboundOrderNo || '',
-    type: '复检',
+    type: '出货',
     status: waitHandover?.status || '待交出',
     lines: skuLines,
     submitted: sum(waitHandovers.flatMap(row => row.lines.map(line => line.inboundQty))),
@@ -882,18 +923,19 @@ export function getPostFinishingSourceLabel(order: Pick<PostFinishingWorkOrder, 
 }
 
 export function getPostFinishingFlowText(order: Pick<PostFinishingWorkOrder, 'requiresPostFinishing'>): string {
-  return order.requiresPostFinishing ? 'QC → 后道加工 → 处理后交出复核 → 成衣仓交接' : 'QC → 成衣仓交接'
+  return order.requiresPostFinishing ? 'QC → 后道加工 → 后道出货单 → 实际发出 → 成衣仓接收' : 'QC → 后道出货单 → 实际发出 → 成衣仓接收'
 }
 
 export function listPostFinishingActionRecords(actionType?: PostFinishingActionType): PostFinishingActionRecord[] {
   if (actionType === '质检') return listPostFinishingQcOrders()
-  const rechecks = listPostFinishingFullFlowRecheckOrders()
-  if (actionType === '复检') return rechecks.map(toRecheckAction)
+  const rechecks:RecheckSnapshot=[]
+  if (actionType === '复检') return []
+  const outbounds=listPostFinishingFullFlowOutboundOrders()
   if (actionType && actionType !== '后道' && actionType !== '扫码收货') return []
   const tasks = listPostFinishingFullFlowPostTasks()
   const deliveries = actionType === '后道' ? [] : listPostFinishingFactoryReturns()
   const actions = tasks.flatMap(task => {
-    const skuLines = workOrderSkuLines(task, rechecks.filter(row => row.postTaskId === task.postTaskId))
+    const skuLines = workOrderSkuLines(task, outbounds.filter(row => row.postTaskId === task.postTaskId))
     const receive = () => toReceiveAction(task, skuLines, deliveries.find(row => row.deliveryId === task.deliveryId))
     const post = () => toPostAction(task, skuLines, getPostFinishingProcessProgress(task))
     if (actionType === '扫码收货') return [receive()]
@@ -904,7 +946,7 @@ export function listPostFinishingActionRecords(actionType?: PostFinishingActionT
   const qcSnapshot = { deliveries, factories: listFactoryMasterRecords() }
   // Preserve the public all-actions order: each parent's receive then post,
   // followed by every actual recheck and finally every QC (including QC-only).
-  return [...actions, ...rechecks.map(toRecheckAction), ...listPostFinishingFullFlowQcTasks().map(task => toQcAction(task, qcSnapshot))]
+  return [...actions, ...listPostFinishingFullFlowQcTasks().map(task => toQcAction(task, qcSnapshot))]
 }
 
 export function listPostFinishingQcOrders(): PostFinishingActionRecord[] {
@@ -917,10 +959,12 @@ export function listPostFinishingRecheckOrders(): PostFinishingActionRecord[] {
   return listPostFinishingActionRecords('复检')
 }
 
-export function listPostFinishingQcOrderEntities(): PostFinishingQcOrder[] {
+export function listPostFinishingQcOrderEntities(qcIdOrNo?: string): PostFinishingQcOrder[] {
   const deliveries = listPostFinishingFactoryReturns()
   const factories = listFactoryMasterRecords()
-  return listPostFinishingFullFlowQcTasks().map((task) => {
+  const selected = qcIdOrNo === undefined ? undefined : getPostFinishingFullFlowQcTask(qcIdOrNo)
+  const tasks = qcIdOrNo === undefined ? listPostFinishingFullFlowQcTasks() : selected ? [selected] : []
+  return tasks.map((task) => {
     const delivery = deliveries.find((item) => item.deliveryId === task.deliveryId)
     const skuResults = buildQcSkuResults(task, delivery, factories)
     const reworkReceiveFactoryIds = [...new Set(skuResults.map((line) => line.reworkReceiveFactoryId).filter(Boolean))].join('、')

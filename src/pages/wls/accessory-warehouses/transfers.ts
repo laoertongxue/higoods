@@ -35,8 +35,19 @@ const preparationFor = (transfer: AccessoryTransfer) => preparations().find(item
 function warehouseName(code: string | null): string { return code === 'DLN' ? 'DLN 后道工厂' : listAccessoryWarehouses().find(item => item.code === code)?.name || (code ? '仓库待核对' : '待定调入方') }
 function locationName(id: string): string { return listAccessoryWarehouseLocations().find(item => item.id === id)?.locationCode || '库位待核对' }
 function transferName(transfer: AccessoryTransfer): string {
+  if (transfer.manualTransferNo) return transfer.manualTransferNo
   const ordered = transfers().sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
   return `辅料调拨单 ${String(ordered.findIndex(item => item.id === transfer.id) + 1).padStart(3, '0')}`
+}
+function manualView(transfer: AccessoryTransfer): { title: string; subtitle: string; imageUrl: string; badge: string } | null {
+  if (transfer.creationMode !== 'MANUAL') return null
+  if (transfer.manualSource === 'GENERAL') return { title: '通用物料调拨', subtitle: '人工创建 · 不关联生产单', imageUrl: '', badge: '人工创建' }
+  return {
+    title: transfer.manualProductionOrderNo || transfer.productionOrderId,
+    subtitle: transfer.manualStyleName || '人工辅料调拨',
+    imageUrl: transfer.manualStyleImageUrl || '',
+    badge: '人工创建',
+  }
 }
 function route(transfer: AccessoryTransfer): string { return `${warehouseName(transfer.fromWarehouse)} → ${warehouseName(transfer.toWarehouse)}` }
 function quantities(transfer: AccessoryTransfer): string {
@@ -53,7 +64,7 @@ function filteredTransfers(): TransferRow[] {
     })
     : all.filter(item => item.fromWarehouse === warehouse().code).map(transfer => ({ id: transfer.id, transfer, preparation: prepared.find(item => item.id === transfer.preparationId) }))
   return rows.filter(row => (!status || (view === 'receipts' ? row.receipt?.status : row.transfer.status) === status)
-    && (!keyword || [row.preparation?.productionOrderNo, row.preparation?.styleName, route(row.transfer), ...row.transfer.lines.map(line => line.materialName)].join(' ').toLowerCase().includes(keyword.toLowerCase())))
+    && (!keyword || [row.preparation?.productionOrderNo, row.preparation?.styleName, row.transfer.manualTransferNo, row.transfer.manualProductionOrderNo, row.transfer.manualStyleName, row.transfer.manualSource === 'GENERAL' ? '通用物料' : '', route(row.transfer), ...row.transfer.lines.map(line => line.materialName)].join(' ').toLowerCase().includes(keyword.toLowerCase())))
     .sort((a, b) => b.transfer.createdAt.localeCompare(a.transfer.createdAt) || a.id.localeCompare(b.id))
 }
 function materialInfo(row: StockRow): { name: string; image: string; color: string; spec: string } {
@@ -68,7 +79,12 @@ function filteredStocks(): StockRow[] {
   return rows.filter(row => !keyword || [materialInfo(row).name, materialInfo(row).color, materialInfo(row).spec, row.preparation?.productionOrderNo, row.stock?.materialSku, row.transfer && route(row.transfer), row.stock && locationName(row.stock.locationId)].join(' ').toLowerCase().includes(keyword.toLowerCase()))
 }
 const transferColumns: StandardListColumn<TransferRow>[] = [
-  { key: 'order', title: '生产单 / 款式', width: 270, required: true, render: row => row.preparation ? `<div class="flex items-center gap-3">${accessoryImage(row.preparation.styleImageUrl, row.preparation.styleName)}<div><strong>${escapeHtml(row.preparation.productionOrderNo)}</strong><p>${escapeHtml(row.preparation.styleName)}</p><p class="text-xs text-muted-foreground">${escapeHtml(transferName(row.transfer))}</p></div></div>` : '<span class="text-amber-700">生产单资料待核对</span>' },
+  { key: 'order', title: '生产单 / 款式', width: 270, required: true, render: row => {
+    const manual = manualView(row.transfer)
+    if (row.preparation) return `<div class="flex items-center gap-3">${accessoryImage(row.preparation.styleImageUrl, row.preparation.styleName)}<div><strong>${escapeHtml(row.preparation.productionOrderNo)}</strong><p>${escapeHtml(row.preparation.styleName)}</p><p class="text-xs text-muted-foreground">${escapeHtml(transferName(row.transfer))}</p></div></div>`
+    if (manual) return `<div class="flex items-center gap-3">${manual.imageUrl ? accessoryImage(manual.imageUrl, manual.subtitle) : ''}<div><strong>${escapeHtml(manual.title)}</strong><p>${escapeHtml(manual.subtitle)}</p><p class="text-xs text-muted-foreground">${escapeHtml(transferName(row.transfer))} · ${escapeHtml(manual.badge)}</p></div></div>`
+    return '<span class="text-amber-700">生产单资料待核对</span>'
+  } },
   { key: 'route', title: '来源 → 去向', width: 250, render: row => escapeHtml(route(row.transfer)) },
   { key: 'status', title: '当前状态', width: 150, render: row => `<strong>${escapeHtml(view === 'receipts' ? row.receipt?.status || '待核对' : row.transfer.status)}</strong>${view === 'receipts' ? `<p class="text-xs text-muted-foreground">调拨：${escapeHtml(row.transfer.status)}</p>` : ''}` },
   { key: 'quantity', title: '整单数量', width: 140, render: row => quantities(row.transfer) },
@@ -117,9 +133,12 @@ function renderModal(): string {
   if (!modal) return ''
   const transfer = transfers().find(item => item.id === modal?.transferId)
   if (!transfer) return accessoryOverlay('调拨资料无法核对', '<p role="alert">该调拨资料已变化，请关闭并重新读取。</p>', '', 'transfer-close')
-  const preparation = preparationFor(transfer), receiving = modal.type === 'receive', dispatching = modal.type === 'dispatch'
+  const preparation = preparationFor(transfer), manual = manualView(transfer), receiving = modal.type === 'receive', dispatching = modal.type === 'dispatch'
   const title = receiving ? '确认收货并上架' : dispatching ? '整单确认出库' : '调拨明细和记录'
-  return accessoryOverlay(title, `<div class="space-y-4"><div class="flex items-center gap-3">${preparation ? accessoryImage(preparation.styleImageUrl, preparation.styleName) : ''}<div><strong>${escapeHtml(preparation?.productionOrderNo || '生产单资料待核对')}</strong><p>${escapeHtml(preparation?.styleName || '')}</p><p class="mt-1 text-sm">${escapeHtml(route(transfer))}</p></div></div><p class="text-sm">当前状态：${escapeHtml(transfer.status)}</p>${dispatching ? '<p class="rounded bg-amber-50 p-3 text-sm">确认后整单扣减发出仓实物及对应预留，辅料进入在途。目的仓须另行确认收货并上架。</p>' : receiving ? '<p class="rounded bg-blue-50 p-3 text-sm">逐行登记本次实收数量和本仓上架库位。实收须与整单应收一致，不能分批收货。</p>' : ''}<div class="overflow-x-auto">${lineTable(transfer, receiving)}</div>${modal.type !== 'detail' ? `<label class="grid max-w-sm gap-1 text-sm">确认仓管<input class="h-10 rounded border px-3" data-aw-transfer-actor value="${escapeHtml(drafts.get('actor') || '')}"></label>` : ''}<p role="alert" data-aw-transfer-error class="whitespace-pre-wrap text-sm text-red-600">${escapeHtml(error)}</p>${transfer.history.length ? `<section><h3 class="font-semibold">操作记录</h3><ol class="mt-2 space-y-2">${transfer.history.map(item => `<li class="rounded border p-3 text-sm"><strong>${escapeHtml(item.action)}</strong><p class="mt-1">${escapeHtml(item.detail)}</p><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.by)} · ${escapeHtml(item.at)}</p></li>`).join('')}</ol></section>` : ''}</div>`, modal.type === 'detail' ? '' : button(busy ? '正在保存…' : title, 'save', '', true, busy), 'transfer-close')
+  const identityImage = preparation ? accessoryImage(preparation.styleImageUrl, preparation.styleName) : manual?.imageUrl ? accessoryImage(manual.imageUrl, manual.subtitle) : ''
+  const identityTitle = preparation?.productionOrderNo || manual?.title || '生产单资料待核对'
+  const identitySubtitle = preparation?.styleName || manual?.subtitle || ''
+  return accessoryOverlay(title, `<div class="space-y-4"><div class="flex items-center gap-3">${identityImage}<div><strong>${escapeHtml(identityTitle)}</strong><p>${escapeHtml(identitySubtitle)}</p><p class="mt-1 text-sm">${escapeHtml(route(transfer))}</p></div></div><p class="text-sm">当前状态：${escapeHtml(transfer.status)}${manual ? ` · ${escapeHtml(manual.badge)}` : ''}</p>${dispatching ? '<p class="rounded bg-amber-50 p-3 text-sm">确认后整单扣减发出仓实物及对应预留，辅料进入在途。目的仓须另行确认收货并上架。</p>' : receiving ? '<p class="rounded bg-blue-50 p-3 text-sm">逐行登记本次实收数量和本仓上架库位。实收须与整单应收一致，不能分批收货。</p>' : ''}<div class="overflow-x-auto">${lineTable(transfer, receiving)}</div>${modal.type !== 'detail' ? `<label class="grid max-w-sm gap-1 text-sm">确认仓管<input class="h-10 rounded border px-3" data-aw-transfer-actor value="${escapeHtml(drafts.get('actor') || '')}"></label>` : ''}<p role="alert" data-aw-transfer-error class="whitespace-pre-wrap text-sm text-red-600">${escapeHtml(error)}</p>${transfer.history.length ? `<section><h3 class="font-semibold">操作记录</h3><ol class="mt-2 space-y-2">${transfer.history.map(item => `<li class="rounded border p-3 text-sm"><strong>${escapeHtml(item.action)}</strong><p class="mt-1">${escapeHtml(item.detail)}</p><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.by)} · ${escapeHtml(item.at)}</p></li>`).join('')}</ol></section>` : ''}</div>`, modal.type === 'detail' ? '' : button(busy ? '正在保存…' : title, 'save', '', true, busy), 'transfer-close')
 }
 function refreshWorkspace(): void { const host = root()?.querySelector<HTMLElement>('[data-aw-transfer-workspace]'); if (host) host.innerHTML = renderWorkspace() }
 function refreshModal(): void { const host = root()?.querySelector<HTMLElement>('[data-aw-transfer-modal]'); if (host) host.innerHTML = renderModal() }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { buildSkuFixture, buildStyleFixture, migrateProductFixtureImage } from '../../src/data/pcs-product-archive-fixtures.ts'
 import { migrateMaterialMockGallery, migrateMaterialMockImage, reviewedStyleImage } from '../../src/data/pcs-reviewed-image-catalog.ts'
-import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES, migratePostFinishingMockImages } from '../../src/data/fcs/post-finishing-production-source-fixtures.ts'
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from '../../src/data/fcs/post-finishing-production-source-fixtures.ts'
 
 test('PCS 图片按款号和颜色固定，尺码不改变照片，未知对象没有随机图片', () => {
   const white = buildSkuFixture('ASYSA26060310', '女式基础圆领短袖', 'White', 'S').skuImageUrl
@@ -30,15 +30,4 @@ test('后道 QC 来源 SKU 保留原身份和数量，五种颜色分别绑定�
     assert.equal(source.skus.reduce((total, sku) => total + sku.plannedQty, 0), 500)
     for (const sku of source.skus) assert.equal(sku.imageUrl, reviewedStyleImage(source.spuCode, sku.colorName))
   }
-})
-
-test('后道历史快照只迁移准确 SKU 的旧示意图，质检数量与用户图不变', () => {
-  const sku = POST_FINISHING_PRODUCTION_SOURCE_FIXTURES[0].skus[1]
-  const data = { qcTasks: [{ status: '质检完成', lines: [{ sku: { ...sku, imageUrl: '/shirt-sample.jpg' }, expectedQty: 80 }], results: [{ sku: { ...sku, imageUrl: '/uploads/customer.jpg' }, passedQty: 75, defectQty: 5 }] }], legacyRaw: '{old snapshot}' }
-  const expected = structuredClone(data)
-  expected.qcTasks[0].lines[0].sku.imageUrl = sku.imageUrl
-  migratePostFinishingMockImages(data)
-  assert.deepEqual(data, expected)
-  migratePostFinishingMockImages(data)
-  assert.deepEqual(data, expected)
 })

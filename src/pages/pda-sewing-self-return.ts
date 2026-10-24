@@ -55,6 +55,16 @@ export function resolveSewingSelfReturnRegistrationActor(
   return { actorId: runtime.userId, actorName: runtime.userName, roleName: runtime.roleId }
 }
 
+/** Only the actual administrator who opened this factory's public station takes this discard responsibility. */
+export function resolveSewingSelfReturnDiscardActor(
+  runtime: { userId: string; userName: string; roleId: string; factoryId: string },
+  lock: ReturnType<typeof getPdaSewingSelfReturnModeLock>,
+): { actorId: string; actorName: string; roleName: string } {
+  const publicReturnManager = lock?.active && lock.factoryId === runtime.factoryId && lock.openedBy === runtime.userName
+    && runtime.roleId === 'ROLE_ADMIN'
+  return { actorId: runtime.userId, actorName: runtime.userName, roleName: publicReturnManager ? '后道回货确认人员' : runtime.roleId }
+}
+
 function refreshPage(): void {
   appStore.navigate(`/fcs/pda/handover/sewing-self-return?refresh=${Date.now()}`)
 }
@@ -256,11 +266,13 @@ export async function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?
       if (!runtime) throw new Error('请先登录 PDA。')
       const reason = window.prompt('请填写废弃原因。废弃后只保留审计，不进入待加工仓，也不会生成质检单。')?.trim() || ''
       if (!reason) throw new Error('已取消废弃：必须填写废弃原因。')
-      if (!window.confirm(`确认废弃本次回货？\n${reason}`)) return true
+      const actor = resolveSewingSelfReturnDiscardActor(runtime, getPdaSewingSelfReturnModeLock())
+      const responsibility = actor.roleName === '后道回货确认人员' ? `\n本次由 ${actor.actorName} 承担后道回货确认责任。` : ''
+      if (!window.confirm(`确认废弃本次回货？\n${reason}${responsibility}`)) return true
       const discarded = await runPostFinishingCommand(() => discardPostFinishingFactoryReturn({
         deliveryId: actionNode.dataset.deliveryId || '',
         reason,
-        actor: { actorId: runtime.userId, actorName: runtime.userName, roleName: runtime.roleId },
+        actor,
       }))
       state.successText = `已废弃 ${discarded.deliveryOrderNo}；明细和原因已保留。`
       state.errorText = ''

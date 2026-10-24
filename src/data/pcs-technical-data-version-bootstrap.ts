@@ -1,4 +1,5 @@
 import { completeTechnicalPackDemoContent, applyTechnicalPackDemoReview } from './pcs-technical-data-demo-completion.ts'
+import { completeLegacyQcMaterialDemoContent } from './pcs-legacy-qc-demo-materials.ts'
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { listProductionDemandTechPackSeeds, type ProductionDemandTechPackSeed } from './pcs-production-demand-tech-pack-seeds.ts'
 import type {
@@ -1390,7 +1391,7 @@ export function createTechnicalDataVersionBootstrapSnapshot(
   return {
     version,
     records: reviewedRecords.map(record => ({ ...record, baseTechnicalVersionCode: record.baseTechnicalVersionId ? numericCodes.get(record.baseTechnicalVersionId) || record.baseTechnicalVersionCode : record.baseTechnicalVersionCode })),
-    contents: contents.map(completeTechnicalPackDemoContent),
+    contents: contents.map(content => completeLegacyQcMaterialDemoContent(content) ?? completeTechnicalPackDemoContent(content)),
     pendingItems,
   }
 }

@@ -1,5 +1,24 @@
-import type { TechnicalDataVersionStoreSnapshot } from './pcs-technical-data-version-types.ts'
+import type { TechnicalDataVersionContent, TechnicalDataVersionStoreSnapshot } from './pcs-technical-data-version-types.ts'
 import { getPcsDurableFileReference, getPcsDeletedRecordIds } from './pcs-record-runtime.ts'
+import { getLegacyQcDemoMaterialBinding } from './pcs-legacy-qc-demo-materials.ts'
+import { isRetiredProcessRouteCode, migrateProcessRouteSchema, removeRetiredProcessRouteEntries } from './tech-pack-process-route.ts'
+
+/** Exact authorized removal; material, review, published and other process facts stay owned by their source. */
+export function removeRetiredTechnicalProcessContent(content: TechnicalDataVersionContent): TechnicalDataVersionContent {
+  const retiredIds = new Set(content.processEntries.filter(entry => isRetiredProcessRouteCode(entry.processCode)).map(entry => entry.id))
+  const hasRetiredBomUsage = content.bomItems.some(item => item.usageProcessCodes?.some(isRetiredProcessRouteCode))
+  const costs = content.legacyCompatibleCostPayload?.processCostItems
+  const processId = (item: unknown): string => item && typeof item === 'object' && 'processId' in item ? String(item.processId || '') : ''
+  const hasRetiredCostCode = Array.isArray(costs) && costs.some(item => isRetiredProcessRouteCode(processId(item)))
+  if (!retiredIds.size && !hasRetiredBomUsage && !hasRetiredCostCode) return content
+  const route = retiredIds.size ? migrateProcessRouteSchema({ schemaVersion: content.processRouteSchemaVersion, migrationMarker: content.processRouteMigrationMarker, entries: content.processEntries }) : undefined
+  return {
+    ...content,
+    ...(route ? { processEntries: removeRetiredProcessRouteEntries(route.entries), processRouteSchemaVersion: route.schemaVersion, processRouteMigrationMarker: route.migrationMarker } : {}),
+    bomItems: content.bomItems.map(item => item.usageProcessCodes?.some(isRetiredProcessRouteCode) ? { ...item, usageProcessCodes: item.usageProcessCodes.filter(code => !isRetiredProcessRouteCode(code)) } : item),
+    ...(Array.isArray(costs) ? { legacyCompatibleCostPayload: { ...content.legacyCompatibleCostPayload, processCostItems: costs.filter(item => !retiredIds.has(processId(item)) && !isRetiredProcessRouteCode(processId(item))) } } : {}),
+  }
+}
 
 // Exact unedited static snapshots observed on 2026-10-06. A different record OR content stays user-owned.
 // The dual checksum is an identity fingerprint for demo data, not a security primitive.
@@ -78,21 +97,28 @@ function demoSignature(value: unknown): string {
 export function projectUneditedLegacyTechnicalDemo(source: TechnicalDataVersionStoreSnapshot, current: TechnicalDataVersionStoreSnapshot): TechnicalDataVersionStoreSnapshot {
   const deleted = getPcsDeletedRecordIds('higood-pcs-technical-data-version-store-v5')
   const mayAdd = (id: string) => !deleted.has(`higood-pcs-technical-data-version-store-v5/records/${encodeURIComponent(id)}`)
-  const frozenWashingIds=new Set(source.records.filter(record=>record.versionStatus==='PUBLISHED'&&source.contents.find(content=>content.technicalVersionId===record.technicalVersionId)?.processEntries.some(entry=>['WASH','craft-wash'].includes(entry.processCode))).map(record=>record.technicalVersionId))
+  // Do not use retirement as permission to replace an entire published version with a different demo.
+  const publishedRetiredRouteIds = new Set(source.records.filter(record => record.versionStatus === 'PUBLISHED' && source.contents.find(content => content.technicalVersionId === record.technicalVersionId)?.processEntries.some(entry => isRetiredProcessRouteCode(entry.processCode))).map(record => record.technicalVersionId))
   const oldContents = new Map(source.contents.map(content => [content.technicalVersionId, content]))
   const newRecords = new Map(current.records.map(record => [record.technicalVersionId, record]))
   const newContents = new Map(current.contents.map(content => [content.technicalVersionId, content]))
-  const correctedReleaseContents = new Set(source.contents.filter(content => !frozenWashingIds.has(content.technicalVersionId) && RELEASE_DEMO_CONTENT_SIGNATURES[content.technicalVersionId]?.includes(demoSignature(content)) && newContents.has(content.technicalVersionId)).map(content => content.technicalVersionId))
+  // This material revision updates static defaults only. An already-saved QC
+  // demo remains its original basis, even when it matches a former demo exactly.
+  const correctedReleaseContents = new Set(source.contents.filter(content => !getLegacyQcDemoMaterialBinding(content.technicalVersionId) && !publishedRetiredRouteIds.has(content.technicalVersionId) && RELEASE_DEMO_CONTENT_SIGNATURES[content.technicalVersionId]?.includes(demoSignature(content)) && newContents.has(content.technicalVersionId)).map(content => content.technicalVersionId))
   const upgraded = new Set<string>()
   const records = source.records.map(record => {
     const signatures = LEGACY_DEMO_SIGNATURES[record.technicalVersionId]
     const replacement = newRecords.get(record.technicalVersionId), content = oldContents.get(record.technicalVersionId)
-    if (frozenWashingIds.has(record.technicalVersionId) || !signatures || !replacement || !content || demoSignature(record) !== signatures[0] || demoSignature(content) !== signatures[1]) return record
+    if (publishedRetiredRouteIds.has(record.technicalVersionId) || !signatures || !replacement || !content || demoSignature(record) !== signatures[0] || demoSignature(content) !== signatures[1]) return record
     upgraded.add(record.technicalVersionId)
     return { ...replacement, createdFromTaskType: record.createdFromTaskType, createdFromTaskId: record.createdFromTaskId, createdFromTaskCode: record.createdFromTaskCode, sourceProjectId: record.sourceProjectId, sourceProjectCode: record.sourceProjectCode, sourceProjectName: record.sourceProjectName, sourceProjectNodeId: record.sourceProjectNodeId, primaryPlateTaskId: record.primaryPlateTaskId, primaryPlateTaskCode: record.primaryPlateTaskCode, primaryPlateTaskVersion: record.primaryPlateTaskVersion, changeScope: record.changeScope, changeSummary: record.changeSummary }
   })
   const existingIds = new Set(records.map(record => record.technicalVersionId))
   // Only the complete observed old demo may gain its four newly supplied examples. A deleted/missing old row is not resurrected.
   const extendCompleteOldDemo = upgraded.size === Object.keys(LEGACY_DEMO_SIGNATURES).length
-  return { ...source, records: [...records, ...(extendCompleteOldDemo ? current.records.filter(record => !existingIds.has(record.technicalVersionId) && mayAdd(record.technicalVersionId)) : [])], contents: [...source.contents.map(content => upgraded.has(content.technicalVersionId) || correctedReleaseContents.has(content.technicalVersionId) ? newContents.get(content.technicalVersionId)! : content), ...(extendCompleteOldDemo ? current.contents.filter(content => !existingIds.has(content.technicalVersionId) && mayAdd(content.technicalVersionId)) : [])] }
+  const projectedRecords = [...records, ...(extendCompleteOldDemo ? current.records.filter(record => !existingIds.has(record.technicalVersionId) && mayAdd(record.technicalVersionId)) : [])]
+  const selectedContents = [...source.contents.map(content => upgraded.has(content.technicalVersionId) || correctedReleaseContents.has(content.technicalVersionId) ? newContents.get(content.technicalVersionId)! : content), ...(extendCompleteOldDemo ? current.contents.filter(content => !existingIds.has(content.technicalVersionId) && mayAdd(content.technicalVersionId)) : [])]
+  const contents = selectedContents.map(removeRetiredTechnicalProcessContent)
+  const removedCounts = new Map(contents.flatMap((content, index) => content.processEntries.length !== selectedContents[index].processEntries.length ? [[content.technicalVersionId, content.processEntries.length] as const] : []))
+  return { ...source, records: projectedRecords.map(record => removedCounts.has(record.technicalVersionId) ? { ...record, processEntryCount: removedCounts.get(record.technicalVersionId)! } : record), contents }
 }

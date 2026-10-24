@@ -1,5 +1,5 @@
 import { readPcsRecords, type PcsStoredRecord } from '../pcs-record-db.ts'
-import { registerSpecialCraftStorageBridge, rebuildWashingLedger, splitWashingLedger, sameProcessLedgerRow, WASHING_LEGACY_KEYS, WATER_EXECUTION_STORAGE_KEY, type ProcessLedgerRow } from './fabric-washing-storage-bridge.ts'
+import { registerSpecialCraftStorageBridge, rebuildFactoryProcessLedger, splitFactoryProcessLedger, sameProcessLedgerRow, FACTORY_PROCESS_KEYS, WATER_EXECUTION_STORAGE_KEY, type ProcessLedgerRow } from './factory-process-storage.ts'
 import { hydrateDesignRevisionFcsCaches } from './design-revision-pcs-storage.ts'
 
 // Retain the existing collection identities; ordinary dye execution shares the
@@ -8,7 +8,7 @@ export const SPECIAL_CRAFT_RECORDS = 'fcs.special-craft.records.v1'
 export const SPECIAL_CRAFT_LEDGER_RECORDS = 'fcs.special-craft.ledger-records.v1'
 export const CENTRAL_EXECUTION_COMMAND_GUARDS = 'fcs.central-execution.command-guards.v1'
 export const CENTRAL_EXECUTION_COLLECTIONS = [SPECIAL_CRAFT_RECORDS, SPECIAL_CRAFT_LEDGER_RECORDS, CENTRAL_EXECUTION_COMMAND_GUARDS]
-export const CENTRAL_EXECUTION_LEGACY_KEYS = [...WASHING_LEGACY_KEYS, WATER_EXECUTION_STORAGE_KEY]
+export const CENTRAL_EXECUTION_LEGACY_KEYS = [...FACTORY_PROCESS_KEYS]
 type LedgerRow = ProcessLedgerRow & { legacyKey: string; deleted?: boolean }
 let snapshot = new Map<string, PcsStoredRecord>(), epoch = 0, loaded = false
 let pending: Promise<void> | undefined
@@ -85,18 +85,18 @@ registerSpecialCraftStorageBridge({
   read(key, raw) {
     if (!CENTRAL_EXECUTION_LEGACY_KEYS.includes(key)) return raw
     if (staged?.has(key)) return staged.get(key)!
-    return rebuildWashingLedger(raw, ledgerRows(key))
+    return rebuildFactoryProcessLedger(raw, ledgerRows(key))
   },
   write(key, raw) {
     if (!CENTRAL_EXECUTION_LEGACY_KEYS.includes(key)) return { handled: false }
-    if (staged) { staged.set(key, raw); return { handled: !(forwardStagedWrites && WASHING_LEGACY_KEYS.includes(key)) } }
+    if (staged) { staged.set(key, raw); return { handled: !(forwardStagedWrites && FACTORY_PROCESS_KEYS.includes(key)) } }
     if (key === WATER_EXECUTION_STORAGE_KEY && typeof window !== 'undefined') throw new Error('水溶记录须通过对应业务动作保存，本次未保存。')
     const owned = ledgerRows(key)
     if (owned.length) {
       // The underlying PCS/native document need not contain Central overlays.
       // Compare with their actual owner, including deletion, before allowing a
       // separate writer to retain those unchanged rows in its combined view.
-      const after = new Map(splitWashingLedger(raw).map(row => [row.path + '/' + row.key, row]))
+      const after = new Map(splitFactoryProcessLedger(raw).map(row => [row.path + '/' + row.key, row]))
       if (owned.some(row=>row.deleted?after.has(row.path+'/'+row.key):!sameProcessLedgerRow(row,after.get(row.path+'/'+row.key)))) throw new Error('收发记录须通过对应业务动作保存，本次未保存。')
     }
     return { handled: false }

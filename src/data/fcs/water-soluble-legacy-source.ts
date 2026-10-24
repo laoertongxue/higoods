@@ -1,4 +1,4 @@
-import { WATER_EXECUTION_STORAGE_KEY } from './fabric-washing-storage-bridge.ts'
+import { WATER_EXECUTION_STORAGE_KEY } from './factory-process-storage.ts'
 
 export function waterSolubleLegacyRaw(): string | null {
   if (typeof window === 'undefined') return null

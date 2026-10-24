@@ -36,6 +36,8 @@ const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-ha
 const getPcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pcs-handlers'))
 const getPmsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pms-handlers'))
 const getPdaHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pda-handlers'))
+const getFactoryQcPageModule = createRetryableModuleLoader(() => import('./pages/process-factory/shared/factory-qc.ts'))
+const getStenterHandfeelPageModule = createRetryableModuleLoader(() => import('./pages/process-factory/dyeing/stenter-handfeel/work-orders.ts'))
 const getRealQrModule = createRetryableModuleLoader(() => import('./components/real-qr'))
 
 function hydrateRealQRCodes(host: ParentNode): void {
@@ -369,9 +371,11 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(accessoryRecovery, event)
   }
   const eventTarget = target as HTMLElement
-  if (target.closest('[data-fabric-washing-action], [data-washing-context-role], [data-washing-context-factory], [data-washing-judgment-root], [data-washing-detail-root], [data-washing-list-root]')) {
-    const page = await import('./pages/process-factory/dyeing/washing/work-orders.ts')
-    return page.handleFabricWashingEvent(eventTarget, event)
+  if (target.closest('[data-factory-qc-root], [data-factory-qc-action], [data-factory-qc-image-overlay]')) {
+    return (await getFactoryQcPageModule()).handleFactoryQcEvent(eventTarget, event)
+  }
+  if (target.closest('[data-stenter-list-root], [data-stenter-detail-root], [data-stenter-handfeel-action], [data-stenter-handfeel-field]')) {
+    return (await getStenterHandfeelPageModule()).handleStenterHandfeelEvent(eventTarget, event)
   }
   if (target.closest('[data-post-finishing-action="storage-migrate"], [data-post-finishing-action="storage-retry"]')) {
     const page = await import('./pages/process-factory/post-finishing/storage-notice.ts')
@@ -379,6 +383,15 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (target.closest('[data-post-verified-print]')) {
+    if (event?.type !== 'click') return true
+    eventTarget.dataset.pmsEventHandledLocally = 'true'
+    await (await import('./pages/print/post-finishing-print-ready.ts')).preparePostFinishingPrint(target.closest<HTMLElement>('[data-post-verified-print]')!)
+    return true
+  }
+  if (pagePath.startsWith('/fcs/quality-management/')) return event ? (await import('./pages/quality-management/index.ts')).handleQualityManagementEvent(event) : false
+  if (pagePath === '/fcs/sewing-outsourcing/sample-approval-suggestions') return (await import('./pages/sewing-outsourcing/sample-approval-suggestions.ts')).handleSampleApprovalSuggestionsEvent(eventTarget, event)
+  if (pagePath === '/wls/finished/inventory-quality' || pagePath.startsWith('/wls/finished/inventory-quality/')) return (await import('./pages/wls/finished/inventory-quality.ts')).handleFinishedInventoryQualityEvent(eventTarget, event)
   if (pagePath === '/fcs/progress/material') {
     // This list owns its fields; typing and opening a native select must not
     // initialize unrelated factory execution modules or consume native clicks.
@@ -449,9 +462,9 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/sewing-outsourcing/daily-return-report.ts')
     return page.handlePpicDailyReturnReportEvent(eventTarget, event)
   }
-  if (pagePath === '/fcs/sewing-outsourcing/daily-return-summary') {
-    const page = await import('./pages/sewing-outsourcing/daily-return-summary.ts')
-    return page.handlePpicDailyReturnSummaryEvent(eventTarget, event)
+  if (pagePath === '/fcs/sewing-outsourcing/daily-return-statistics') {
+    const page = await import('./pages/sewing-outsourcing/daily-return-statistics.ts')
+    return page.handlePpicDailyStatisticsEvent(eventTarget, event)
   }
   if (pagePath === '/fcs/dispatch/workbench') {
     const page = await import('./pages/unified-dispatch-workbench.ts')
@@ -746,6 +759,23 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
 }
 
+function isFactoryPhysicalUiTarget(target: Element): boolean {
+  return !!target.closest('[data-factory-qc-root], [data-factory-qc-action], [data-factory-qc-image-overlay], [data-stenter-list-root], [data-stenter-detail-root], [data-stenter-handfeel-action], [data-stenter-handfeel-field]')
+}
+
+async function confirmFactoryQcShellLeave(actionNode: HTMLElement): Promise<boolean> {
+  if (!root.querySelector('[data-factory-qc-root]')) return true
+  const action = actionNode.dataset.action, current = appStore.getState()
+  let changesRoute = action === 'switch-system' || action === 'close-all-tabs'
+  if (action === 'open-tab') changesRoute = !!actionNode.dataset.tabHref && actionNode.dataset.tabHref !== current.pathname
+  if (action === 'activate-tab') {
+    const tab = Object.values(current.allTabs).flatMap(group => group.tabs).find(item => item.key === actionNode.dataset.tabKey)
+    changesRoute = !!tab && tab.href !== current.pathname
+  }
+  if (action === 'close-tab') changesRoute = Object.values(current.allTabs).some(group => group.activeKey === actionNode.dataset.tabKey)
+  return !changesRoute || (await getFactoryQcPageModule()).confirmFactoryQcLeave()
+}
+
 async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
@@ -817,6 +847,7 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 async function closeDialogsOnEscape(): Promise<boolean> {
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/sewing-outsourcing/sample-approval-suggestions') return (await import('./pages/sewing-outsourcing/sample-approval-suggestions.ts')).closeSampleApprovalSuggestionDialog()
   if (pagePath === '/fcs/settlement/statements') {
     const page = await import('./pages/statements.ts')
     if (!page.isStatementsDialogOpen()) return false
@@ -1032,7 +1063,7 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     || (normalizedPathname === '/fcs/print/preview'
       && ['PRODUCTION_QC_MASTER', 'POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') || ''))
   const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
-    '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns',
+    '/fcs/sewing-outsourcing/daily-return-statistics', '/fcs/sewing-outsourcing/returns',
     '/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)
   if ((!postFinishingEntry && !dailyReturnReadEntry && !isIsolatedCraftReadEntry(normalizedPathname)) || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
     productionSourceEffectsHydration ??= import('./data/fcs/production-context-actions.ts')
@@ -1041,10 +1072,115 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     await productionSourceEffectsHydration
   }
 }
+let qualityNavigationDirty: (() => boolean) | undefined
+function isQualityInventoryEntry(pathname:string):boolean {
+  return /^\/wls\/(?:finished\/(?:inventory-quality|stock\/(?:realtime|location|flow|transfer)|outbound-orders|pre-inbound|putaway)|(?:online|stock-online)\/warehouse-stock)(?:\/|$)/.test(pathname)
+}
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  if (normalizedPathname.startsWith('/fcs/quality-management/')) {
+    if (/\/(?:records|audits|statistics)(?:\/|$)/.test(normalizedPathname)) await (await import('./data/fcs/quality-business-bridge.ts')).prepareQualityBusinessSources()
+    const qualityPage = await import('./pages/quality-management/index.ts')
+    qualityNavigationDirty = qualityPage.qualityManagementHasUnsavedChanges
+    await qualityPage.prepareQualityManagementPage(normalizedPathname)
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
+  if (isQualityInventoryEntry(normalizedPathname)) {
+    // Inventory queries consume their own facts and canonical product/channel
+    // identity. The original joint command prepares finishing before a write.
+    await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState([
+      'higood-pcs-config-workspace-store-v1', 'higood-pcs-material-config-v1',
+      'higood-pcs-style-archive-store-v3', 'higood-pcs-sku-archive-store-v1',
+      'higood-pcs-channel-catalog-v1', 'higood-pcs-channel-store-v1',
+    ])
+    await (await import('./data/wls/finished-inventory-records.ts')).ensureFinishedInventoryRecords()
+    // Warehouse views read their own saved application/inventory facts. The
+    // original joint command prepares finishing facts before a related write.
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
+  const postFactReadEntry = normalizedPathname.startsWith('/fcs/craft/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/exec/PF-POST-')
+    || normalizedPathname === '/fcs/pda/handover'
+    || normalizedPathname.startsWith('/fcs/pda/handover/HOH-POST-')
+    || normalizedPathname.startsWith('/fcs/pda/warehouse/')
+    || normalizedPathname === '/wls/finished-inbound'
+    || (normalizedPathname === '/fcs/print/preview' && (new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType')?.startsWith('POST_FINISHING_')
+      || new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'PRODUCTION_QC_MASTER'))
+  let qcReadEntry=false
+  let productionPrintSnapshot: import('./data/fcs/cutting/cutting-record-repository.ts').CuttingRecordSnapshot | undefined
+  if(postFactReadEntry) {
+    // Fetch the independent repository module early; its hydration still waits
+    // for PCS, preserving all original source/read failure gates.
+    const postRecordModule = import('./data/fcs/post-finishing-records.ts')
+    const productionQcMaster = normalizedPathname === '/fcs/print/preview'
+      && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'PRODUCTION_QC_MASTER'
+    if (productionQcMaster) {
+      qcReadEntry=true
+      // The cutting snapshot is independent of PCS preparation. Keep the PCS
+      // guard before finishing hydration and await both complete original
+      // sources before the formal owner consumes this exact snapshot once.
+      const [, snapshot] = await Promise.all([
+        (async () => {
+          await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
+          await (await postRecordModule).ensurePostFinishingExecutionRecordState(appStore.getState().pathname)
+        })(),
+        productionEntryHydration ? undefined : import('./data/fcs/cutting/cutting-record-repository.ts').then(records => records.readPostFinishingProductionRecords()),
+      ])
+      productionPrintSnapshot = snapshot
+    } else {
+      // The shipped handover reads an independent production snapshot. Start
+      // that native read alongside PCS/QC preparation, but do not hydrate any
+      // consumer until both original sources have finished and passed guards.
+      const shippedProductionRead = normalizedPathname === '/fcs/pda/handover'
+        && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('tab') === 'shipped'
+        && !productionEntryHydration
+        ? import('./data/fcs/cutting/cutting-record-repository.ts').then(records => records.readPostFinishingProductionRecords())
+        : undefined
+      shippedProductionRead?.catch(() => undefined)
+      // Garment identity and the bound technical/material references are enough
+      // to identify an inventory QC. Production entries additionally prepare
+      // their original full source before any production consumer is rendered.
+      await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState(normalizedPathname!=='/fcs/craft/post-finishing/qc-workbench' ? [] : [
+        'higood-pcs-config-workspace-store-v1','higood-pcs-material-config-v1',
+        'higood-pcs-style-archive-store-v3','higood-pcs-sku-archive-store-v1',
+        'higood-pcs-channel-catalog-v1','higood-pcs-channel-store-v1',
+        'higood-pcs-material-archive-store-v2','higood-pcs-technical-data-version-store-v5',
+        'higood-fcs-production-tech-pack-publish-evaluations-v1',
+      ])
+      const postRecords=await postRecordModule
+      await postRecords.ensurePostFinishingExecutionRecordState(appStore.getState().pathname)
+      if (shippedProductionRead) productionPrintSnapshot = await shippedProductionRead
+      const qcEntry=await import('./data/fcs/post-finishing-qc-entry.ts')
+      qcReadEntry=qcEntry.isPreparedQcRoute(appStore.getState().pathname)
+      // The shared handover page also consumes part tickets during module setup.
+      // Await that real source (and its read/migration errors) before rendering;
+      // this specific receipt does not consume sewing sample history or events.
+      if (normalizedPathname.startsWith('/fcs/pda/handover/HOH-POST-')) {
+        const records = await import('./data/fcs/cutting/cutting-record-repository.ts')
+        // Include both part-ticket: entities and part-ticket-migration: markers
+        // from the same original revision; saving still reloads the full source.
+        await hydratePartTicketsForEntry(normalizedPathname, await records.readCuttingRecordsByPrefix('part-ticket'))
+        previousRenderedPagePathname=normalizedPathname
+        return
+      }
+      if(qcEntry.isPreparedInventoryQcRoute(appStore.getState().pathname)) {
+        // Execution and paper preview consume the already-received QC facts.
+        // The original QC mutation handler prepares the warehouse participant
+        // before any joint completion; viewing does not reread unrelated stock.
+        await (await import('./data/fcs/quality-management-records.ts')).ensureQualityManagementRecords()
+        previousRenderedPagePathname=normalizedPathname
+        return
+      }
+    }
+  }
+  if (normalizedPathname.startsWith('/fcs/craft/post-finishing/')) {
+    await (await import('./data/fcs/quality-management-records.ts')).ensureQualityManagementRecords()
+  }
   // Direct downstream and print entries read committed wool facts without first
   // visiting a wool page. Load their shared PCS/FCS dependencies before rendering.
-  if (/^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/(?:finished-inbound|finished\/stock\/realtime)$|fcs\/print\/preview$)/.test(normalizedPathname)) {
+  if (!qcReadEntry && /^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/(?:finished-inbound|finished\/stock\/realtime)$|fcs\/print\/preview$)/.test(normalizedPathname)) {
     await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
   }
   // Ordinary procurement pages hydrate their own direct sources; they do not load production/cutting records.
@@ -1052,6 +1188,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     previousRenderedPagePathname = normalizedPathname
     return
   }
+  if (/^\/pcs\/products\/channel-products(?:\/|$)/.test(normalizedPathname)) await (await import('./data/wls/finished-inventory-records.ts')).ensureFinishedInventoryRecords()
   // 档案、渠道和基础配置独立读取 PCS 记录。引用核查与仓储可售各自
   // 准备所需来源；生产准备等消费正式生产事实的页面仍走下面的初始化。
   if (/^\/los\/live-room(\/|$)/.test(normalizedPathname) || /^\/pcs\/(?:products\/(?:styles|specifications|channel-products)|materials|channels\/stores|settings\/config-workspace)(\/|$)/.test(normalizedPathname)) {
@@ -1060,10 +1197,12 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
   }
   // 一次页面会话只初始化一次读视图；保存动作自行在同一快照上读回。
   // 局部输入导致的render不得再次抢占保存/迁移锁，也不得并发初始化。
+  if(!postFactReadEntry && productionEntryHydration && !(await import('./data/fcs/production-context-records.ts')).isProductionContextReady())productionEntryHydration=undefined
   productionEntryHydration ??= (async () => {
     const [productionContext,records] = await Promise.all([import('./data/fcs/production-context-records.ts'),import('./data/fcs/cutting/cutting-record-repository.ts')])
-    const snapshot=await records.readCuttingRecords()
-    await productionContext.hydrateProductionContextRecords(snapshot)
+    const snapshot=productionPrintSnapshot ?? await (postFactReadEntry ? records.readPostFinishingProductionRecords() : records.readCuttingRecords())
+    if(postFactReadEntry)await productionContext.hydratePostFinishingProductionContextRecords(snapshot)
+    else await productionContext.hydrateProductionContextRecords(snapshot)
     await hydratePartTicketsForEntry(normalizedPathname, snapshot)
     await hydrateProductionSourceEffectsForEntry(normalizedPathname)
     if(normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/') || normalizedPathname==='/fcs/print/preview') {
@@ -1079,8 +1218,18 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     || normalizedPathname === '/fcs/pda/warehouse/wait-handover'
     || normalizedPathname === '/fcs/print/preview') {
-    cuttingEntryHydration ??= import('./data/fcs/cutting/cutting-event-repository.ts').then(records => records.hydrateCuttingEventRecords())
-      .catch(error => { cuttingEntryHydration = undefined; throw error })
+    cuttingEntryHydration ??= import('./data/fcs/cutting/cutting-event-repository.ts').then(async events => {
+      if (normalizedPathname === '/fcs/pda/handover'
+        && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('tab') === 'shipped') {
+        // A prior QC list may already have prepared production without the
+        // cutting event reader. Reuse the same complete non-sample source
+        // contract on this adjacent navigation, rather than loading samples.
+        const snapshot = await (await import('./data/fcs/cutting/cutting-record-repository.ts')).readPostFinishingProductionRecords()
+        await (await import('./data/fcs/production-context-records.ts')).hydratePostFinishingProductionContextRecords(snapshot)
+        await (await import('./data/fcs/cutting/part-ticket-records.ts')).hydratePartTicketRecords(snapshot)
+        await events.hydrateCuttingEventRecords(snapshot, true)
+      } else await events.hydrateCuttingEventRecords()
+    }).catch(error => { cuttingEntryHydration = undefined; throw error })
     await cuttingEntryHydration
   }
   const isSupplementManagementEntry =
@@ -1140,6 +1289,17 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
   if (authorizedCostCleanupError) return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(authorizedCostCleanupError)
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // These direct consumers must read the same committed QC/source/handfeel
+    // records before importing pages that project them at module evaluation.
+    const factoryQcReadEntry = /^\/fcs\/(?:craft\/(?:printing|dyeing)(?:\/|$)|production\/orders\/|pda\/(?:handover|warehouse|stenter-handfeel)(?:\/|$)|pda\/exec\/TASK-(?:PRINT|DYE|WATER)-)/.test(normalizedPathname)
+      || /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(normalizedPathname)
+      || ['/wls/inbound', '/wls/raw/inbound-list'].includes(normalizedPathname)
+    if (factoryQcReadEntry) {
+      const records = await import('./data/fcs/factory-qc.ts')
+      const shippedReadOnly = normalizedPathname === '/fcs/pda/handover' && new URLSearchParams(pathname.split('?')[1] || '').get('tab') === 'shipped'
+      if (shippedReadOnly || normalizedPathname.startsWith('/fcs/pda/handover/HOH-POST-')) await records.ensureFactoryQcViewRecords()
+      else await records.ensureFactoryQcRecords()
+    }
     // These page owners read no production/cutting sources. Keep their direct
     // entries independent; later business navigation still prepares its records.
     if (/^\/fcs\/craft\/workbench\/overview\/?$/.test(normalizedPathname)) {
@@ -1247,7 +1407,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // These physical entries hydrate their own committed records in the route
     // renderer. The generic entry below also initializes unrelated procurement
     // and workshop demos, and its direct handover branch bypasses that guard.
-    if (/^\/fcs\/(?:craft\/dyeing\/washing\/work-orders(?:\/[^/]+)?|pda\/washing(?:\/[^/]+)?|craft\/printing\/work-orders\/[^/]+|craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse|pda\/exec\/(?:TASK-PRINT-[^/]+|TASK-PWO-WASH-[^/]+)|pda\/handover|pda\/warehouse\/(?:wait-process|wait-handover))$/.test(normalizedPathname)) {
+    if (/^\/fcs\/(?:craft\/(?:printing|dyeing)\/qc-orders(?:\/[^/]+)?|craft\/dyeing\/stenter-handfeel\/work-orders(?:\/[^/]+)?|pda\/stenter-handfeel(?:\/[^/]+)?|craft\/printing\/work-orders\/[^/]+|craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse|pda\/exec\/TASK-PRINT-[^/]+|pda\/handover|pda\/warehouse\/(?:wait-process|wait-handover))$/.test(normalizedPathname)) {
       // Keep the existing PCS/FCS read contract ready before any later adjacent
       // navigation starts its handlers or shared catalogue module evaluation.
       try { await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState() } catch(error) {
@@ -1283,9 +1443,12 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
       || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     const factoryReceiptReadEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/pending-receipts$/.test(normalizedPathname)
+    // These source lists already prepare QC/PCS/FCS facts. Unrelated supplier
+    // archive module evaluation can otherwise race their scoped PCS hydration.
+    const factorySourceListEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/work-orders\/?$/.test(normalizedPathname)
     // Onboarding retains the existing PCS/FCS preparation and PDA handlers;
     // its form does not consume procurement initialization.
-    if (normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
+    if (!normalizedPathname.startsWith('/fcs/quality-management/') && !isQualityInventoryEntry(normalizedPathname) && normalizedPathname !== '/fcs/pda/auth/onboarding' && !factoryReceiptReadEntry && !factorySourceListEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }
@@ -1334,8 +1497,15 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       }
     }
     await preparePageRouteEntry(normalizedPathname)
-    if (['/fcs/craft/post-finishing/qc-orders', '/fcs/craft/post-finishing/qc-workbench', '/fcs/craft/post-finishing/print', '/fcs/print/preview', '/wls/finished/stock/realtime'].includes(normalizedPathname)) {
+    if (['/fcs/craft/post-finishing/qc-orders','/fcs/craft/post-finishing/qc-workbench','/fcs/craft/post-finishing/print','/fcs/print/preview','/wls/finished/stock/realtime'].includes(normalizedPathname)) {
+    const priorityHref=appStore.getState().pathname,priorityParams=new URLSearchParams(priorityHref.split('?')[1]||'')
+    const priorityPrint=normalizedPathname==='/fcs/craft/post-finishing/print'&&['QC_ORDER','QC_DETAIL'].includes(priorityParams.get('type')||'')
+      || normalizedPathname==='/fcs/print/preview'&&['PRODUCTION_QC_MASTER','POST_FINISHING_QC_ORDER'].includes(priorityParams.get('documentType')||'')
+    const priorityEntry=['/fcs/craft/post-finishing/qc-orders','/wls/finished/stock/realtime'].includes(normalizedPathname)||priorityPrint
+    const inventoryQc=priorityEntry&&(await import('./data/fcs/post-finishing-qc-entry.ts')).isPreparedInventoryQcRoute(priorityHref)
+    if (priorityEntry&&!inventoryQc) {
       await (await import('./data/fcs/post-finishing-qc-shipping-priority-runtime.ts')).preparePostFinishingQcShippingPriority()
+    }
     }
     if (['/fcs/craft/cutting/replacement-fabric-fei-tickets', '/fcs/craft/cutting/warehouse-management/wait-handover', '/fcs/pda/cutting/simple-cut-piece-handover'].includes(normalizedPathname)) {
       // The same published ordinary-ticket fixtures used by task printing and
@@ -1352,7 +1522,11 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       isGeneratedIndependentSewing = Boolean(generatedTask && isRuntimeIndependentSewingTask(generatedTask))
       if (!isGeneratedIndependentSewing) {
         const printing = await import('./data/fcs/printing-task-domain.ts')
-        if (printing.getPrintWorkOrderByTaskId(decodeURIComponent(generatedPdaTask[1]))) return await resolvePage(pathname)
+        if (printing.getPrintWorkOrderByTaskId(decodeURIComponent(generatedPdaTask[1]))) {
+          await (await import('./data/fcs/factory-qc.ts')).ensureFactoryQcRecords()
+          return await resolvePage(pathname)
+        }
+        if (generatedTask && ['DYE', 'WATER_SOLUBLE'].includes(generatedTask.processCode)) await (await import('./data/fcs/factory-qc.ts')).ensureFactoryQcRecords()
         startPmsInitialization()
       }
     }
@@ -1363,7 +1537,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       ])
       // The wool renderer validates the exact stage task and current factory.
       // Generic water/cutting detail initialization is unrelated to this task.
-      return shell.renderPdaFrame(page.renderPdaWoolExecutionContent(woolTaskId), 'exec', { disableTodoAutoOpen: true })
+      return shell.renderPdaFrame(page.renderPdaWoolExecutionContent(woolTaskId), 'exec', { disableTodoAutoOpen: true, hideBottomNav: true })
     }
     if (/^\/fcs\/pda\/exec\/[^/]+$/.test(normalizedPathname)) {
       // Handler dependencies read part tickets during module evaluation. Start
@@ -1556,7 +1730,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>采购资料未能读取，当前不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">原记录没有被覆盖。恢复浏览器存储权限后重新读取。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-pms-record-retry>重新读取</button></section>`
     }
     const sourceReportEntry = /^\/fcs\/(?:settlement\/(?:adjustments|statements)|quality\/deduction-analysis|craft\/dyeing\/reports)$/.test(pathname.split('?')[0].split('#')[0])
-    if (sourceReportEntry || pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
+    const factoryPhysicalEntry = /^\/fcs\/(?:craft\/(?:printing|dyeing)(?:\/|$)|production\/orders\/|pda\/(?:handover|warehouse|stenter-handfeel)(?:\/|$)|pda\/exec\/TASK-(?:PRINT|DYE|WATER)-)/.test(pathname)
+      || /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(pathname)
+      || ['/wls/inbound', '/wls/raw/inbound-list'].includes(pathname.split('?')[0])
+    if (sourceReportEntry || factoryPhysicalEntry || pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
       const reason = error instanceof Error ? error.message : String(error)
       const recoveryHint = sourceReportEntry ? '请核对原记录，修正后重新读取；原记录没有被覆盖，请勿清除网站数据。' : '请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。'
       return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">${recoveryHint}</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-cutting-record-retry>重新读取</button></section>`
@@ -1573,6 +1750,10 @@ async function render(): Promise<void> {
   const pageContentPromise = renderCurrentPageContent(state.pathname)
   const isDirectWoolPda = state.pathname.startsWith('/fcs/pda/wool/')
     || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
+  // This page owns its execution handlers. Shell actions and navigation still
+  // use the existing lazy dispatcher when invoked; other PDA tabs are not its
+  // first-screen dependencies.
+  const isDirectStenterPda = /^\/fcs\/pda\/stenter-handfeel(?:\/[^/]+)?$/.test(normalizePathname(state.pathname))
   const pageContent = await pageContentPromise
   // A cold redirect can start the target render while this route is awaiting
   // its content. Its obsolete handler must not read unprepared target records.
@@ -1582,7 +1763,7 @@ async function render(): Promise<void> {
   const isPdaLogin = state.pathname.split('?')[0].split('#')[0] === '/fcs/pda/auth/login'
   const isCentralPda = /^\/fcs\/pda\/central(?:\/|$)/.test(state.pathname)
   if (isCentralPda) centralPdaPageModule = await import('./pages/central-pda/entry.ts')
-  if (isPdaPath(state.pathname) && !isCentralPda && !isDirectWoolPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
+  if (isPdaPath(state.pathname) && !isCentralPda && !isDirectWoolPda && !isDirectStenterPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
   if (currentSerial !== renderSerial) {
     return
   }
@@ -1594,7 +1775,7 @@ async function render(): Promise<void> {
     pmsSurface.hydratePmsSurface(root, { icons: false })
   }
   if (isPdaPath(state.pathname)) {
-    if (!isCentralPda && !isPdaLogin && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
+    if (!isCentralPda && !isPdaLogin && !isDirectStenterPda && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
       schedulePdaMainTabPreload()
     }
     queueMicrotask(() => hydrateIcons(root))
@@ -2005,8 +2186,10 @@ function closeMobileSidebar(): void {
   }
 }
 
-function navigateWithImmediateSidebar(pathname: string): void {
+async function navigateWithImmediateSidebar(pathname: string): Promise<void> {
+  if (appStore.getState().pathname.startsWith('/fcs/quality-management/') && qualityNavigationDirty?.() && !window.confirm('质检配置尚未保存，确定离开并丢弃本页输入？')) return
   const currentPathname = appStore.getState().pathname
+  if (currentPathname !== pathname && root.querySelector('[data-factory-qc-root]') && !(await getFactoryQcPageModule()).confirmFactoryQcLeave()) return
   if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
     preloadPdaMainTabModule(pathname)
     appStore.navigate(pathname)
@@ -2188,6 +2371,7 @@ function resolveSharedFieldRerenderDecision(target: Element, eventKind: Rerender
 }
 
 function shouldSkipInputRerender(target: Element): boolean {
+  if (target.closest('[data-factory-qc-root], [data-stenter-list-root], [data-stenter-detail-root]')) return true
   if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
   if (target.closest<HTMLElement>('[data-review-ui-field]')) return true
 
@@ -2210,6 +2394,7 @@ function shouldSkipInputRerender(target: Element): boolean {
 }
 
 function shouldSkipChangeRerender(target: Element): boolean {
+  if (target.closest('[data-factory-qc-root], [data-stenter-list-root], [data-stenter-detail-root]')) return true
   if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
 
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
@@ -2428,6 +2613,15 @@ root.addEventListener('dragover', dispatchListColumnDragEvent)
 root.addEventListener('drop', dispatchListColumnDragEvent)
 root.addEventListener('dragend', dispatchListColumnDragEvent)
 
+// QC large-image overlays live beside the app root, so their close controls
+// need the same delegated handler without rebuilding the underlying page.
+document.addEventListener('click', async event => {
+  const target = resolveEventElementTarget(event.target)
+  if (!target?.closest('[data-factory-qc-image-overlay]') || root.contains(target)) return
+  event.preventDefault()
+  await (await getFactoryQcPageModule()).handleFactoryQcEvent(target, event)
+})
+
 root.addEventListener('click', async (event) => {
   const centralTarget = resolveEventElementTarget(event.target)
   // Central overlays sit outside the page root but still carry page actions.
@@ -2444,6 +2638,12 @@ root.addEventListener('click', async (event) => {
   }
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target) && !target.closest('[data-nav]')) {
+    const nativeControl = target.closest('input,select,textarea,label,summary')
+    if (!nativeControl && target.closest('[data-factory-qc-action], [data-stenter-handfeel-action]')) event.preventDefault()
+    await dispatchPageEvent(target, event)
+    return
+  }
   if (target.closest('[data-qc-shipping-print]')) {
     event.preventDefault()
     await (await import('./pages/print/templates/post-finishing-qc-print-template.ts')).handleQcShippingPriorityPrint(target)
@@ -2528,6 +2728,7 @@ root.addEventListener('click', async (event) => {
   }
 
   const shellActionNode = target.closest<HTMLElement>('[data-action]')
+  if (shellActionNode && !(await confirmFactoryQcShellLeave(shellActionNode))) { event.preventDefault(); return }
   if (shellActionNode && handleShellAction(shellActionNode)) {
     event.preventDefault()
     return
@@ -2582,14 +2783,14 @@ root.addEventListener('click', async (event) => {
   const fieldDrivenPath = fieldDrivenNavNode ? buildNavigationFromFields(fieldDrivenNavNode) : null
   if (fieldDrivenPath) {
     event.preventDefault()
-    navigateWithImmediateSidebar(fieldDrivenPath)
+    await navigateWithImmediateSidebar(fieldDrivenPath)
     return
   }
 
   const directNavNode = target.closest<HTMLElement>('[data-nav]')
   if (directNavNode?.dataset.nav && !hasDatasetAction(directNavNode)) {
     event.preventDefault()
-    navigateWithImmediateSidebar(directNavNode.dataset.nav)
+    await navigateWithImmediateSidebar(directNavNode.dataset.nav)
     return
   }
 
@@ -2601,6 +2802,11 @@ root.addEventListener('click', async (event) => {
       && ((target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) || Boolean(target.closest('summary')))
     if (!preserveNativeClick && !pmsNativeControl) event.preventDefault()
     if (postFinishingEventNavigated(previousPathname)) return
+    // These factory handlers navigate after a committed action (or login).
+    // The store subscription already renders that destination; a second render
+    // races source hydration and repeats the completed page work.
+    if (appStore.getState().pathname !== previousPathname
+      && /^\/fcs\/(?:craft\/(?:printing|dyeing)|pda\/login)(?:\/|\?|$)/.test(previousPathname)) return
     if ((skipPageRerender || target.closest('[data-post-finishing-preserve-input="true"]')) && appStore.getState().pathname === previousPathname) {
       return
     }
@@ -2637,7 +2843,7 @@ root.addEventListener('click', async (event) => {
   const navNode = target.closest<HTMLElement>('[data-nav]')
   if (navNode?.dataset.nav) {
     event.preventDefault()
-    navigateWithImmediateSidebar(navNode.dataset.nav)
+    await navigateWithImmediateSidebar(navNode.dataset.nav)
     return
   }
 
@@ -2666,6 +2872,7 @@ root.addEventListener('input', async (event) => {
   if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target)) { await dispatchPageEvent(target, event); return }
   // 工程成果文件只在 change 中读取。首次操作即选文件时，避免异步加载处理器期间
   // input 与 change 竞争，导致文件控件被提前重绘或同一文件被保存两次。
   if (target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]')) return
@@ -2706,6 +2913,11 @@ root.addEventListener('compositionend', async (event) => {
   }
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target)) {
+    // IME completion is an input update, not a route/page render.
+    await dispatchPageEvent(target, new Event('input', { bubbles: true }))
+    return
+  }
   if (target.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(target)) return
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
@@ -2738,6 +2950,7 @@ root.addEventListener('change', async (event) => {
   if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (isFactoryPhysicalUiTarget(target)) { await dispatchPageEvent(target, event); return }
   const skipChangeRerender = shouldSkipChangeRerender(target)
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
@@ -2783,8 +2996,12 @@ document.addEventListener('keydown', async (event) => {
     const scanResult = await handleActivePdaCuttingEvent(cuttingScanTarget, event)
     return
   }
-  if(event.key==='Enter'&&target?.closest('[data-washing-scan]')){event.preventDefault();await (await import('./pages/process-factory/dyeing/washing/work-orders.ts')).handleFabricWashingEvent(target,event);return}
-  if(event.key==='Escape'&&document.querySelector('[data-washing-image-overlay]'))return
+  if (target && (isFactoryPhysicalUiTarget(target) || document.querySelector('[data-factory-qc-image-overlay]'))) {
+    if (event.key === 'Enter' && target.closest('[data-factory-qc-filter], [data-factory-qc-field="rollQuery"]')) event.preventDefault()
+    if (document.querySelector('[data-factory-qc-image-overlay]')) await (await getFactoryQcPageModule()).handleFactoryQcEvent(target, event)
+    else await dispatchPageEvent(target, event)
+    return
+  }
   const scanEnterTarget =
     event.key === 'Enter'
       ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')
@@ -2805,10 +3022,6 @@ document.addEventListener('keydown', async (event) => {
 
   if (document.querySelector('[data-ppic-daily-page]')) {
     if ((await import('./pages/sewing-outsourcing/daily-return-report.ts')).closePpicDailyReturnDialog()) event.preventDefault()
-    return
-  }
-  if (document.querySelector('[data-ppic-summary-page]')) {
-    if ((await import('./pages/sewing-outsourcing/daily-return-summary.ts')).closePpicDailySummaryDialog()) event.preventDefault()
     return
   }
 
@@ -2846,7 +3059,11 @@ document.addEventListener('keydown', async (event) => {
   }
 })
 
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', async () => {
+  if (root.querySelector('[data-factory-qc-root]') && !(await getFactoryQcPageModule()).confirmFactoryQcLeave()) {
+    history.pushState(null, '', appStore.getState().pathname)
+    return
+  }
   const leave = new Event('higood:before-history-navigation', { cancelable: true })
   window.dispatchEvent(leave)
   if (leave.defaultPrevented) return

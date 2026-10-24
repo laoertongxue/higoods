@@ -18,5 +18,5 @@ export async function setPpicTestLogin(page: Page, id: string): Promise<void> {
     await route.fulfill({ response, body: body.replace(declaration, 'export const SEWING_OUTSOURCING_DEMO_CURRENT_PPIC = ' + JSON.stringify(user) + ';') })
   })
   await page.reload()
-  await page.waitForSelector('[data-ppic-daily-page], [data-ppic-summary-page]')
+  await page.waitForSelector('[data-ppic-daily-page]')
 }

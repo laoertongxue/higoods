@@ -6,7 +6,7 @@ import { validateCuttingMaterialRecordLinks } from './cutting-material-record-li
 /** 裁床动作的记录级持久化。旧同步领域可在提交前计算，事务只做版本核对和逐记录写入。 */
 export const CUTTING_RECORD_DB = 'higood-cutting-records-v1'
 export interface CuttingStoredRecord<T = unknown> { id: string; collection: string; value: T }
-export interface CuttingRecordSnapshot { revision: number; records: CuttingStoredRecord[] }
+export interface CuttingRecordSnapshot { revision: number; records: CuttingStoredRecord[]; readScope?:'POST_FINISHING_WITHOUT_SAMPLES' }
 export interface CuttingRecordChange { puts: CuttingStoredRecord[]; deletes?: string[]; files?: Array<{ id: string; blob: Blob }>; deleteFileIds?: string[] }
 export interface CuttingStoredCommand { id: string; intent: string; result: unknown; at: string }
 const STORES = ['records', 'commands', 'meta', 'files'] as const
@@ -54,6 +54,54 @@ export async function readCuttingRecords(): Promise<CuttingRecordSnapshot> {
   ])
   await done
   return { records, revision: revision?.value || 0 }
+}
+/** Post-finishing reads every original production/cutting source except the
+ * independent sample payloads. All migration markers and the revision remain
+ * in this same readonly transaction; commands still use readCuttingRecords. */
+export async function readPostFinishingProductionRecords(): Promise<CuttingRecordSnapshot> {
+  const db=await openCuttingRecordDatabase()
+  const tx=db.transaction(['records','meta'],'readonly'),done=completion(tx)
+  const store=tx.objectStore('records'),sample='production-context:sample'
+  const [before,after,revision]=await Promise.all([
+    requestValue(store.getAll(IDBKeyRange.upperBound(sample,true))) as Promise<CuttingStoredRecord[]>,
+    requestValue(store.getAll(IDBKeyRange.lowerBound(sample+'\uffff',true))) as Promise<CuttingStoredRecord[]>,
+    requestValue(tx.objectStore('meta').get('revision')),
+  ])
+  await done
+  return {records:[...before,...after],revision:revision?.value || 0,readScope:'POST_FINISHING_WITHOUT_SAMPLES'}
+}
+/** Narrow read consumers check the original database revision without loading other production collections. */
+export async function readCuttingRecordRevision(): Promise<number> {
+  const db = await openCuttingRecordDatabase()
+  const tx = db.transaction('meta', 'readonly'); const done = completion(tx)
+  const revision = await requestValue(tx.objectStore('meta').get('revision'))
+  await done
+  return revision?.value || 0
+}
+/** Prefix and revision are read together; no new index, persisted projection or seed copy is created. */
+export async function readCuttingRecordsByPrefix(prefix: string, relatedIds: string[] = []): Promise<CuttingRecordSnapshot & { relatedRecords: CuttingStoredRecord[] }> {
+  if (!prefix) throw new Error('读取原记录需要明确范围。')
+  const db = await openCuttingRecordDatabase()
+  const tx = db.transaction(['records', 'meta'], 'readonly'); const done = completion(tx)
+  const [records, revision, relatedRecords] = await Promise.all([
+    requestValue(tx.objectStore('records').getAll(IDBKeyRange.bound(prefix, `${prefix}\uffff`))) as Promise<CuttingStoredRecord[]>,
+    requestValue(tx.objectStore('meta').get('revision')),
+    Promise.all([...new Set(relatedIds)].map(id => requestValue(tx.objectStore('records').get(id)) as Promise<CuttingStoredRecord | undefined>)),
+  ])
+  await done
+  return { records, revision: revision?.value || 0, relatedRecords: relatedRecords.filter((record): record is CuttingStoredRecord => !!record) }
+}
+export async function readCuttingRecord(id: string, relatedIds: string[] = []): Promise<{ revision: number; record?: CuttingStoredRecord; relatedRecords: CuttingStoredRecord[] }> {
+  if (!id) throw new Error('读取原记录需要明确身份。')
+  const db = await openCuttingRecordDatabase()
+  const tx = db.transaction(['records', 'meta'], 'readonly'); const done = completion(tx)
+  const [record, revision, relatedRecords] = await Promise.all([
+    requestValue(tx.objectStore('records').get(id)) as Promise<CuttingStoredRecord | undefined>,
+    requestValue(tx.objectStore('meta').get('revision')),
+    Promise.all([...new Set(relatedIds)].map(relatedId => requestValue(tx.objectStore('records').get(relatedId)) as Promise<CuttingStoredRecord | undefined>)),
+  ])
+  await done
+  return { record, revision: revision?.value || 0, relatedRecords: relatedRecords.filter((value): value is CuttingStoredRecord => !!value) }
 }
 export async function readCuttingCommand(id: string): Promise<CuttingStoredCommand | undefined> {
   const db = await openCuttingRecordDatabase(); const tx = db.transaction('commands', 'readonly'); const done = completion(tx)

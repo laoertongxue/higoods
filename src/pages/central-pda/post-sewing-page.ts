@@ -22,7 +22,7 @@ registerCentralDraftDiscard(() => { reset(); locked = false }, dirty)
 
 function frame(): CentralPdaFrameInput {
   const factory = getFactoryMasterRecordById(session.currentFactory)
-  const base: CentralPdaFrameInput = { family: 'post', language: lang(), tab: 'warehouse', tabPathPrefix: prefix, accountName: centralFormalName(session.account?.name, session.account?.loginId || '', lang()), accountNo: '', factoryName: centralFormalName(factory?.name, factory?.code || '', lang()), operationName: lang() === 'id' ? 'Finishing' : '后整', content: '' }
+  const base: CentralPdaFrameInput = { family: 'post', language: lang(), tab: 'warehouse', tabPathPrefix: prefix, accountName: centralFormalName(session.account?.name, session.account?.loginId || '', lang()), accountNo: '', factoryName: centralFormalName(factory?.name, factory?.code || '', lang()), operationName: lang() === 'id' ? 'Finishing' : '后道', content: '' }
   let content = message ? centralNotice(message instanceof Error ? message.message : t('notSaved'), true) : success ? centralNotice(success) : ''
   if (!session.account) {
     base.heading = t('login')

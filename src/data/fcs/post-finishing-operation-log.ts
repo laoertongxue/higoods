@@ -54,7 +54,6 @@ export interface PostFinishingOperationLogFilter {
   endedAt?: string
 }
 
-const STORAGE_KEY = 'higood-fcs-post-finishing-full-flow-operation-logs-v1'
 
 function readPersistedLogs(): PostFinishingOperationLogEntry[] { return [] }
 
@@ -133,4 +132,4 @@ export function resetPostFinishingOperationLogs(): void {
   assertPostFinishingWrite()
 }
 
-registerPostFinishingRepository('logs', STORAGE_KEY, () => logs, value => { logs = value })
+registerPostFinishingRepository('logs', () => logs, value => { logs = value })

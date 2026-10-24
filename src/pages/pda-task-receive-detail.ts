@@ -3,6 +3,7 @@ import { escapeHtml } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
+import { isCurrentPdaExecutionInScope } from './pda-third-party-scope'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data'
 import {
   PDA_MOCK_BIDDING_TENDERS,
@@ -814,6 +815,21 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
   return renderPdaFrame(content, 'task-receive')
 }
 
+function renderReceiveDetailMissing(): string {
+  const content = `
+    <div class="flex min-h-[760px] flex-col bg-background">
+      <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
+        <button class="inline-flex items-center text-sm text-muted-foreground hover:text-foreground" data-pda-trd-action="back">
+          <i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>
+          返回
+        </button>
+      </header>
+      <div class="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">未找到任务</div>
+    </div>
+  `
+  return renderPdaFrame(content, 'task-receive')
+}
+
 export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   const runtime = getPdaRuntimeContext()
   if (!runtime) {
@@ -824,6 +840,10 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
 
   const task = getTaskFactById(taskId)
 
+  if (!isCurrentPdaExecutionInScope(task)) {
+    return renderReceiveDetailMissing()
+  }
+
   if (isKolGotoWholeOrderTask(task)) {
     return renderKolGotoReceiveReadOnlyPage(task as ProcessTask)
   }
@@ -833,20 +853,7 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   }
 
   if (!task) {
-    const content = `
-      <div class="flex min-h-[760px] flex-col bg-background">
-        <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
-          <button class="inline-flex items-center text-sm text-muted-foreground hover:text-foreground" data-pda-trd-action="back">
-            <i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>
-            返回
-          </button>
-        </header>
-
-        <div class="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">未找到任务</div>
-      </div>
-    `
-
-    return renderPdaFrame(content, 'task-receive')
+    return renderReceiveDetailMissing()
   }
 
   if (!canFactoryAccessSpecialCraftPdaTask(getCurrentFactoryId(), task)) {
@@ -1110,6 +1117,7 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
   if (action === 'accept') {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
+    if (!isCurrentPdaExecutionInScope(getTaskFactById(taskId))) return true
     if (isKolGotoWholeOrderTask(getTaskFactById(taskId))) {
       showTaskReceiveDetailToast('KOL-GOTO 整单任务由系统自动分配并接收，仅支持查看')
       return true
@@ -1132,6 +1140,7 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
   if (action === 'confirm-reject') {
     const taskId = actionNode.dataset.taskId
     if (!taskId || !state.rejectReason.trim()) return true
+    if (!isCurrentPdaExecutionInScope(getTaskFactById(taskId))) return true
     if (isKolGotoWholeOrderTask(getTaskFactById(taskId))) {
       showTaskReceiveDetailToast('KOL-GOTO 整单任务不能拒单')
       return true

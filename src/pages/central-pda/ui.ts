@@ -71,12 +71,12 @@ export function centralTime(value: string, lang: CentralPdaLanguage): string {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).format(parsed)
 }
-export const centralButtonClass = 'min-h-12 rounded-xl border border-slate-300 bg-white px-3 py-3 text-base font-semibold leading-6 disabled:text-slate-400'
+export const centralButtonClass = 'min-h-[52px] rounded-xl border border-[#ccd8e7] bg-white px-3 py-3 text-[16px] font-semibold leading-6 text-[#1a293c] disabled:text-[#a0adbd]'
 export function cb(label: string, action: string, value?: string, primary = false): string {
-  return `<button type="button" class="${centralButtonClass} ${primary ? '!border-blue-600 !bg-blue-600 text-white' : ''}" data-central-action="${ce(action)}"${value === undefined ? '' : ` data-central-value="${ce(value)}"`}>${ce(label)}</button>`
+  return `<button type="button" class="${centralButtonClass} ${primary ? '!border-[#2461ed] !bg-[#2461ed] text-white' : ''}" data-central-action="${ce(action)}"${value === undefined ? '' : ` data-central-value="${ce(value)}"`}>${ce(label)}</button>`
 }
 export function centralNotice(message: string, error = false): string {
-  return `<p role="${error ? 'alert' : 'status'}" class="rounded-xl border p-3 text-base leading-6 ${error ? 'border-red-200 bg-red-50 text-red-800' : 'border-blue-200 bg-blue-50 text-blue-900'}">${ce(message)}</p>`
+  return `<p role="${error ? 'alert' : 'status'}" class="rounded-xl border p-3 text-[14px] leading-6 ${error ? 'border-[#e9bdc0] bg-[#fff0f0] text-[#ba2b32]' : 'border-[#d3e2fc] bg-[#edf3ff] text-[#365b94]'}">${ce(message)}</p>`
 }
 export function centralErrorText(error: unknown, lang: CentralPdaLanguage): string {
   const message = error instanceof Error ? error.message : ''

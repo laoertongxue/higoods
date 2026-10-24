@@ -28,7 +28,7 @@ const expectedMenu = [
   ['批版建议', '/fcs/sewing-outsourcing/sample-approval-suggestions'],
   ['回货跟进', '/fcs/sewing-outsourcing/returns'],
   ['每日回货填报', '/fcs/sewing-outsourcing/daily-return-report'],
-  ['每日回货汇总', '/fcs/sewing-outsourcing/daily-return-summary'],
+  ['每日填报统计', '/fcs/sewing-outsourcing/daily-return-statistics'],
   ['补料跟进', '/fcs/sewing-outsourcing/supplements'],
   ['裁片退仓', '/fcs/sewing-outsourcing/cut-piece-returns'],
   ['责任移交', '/fcs/sewing-outsourcing/responsibility-transfers'],
@@ -61,12 +61,14 @@ for (const href of ['/fcs/sewing-outsourcing/tasks', '/fcs/sewing-outsourcing/re
 for (const source of [routes, renderers, handlers]) {
   assert.ok(!source.includes('sewing-outsourcing/query'), '综合查询必须删除')
   assert.ok(!source.includes('sewing-outsourcing/settlement'), 'PPIC结算入口必须删除')
+  assert.ok(!source.includes('sewing-outsourcing/daily-return-summary'), '每日回货汇总必须并入每日回货填报，旧页面和地址不得保留')
 }
 assert.ok(!existsSync('src/pages/sewing-outsourcing/query.ts'))
 assert.ok(!existsSync('src/data/fcs/sewing-outsourcing-query.ts'))
 assert.ok(!existsSync('src/pages/sewing-outsourcing/settlement.ts'))
 assert.ok(!existsSync('src/data/fcs/sewing-outsourcing-settlement-readiness.ts'))
 assert.ok(!existsSync('scripts/check-sewing-outsourcing-settlement-readiness.ts'))
+assert.ok(!existsSync('src/pages/sewing-outsourcing/daily-return-summary.ts'), '每日回货汇总页面必须退役')
 
 const taskHtml = renderSewingOutsourcingTasksPage()
 const personalWorkbenchHtml = await renderSewingOutsourcingWorkbenchPage()

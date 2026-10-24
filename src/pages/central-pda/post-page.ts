@@ -8,12 +8,12 @@ import { ensurePostFinishingRecordState, registerPostFinishingFile, releasePostF
 import { centralSession as session, ensureCentralSessionAccount, saveCentralSessionPreference, registerCentralDraftDiscard, discardCentralDrafts } from './session.ts'
 import { renderCentralPdaFrame, type CentralPdaFrameInput, type CentralPdaTab } from './frame.ts'
 import { cb, ce, ct, centralNotice, centralFormalName } from './ui.ts'
+import { renderCentralOperationMenu } from './operation-menu.ts'
 import {
   centralPostDeliveries, centralPostDelivery, centralPostScan, centralPostReceipts, centralPostQcTasks,
   centralPostOutbound, centralPostTasks, centralPostRechecks, centralPostWaitHandovers, centralPostWaitProcess, centralPostWaitProcessMovements, centralPostWaitHandoverMovements, centralPostCanConfirm,
   centralPostConfirmer, saveCentralPostReceipt, completeCentralPostQc, sendCentralPostToQc, claimCentralPostQc, centralPostReworkOptions,
-  centralPostDefectReasons, centralPostProcessProgress, registerCentralPostProcess, submitCentralPostRecheck,
-  claimCentralPostRecheck, scanCentralPostBarcode, markCentralPostRelabeled, completeCentralPostRecheck,
+  centralPostDefectReasons, centralPostProcessProgress, registerCentralPostProcess,
   receiveCentralPostOutbound, type CentralPostTab,
 } from './post-model.ts'
 import { pt, postDetail, postListCard, postStatus } from './post-view.ts'
@@ -23,13 +23,11 @@ type CountValue = { passed: string; defect: string; return: string; defectReason
 let path = '', generation = 0, saving = false, entryError: unknown, message: unknown, success = '', scan = '', login = { account: '', password: '' }
 let needsSecond = '', needsAuth = '', authValue = '', diffReason = '', qcAuth = '', qcAuthReason = ''
 let qcProcessItems: string[] = []
-let recheckAuth = '', recheckAuthReason = ''
-const counts = new Map<string, string>(), secondCounts = new Map<string, string>(), qcValues = new Map<string, CountValue>(), barcodeInputs = new Map<string, string>()
-const processQty = new Map<string, string>(), processReason = new Map<string, string>(), recheckQty = new Map<string, string>(), qcPhotos = new Map<string, string>()
+const counts = new Map<string, string>(), secondCounts = new Map<string, string>(), qcValues = new Map<string, CountValue>()
+const processQty = new Map<string, string>(), processReason = new Map<string, string>(), qcPhotos = new Map<string, string>()
 const receiptQty = new Map<string, string>()
 let receiptAuth = '', receiptAuthReason = ''
 const processKey = (taskId: string, item: string, skuId: string) => `${taskId}|${item}|${skuId}`
-const recheckQtyKey = (recheckId: string, skuId: string) => `${recheckId}|${skuId}`
 const root = () => document.querySelector<HTMLElement>('[data-central-family="post"]')
 const lang = () => session.language, t = (key: Parameters<typeof ct>[1]) => ct(lang(), key)
 const route = () => { const url = new URL(path || prefix + '/receive', 'https://pda.local'), parts = url.pathname.split('/'); let id = ''; try { id = decodeURIComponent(parts[6] || '') } catch {} return { tab: (['receive', 'execute', 'warehouse'].includes(parts[5]) ? parts[5] : 'receive') as CentralPostTab, id } }
@@ -111,27 +109,13 @@ function detailPanel(d: NonNullable<ReturnType<typeof centralPostDelivery>>) {
       }
       content += `<label class="mb-1 block text-sm">${lang() === 'id' ? 'Alasan sisa (bila belum semua)' : '未处理原因（未填满时必填）'}<input class="mt-1 min-h-12 w-full rounded-xl border bg-white p-2" data-post-process-reason data-post-task="${ce(task.postTaskId)}" data-post-process="${ce(process.processItem)}" value="${ce(processReason.get(`${task.postTaskId}|${process.processItem}`) ?? '')}"></label><div class="mt-1 flex flex-wrap gap-2">${cb(lang() === 'id' ? 'Isi semua' : '填入全部', 'post-process-fill', `${task.postTaskId}|${process.processItem}`)}${cb(lang() === 'id' ? 'Simpan proses' : '保存本工序', 'post-process-save', `${task.postTaskId}|${process.processItem}`)}</div></details>`
     }
-    if (progress.lines.some(line => line.availableForRecheckQty > 0)) content += `<div class="mt-2">${cb(lang() === 'id' ? 'Kirim ke recheck' : '交复检', 'post-submit-recheck', task.postTaskId)}</div>`
     content += '</article>'
   }
   const rechecks = centralPostRechecks(session.currentFactory).filter(row => row.deliveryId === d.deliveryId)
   if (rechecks.length) content += `<h2 class="mb-2 mt-4 text-lg font-bold">${lang() === 'id' ? 'Recheck' : '复检'}</h2>`
   for (const record of rechecks) {
     content += `<article class="mb-2 rounded-xl border bg-white p-3"><strong>${ce(record.recheckOrderNo)}</strong><div class="text-sm">${ce(postStatus(record.status, lang()))}</div>`
-    if (record.status === '待复检') content += `<div class="mt-2">${cb(lang() === 'id' ? 'Ambil recheck' : '领取复检', 'post-recheck-claim', record.recheckOrderNo)}</div>`
-    if (['复检中', '条码异常待重贴'].includes(record.status) && record.claimedBy?.actorId === session.account?.userId) {
-      const recheckValues = record.lines.map(line => Number(recheckQty.get(recheckQtyKey(record.recheckOrderId, line.sku.skuId)) ?? line.expectedQty))
-      const recheckDifference = record.lines.some((line, index) => recheckValues[index] !== line.expectedQty)
-      for (const line of record.lines) {
-        const lineKey = record.recheckOrderId + '|' + line.sku.skuId
-        content += `<div class="mt-2 text-sm"><strong>${ce(line.sku.skuCode)}</strong> · ${ce(postStatus(line.barcodeStatus, lang()))} · ${lang() === 'id' ? 'Harus' : '应收'} ${line.expectedQty}<label class="mt-1 block">${lang() === 'id' ? 'Jumlah aktual' : '实际交出'}<input class="mt-1 min-h-12 w-full rounded-xl border bg-white p-2 text-base" data-post-recheck-qty data-post-recheck="${ce(record.recheckOrderId)}" data-post-sku="${ce(line.sku.skuId)}" inputmode="numeric" value="${ce(recheckQty.get(recheckQtyKey(record.recheckOrderId, line.sku.skuId)) ?? String(line.expectedQty))}"></label>`
-        if (line.barcodeStatus !== '正确') content += `<div class="mt-1 flex gap-2"><input class="min-h-12 min-w-0 flex-1 rounded-xl border bg-white p-2" data-post-barcode data-post-expected="${ce(line.sku.barcode)}" data-post-recheck="${ce(record.recheckOrderId)}" data-post-sku="${ce(line.sku.skuId)}" value="${ce(barcodeInputs.get(lineKey) || '')}" placeholder="${lang() === 'id' ? 'Pindai barcode' : '扫描条码'}"><button type="button" class="min-h-12 rounded-xl border px-3" data-central-action="post-scan-barcode" data-central-value="${ce(lineKey)}">${lang() === 'id' ? 'Pindai' : '扫描'}</button></div>`
-        if (line.barcodeStatus === '错误待重贴') content += `<div class="mt-1">${cb(lang() === 'id' ? 'Sudah tempel ulang' : '已重新贴码', 'post-recheck-relabel', lineKey)}</div>`
-        content += '</div>'
-      }
-      content += `<article class="mt-2 rounded-xl border ${recheckDifference ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'} p-2"><strong>${recheckDifference ? (lang() === 'id' ? 'Selisih jumlah perlu izin' : '数量差异需授权') : (lang() === 'id' ? 'Izin selisih (isi bila ada selisih)' : '差异授权（仅数量差异时填写）')}</strong><label class="mt-1 block text-sm">${lang() === 'id' ? 'Kode izin' : '动态授权码'}<input class="mt-1 min-h-12 w-full rounded-xl border bg-white p-2" data-post-recheck-auth value="${ce(recheckAuth)}"></label><label class="mt-1 block text-sm">${lang() === 'id' ? 'Alasan selisih' : '差异原因'}<input class="mt-1 min-h-12 w-full rounded-xl border bg-white p-2" data-post-recheck-auth-reason value="${ce(recheckAuthReason)}"></label></article>`
-      if (record.lines.every(line => line.expectedQty === 0 || line.barcodeStatus === '正确')) content += `<div class="mt-2">${cb(lang() === 'id' ? 'Selesaikan recheck' : '完成复检', 'post-complete-recheck', record.recheckOrderId)}</div>`
-    }
+    for (const line of record.lines) content += `<div class="mt-1 text-sm"><strong>${ce(line.sku.skuCode)}</strong> · ${ce(postStatus(line.barcodeStatus, lang()))} · ${lang() === 'id' ? 'Harus' : '应收'} ${line.expectedQty}</div>`
     content += '</article>'
   }
   for (const row of centralPostOutbound(session.currentFactory).filter(row => row.deliveryId === d.deliveryId && row.status === '待仓库接收')) {
@@ -182,14 +166,14 @@ function frame(): CentralPdaFrameInput {
     const movementHandover = centralPostWaitHandoverMovements(session.currentFactory)
     if (movementHandover.length) content += `<details class="mb-3 rounded-xl border bg-white p-3"><summary class="min-h-8 font-semibold">${lang() === 'id' ? 'Riwayat pergerakan' : '库存移动记录'}</summary>${movementHandover.map(row => `<div class="mt-1 text-sm">${ce(row.movementType)} · ${ce(row.outboundOrderNo)} · ${row.quantities.map(line => `${ce(line.sku.skuCode)} ${line.quantity}`).join(' / ')}</div>`).join('')}</details>`
   }
-  content += `<label class="mb-3 block font-semibold">${t('scan')}<div class="mt-2 flex gap-2"><input class="min-h-14 min-w-0 flex-1 rounded-xl border bg-white p-3 text-lg" data-post-field="scan" value="${ce(scan)}" placeholder="${ce(pt(lang(), 'scanHint'))}" autocomplete="off">${cb(t('identify'), 'post-identify')}</div></label>`
+  content += `<label class="block px-1 text-[13px] font-medium leading-5 text-[#62748a]">${t('scan')}<span class="mt-2 flex gap-2"><input class="h-14 min-w-0 flex-1 rounded-xl border border-[#bdcadb] bg-white px-3 text-[15px] text-[#1a293c] outline-none focus:border-[#2461ed]" data-post-field="scan" value="${ce(scan)}" placeholder="${ce(pt(lang(), 'scanHint'))}" autocomplete="off"><button type="button" class="min-h-14 shrink-0 rounded-xl bg-[#2461ed] px-4 text-[15px] font-semibold text-white" data-central-action="post-identify">${t('identify')}</button></span></label>`
   const rows = centralPostDeliveries(session.currentFactory).filter(delivery => r.tab === 'receive' ? ['待后道确认', '待二次点数', '差异待授权'].includes(delivery.status) : r.tab === 'execute' ? ['已确认待送检', '已送检'].includes(delivery.status) : true)
-  content += rows.map(delivery => postListCard(delivery, lang())).join('') || centralNotice(pt(lang(), 'noData'))
+  content += rows.map(delivery => postListCard(delivery, lang())).join('') || `<div class="rounded-xl border border-dashed border-[#ccd8e7] bg-white px-4 py-8 text-center text-sm text-[#62748a]">${pt(lang(), 'noData')}</div>`
   base.content = content; return base
 }
 
 function patch() { const host = root(); if (!host) return; const main = host.querySelector<HTMLElement>('[data-central-content]')!, top = main.scrollTop, template = document.createElement('template'); template.innerHTML = renderCentralPdaFrame(frame()); const next = template.content.firstElementChild!; host.lang = next.getAttribute('lang') || ''; host.querySelector('header')!.replaceWith(next.querySelector('header')!); host.querySelector('[data-central-heading]')!.replaceWith(next.querySelector('[data-central-heading]')!); main.replaceChildren(...next.querySelector('[data-central-content]')!.childNodes); host.querySelector('[data-central-footer]')?.remove(); host.querySelector('nav')?.remove(); for (const selector of ['[data-central-footer]', 'nav']) { const el = next.querySelector(selector); if (el) host.append(el) } main.scrollTop = top; mountCentralPostPage(); hydrateIcons(host); if (message) host.querySelector('[role="alert"]')?.scrollIntoView({ block: 'start' }) }
-function navigate(next: string) { message = undefined; success = ''; scan = ''; counts.clear(); secondCounts.clear(); qcValues.clear(); barcodeInputs.clear(); needsSecond = ''; needsAuth = ''; authValue = ''; diffReason = ''; qcAuth = ''; qcAuthReason = ''; qcProcessItems = []; recheckAuth = ''; recheckAuthReason = ''; processQty.clear(); processReason.clear(); recheckQty.clear(); receiptQty.clear(); receiptAuth = ''; receiptAuthReason = ''; for (const url of qcPhotos.values()) releasePostFinishingPendingFile(url); qcPhotos.clear(); path = next; if (appStore.getState().pathname === next) patch(); else appStore.navigate(next) }
+function navigate(next: string) { message = undefined; success = ''; scan = ''; counts.clear(); secondCounts.clear(); qcValues.clear(); needsSecond = ''; needsAuth = ''; authValue = ''; diffReason = ''; qcAuth = ''; qcAuthReason = ''; qcProcessItems = []; processQty.clear(); processReason.clear(); receiptQty.clear(); receiptAuth = ''; receiptAuthReason = ''; for (const url of qcPhotos.values()) releasePostFinishingPendingFile(url); qcPhotos.clear(); path = next; if (appStore.getState().pathname === next) patch(); else appStore.navigate(next) }
 function signOut() { discardCentralDrafts(); session.signedOut = true; session.account = undefined; login = { account: '', password: '' }; saveCentralSessionPreference(); message = undefined; patch() }
 function identify() { const found = centralPostScan(scan, session.currentFactory); if (found.length === 1) navigate(prefix + '/' + route().tab + '/' + encodeURIComponent(found[0].deliveryId)); else { message = new Error(t('wrongScan')); patch(); root()?.querySelector<HTMLInputElement>('[data-post-field="scan"]')?.select() } }
 function refreshPrimary() { const button = root()?.querySelector<HTMLButtonElement>('[data-central-footer] button'), primary = frame().primary; if (button && primary) button.disabled = !!primary.disabled }
@@ -231,16 +215,12 @@ export async function handleCentralPostEvent(target: Element, event?: Event): Pr
   if (qcFile && event?.type === 'change') { const picked = qcFile.files?.[0]; if (picked) { try { const key = qcLineKey(qcFile.dataset.postQcFile || ''); const old = qcPhotos.get(key); if (old) releasePostFinishingPendingFile(old); qcPhotos.set(key, registerPostFinishingFile(picked)); message = undefined } catch (error) { message = error } patch() } return true }
   const select = target.closest<HTMLSelectElement>('select[data-post-qc-select]')
   if (select && event?.type === 'change') { const values = qcValue(select.dataset.postSku || ''); (values as unknown as Record<string, string>)[select.dataset.postQcSelect || ''] = select.value; qcValues.set(qcLineKey(select.dataset.postSku || ''), values); refreshPrimary(); return true }
-  const input = target.closest<HTMLInputElement>('[data-post-field],[data-post-login],[data-post-count],[data-post-second],[data-post-auth],[data-post-reason],[data-post-qc-num],[data-post-qc-text],[data-post-qc-auth],[data-post-qc-auth-reason],[data-post-barcode],[data-post-process-qty],[data-post-process-reason],[data-post-recheck-qty],[data-post-receipt-qty],[data-post-receipt-auth],[data-post-receipt-auth-reason],[data-post-recheck-auth],[data-post-recheck-auth-reason]')
+  const input = target.closest<HTMLInputElement>('[data-post-field],[data-post-login],[data-post-count],[data-post-second],[data-post-auth],[data-post-reason],[data-post-qc-num],[data-post-qc-text],[data-post-qc-auth],[data-post-qc-auth-reason],[data-post-process-qty],[data-post-process-reason],[data-post-receipt-qty],[data-post-receipt-auth],[data-post-receipt-auth-reason]')
   if (input && (event?.type === 'input' || event?.type === 'change')) {
     if (input.dataset.postLogin) { login[input.dataset.postLogin as 'account' | 'password'] = input.value; return true }
     if (input.dataset.postField === 'scan') { scan = input.value; return true }
-    if (input.dataset.postBarcode !== undefined) { barcodeInputs.set((input.dataset.postRecheck || '') + '|' + (input.dataset.postSku || ''), input.value); return true }
     if (input.dataset.postProcessReason !== undefined) { processReason.set(`${input.dataset.postTask || ''}|${input.dataset.postProcess || ''}`, input.value); return true }
     if (input.dataset.postProcessQty !== undefined) { processQty.set(processKey(input.dataset.postTask || '', input.dataset.postProcess || '', input.dataset.postSku || ''), input.value); const remain = input.closest('label')?.querySelector('[data-post-process-remain]'); if (remain) remain.textContent = String(Number(input.dataset.postAvailable || 0) - Number(input.value || 0)); return true }
-    if (input.dataset.postRecheckQty !== undefined) { recheckQty.set(recheckQtyKey(input.dataset.postRecheck || '', input.dataset.postSku || ''), input.value); return true }
-    if (input.dataset.postRecheckAuth !== undefined) { recheckAuth = input.value; return true }
-    if (input.dataset.postRecheckAuthReason !== undefined) { recheckAuthReason = input.value; return true }
     if (input.dataset.postReceiptQty !== undefined) { receiptQty.set(`${input.dataset.postOutbound || ''}|${input.dataset.postSku || ''}`, input.value); return true }
     if (input.dataset.postReceiptAuth !== undefined) { receiptAuth = input.value; return true }
     if (input.dataset.postReceiptAuthReason !== undefined) { receiptAuthReason = input.value; return true }
@@ -275,11 +255,6 @@ export async function handleCentralPostEvent(target: Element, event?: Event): Pr
     case 'post-process': { const item = value || ''; qcProcessItems = qcProcessItems.includes(item) ? qcProcessItems.filter(row => row !== item) : [...qcProcessItems, item]; patch(); break }
     case 'post-process-fill': { const [taskId, item] = (value || '').split('|'); const progress = centralPostProcessProgress(taskId), process = progress.processes.find(row => row.processItem === item && row.applicable); for (const line of process?.lines.filter(row => row.availableQty > 0) || []) { processQty.set(processKey(taskId, item, line.sku.skuId), String(line.availableQty)); for (const input of root()?.querySelectorAll<HTMLInputElement>('[data-post-process-qty]') || []) if (input.dataset.postTask === taskId && input.dataset.postProcess === item && input.dataset.postSku === line.sku.skuId) { input.value = String(line.availableQty); const remain = input.closest('label')?.querySelector('[data-post-process-remain]'); if (remain) remain.textContent = '0' } } break }
     case 'post-process-save': { const [taskId, item] = (value || '').split('|'); const progress = centralPostProcessProgress(taskId), process = progress.processes.find(row => row.processItem === item && row.applicable); if (!process) break; const quantities = process.lines.filter(row => row.availableQty > 0).map(line => ({ skuId: line.sku.skuId, quantity: Number(processQty.get(processKey(taskId, item, line.sku.skuId)) ?? 0) })); const filled = quantities.reduce((sum, line) => sum + line.quantity, 0); if (filled < process.availableQty && !(processReason.get(`${taskId}|${item}`) || '').trim()) { message = new Error(lang() === 'id' ? 'Isi alasan bila belum semua diproses.' : '未填满时请填写未处理原因。'); patch(); break } await execute(() => registerCentralPostProcess(taskId, item, session.account!, quantities, processReason.get(`${taskId}|${item}`))); if (!message) { for (const key of [...processQty.keys()]) if (key.startsWith(`${taskId}|${item}|`)) processQty.delete(key); processReason.delete(`${taskId}|${item}`); patch() } break }
-    case 'post-submit-recheck': await execute(() => submitCentralPostRecheck(value || '', session.account!)); break
-    case 'post-recheck-claim': await execute(() => claimCentralPostRecheck(value || '', session.account!)); break
-    case 'post-scan-barcode': { const [recheckId, skuId] = (value || '').split('|'); await execute(() => scanCentralPostBarcode(recheckId, skuId, barcodeInputs.get(value || '') || '', session.account!)); break }
-    case 'post-recheck-relabel': { const [recheckId, skuId] = (value || '').split('|'); await execute(() => markCentralPostRelabeled(recheckId, skuId, session.account!)); break }
-    case 'post-complete-recheck': { const record = centralPostRechecks(session.currentFactory).find(row => row.recheckOrderId === value); const results = record?.lines.map(line => ({ skuId: line.sku.skuId, handoverQty: Number(recheckQty.get(recheckQtyKey(record.recheckOrderId, line.sku.skuId)) ?? line.expectedQty) })); const authorization = recheckAuth.trim() || recheckAuthReason.trim() ? { scanValue: recheckAuth.trim(), differenceReason: recheckAuthReason.trim() } : undefined; await execute(() => completeCentralPostRecheck(value || '', session.account!, results, authorization)); if (!message) { for (const key of [...recheckQty.keys()]) if (key.startsWith(`${value || ''}|`)) recheckQty.delete(key); recheckAuth = ''; recheckAuthReason = ''; patch() } break }
     case 'post-outbound-receive': { const order = centralPostOutbound(session.currentFactory).find(row => row.outboundOrderNo === value); const results = order?.lines.map(line => ({ skuId: line.sku.skuId, receivedQty: Number(receiptQty.get(`${value}|${line.sku.skuId}`) ?? line.outboundQty) })); const authorization = receiptAuth.trim() || receiptAuthReason.trim() ? { scanValue: receiptAuth.trim(), differenceReason: receiptAuthReason.trim() } : undefined; await execute(() => receiveCentralPostOutbound(value || '', session.account!, results, authorization)); if (!message) { receiptQty.clear(); receiptAuth = ''; receiptAuthReason = ''; patch() } break }
     case 'operation': openOperationOverlay(); break
     case 'post-close': closeCentralPostOverlay(); break
@@ -287,7 +262,7 @@ export async function handleCentralPostEvent(target: Element, event?: Event): Pr
   }
   return true
 }
-function openOperationOverlay() { const el = document.createElement('div'); el.dataset.postOverlay = ''; el.className = 'fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-2'; el.innerHTML = `<section role="dialog" aria-modal="true" class="max-h-[90dvh] w-full max-w-[420px] overflow-auto rounded-2xl bg-white p-3"><h2 class="mb-2 text-lg font-bold">${pt(lang(), 'post')}</h2><div class="grid gap-2">${cb(pt(lang(), 'post'), 'post-close', undefined, true)}${cb(lang() === 'id' ? 'Proses lain' : '其他工序', 'post-other')}</div><div class="mt-3">${cb(t('close'), 'post-close')}</div></section>`; el.addEventListener('click', e => { if (e.target === el) el.remove() }); (root()?.parentElement ?? document.body).append(el); hydrateIcons(el) }
+function openOperationOverlay() { const el = document.createElement('div'); el.dataset.postOverlay = ''; el.className = 'fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-2'; el.innerHTML = `<section role="dialog" aria-modal="true" class="max-h-[90dvh] w-full max-w-[420px] overflow-auto rounded-2xl bg-white p-3">${renderCentralOperationMenu({ language: lang(), tab: route().tab, factoryId: session.currentFactory, currentPath: appStore.getState().pathname })}<div class="mt-3">${cb(t('close'), 'post-close')}</div></section>`; el.addEventListener('click', e => { if (e.target === el) el.remove() }); (root()?.parentElement ?? document.body).append(el); hydrateIcons(el) }
 export function closeCentralPostOverlay() { document.querySelector('[data-post-overlay]')?.remove(); document.querySelector('[data-sewing-overlay]')?.remove() }
 let mounted = false
 export function mountCentralPostPage() { const host = root(); if (!host) return; const size = () => { if (root()) root()!.style.height = `${Math.round(window.visualViewport?.height || innerHeight)}px` }; if (!mounted) { mounted = true; window.visualViewport?.addEventListener('resize', size) } size(); if (path.split('?')[0].endsWith('/sewing-return')) { void import('./post-sewing-page.ts').then(module => module.mountCentralPostSewingPage()); return } if (!document.querySelector('[data-post-overlay]')) { const scanInput = host.querySelector<HTMLInputElement>('[data-post-field="scan"]'); (scanInput || host.querySelector<HTMLInputElement>('[data-post-login="account"]'))?.focus({ preventScroll: true }) } }

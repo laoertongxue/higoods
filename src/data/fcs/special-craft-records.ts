@@ -9,10 +9,10 @@ import { capturePdaHandoverState, restorePdaHandoverState } from './pda-handover
 import { captureSpecialCraftFeiTicketState, restoreSpecialCraftFeiTicketState } from './cutting/special-craft-fei-ticket-flow.ts'
 import { captureDesignRevisionFcsCaches, restoreDesignRevisionFcsCaches, hydrateDesignRevisionFcsCaches } from './design-revision-pcs-storage.ts'
 import {
-  splitWashingLedger,
+  splitFactoryProcessLedger,
   sameProcessLedgerRow,
-  getWashingLedgerSnapshot, withWashingStaticRead,
-} from './fabric-washing-storage-bridge.ts'
+  getFactoryProcessSnapshot, withFactoryProcessStaticRead,
+} from './factory-process-storage.ts'
 
 import { SPECIAL_CRAFT_RECORDS, SPECIAL_CRAFT_LEDGER_RECORDS, CENTRAL_EXECUTION_COMMAND_GUARDS, CENTRAL_EXECUTION_COLLECTIONS, CENTRAL_EXECUTION_LEGACY_KEYS,
   centralLedgerRecordId as ledgerId, replaceCentralExecutionRecordSnapshot, setCentralExecutionLedgerStage,
@@ -33,7 +33,7 @@ export function registerBindingExecutionRecordHooks(value: NonNullable<typeof bi
 channel?.addEventListener('message', () => { loaded = false })
 
 function capture(includeRelatedCaches = false, includeCraft = true, includeBinding = false) {
-  return withWashingStaticRead(() => ({
+  return withFactoryProcessStaticRead(() => ({
     orders: includeCraft ? captureSpecialCraftTaskStore() : undefined,
     warehouse: includeCraft ? createFactoryInternalWarehouseMutationSnapshot() : undefined,
     process: captureProcessWarehouseMutationState(),
@@ -46,7 +46,7 @@ function capture(includeRelatedCaches = false, includeCraft = true, includeBindi
 }
 
 function restore(state: State) {
-  withWashingStaticRead(() => {
+  withFactoryProcessStaticRead(() => {
     if (state.orders) restoreSpecialCraftTaskStore(state.orders)
     if (state.warehouse) restoreFactoryInternalWarehouseMutationSnapshot(state.warehouse)
     if (state.process) restoreProcessWarehouseMutationState(state.process)
@@ -113,7 +113,7 @@ function applyDomainRows(rows: Iterable<Pick<PcsStoredRecord, 'id' | 'collection
   // Hydration applies durable domain rows. It does not need a command rollback
   // snapshot of the unrelated paper-ticket flow or a pre-update PDA projection.
   // Preserve the original order -> warehouse -> process initialization order.
-  const current = withWashingStaticRead(() => ({
+  const current = withFactoryProcessStaticRead(() => ({
     orders: captureSpecialCraftTaskStore(),
     warehouse: createFactoryInternalWarehouseMutationSnapshot(),
     process: captureProcessWarehouseMutationState(),
@@ -145,7 +145,7 @@ function applyDomainRows(rows: Iterable<Pick<PcsStoredRecord, 'id' | 'collection
     const data = value.tuple ? [value.key, structuredClone(value.data)] : structuredClone(value.data)
     if (index < 0) list.push(data); else list[index] = data
   }
-  withWashingStaticRead(() => {
+  withFactoryProcessStaticRead(() => {
     restoreSpecialCraftTaskStore(current.orders)
     restoreFactoryInternalWarehouseMutationSnapshot(current.warehouse)
     restoreProcessWarehouseMutationState(current.process)
@@ -177,8 +177,6 @@ export async function ensureSpecialCraftRecords(force = false, domain?: 'binding
   try {
     await (await import('../pcs-record-runtime.ts')).ensurePcsRecordState()
     await (await import('./cutting/part-ticket-records.ts')).hydratePartTicketRecords()
-    const { ensureWashingRecords } = await import('./fabric-washing-repository.ts')
-    await ensureWashingRecords()
     const saved = await readPcsRecords(collections)
     const next = new Map(saved.records.map(row => [row.id, row]))
     const prior = records
@@ -220,7 +218,7 @@ export async function runSpecialCraftRecordCommand<T>(target: unknown, recipe: (
   const initialLedgers = new Map<string, string | null>()
   const { getDesignRevisionFcsStorage } = await import('./design-revision-pcs-storage.ts')
   for (const key of CENTRAL_EXECUTION_LEGACY_KEYS) initialLedgers.set(key,
-    withWashingStaticRead(() => getWashingLedgerSnapshot(key)) ?? getDesignRevisionFcsStorage().getItem(key))
+    withFactoryProcessStaticRead(() => getFactoryProcessSnapshot(key)) ?? getDesignRevisionFcsStorage().getItem(key))
   // Initialize read-only domain baselines before capturing rollback caches. Otherwise
   // first use can treat seed initialization as user changes or restore an empty cache.
   const before = capture(true, recordScope === 'craft', recordScope === 'binding'), beforeRows = domainRows(before)
@@ -237,8 +235,8 @@ export async function runSpecialCraftRecordCommand<T>(target: unknown, recipe: (
     for (const [id, value] of afterRows) if (JSON.stringify(value) !== JSON.stringify(beforeRows.get(id))) append(id, SPECIAL_CRAFT_RECORDS, value)
     for (const [id, value] of beforeRows) if (!afterRows.has(id)) append(id, SPECIAL_CRAFT_RECORDS, value, true)
     for (const [key, raw] of stagedLedgers) {
-      const old = new Map(splitWashingLedger(initialLedgers.get(key) ?? null).map(row => [row.path + '/' + row.key, row]))
-      const next = new Map(splitWashingLedger(raw).map(row => [row.path + '/' + row.key, row]))
+      const old = new Map(splitFactoryProcessLedger(initialLedgers.get(key) ?? null).map(row => [row.path + '/' + row.key, row]))
+      const next = new Map(splitFactoryProcessLedger(raw).map(row => [row.path + '/' + row.key, row]))
       const changed = new Map([...next].filter(([id, row]) => !sameProcessLedgerRow(row, old.get(id))))
       if (key === 'higood-factory-material-receiving-v1') {
         // A new physical receipt/use must still resolve its original documents in
@@ -253,7 +251,7 @@ export async function runSpecialCraftRecordCommand<T>(target: unknown, recipe: (
             if (line.receiptLineId) receiptLineIds.add(line.receiptLineId)
           }
         }
-        const include = (id: string, row: ReturnType<typeof splitWashingLedger>[number]) => {
+        const include = (id: string, row: ReturnType<typeof splitFactoryProcessLedger>[number]) => {
           const durable = records.get(ledgerId(key, row))
           if (!durable || durable.deleted || !sameProcessLedgerRow(row, durable.value as typeof row)) changed.set(id, row)
         }

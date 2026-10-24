@@ -1,6 +1,6 @@
 import type { ProcessOutputRoll, ProcessDispatchDocument } from './process-output-types.ts'
 import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
-import { registerWashingLedgerSnapshot, WATER_EXECUTION_STORAGE_KEY } from './fabric-washing-storage-bridge.ts'
+import { registerFactoryProcessSnapshot, WATER_EXECUTION_STORAGE_KEY } from './factory-process-storage.ts'
 import { addWaterOutputDemoOrders } from './water-soluble-output-demos.ts'
 import {getPdaSession, readFactoryPdaExecutionUsers} from './store-domain-pda.ts'
 import {isCentralPdaFactory} from './pda-experience-scope.ts'
@@ -244,7 +244,6 @@ function validateWaterOutputSnapshot(order: WaterSolubleWorkOrder): void {
 }
 
 function persistFormalWaterExecution(): void {
-  if (typeof localStorage === 'undefined') return
   const orders = [...(orderStore?.values() ?? [])].filter(order => order.actionLogs.length > 1)
   getDesignRevisionFcsStorage().setItem(WATER_EXECUTION_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
 }
@@ -1037,14 +1036,15 @@ export function mutateWaterSolubleOutput<T>(action: (orders: WaterSolubleWorkOrd
 }
 
 registerDesignRevisionFcsCacheHooks('water', {
-  capture() { return { orders: orderStore ? [...orderStore].map(([key, order]) => [key, cloneOrder(order)] as const) : null } },
-  restore(value: { orders: Array<readonly [string, WaterSolubleWorkOrder]> | null }) {
+  capture() { return { orders: orderStore ? [...orderStore].map(([key, order]) => [key, cloneOrder(order)] as const) : null, mutationDepth: waterMutationDepth } },
+  restore(value: { orders: Array<readonly [string, WaterSolubleWorkOrder]> | null; mutationDepth: number }) {
     orderStore = value.orders ? new Map(value.orders.map(([key, order]) => [key, cloneOrder(order)])) : null
+    waterMutationDepth = value.mutationDepth
   },
   hydrate() { orderStore = null },
 })
 // Include static rows only in the comparison baseline, never in the saved delta.
-registerWashingLedgerSnapshot(WATER_EXECUTION_STORAGE_KEY, () => JSON.stringify({ version: 1,
+registerFactoryProcessSnapshot(WATER_EXECUTION_STORAGE_KEY, () => JSON.stringify({ version: 1,
   // Use the same read projection as output actions. Its derived acceptance fields
   // must already exist in the baseline, so a read after hydration cannot adopt an
   // unrelated static order as a user change.

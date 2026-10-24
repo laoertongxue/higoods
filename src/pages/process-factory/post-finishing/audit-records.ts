@@ -119,7 +119,7 @@ function buildDifferences(trace: FlowTrace): DifferenceLine[] {
   trace.delivery?.lines.forEach((line) => {
     if (line.confirmedQty !== undefined) add('回货确认', line.sku, line.registeredQty, line.confirmedQty)
   })
-  trace.qcTask?.results?.forEach((line) => add('质检', line.sku, line.expectedQty, line.passedQty + line.defectQty + line.returnQty))
+  trace.qcTask?.results?.forEach((line) => add('质检批次去向', line.sku, line.expectedQty, line.passedQty + line.defectQty + line.returnQty + (line.uninspectedQty ?? 0)))
   trace.postTask?.results?.forEach((line) => add('后道', line.sku, line.expectedQty, line.processedQty + line.unprocessedQty))
   trace.recheckOrders?.forEach(row => row.lines.forEach((line) => {
     if (line.handoverQty !== undefined) {
@@ -137,12 +137,10 @@ function currentFlowState(trace: FlowTrace): { stage: string; status: string } {
   if (trace.postTask) {
     const p = getPostFinishingProcessProgress(trace.postTask)
     if (trace.postTask.status !== '后道完成') return { stage: '后道加工', status: trace.postTask.status }
-    if (p.availableForRecheckQty > 0) return { stage: '处理后复核', status: `尚有${p.availableForRecheckQty}件未交复检` }
+    if (p.availableForOutboundQty > 0) return { stage: '准备出货', status: `尚有${p.availableForOutboundQty}件待准备出货` }
   }
-  const pending = trace.recheckOrders?.find(row => row.status !== '复检完成')
-  if (pending) return { stage: '处理后复核', status: pending.status }
   const outbound = trace.outboundOrders?.find(row => row.status !== '已接收入库')
-  if (outbound) return { stage: '成衣仓待接收', status: outbound.status }
+  if (outbound) return { stage: outbound.status==='待出货'?'实际发出':'成衣仓待接收', status: outbound.status }
   if (trace.receipts?.length) return { stage: '仓库收货', status: '已生成单据已接收，余量待核对' }
   if (trace.qcTask) return { stage: '质检', status: trace.qcTask.status }
   return { stage: '后道待加工仓', status: trace.delivery?.status || '待确认' }
@@ -196,7 +194,7 @@ const columns: StandardListColumn<ChainRow>[] = [
     required: true,
     render: (row) => {
       const directFromQc = row.trace.outboundOrder?.sourceType === '质检直达'
-      return `<div class="space-y-1 font-mono text-[11px]"><div>质检：${escapeHtml(row.trace.qcTask?.qcTaskNo || '未生成')}</div><div>后道：${escapeHtml(row.trace.postTask?.postTaskNo || '未生成 / 不适用')}</div><div>处理后复核：${escapeHtml(directFromQc ? '不适用（QC 直达）' : row.trace.recheckOrders?.map(item => item.recheckOrderNo).join('、') || '未生成')}</div><div>待交出仓来源：${escapeHtml(directFromQc ? '不适用（QC 直达）' : row.trace.waitHandoverRecords?.map(item => item.outboundOrderNo).join('、') || '未入仓')}</div><div>成衣仓交接：${escapeHtml(row.trace.outboundOrders?.map(item => item.outboundOrderNo).join('、') || '未生成')}</div></div>`
+      return `<div class="space-y-1 font-mono text-[11px]"><div>质检：${escapeHtml(row.trace.qcTask?.qcTaskNo || '未生成')}</div><div>后道：${escapeHtml(row.trace.postTask?.postTaskNo || '未生成 / 不适用')}</div><div>历史数量复核（只读）：${escapeHtml(directFromQc ? '不适用（QC 直达）' : row.trace.recheckOrders?.map(item => item.recheckOrderNo).join('、') || '未生成')}</div><div>待交出仓来源：${escapeHtml(row.trace.waitHandoverRecords?.map(item => item.outboundOrderNo).join('、') || '尚未准备出货')}</div><div>成衣仓交接：${escapeHtml(row.trace.outboundOrders?.map(item => item.outboundOrderNo).join('、') || '未生成')}</div></div>`
     },
   },
   {
@@ -251,7 +249,7 @@ function renderDetailTabs(row: ChainRow, activeTab: AuditDetailTab): string {
 
 function renderChainNode(label: string, no: string, status: string): string {
   const selected = query().get('keyword') === no
-  const suffix = label === '处理后复核单' ? 'recheck-orders' : label === '成衣仓交接单' ? 'outbound-orders' : ''
+  const suffix = label === '成衣仓交接单' ? 'outbound-orders' : ''
   const href = suffix && !no.includes('不适用') ? `/fcs/craft/post-finishing/${suffix}/${encodeURIComponent(no)}` : ''
   const number = href ? `<a href="${escapeHtml(href)}" data-nav="${escapeHtml(href)}" class="text-blue-700 underline">${escapeHtml(no)}</a>` : escapeHtml(no)
   return `<div class="min-w-0 rounded-lg ${selected ? 'border border-blue-300 bg-blue-50' : 'bg-slate-50'} px-3 py-3" ${selected ? 'data-audit-selected-child' : ''}><div class="text-xs text-muted-foreground">${escapeHtml(label)}${selected ? ' · 当前查询单据' : ''}</div><div class="mt-1 break-all font-mono text-xs font-semibold" title="${escapeHtml(no)}">${number}</div><div class="mt-2 text-xs">${escapeHtml(status)}</div></div>`
@@ -269,16 +267,16 @@ function renderOverviewDetail(row: ChainRow): string {
       ],
     },
     {
-      title: '2. 后道与处理后复核',
-      description: directFromQc ? 'QC 未选择后道项目，本批跳过后道加工、再次扫码与点数。' : 'QC 选择后道项目后生成一张加工单；完成后只复核数量、条码与交出。',
+      title: '2. 后道加工',
+      description: directFromQc ? 'QC 未选择后道项目，本批正常放行后准备出货。' : 'QC 选择后道项目后生成加工单；按项完成后分 SKU 准备出货。',
       nodes: [
         ['后道加工单', row.trace.postTask?.postTaskNo || '未生成 / 不适用', row.trace.postTask?.status || '未开始'],
-        ...(directFromQc ? [['处理后复核单', '不适用（QC 直达）', '已跳过']] : (row.trace.recheckOrders || []).map(item => ['处理后复核单', item.recheckOrderNo, `${item.status} · 应交${item.lines.reduce((n, line) => n + line.expectedQty, 0)}件`])),
+        ...(row.trace.recheckOrders || []).map(item => ['历史数量复核（只读）', item.recheckOrderNo, item.status]),
       ],
     },
     {
       title: '3. 交出与收货',
-      description: directFromQc ? 'QC 直接生成面向成衣仓的待接收交接；成衣仓未确认前不视为已收。' : '处理后复核完成进入待交出仓，再生成面向成衣仓的待接收交接。',
+      description: '准备出货生成待出货单；确认实际发出后等待成衣仓按实收数量接收。',
       nodes: [
         ...(row.trace.outboundOrders || []).map(item => ['成衣仓交接单', item.outboundOrderNo, `${item.status} · ${item.lines.reduce((n, line) => n + line.outboundQty, 0)}件`]),
       ],
@@ -289,12 +287,12 @@ function renderOverviewDetail(row: ChainRow): string {
 
 function renderDifferenceDetail(row: ChainRow): string {
   const defects = listPostFinishingDefectRecords({ discoveryStage: '质检' }).filter((record) => record.deliveryOrderNo === row.delivery.deliveryOrderNo)
-  return `<div class="space-y-4"><section class="rounded-xl border bg-white p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">逐 SKU 数量差异</h3><p class="mt-1 text-xs text-muted-foreground">这里只显示有差异的 SKU；授权人和数量口径保留在同一行。</p></div><span class="rounded-full px-3 py-1 text-sm font-semibold ${row.differences.length ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">${row.differences.length} 条</span></div><div class="mt-3 overflow-x-auto"><table class="min-w-[820px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">环节</th><th class="px-3 py-2">SKU</th><th class="px-3 py-2">应有</th><th class="px-3 py-2">实有</th><th class="px-3 py-2">差异</th><th class="px-3 py-2">授权人</th></tr></thead><tbody class="divide-y">${row.differences.map((line) => `<tr><td class="px-3 py-3">${escapeHtml(line.stage)}${line.sourceNo ? `<div class="mt-1 break-all font-mono text-[11px]">${escapeHtml(line.sourceNo)}</div>` : ''}</td><td class="px-3 py-3"><div class="flex items-center gap-2"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-10 w-10 rounded-md border object-cover" /><div><div class="font-mono text-xs font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-[11px] text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td><td class="px-3 py-3">${line.expectedQty} 件</td><td class="px-3 py-3">${line.actualQty} 件</td><td class="px-3 py-3 font-semibold text-amber-700">${line.direction} ${line.differenceQty} 件</td><td class="px-3 py-3">${escapeHtml(line.authorization)}</td></tr>`).join('') || '<tr><td colspan="6" class="px-6 py-10 text-center text-emerald-700">当前已发生环节没有逐 SKU 数量差异。</td></tr>'}</tbody></table></div></section><section class="rounded-xl border bg-white p-4"><h3 class="font-semibold">质检瑕疵记录</h3><p class="mt-1 text-xs text-muted-foreground">质量判断与返厂处置只在 QC 发生；后道加工与处理后复核不新增质量记录。</p><div class="mt-3 grid gap-2 lg:grid-cols-2">${defects.map((record) => `<div class="rounded-lg border p-3 text-sm"><div class="flex items-center justify-between gap-2"><span class="font-semibold">${escapeHtml(record.sku.skuCode)} · ${record.defectQty} 件瑕疵</span><span class="text-xs text-muted-foreground">${escapeHtml(record.discoveryStage)}</span></div><div class="mt-1 text-xs">${escapeHtml(record.defectReason)} · ${escapeHtml(record.responsibleParty || '责任待确认')}</div><div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(record.sourceObjectNo)} / ${escapeHtml(record.recordedBy.actorName)}</div></div>`).join('') || '<div class="text-sm text-muted-foreground">本次业务链暂无 QC 瑕疵记录。</div>'}</div></section></div>`
+  return `<div class="space-y-4"><section class="rounded-xl border bg-white p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">逐 SKU 数量差异</h3><p class="mt-1 text-xs text-muted-foreground">这里只显示有差异的 SKU；授权人和数量口径保留在同一行。</p></div><span class="rounded-full px-3 py-1 text-sm font-semibold ${row.differences.length ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">${row.differences.length} 条</span></div><div class="mt-3 overflow-x-auto"><table class="min-w-[820px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">环节</th><th class="px-3 py-2">SKU</th><th class="px-3 py-2">应有</th><th class="px-3 py-2">实有</th><th class="px-3 py-2">差异</th><th class="px-3 py-2">授权人</th></tr></thead><tbody class="divide-y">${row.differences.map((line) => `<tr><td class="px-3 py-3">${escapeHtml(line.stage)}${line.sourceNo ? `<div class="mt-1 break-all font-mono text-[11px]">${escapeHtml(line.sourceNo)}</div>` : ''}</td><td class="px-3 py-3"><div class="flex items-center gap-2"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-10 w-10 rounded-md border object-cover" /><div><div class="font-mono text-xs font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-[11px] text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td><td class="px-3 py-3">${line.expectedQty} 件</td><td class="px-3 py-3">${line.actualQty} 件</td><td class="px-3 py-3 font-semibold text-amber-700">${line.direction} ${line.differenceQty} 件</td><td class="px-3 py-3">${escapeHtml(line.authorization)}</td></tr>`).join('') || '<tr><td colspan="6" class="px-6 py-10 text-center text-emerald-700">当前已发生环节没有逐 SKU 数量差异。</td></tr>'}</tbody></table></div></section><section class="rounded-xl border bg-white p-4"><h3 class="font-semibold">质检瑕疵记录</h3><p class="mt-1 text-xs text-muted-foreground">质量判断与返厂处置在 QC 登记；后道加工和实际出货核对数量。</p><div class="mt-3 grid gap-2 lg:grid-cols-2">${defects.map((record) => `<div class="rounded-lg border p-3 text-sm"><div class="flex items-center justify-between gap-2"><span class="font-semibold">${escapeHtml(record.sku.skuCode)} · ${record.defectQty} 件瑕疵</span><span class="text-xs text-muted-foreground">${escapeHtml(record.discoveryStage)}</span></div><div class="mt-1 text-xs">${escapeHtml(record.defectReason)} · ${escapeHtml(record.responsibleParty || '责任待确认')}</div><div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(record.sourceObjectNo)} / ${escapeHtml(record.recordedBy.actorName)}</div></div>`).join('') || '<div class="text-sm text-muted-foreground">本次业务链暂无 QC 瑕疵记录。</div>'}</div></section></div>`
 }
 
 function renderTimelineDetail(row: ChainRow): string {
   const timeline = [...row.logs].sort((a, b) => a.operatedAt.localeCompare(b.operatedAt))
-  const stageOrder = ['回货登记', '回货确认', '送检', '质检', '后道', '复检', '待交出仓', '出货', '仓库收货', '授权']
+  const stageOrder = ['回货登记', '回货确认', '送检', '质检', '后道', '准备出货', '出货准备入区', '出货', '仓库收货', '授权']
   const stages = Array.from(new Set([...stageOrder, ...timeline.map((log) => log.stage)]))
     .map((stage) => ({ stage, logs: timeline.filter((log) => log.stage === stage) }))
     .filter((group) => group.logs.length)

@@ -25,7 +25,7 @@ export function getWaterDispatchAvailableQty(id:string):number{return available(
 export function listWaterDispatchDocuments():ProcessDispatchDocument[]{
  const orders=listWaterSolubleWorkOrders(),docs=storedDocs(orders),linked=new Set(docs.flatMap(d=>d.lines.map(l=>l.handoverRecordId).filter(Boolean)))
  // 已有 PDA 交出只投影展示，不重复创建交出量；历史没有卷码时保留空卷及原数量。
- for(const o of orders)for(const head of listHandoverOrdersByTaskId(o.taskId))for(const r of getPdaHandoverRecordsByHead(head.handoverId)){
+ for(const o of orders)for(const head of listHandoverOrdersByTaskId(o.taskId, {includeWool:false}))for(const r of getPdaHandoverRecordsByHead(head.handoverId)){
   const id=r.handoverRecordId||r.recordId
   if(linked.has(id)||r.handoverRecordStatus==='VOIDED')continue
   const t=targetOf(o)
@@ -35,7 +35,7 @@ export function listWaterDispatchDocuments():ProcessDispatchDocument[]{
 }
 export function listWaterOutputRows():OutputWorkOrderRow[]{return listWaterSolubleWorkOrders().map(o=>{
  const p=productionOrders.find(p=>p.productionOrderId===o.productionOrderId),image=getWaterSolubleOrderImageManifest(o.handoverDemoSourceOrderId||o.waterOrderId),t=targetOf(o)
- const records=listHandoverOrdersByTaskId(o.taskId).flatMap(h=>getPdaHandoverRecordsByHead(h.handoverId))
+ const records=listHandoverOrdersByTaskId(o.taskId, {includeWool:false}).flatMap(h=>getPdaHandoverRecordsByHead(h.handoverId))
  return {orderId:o.waterOrderId,factoryId:o.factoryId||'',factoryName:o.factoryName||'待分配',workOrderNo:o.waterOrderNo,taskNo:o.taskNo,productCode:p?.demandSnapshot.spuCode||o.productionOrderNo,productName:p?.demandSnapshot.spuName||'水溶花边配套款式',productImageUrl:image?.product||'',productionOrderNo:o.productionOrderNo,purchaseOrderNo:o.sourceDemandIds.join(' / ')||p?.demandId||'生产单直接创建',receiverName:t.targetName,downstreamPartner:{kind:'WAREHOUSE',id:t.targetBusinessId,name:t.targetName,warehouseAttribute:'裁床配套中转仓'},materialName:o.materialName,colorSku:o.materialCode,outputImageUrl:image?.material||'',composition:'100% 涤纶',width:'15 mm',weightGsm:0,materialSpec:'本白水溶花边 / 宽 15 mm',isYarn:false,rawMaterialQty:o.inputQty??0,completedQty:o.completedQty,qtyUnit:o.qtyUnit,orderedAt:o.createdAt,handoverRecords:records,blockedReason:!o.factoryId?'尚未分配加工厂':o.status!=='WAIT_HANDOVER'?'加工单当前尚不能交出':''}
 })}
 export function isWaterRollAvailable(id:string,roll:ProcessOutputRoll):boolean{

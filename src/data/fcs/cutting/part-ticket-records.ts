@@ -1,4 +1,4 @@
-import { isProductionContextReady, hydrateProductionContextRecords, productionContextInitializationRecords, assertProductionContextLegacyUnchanged } from '../production-context-records.ts'
+import { isProductionContextReady, PRODUCTION_CONTEXT_KEYS, hydrateProductionContextRecords, productionContextInitializationRecords, assertProductionContextLegacyUnchanged } from '../production-context-records.ts'
 import { cuttingRecordUuid, cuttingRecordFingerprint } from './cutting-record-identity.ts'
 import { readCuttingRecords, readCuttingCommand, commitCuttingRecords, diffCuttingRecords, type CuttingStoredRecord, type CuttingRecordSnapshot } from './cutting-record-repository.ts'
 import { validateCuttingMaterialRecordLinks } from './cutting-material-record-links.ts'
@@ -266,7 +266,7 @@ export async function savePartTicketAction<T>(input: {
   const displayedRevision = current?.revision
   try {
     await hydrate()
-    const withProductionContext = isProductionContextReady()
+    const withProductionContext = isProductionContextReady(PRODUCTION_CONTEXT_KEYS.orders)
     if (withProductionContext) await hydrateProductionContextRecords(current!)
     if (!input.intent.trim()) throw new Error('部位票确认内容标识缺失。')
     const previous = await readCuttingCommand(id)

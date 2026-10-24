@@ -1,11 +1,13 @@
+import {finishedInventoryRealtimeRows} from '../wls/finished-inventory-quality.ts'
+import {ensureFinishedInventoryRecords} from '../wls/finished-inventory-records.ts'
 import { loadFinishedOutboundOrders, FINISHED_OUTBOUND_SEED, type FinishedOutboundOrder } from '../wls/finished-outbound-orders.ts'
 import { stockRealtimeSeed } from '../wls/seed/stock-seed.ts'
 import { warehouseSeed } from '../wls/seed/shared-seed.ts'
 import type { StockRealtimeItem } from '../wls/types.ts'
 import { calculateQcShippingPriority, parseQcShippingDeadlineMillis, type PriorityDemand, type PriorityStock, type PriorityPostSupply } from './post-finishing-qc-shipping-priority.ts'
 import { projectQcShippingSupply } from './post-finishing-qc-shipping-supply.ts'
-import { ensurePostFinishingRecordState, getPostFinishingStorageFailure, assertPostFinishingReadVersion } from './post-finishing-records.ts'
-import { listPostFinishingFullFlowQcTasks, listPostFinishingFullFlowPostTasks, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders, listPostFinishingWarehouseReceipts, getPostFinishingFullFlowQcTask, type PostFinishingQcTask, type PostFinishingAcceptanceSku } from './post-finishing-full-flow.ts'
+import { ensurePostFinishingExecutionRecordState, ensurePreparedPostFinishingRecordState, getPostFinishingStorageFailure, assertPostFinishingReadVersion } from './post-finishing-records.ts'
+import { listPostFinishingQcShippingFacts, listPostFinishingFullFlowPostTasks, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders, listPostFinishingWarehouseReceipts, getPostFinishingFullFlowQcTask, type PostFinishingQcTask, type PostFinishingAcceptanceSku } from './post-finishing-full-flow.ts'
 import { readQcShippingPriorityRules, readQcShippingDestination as readDestinationFact, saveQcShippingPriorityRules, saveQcShippingDestinationFact } from './post-finishing-qc-shipping-facts.ts'
 import { QC_SHIPPING_WAREHOUSES, QC_SHIPPING_STOCK_SEEDS } from './post-finishing-qc-shipping-seeds.ts'
 import { readGarmentReplacementSnapshotForPriority, normalize, type GarmentReplacementStoreSnapshot } from './garment-spu-replacement-records.ts'
@@ -46,8 +48,12 @@ function versions(rows: FinishedOutboundOrder[]): string { return JSON.stringify
 export async function preparePostFinishingQcShippingPriority(): Promise<void> {
   prepared = false; failure = ''
   try {
-    await ensurePostFinishingRecordState()
+    // The prepared execution view retains all physical QC consumers; do not
+    // reload unrelated archived inspection standard trees for an urgency label.
+    if(typeof window!=='undefined' && window.location?.pathname==='/wls/finished/stock/realtime')await ensurePostFinishingExecutionRecordState(window.location.pathname+window.location.search)
+    else await ensurePreparedPostFinishingRecordState()
     if (getPostFinishingStorageFailure()) throw new Error(getPostFinishingStorageFailure())
+    await ensureFinishedInventoryRecords()
     const identity = readGarmentReplacementSnapshotForPriority()
     const first = typeof window === 'undefined' ? structuredClone(FINISHED_OUTBOUND_SEED) : await loadFinishedOutboundOrders()
     // Independent databases cannot share a transaction. Reject a changed read set.
@@ -80,9 +86,9 @@ export function resolveQcShippingIdentity(qc: PostFinishingQcTask, sku: PostFini
 }
 
 /** One physical baseline plus uniquely identified receipts; never a second writable stock ledger. */
-function readSupplies(skus?: Set<string>, identity: GarmentReplacementStoreSnapshot = readGarmentReplacementSnapshotForPriority()) {
+function readSupplies(skus?: Set<string>, identity: GarmentReplacementStoreSnapshot = readGarmentReplacementSnapshotForPriority(), warehouseRows=finishedInventoryRealtimeRows()) {
   const issues: string[] = []
-  const qcs = listPostFinishingFullFlowQcTasks()
+  const qcs = listPostFinishingQcShippingFacts().filter(row=>row.sourceKind!=='WAREHOUSE_STOCK' && Array.isArray(row.lines))
   const wantedQcs = skus ? qcs.filter(qc => qc.lines.some(line => skus.has(resolveQcShippingIdentity(qc, line.sku, 'reference', issues, identity)) || skus.has(line.sku.skuCode))) : qcs
   const ids = new Set(wantedQcs.map(row => row.qcTaskId))
   const postTasks = listPostFinishingFullFlowPostTasks().filter(row => ids.has(row.qcTaskId))
@@ -93,10 +99,10 @@ function readSupplies(skus?: Set<string>, identity: GarmentReplacementStoreSnaps
   const projection = projectQcShippingSupply({ qcs: wantedQcs, postTasks, rechecks, outbounds, receipts })
   issues.push(...projection.issues.map(row => row.message))
   const stocks: PriorityStock[] = structuredClone(QC_SHIPPING_STOCK_SEEDS).filter(row => !skus || skus.has(row.sku))
-  for (const row of stockRealtimeSeed) {
+  for (const row of warehouseRows) {
     if (skus && !skus.has(row.sku)) continue
     if (!warehouseSeed.some(warehouse => warehouse.name === row.warehouseName && warehouse.businessType === 'FINISHED' && warehouse.enabled)) continue
-    const id = warehouseId(row.warehouse_id || row.warehouseName)
+    const id = warehouseId(row.warehouseId || row.warehouseName)
     if (!id) { issues.push(`${row.warehouseName} 仓库身份尚未对应。`); continue }
     const occupied = row.preSaleOrderOccupiedQuantity + row.spotOrderOccupiedQuantity
     if (occupied) issues.push(`${row.warehouseName} ${row.sku} 仅有占用汇总，需核对对应订单。`)
@@ -119,7 +125,7 @@ function readSupplies(skus?: Set<string>, identity: GarmentReplacementStoreSnaps
 }
 
 function buildDocument(qcs: PostFinishingQcTask[]): QcShippingPriorityDocument | undefined {
-  const pending = qcs.filter(row => row.status === '待质检')
+  const pending = qcs.filter(row => row.status === '待质检' && row.sourceKind!=='WAREHOUSE_STOCK')
   if (!pending.length) return undefined
   const issues = [failure, !prepared ? '发货需求资料尚未读取完成，请重新查看。' : ''].filter(Boolean)
   try {
@@ -162,24 +168,28 @@ export function getQcShippingPriorityForQc(qc: string | PostFinishingQcTask): Qc
   const task = typeof qc === 'string' ? getPostFinishingFullFlowQcTask(qc) : qc
   return task && buildDocument([task])
 }
-export function getQcShippingPriorityForProduction(no: string): QcShippingPriorityDocument | undefined { return buildDocument(listPostFinishingFullFlowQcTasks(new Set([no]))) }
+export function getQcShippingPriorityForProduction(no: string): QcShippingPriorityDocument | undefined { return buildDocument(listPostFinishingQcShippingFacts().filter(row=>row.productionOrderNo===no)) }
 
 export function readUnifiedQcShippingStockRows(): StockRealtimeItem[] {
   if (failure) throw new Error(failure)
   const identity = readGarmentReplacementSnapshotForPriority()
-  const source = readSupplies(undefined, identity)
+  const baseline=finishedInventoryRealtimeRows()
+  const source = readSupplies(undefined, identity,baseline)
   inventoryIssues = source.issues
-  const existing = new Map<string, StockRealtimeItem>(stockRealtimeSeed.map(row => {
+  const existing = new Map<string, StockRealtimeItem>(baseline.map(row => {
     const warehouse = warehouseSeed.find(item => item.name === row.warehouseName)
-    return [`${warehouse?.code || row.warehouseName}|${row.sku}`, { ...structuredClone(row), warehouse_type: warehouse?.businessType || row.warehouse_type }] as const
+    return [`${row.warehouseId || warehouse?.code || row.warehouseName}|${row.sku}`, { ...structuredClone(row), warehouse_id:row.warehouseId, warehouse_type: warehouse?.businessType || row.warehouse_type }] as const
   }))
-  const sourceSkus = [...POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.flatMap(row => row.skus), ...listPostFinishingFullFlowQcTasks().flatMap(row => row.lines.map(line => line.sku))]
+  const sourceSkus = [...POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.flatMap(row => row.skus), ...listPostFinishingQcShippingFacts().flatMap(row => (row.lines||[]).map(line => line.sku))]
   const replacementSkus = identity.records.flatMap(row => row.lines.map(line => line.target))
   for (const stock of source.stocks) {
     const key = `${stock.warehouseId}|${stock.sku}`
-    if (stockRealtimeSeed.some(row => row.id === stock.id)) continue
+    if (baseline.some(row => row.id === stock.id)) continue
     const row = existing.get(key)
-    if (row) row.spotStock += stock.quantity
+    if (row) {
+      row.spotStock += stock.quantity
+      if ('physicalQuantity' in row && typeof row.physicalQuantity === 'number') row.physicalQuantity += stock.quantity
+    }
     else {
       const sku = replacementSkus.find(row => row.skuCode === stock.sku) || sourceSkus.find(row => row.skuCode === stock.sku)
       existing.set(key, { id: stock.id, sku: stock.sku, spu: sku?.spuCode || stock.sku, productName: sku?.spuName || stock.sku, image: sku?.imageUrl || '', warehouse_id: stock.warehouseId, warehouseName: warehouseName(stock.warehouseId), warehouse_type: 'FINISHED', spotStock: stock.quantity, transitStock: 0, pendingShipmentQuantity: 0, preSaleOrderOccupiedQuantity: 0, spotOrderOccupiedQuantity: stock.reservations.reduce((s, r) => s + r.quantity, 0), pendingReturnQualityQuantity: 0, defectiveStock: 0, damagedStock: 0 })

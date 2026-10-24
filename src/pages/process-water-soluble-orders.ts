@@ -10,7 +10,6 @@ import { resetStandardListEntryTransientStateOnRouteEntry } from '../components/
 // renderStandardListTable 和 renderTablePagination 由现有列表控制器统一渲染。
 import { renderToast, renderToastContainer } from '../components/ui/toast.ts'
 import { canAssignWaterSolubleFactory, assignWaterSolubleFactory, listWaterSolubleWorkOrders, type WaterSolubleWorkOrder } from '../data/fcs/water-soluble-task-domain.ts'
-import { runWaterSolubleRecordCommand } from '../data/fcs/water-soluble-records.ts'
 import {
   PROCESS_ORDER_HANDOVER_STATUS_LABEL,
   PROCESS_ORDER_PROCESSING_STATUS_LABEL,
@@ -25,11 +24,12 @@ import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-sto
 import { productionOrders } from '../data/fcs/production-orders.ts'
 import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
+import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 
 type Overlay = { type: 'detail' | 'assign'; orderId: string } | null
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 const state = { keyword: '', receiptStatus: '', processingStatus: '', handoverStatus: '', factoryId: '', exception: '', currentPage: 1, sort: null as ProcessOrderListControllerState['sort'], preferences: { order: [], visibleKeys: [], frozenKeys: ['waterOrderNo'], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false, overlay: null as Overlay }
-const pendingAssignments = new Set<string>()
+let assigning = false
 
 function withSkipPageRerender(html: string): string {
   return html
@@ -282,6 +282,7 @@ export async function handleProcessWaterSolubleOrdersEvent(target: HTMLElement):
   }
   const actionNode = target.closest<HTMLElement>('[data-water-soluble-action]')
   if (!actionNode) return false
+  if (assigning) return true
   const action = actionNode.dataset.waterSolubleAction || ''
   if (action === 'open-column-settings' || action === 'close-column-settings') {
     state.showColumnSettings = action === 'open-column-settings'
@@ -298,30 +299,18 @@ export async function handleProcessWaterSolubleOrdersEvent(target: HTMLElement):
   if (action === 'open-detail' || action === 'open-assign') { state.overlay = { type: action === 'open-detail' ? 'detail' : 'assign', orderId: actionNode.dataset.orderId || '' }; refreshOverlay(); return true }
   if (action === 'close-overlay') { state.overlay = null; refreshOverlay(); return true }
   if (action === 'confirm-assign') {
-    const orderId = actionNode.dataset.orderId || ''
-    if (pendingAssignments.has(orderId)) return true
-    const overlay = state.overlay
-    if (overlay?.type !== 'assign' || overlay.orderId !== orderId) return true
-    const page = document.querySelector('[data-testid="water-soluble-orders-page"]')
-    const factoryId = document.querySelector<HTMLSelectElement>('[data-water-soluble-field="assignFactoryId"]')?.value || ''
-    const intent = JSON.stringify({ orderId, factoryId })
-    if (actionNode.dataset.waterCommandIntent !== intent) {
-      actionNode.dataset.waterCommandIntent = intent
-      actionNode.dataset.waterCommandId = crypto.randomUUID()
-    }
-    const controls = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[data-water-soluble-overlay] input, [data-water-soluble-overlay] select, [data-water-soluble-overlay] button')]
-      .map(control => ({ control, disabled: control.disabled }))
-    const sameView = () => state.overlay === overlay && document.querySelector('[data-testid="water-soluble-orders-page"]') === page
-    pendingAssignments.add(orderId)
-    controls.forEach(({ control }) => { control.disabled = true })
+    const field = document.querySelector<HTMLSelectElement>('[data-water-soluble-field="assignFactoryId"]'), factoryId = field?.value || '', orderId = actionNode.dataset.orderId || ''
+    const button = actionNode as HTMLButtonElement, oldText = button.textContent, wasDisabled = button.disabled, fieldDisabled = field?.disabled
+    assigning = true; button.disabled = true; button.textContent = '保存中…'; if (field) field.disabled = true
     try {
-      const result = await runWaterSolubleRecordCommand({ orderId, factoryId }, () => assignWaterSolubleFactory(orderId, factoryId), actionNode.dataset.waterCommandId, intent)
-      if (sameView()) { showToast(result.message, result.ok); state.overlay = null; refreshOverlay(); refreshList() }
-    } catch (error) {
-      if (sameView()) showToast(error instanceof Error ? error.message : '分配未保存，请保留选择后重试。', false)
-    } finally {
-      pendingAssignments.delete(orderId)
-      controls.forEach(({ control, disabled }) => { control.disabled = disabled })
+      const result = await runDesignRevisionFcsCommand(orderId, () => assignWaterSolubleFactory(orderId, factoryId))
+      showToast(result.message, result.ok)
+      if (result.ok) { state.overlay = null; refreshOverlay(); refreshList() }
+    } catch (error) { showToast(error instanceof Error ? error.message : '分配未保存，请保留选择后重试。', false) }
+    finally {
+      assigning = false
+      if (button.isConnected) { button.disabled = wasDisabled; button.textContent = oldText }
+      if (field?.isConnected) field.disabled = fieldDisabled ?? false
     }
     return true
   }
@@ -333,4 +322,4 @@ export async function handleProcessWaterSolubleOrdersEvent(target: HTMLElement):
 }
 
 export function isProcessWaterSolubleOrdersOverlayOpen(): boolean { return state.overlay !== null || state.showColumnSettings }
-export function closeProcessWaterSolubleOrdersOverlay(): void { state.overlay = null; state.showColumnSettings = false; refreshOverlay(); listController.refresh({ table: false, pagination: false, overlays: true }) }
+export function closeProcessWaterSolubleOrdersOverlay(): void { if (assigning) return; state.overlay = null; state.showColumnSettings = false; refreshOverlay(); listController.refresh({ table: false, pagination: false, overlays: true }) }

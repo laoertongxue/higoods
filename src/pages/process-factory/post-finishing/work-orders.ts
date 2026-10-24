@@ -9,7 +9,6 @@ import {
   getPostFinishingFactoryReturn,
   POST_FINISHING_PROCESS_ITEMS,
   getPostFinishingProcessProgress,
-  listPostFinishingFullFlowRecheckOrders,
   listPostFinishingFullFlowOutboundOrders,
   getPostFinishingFullFlowQcTask,
   getPostFinishingMaterialReadiness,
@@ -30,7 +29,6 @@ interface WorkOrderRow {
   totalQty: number
   unprocessedQty: number
   progress: ReturnType<typeof getPostFinishingProcessProgress>
-  rechecks: ReturnType<typeof listPostFinishingFullFlowRecheckOrders>
   outbounds: ReturnType<typeof listPostFinishingFullFlowOutboundOrders>
   materialReadiness: ReturnType<typeof getPostFinishingMaterialReadiness>
 }
@@ -83,24 +81,21 @@ const columns: StandardListColumn<WorkOrderRow>[] = [
   { key: 'total', title: '总数量', width: 76, required: true, align: 'center', render: (row) => `${row.totalQty} 件` },
   ...POST_FINISHING_PROCESS_ITEMS.map((processItem): StandardListColumn<WorkOrderRow> => ({ key: `process-${processItem}`, title: `${processItem}完成`, width: 108, required: true, align: 'center', render: (row) => {
     const item = row.progress.processes.find((process) => process.processItem === processItem)
-    if (row.task.executionModel !== 'ITEMS_V1' && !row.task.legacyCarryover) return '<span class="text-amber-700">历史未分项</span>'
     if (!item?.applicable) return '<span class="text-muted-foreground">不涉及</span>'
-    if (row.progress.legacyPending) return '<span class="text-amber-700">历史未分项</span>'
-    const history = row.progress.lines.some((line) => line.historyCompletedQty > 0)
-    return `<span>${history ? '新增 ' : ''}${item.completedQty} / ${item.expectedQty}</span>`
+    return `<span>${item.completedQty} / ${item.expectedQty}</span>`
   } })),
-  { key: 'completed', title: '全部后道完成', width: 110, required: true, align: 'center', render: (row) => { const history = row.progress.lines.reduce((sum, line) => sum + line.historyCompletedQty, 0); return `${row.progress.totalCompletedQty} 件${history ? `<div class="mt-1 text-[11px] text-amber-700">含历史合并 ${history}</div>` : ''}` } },
+  { key: 'completed', title: '全部后道完成', width: 110, required: true, align: 'center', render: (row) => `${row.progress.totalCompletedQty} 件` },
   { key: 'unprocessed', title: '尚未完成后道', width: 108, required: true, align: 'center', render: (row) => `${row.unprocessedQty} 件` },
-  { key: 'available-recheck', title: '可交复检', width: 90, required: true, align: 'center', render: (row) => `${row.progress.availableForRecheckQty} 件` },
-  { key: 'downstream', title: '复检 / 出货进度', width: 200, required: true, render: (row) => {
-    const pending = row.rechecks.filter((item) => item.status !== '复检完成').reduce((sum, item) => sum + item.lines.reduce((n, line) => n + line.expectedQty, 0), 0)
-    const received = row.outbounds.filter((item) => item.status === '已接收入库').reduce((sum, item) => sum + item.lines.reduce((n, line) => n + (line.receivedQty ?? line.outboundQty), 0), 0)
-    const waiting = row.outbounds.filter((item) => item.status === '待仓库接收').reduce((sum, item) => sum + item.lines.reduce((n, line) => n + line.outboundQty, 0), 0)
-    return `<div class="text-xs">已交复检 ${row.progress.totalReservedQty} 件 · ${row.rechecks.length} 张</div><div class="mt-1 text-xs">待复检 ${pending} 件</div><div class="mt-1 text-xs">待接收 ${waiting} / 已接收 ${received} 件 · ${row.outbounds.length} 张</div>`
+  { key: 'available-outbound', title: '可准备出货', width: 90, required: true, align: 'center', render: (row) => `${row.progress.availableForOutboundQty} 件` },
+  { key: 'downstream', title: '出货进度', width: 200, required: true, render: (row) => {
+    const ready=row.outbounds.filter(item=>item.status==='待出货').reduce((sum,item)=>sum+item.lines.reduce((n,line)=>n+line.outboundQty,0),0)
+    const received=row.outbounds.filter(item=>item.status==='已接收入库').reduce((sum,item)=>sum+item.lines.reduce((n,line)=>n+(line.receivedQty||0),0),0)
+    const waiting=row.outbounds.filter(item=>item.status==='待仓库接收').reduce((sum,item)=>sum+item.lines.reduce((n,line)=>n+line.outboundQty,0),0)
+    return `<div class="text-xs">待实际发出 ${ready} 件</div><div class="mt-1 text-xs">待仓接收 ${waiting} / 已实收 ${received} 件 · ${row.outbounds.length} 张</div>`
   } },
   { key: 'status', title: '后道状态', width: 84, required: true, render: (row) => renderPostStatusBadge(row.task.status) },
   { key: 'time', title: '时间', width: 125, required: true, render: (row) => `<div><span class="text-xs text-muted-foreground">创建：</span>${escapeHtml(row.qcTask?.completedAt ? new Date(row.qcTask.completedAt).toLocaleString('zh-CN') : '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">开始：</span>${escapeHtml(row.task.startedAt ? new Date(row.task.startedAt).toLocaleString('zh-CN') : '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">完成：</span>${escapeHtml(row.task.completedAt ? new Date(row.task.completedAt).toLocaleString('zh-CN') : '—')}</div>` },
-  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true, render: (row) => `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}${row.task.status !== '后道完成' && !row.progress.legacyPending ? '?action=register' : ''}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">${row.task.status !== '后道完成' && !row.progress.legacyPending ? '登记加工' : '查看加工单'}</a>${row.progress.availableForRecheckQty > 0 && !row.progress.legacyPending ? `<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}?action=recheck" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">交复检</a>` : ''}<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}#records" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看记录</a><a data-nav="/fcs/craft/post-finishing/print?type=POST_ORDER&id=${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印加工单</a><a data-nav="/fcs/craft/post-finishing/audit-records?deliveryId=${encodeURIComponent(row.task.deliveryId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看全流程</a></div>` },
+  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true, render: (row) => `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}${row.task.status !== '后道完成' ? '?action=register' : ''}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">${row.task.status !== '后道完成' ? '登记加工' : '查看加工单'}</a>${row.progress.availableForOutboundQty > 0 ? `<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}?action=outbound" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">准备出货</a>` : ''}<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}#records" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看记录</a><a data-nav="/fcs/craft/post-finishing/print?type=POST_ORDER&id=${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印加工单</a><a data-nav="/fcs/craft/post-finishing/audit-records?deliveryId=${encodeURIComponent(row.task.deliveryId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看全流程</a></div>` },
 ]
 
 export function renderPostFinishingWorkOrdersPage(): string {
@@ -110,7 +105,6 @@ export function renderPostFinishingWorkOrdersPage(): string {
   const processItem = current.get('processItem') || ''
   const factory = current.get('factory') || ''
   const allTasks = listPostFinishingFullFlowPostTasks()
-  const rechecks = listPostFinishingFullFlowRecheckOrders()
   const outbounds = listPostFinishingFullFlowOutboundOrders()
   const materialReadinessByProduction = new Map<string, WorkOrderRow['materialReadiness']>()
   const readMaterialReadiness = (productionOrderNo: string): WorkOrderRow['materialReadiness'] => {
@@ -129,7 +123,6 @@ export function renderPostFinishingWorkOrdersPage(): string {
       qcTask: getPostFinishingFullFlowQcTask(task.qcTaskId),
       totalQty: task.lines.reduce((sum, line) => sum + line.expectedQty, 0),
       progress,
-      rechecks: rechecks.filter((item) => item.postTaskId === task.postTaskId),
       outbounds: outbounds.filter((item) => item.postTaskId === task.postTaskId),
       unprocessedQty: Math.max(0, progress.totalExpectedQty - progress.totalCompletedQty),
       materialReadiness: readMaterialReadiness(task.productionOrderNo),

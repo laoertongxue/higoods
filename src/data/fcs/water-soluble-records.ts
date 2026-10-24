@@ -1,11 +1,11 @@
 import { executeWaterSolublePdaAction, listWaterSolubleWorkOrders, type WaterSolubleActionResult, type WaterSolublePdaActionInput } from './water-soluble-task-domain.ts'
 import { listWaterDispatchDocuments } from './water-soluble-output.ts'
 import { ensureSpecialCraftRecords, runSpecialCraftRecordCommand } from './special-craft-records.ts'
-import { withWashingStaticRead } from './fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from './factory-process-storage.ts'
 
 /** Resolve current business identities, rather than treating a prefix as ownership. */
 export function isWaterSolubleRecordTarget(target: unknown): boolean {
-  const identifiers = withWashingStaticRead(() => new Set([
+  const identifiers = withFactoryProcessStaticRead(() => new Set([
     ...listWaterSolubleWorkOrders().flatMap(order => [order.waterOrderId, order.taskId, order.handoverOrderId].filter(Boolean)),
     ...listWaterDispatchDocuments().flatMap(doc => [doc.id, ...doc.lines.flatMap(line => [line.orderId, line.handoverRecordId].filter(Boolean))]),
   ]))
@@ -16,7 +16,7 @@ export function isWaterSolubleRecordTarget(target: unknown): boolean {
 
 /** Only actual current identities participate; names, factories and prefixes do not acquire a lock. */
 export function waterSolubleCommandGuardKeys(target:unknown):string[]{
-  return withWashingStaticRead(()=>{
+  return withFactoryProcessStaticRead(()=>{
     const strings=new Set<string>(),visit=(value:unknown)=>{if(typeof value==='string')strings.add(value);else if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')Object.values(value).forEach(visit)}
     visit(target)
     const orders=listWaterSolubleWorkOrders(),ids=new Set(orders.filter(order=>[order.waterOrderId,order.taskId,order.handoverOrderId].some(id=>!!id&&strings.has(id))).map(order=>order.waterOrderId))

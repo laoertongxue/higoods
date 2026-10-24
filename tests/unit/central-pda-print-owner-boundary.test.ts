@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { centralLedgerRecordId, replaceCentralExecutionRecordSnapshot, SPECIAL_CRAFT_LEDGER_RECORDS } from '../../src/data/fcs/central-execution-record-bridge.ts'
-import { writeWashingStorage } from '../../src/data/fcs/fabric-washing-storage-bridge.ts'
+import { writeFactoryProcessStorage } from '../../src/data/fcs/factory-process-storage.ts'
 
 test('a PCS action may retain an unchanged Central row while adding its own order, but cannot change, remove or revive that row',()=>{
  const key='higoods.formal-print-execution.v1',row={path:'state.workOrders',key:'PWO-PRINT-001',tuple:true,value:{qty:8,unit:'Yard'}}
@@ -10,11 +10,11 @@ test('a PCS action may retain an unchanged Central row while adding its own orde
  try{
   replaceCentralExecutionRecordSnapshot([saved])
   const previous=JSON.stringify({version:1,state:{workOrders:[]}})
-  assert.equal(writeWashingStorage(key,raw(8),previous).handled,false)
-  assert.throws(()=>writeWashingStorage(key,raw(9),previous),/未保存/)
-  assert.throws(()=>writeWashingStorage(key,raw(8,false),previous),/未保存/)
+  assert.equal(writeFactoryProcessStorage(key,raw(8),previous).handled,false)
+  assert.throws(()=>writeFactoryProcessStorage(key,raw(9),previous),/未保存/)
+  assert.throws(()=>writeFactoryProcessStorage(key,raw(8,false),previous),/未保存/)
   replaceCentralExecutionRecordSnapshot([{...saved,deleted:true}])
-  assert.equal(writeWashingStorage(key,raw(8,false),previous).handled,false)
-  assert.throws(()=>writeWashingStorage(key,raw(8),previous),/未保存/)
+  assert.equal(writeFactoryProcessStorage(key,raw(8,false),previous).handled,false)
+  assert.throws(()=>writeFactoryProcessStorage(key,raw(8),previous),/未保存/)
  }finally{replaceCentralExecutionRecordSnapshot([])}
 })

@@ -856,6 +856,24 @@
       "localPath": "/materials/pcs-reviewed/vest-green.jpg",
       "sha256": "f952d427a4b0b6dd04d22181d9e2e4168c8df25456925591e28ee862818044d3",
       "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-qc-raw-white-poplin": {
+      "key": "existing-qc-raw-white-poplin",
+      "sourcePage": "repository:public/materials/fei-ticket/white-poplin.png",
+      "imageUrl": "/materials/fei-ticket/white-poplin.png",
+      "localPath": "/materials/fei-ticket/white-poplin.png",
+      "sha256": "458870c433109166715b3386fc95775f334ce482d8c122397965765f214cddf3",
+      "note": "现有原型原料识别图，沿已有 MAT-FB-00000002 / MAT-FB-00000002-B01 绑定；本期新建成衣 MockBOM 关系，不证明真实工厂用料。",
+      "review": "2026-10-22 逐图目视：本白平纹方布样，未见印花；成分/颜色编号/规格沿原型档案，不作实测证明。"
+    },
+    "existing-qc-raw-greige-woven": {
+      "key": "existing-qc-raw-greige-woven",
+      "sourcePage": "repository:public/materials/process-orders/greige-cotton-polyester-woven.jpg",
+      "imageUrl": "/materials/process-orders/greige-cotton-polyester-woven.jpg",
+      "localPath": "/materials/process-orders/greige-cotton-polyester-woven.jpg",
+      "sha256": "c697c6cb3c2f56dba292d372ee6a7c9ec9936a4f6333caf4ab5c0373d5db8ee8",
+      "note": "现有原型原料识别图，沿已有 MAT-FB-00000001 / MAT-FB-00000001-B01 绑定；本期新建成衣 MockBOM 关系，不证明真实工厂用料。",
+      "review": "2026-10-22 逐图目视：本色梭织布卷，可见组织；成分/颜色编号/规格沿原型档案，不作实测证明。"
     }
   },
   "styles": {
@@ -1077,5 +1095,64 @@
     "CNIDML360-blue-1": "rib-blue",
     "FAB-COTTON-180-WHT": "cotton-white",
     "FAB-COTTON-180-BLK": "cotton-black"
+  },
+  "qualityDemoMaterialRevision": {
+    "revision": "legacy-qc-material-demo-20261022-v1",
+    "reviewedAt": "2026-10-22",
+    "scope": "仅本期原三款静态 MockBOM 演示关系，沿已有原料档案，非真实工厂用料或染色事实。用户已保存生产包及实际开检参照不回写。",
+    "styleColorBoundary": "原料图只识别本白/白色/本色的组织及材质；五个成衣目标色继续原款色图，不表示原料已染成五色。",
+    "bindings": [
+      {
+        "technicalVersionId": "tdv_demand_SPU_QC_001",
+        "productionOrderId": "PF-ACCEPT-PO-1",
+        "styleCode": "SPU-QC-001",
+        "materialId": "material-r1-MAT-FB-00000002",
+        "materialCode": "MAT-FB-00000002",
+        "materialSkuId": "material-r1-MAT-FB-00000002-B01",
+        "materialSkuCode": "MAT-FB-00000002-B01",
+        "materialName": "白底蓝花棉布坯布",
+        "colorLabel": "本白",
+        "unit": "Yard",
+        "imageUrl": "/materials/fei-ticket/white-poplin.png",
+        "imageLabel": "原料图（本白）",
+        "imageSha256": "458870c433109166715b3386fc95775f334ce482d8c122397965765f214cddf3",
+        "provenance": "repository:public/materials/fei-ticket/white-poplin.png",
+        "visualReview": "白色平纹方布样、锯齿边，无蓝花；照片识别未印花原料，不证明纤维成分"
+      },
+      {
+        "technicalVersionId": "tdv_demand_SPU_QC_002",
+        "productionOrderId": "PF-ACCEPT-PO-2",
+        "styleCode": "SPU-QC-002",
+        "materialId": "material_fabric_002",
+        "materialCode": "FAB-COTTON-180",
+        "materialSkuId": "material_fabric_002_sku_001",
+        "materialSkuCode": "FAB-COTTON-180-WHT",
+        "materialName": "纯棉毛织布 180g",
+        "colorLabel": "白色",
+        "unit": "米",
+        "imageUrl": "/materials/pcs-reviewed/cotton-white.jpg",
+        "imageLabel": "原料图（白色）",
+        "imageSha256": "e333b4f2b2b27e424333ed8b8ed0d947bba5f09537fc284aa27f54b077716cfc",
+        "provenance": "assets.cotton-white；外部布料商品图，仅用于 Mock 外观",
+        "visualReview": "白色针织布褶皱，保留原档案物料对应，不作工厂身份/规格计量证明"
+      },
+      {
+        "technicalVersionId": "tdv_demand_SPU_QC_003",
+        "productionOrderId": "PF-ACCEPT-PO-3",
+        "styleCode": "SPU-QC-003",
+        "materialId": "material-r1-MAT-FB-00000001",
+        "materialCode": "MAT-FB-00000001",
+        "materialSkuId": "material-r1-MAT-FB-00000001-B01",
+        "materialSkuCode": "MAT-FB-00000001-B01",
+        "materialName": "棉涤梭织坯布",
+        "colorLabel": "本色（本白坯布）",
+        "unit": "Yard",
+        "imageUrl": "/materials/process-orders/greige-cotton-polyester-woven.jpg",
+        "imageLabel": "原料图（本色）",
+        "imageSha256": "c697c6cb3c2f56dba292d372ee6a7c9ec9936a4f6333caf4ab5c0373d5db8ee8",
+        "provenance": "repository:public/materials/process-orders/greige-cotton-polyester-woven.jpg",
+        "visualReview": "本色梭织布卷与可见织纹；不通过照片推定纤维成分或真实工厂使用"
+      }
+    ]
   }
 }

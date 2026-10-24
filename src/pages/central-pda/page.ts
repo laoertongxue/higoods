@@ -13,6 +13,8 @@ import { centralSpecialActions, centralSpecialQuantityRows, centralSpecialAvaila
   type CentralSpecialView, type CentralSpecialAction, type CentralQuantityRow } from './special-model.ts'
 import { renderCentralSpecialWarehouse, type CentralWarehouseSelection } from './warehouse.ts'
 import { cb, ce, cn, ct, centralTime, centralErrorText, centralFormalName, centralNotice } from './ui.ts'
+import { pdaDetails, pdaDetailRow, pdaEmpty, pdaPill, pdaSectionTitle, pdaUi } from '../pda-mobile-ui.ts'
+import { renderCentralOperationMenu } from './operation-menu.ts'
 import { centralSession, saveCentralSessionPreference, registerCentralDraftDiscard, discardCentralDrafts, hasCentralDrafts } from './session.ts'
 
 let saving = false, message = '', messageError = false
@@ -74,14 +76,14 @@ function quantityFooter(order: SpecialCraftTaskOrder, action: CentralSpecialActi
 }
 function identityCard(order: SpecialCraftTaskOrder) {
   const identity = centralSpecialIdentity(order, centralSession.language)
-  return `<article class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">${identity.photo ? `<button type="button" data-central-action="photo" data-central-value="${ce(identity.photo)}" class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200" aria-label="${ct(centralSession.language, 'photo')}"><img src="${ce(identity.photo)}" alt="${ce(identity.name)}" class="h-full w-full object-contain" data-central-photo></button>` : ''}<div class="min-w-0"><strong class="break-words text-sm leading-5">${ce(identity.name)}</strong><p class="break-words text-xs leading-5 text-slate-600">${ce(order.taskOrderNo)}</p><p class="break-words text-sm">${ce(identity.object)}</p></div></article>${identity.photo ? '' : centralNotice(ct(centralSession.language, 'noPhoto'), true)}`
+  return `<article class="${pdaUi.card} flex items-center gap-3 p-3">${identity.photo ? `<button type="button" data-central-action="photo" data-central-value="${ce(identity.photo)}" class="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[#e2e6ec] bg-[#f1f3f6]" aria-label="${ct(centralSession.language, 'photo')}"><img src="${ce(identity.photo)}" alt="${ce(identity.name)}" class="h-full w-full object-contain" data-central-photo></button>` : ''}<div class="min-w-0"><strong class="break-words text-[17px] font-semibold leading-6 text-[#1a293c]">${ce(identity.name)}</strong><p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${ce(order.taskOrderNo)}</p><p class="mt-1 break-words text-[14px] leading-5 text-[#1a293c]">${ce(identity.object)}</p></div></article>${identity.photo ? '' : centralNotice(ct(centralSession.language, 'noPhoto'), true)}`
 }
 function direction(order: SpecialCraftTaskOrder, receiving: boolean) {
   const identity = centralSpecialIdentity(order, centralSession.language)
   const flowNames: Record<string, string> = { '裁床待交出仓': 'Gudang potong siap kirim', '面辅料仓': 'Gudang bahan', '成衣仓': 'Gudang pakaian', '后道待加工仓': 'Gudang finishing masuk', '中央辅料仓': 'Gudang aksesori pusat', '公司中转仓': 'Gudang transit' }
   const name = receiving ? identity.source : identity.target
   const label = centralSession.language === 'id' ? flowNames[name] || centralFormalName(name, receiving ? order.sourceFactoryId || identity.sourceNo : order.factoryId, centralSession.language) : name
-  return `<div class="my-2 break-words rounded-xl border border-slate-200 bg-white px-3 py-2"><p><span class="mr-2 text-sm text-slate-600">${ct(centralSession.language, receiving ? 'source' : 'target')}</span><strong>${ce(label)}</strong></p>${receiving ? `<p class="text-sm text-slate-600">${ce(identity.sourceNo)}</p>` : ''}</div>`
+  return `<div class="break-words rounded-xl border-l-4 border-[#2461ed] bg-[#f8fafc] p-3"><p><span class="mr-2 text-[13px] leading-5 text-[#62748a]">${ct(centralSession.language, receiving ? 'source' : 'target')}</span><strong class="text-[15px] leading-6 text-[#1a293c]">${ce(label)}</strong></p>${receiving ? `<p class="mt-1 text-[13px] leading-5 text-[#62748a]">${ce(identity.sourceNo)}</p>` : ''}</div>`
 }
 function statusLabel(order: SpecialCraftTaskOrder) { return ct(centralSession.language, order.status === '已完结' ? 'closed' : order.status === '待接收' ? 'pending' : 'processing') }
 function actionModes(order: SpecialCraftTaskOrder, view: CentralSpecialView) {
@@ -97,30 +99,32 @@ function quantityForm(order: SpecialCraftTaskOrder, action: CentralSpecialAction
   const draft = drafts.get(draftKey(order, action, row))
   const raw = draft?.raw || ''
   const unit = centralUnit(row.unit, centralSession.language)
-  return `${draft?.committed && !message ? centralNotice(ct(centralSession.language, 'committed'), true) + cb(ct(centralSession.language, 'reload'), 'reload') : ''}${rows.length > 1 ? `<label class="sr-only" for="central-item">${ct(centralSession.language, 'choose')}</label><select id="central-item" data-central-field="row" class="mb-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white p-3 text-base">${rows.filter(item => item.key === row.key || item.max === null || item.max > 0).map(item => `<option value="${ce(item.key)}"${item.key === row.key ? ' selected' : ''}>${ce(item.label)}</option>`).join('')}</select>` : `<p class="my-3 break-words text-base font-semibold" data-central-current-object>${ce(row.label)}</p>`}
-    ${row.max === null ? '' : `<p class="mb-3 text-base">${ct(centralSession.language, 'remaining')} <strong data-central-remaining>${cn(row.max, centralSession.language)} ${ce(unit)}</strong></p>`}
-    <label class="mb-2 block text-base font-bold" for="central-qty">${ct(centralSession.language, 'thisQty')} · ${ce(unit)}</label>
-    ${row.ticket ? `<p class="rounded-xl bg-white p-3 text-2xl font-bold">1 ${ce(unit)}</p>` : `<div class="flex items-start gap-2"><input id="central-qty" data-central-field="quantity" type="text" inputmode="${['片', '件', '张', '条', '个'].includes(row.unit) ? 'numeric' : 'decimal'}" enterkeyhint="done" autocomplete="off" value="${ce(raw)}" class="min-h-14 min-w-0 flex-1 rounded-xl border border-slate-400 bg-white px-3 py-3 text-2xl font-bold" aria-describedby="central-quantity-error"${saving || draft?.committed || row.max === 0 ? ' disabled' : ''}>${cb(ct(centralSession.language, 'clear'), 'clear')}</div>`}<p id="central-quantity-error" role="alert" class="mt-2 text-base text-red-700" data-central-field-error></p>`
+  return `${draft?.committed && !message ? centralNotice(ct(centralSession.language, 'committed'), true) + cb(ct(centralSession.language, 'reload'), 'reload') : ''}${rows.length > 1 ? `<label class="sr-only" for="central-item">${ct(centralSession.language, 'choose')}</label><select id="central-item" data-central-field="row" class="min-h-[52px] w-full rounded-xl border border-[#bdcadb] bg-white px-3 py-2 text-[16px] text-[#1a293c]">${rows.filter(item => item.key === row.key || item.max === null || item.max > 0).map(item => `<option value="${ce(item.key)}"${item.key === row.key ? ' selected' : ''}>${ce(item.label)}</option>`).join('')}</select>` : `<p class="break-words text-[17px] font-semibold leading-6 text-[#1a293c]" data-central-current-object>${ce(row.label)}</p>`}
+    ${row.max === null ? '' : `<p class="text-[14px] leading-5 text-[#62748a]">${ct(centralSession.language, 'remaining')} <strong class="text-[#1a293c]" data-central-remaining>${cn(row.max, centralSession.language)} ${ce(unit)}</strong></p>`}
+    <label class="mt-3 block text-[15px] font-semibold leading-6 text-[#1a293c]" for="central-qty">${ct(centralSession.language, 'thisQty')} · ${ce(unit)}</label>
+    ${row.ticket ? `<p class="rounded-xl border border-[#dfe6ee] bg-white p-3 text-[24px] font-bold text-[#1a293c]">1 ${ce(unit)}</p>` : `<div class="flex items-start gap-2"><input id="central-qty" data-central-field="quantity" type="text" inputmode="${['片', '件', '张', '条', '个'].includes(row.unit) ? 'numeric' : 'decimal'}" enterkeyhint="done" autocomplete="off" value="${ce(raw)}" class="h-[52px] min-w-0 flex-1 rounded-xl border border-[#bdcadb] bg-white px-3 text-[24px] font-semibold text-[#1a293c] outline-none focus:border-[#2461ed]" aria-describedby="central-quantity-error"${saving || draft?.committed || row.max === 0 ? ' disabled' : ''}><button type="button" class="min-h-[52px] shrink-0 rounded-xl border border-[#ccd8e7] bg-white px-3 text-[14px] font-semibold text-[#62748a]" data-central-action="clear">${ct(centralSession.language, 'clear')}</button></div>`}<p id="central-quantity-error" role="alert" class="mt-2 text-[14px] leading-5 text-[#ba2b32]" data-central-field-error></p>`
 }
 function operationLog(order: SpecialCraftTaskOrder) {
   const records = listProcessActionOperationRecords({ sourceId: order.taskOrderId }).slice(-15).reverse()
-  return `<details class="mt-4 rounded-xl border border-slate-200 bg-white p-3"><summary class="min-h-11 cursor-pointer py-2 font-semibold">${ct(centralSession.language, 'record')}</summary><div class="space-y-3">${records.map(record => {
+  return pdaDetails(ct(centralSession.language, 'record'), `<div class="space-y-2">${records.map(record => {
     const action = (Object.keys(centralSpecialActions) as CentralSpecialAction[]).find(key => centralSpecialActions[key] === record.actionCode)
-    return `<p class="break-words border-t border-slate-100 pt-2">${ce(action ? ct(centralSession.language, action) : centralFormalName(record.actionLabel, record.operationRecordId, centralSession.language))} · ${cn(record.objectQty, centralSession.language)} ${ce(centralUnit(record.qtyUnit, centralSession.language))}<br><span class="text-sm text-slate-600">${ce(centralFormalName(record.operatorName, record.operatorUserId, centralSession.language))} · ${ce(centralTime(record.operatedAt, centralSession.language))}</span></p>`
-  }).join('') || `<p>${ct(centralSession.language, 'noRecords')}</p>`}</div></details>`
+    return `<div class="rounded-lg border border-[#e6ecf3] bg-[#f8fafc] p-3 text-[13px] leading-5"><b class="text-[14px] text-[#1a293c]">${ce(action ? ct(centralSession.language, action) : centralFormalName(record.actionLabel, record.operationRecordId, centralSession.language))} · ${cn(record.objectQty, centralSession.language)} ${ce(centralUnit(record.qtyUnit, centralSession.language))}</b><p class="mt-1 text-[#62748a]">${ce(centralFormalName(record.operatorName, record.operatorUserId, centralSession.language))} · ${ce(centralTime(record.operatedAt, centralSession.language))}</p></div>`
+  }).join('') || `<p class="text-sm text-[#62748a]">${ct(centralSession.language, 'noRecords')}</p>`}</div>`)
 }
 function receiptView(order: SpecialCraftTaskOrder) {
   const rows = listProcessHandoverRecords().filter(record => record.workOrderId === order.taskOrderId)
-  return rows.map(row => `<article class="my-3 rounded-xl border border-slate-200 bg-white p-3"><strong class="break-words">${ce(row.handoverRecordNo)}</strong><p class="mt-2">${ct(centralSession.language, 'handed')} <strong>${cn(row.handoverObjectQty, centralSession.language)} ${ce(centralUnit(row.qtyUnit, centralSession.language))}</strong></p><p>${ct(centralSession.language, 'sender')} · ${ce(centralFormalName(row.handoverPerson, row.operatorUserId, centralSession.language))}</p><p class="text-sm text-slate-600">${ce(centralTime(row.handoverAt, centralSession.language))}</p><p class="mt-2">${ct(centralSession.language, 'actual')} <strong>${cn(row.receiveObjectQty || 0, centralSession.language)} ${ce(centralUnit(row.qtyUnit, centralSession.language))}</strong></p><p class="break-words text-sm">${row.receiveAt ? `${ct(centralSession.language, 'receiver')} · ${ce(centralFormalName(row.receivePerson, row.receiveFactoryId, centralSession.language))} · ${ce(centralTime(row.receiveAt, centralSession.language))}` : ct(centralSession.language, 'awaiting')}</p></article>`).join('') || centralNotice(ct(centralSession.language, 'noRecords'))
+  return rows.map(row => `<article class="${pdaUi.card} p-3"><div class="flex items-start justify-between gap-2"><strong class="break-all text-[15px] leading-6 text-[#1a293c]">${ce(row.handoverRecordNo)}</strong>${pdaPill(row.receiveAt ? ct(centralSession.language, 'receipt') : ct(centralSession.language, 'awaiting'), row.receiveAt ? 'ready' : 'warn')}</div><p class="mt-2 text-[15px]">${ct(centralSession.language, 'handed')} <strong>${cn(row.handoverObjectQty, centralSession.language)} ${ce(centralUnit(row.qtyUnit, centralSession.language))}</strong></p><p class="mt-1 text-[13px] leading-5 text-[#62748a]">${ct(centralSession.language, 'sender')} · ${ce(centralFormalName(row.handoverPerson, row.operatorUserId, centralSession.language))} · ${ce(centralTime(row.handoverAt, centralSession.language))}</p><p class="mt-2 text-[15px]">${ct(centralSession.language, 'actual')} <strong>${cn(row.receiveObjectQty || 0, centralSession.language)} ${ce(centralUnit(row.qtyUnit, centralSession.language))}</strong></p><p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${row.receiveAt ? `${ct(centralSession.language, 'receiver')} · ${ce(centralFormalName(row.receivePerson, row.receiveFactoryId, centralSession.language))} · ${ce(centralTime(row.receiveAt, centralSession.language))}` : ct(centralSession.language, 'awaiting')}</p></article>`).join('') || pdaEmpty(ct(centralSession.language, 'noRecords'))
 }
 function listContent(tab: CentralPdaTab) {
   const rows = listCentralSpecialOrders(centralSession.currentFactory, centralSession.currentOperation).filter(order => tab !== 'receive' || centralSpecialAvailableActions(order).includes('receive'))
   const wool = centralWoolCraftContexts(centralSession.currentFactory, centralSession.currentOperation).filter(context => tab !== 'receive' || context.incoming.some(row => row.canReceive))
-  const woolLink = wool.length ? `<a class="my-3 block min-h-12 rounded-xl border border-blue-300 bg-white p-3 font-bold text-blue-700" data-central-nav="/fcs/pda/central/wool-craft/${tab}?factoryId=${ce(centralSession.currentFactory)}&operationId=${ce(centralSession.currentOperation)}">${centralSession.language==='zh'?'毛织片':'Potongan rajut'} · ${wool.length}</a>` : ''
-  return woolLink + `<label for="central-scan" class="mb-2 block font-semibold">${ct(centralSession.language, 'scan')}</label><div class="mb-3 flex items-start gap-2"><input id="central-scan" data-central-field="scan" type="text" inputmode="text" enterkeyhint="search" autocomplete="off" placeholder="${ct(centralSession.language, 'scanHint')}" value="${ce(scanValue)}" class="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-400 bg-white p-3 text-base">${cb(ct(centralSession.language, 'identify'), 'scan')}</div><div class="space-y-3">${rows.slice(0, selectedLimit).map(order => {
+  const woolLink = wool.length ? `<a class="${pdaUi.actionRow}" data-central-nav="/fcs/pda/central/wool-craft/${tab}?factoryId=${ce(centralSession.currentFactory)}&operationId=${ce(centralSession.currentOperation)}"><span class="min-w-0"><b class="block text-[16px] font-semibold leading-6 text-[#1a293c]">${centralSession.language==='zh'?'毛织片':'Potongan rajut'}</b><small class="mt-1 block text-[13px] leading-5 text-[#62748a]">${wool.length} ${centralSession.language==='zh'?'笔':'baris'}</small></span><span class="shrink-0 text-[#8090a4]" aria-hidden="true">›</span></a>` : ''
+  return woolLink + `<label for="central-scan" class="block px-1 text-[13px] font-medium leading-5 text-[#62748a]">${ct(centralSession.language, 'scan')}</label><div class="flex items-start gap-2"><input id="central-scan" data-central-field="scan" type="text" inputmode="text" enterkeyhint="search" autocomplete="off" placeholder="${ct(centralSession.language, 'scanHint')}" value="${ce(scanValue)}" class="h-14 min-w-0 flex-1 rounded-xl border border-[#bdcadb] bg-white px-3 text-[15px] text-[#1a293c] outline-none focus:border-[#2461ed]"><button type="button" class="min-h-14 shrink-0 rounded-xl bg-[#2461ed] px-4 text-[15px] font-semibold text-white" data-central-action="scan">${ct(centralSession.language, 'identify')}</button></div><div class="space-y-2">${rows.slice(0, selectedLimit).map(order => {
     const identity = centralSpecialIdentity(order, centralSession.language)
-    return `<button type="button" data-central-action="order" data-central-value="${ce(order.taskOrderId)}" class="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-left">${identity.photo ? `<img src="${ce(identity.photo)}" alt="${ce(identity.name)}" class="h-14 w-14 shrink-0 rounded-lg object-contain" loading="lazy">` : ''}<span class="min-w-0"><strong class="block break-words text-base">${ce(order.taskOrderNo)}</strong><span class="mt-1 block break-words text-sm">${ce(identity.name)} · ${ce(identity.object)}</span><span class="mt-1 block text-sm text-blue-700">${statusLabel(order)}${[...drafts.keys()].some(key => key.startsWith(draftPrefix(order, ''))) ? ` · ${ct(centralSession.language, 'keepInput')}` : ''}</span></span></button>`
-  }).join('') || centralNotice(ct(centralSession.language, 'empty'))}${rows.length > selectedLimit ? cb(ct(centralSession.language, 'more'), 'more') : ''}</div>`
+    const status = statusLabel(order)
+    const tone = order.status === '已完结' ? 'ready' : order.status === '待接收' ? 'warn' : 'info'
+    return `<button type="button" data-central-action="order" data-central-value="${ce(order.taskOrderId)}" class="${pdaUi.card} flex w-full items-start gap-3 p-3 text-left">${identity.photo ? `<img src="${ce(identity.photo)}" alt="${ce(identity.name)}" class="h-16 w-16 shrink-0 rounded-lg border border-[#e2e6ec] bg-[#f1f3f6] object-contain" loading="lazy">` : ''}<span class="min-w-0 flex-1"><span class="flex items-start justify-between gap-2"><strong class="min-w-0 break-words text-[16px] font-semibold leading-6 text-[#1a293c]">${ce(order.taskOrderNo)}</strong>${pdaPill(status, tone)}</span><span class="mt-1 block break-words text-[13px] leading-5 text-[#62748a]">${ce(identity.name)} · ${ce(identity.object)}</span>${[...drafts.keys()].some(key => key.startsWith(draftPrefix(order, ''))) ? `<span class="mt-1 block text-[13px] leading-5 text-[#9a5908]">${ct(centralSession.language, 'keepInput')}</span>` : ''}</span><span class="shrink-0 self-center text-[#8090a4]" aria-hidden="true">›</span></button>`
+  }).join('') || pdaEmpty(ct(centralSession.language, 'empty'))}${rows.length > selectedLimit ? `<button type="button" class="${pdaUi.secondaryButton}" data-central-action="more">${ct(centralSession.language, 'more')}</button>` : ''}</div>`
 }
 function loginContent() {
   return `<div class="space-y-3"><h2 class="text-xl font-bold">${ct(centralSession.language, 'login')}</h2><label class="block" for="central-login">${ct(centralSession.language, 'account')}</label><input id="central-login" data-central-login="account" autocomplete="username" value="${ce(loginName)}" class="min-h-12 w-full rounded-xl border border-slate-400 bg-white p-3"><label class="block" for="central-password">${ct(centralSession.language, 'password')}</label><input id="central-password" data-central-login="password" type="password" autocomplete="current-password" class="min-h-12 w-full rounded-xl border border-slate-400 bg-white p-3">${cb(ct(centralSession.language, 'login'), 'login', undefined, true)}</div>`
@@ -144,7 +148,7 @@ function buildFrame(): CentralPdaFrameInput {
       content += direction(order, true) + quantityForm(order, 'receive')
       base.primary = quantityFooter(order, 'receive')
     } else {
-      content += `<p class="mt-3 font-semibold text-blue-800">${statusLabel(order)}</p>`
+      content += `<div class="px-1">${pdaPill(statusLabel(order), order.status === '已完结' ? 'ready' : 'info')}</div>`
       content += actionModes(order, view)
       if (view === 'work' || view === 'handoff') {
         if (view === 'handoff') content += direction(order, false)
@@ -154,7 +158,7 @@ function buildFrame(): CentralPdaFrameInput {
         content += centralNotice(ct(centralSession.language, 'finishWarning'))
         base.primary = { label: ct(centralSession.language, 'finish'), action: 'save', disabled: saving || !centralSpecialAvailableActions(order).includes('finish') }
       } else {
-        content += `<div class="my-3 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 text-base"><span>${ct(centralSession.language, 'received')}</span><strong>${cn(order.quantityMode === 'TICKET_INPUT_OUTPUT' ? order.receivedTicketCount || 0 : order.inputReceivedQty ?? order.receivedQty, centralSession.language)} ${ce(centralUnit(order.quantityMode === 'TICKET_INPUT_OUTPUT' ? '张' : order.inputUnit || order.unit, centralSession.language))}</strong><span>${ct(centralSession.language, 'produced')}</span><strong>${cn(order.completedQty, centralSession.language)} ${ce(centralUnit(order.outputUnit || order.unit, centralSession.language))}</strong><span>${ct(centralSession.language, 'handed')}</span><strong>${cn(order.returnedQty || 0, centralSession.language)} ${ce(centralUnit(order.outputUnit || order.unit, centralSession.language))}</strong></div>`
+        content += `${pdaSectionTitle(ct(centralSession.language, 'detail'))}<section class="${pdaUi.card} p-3">${pdaDetailRow(ct(centralSession.language, 'received'), `${cn(order.quantityMode === 'TICKET_INPUT_OUTPUT' ? order.receivedTicketCount || 0 : order.inputReceivedQty ?? order.receivedQty, centralSession.language)} ${ce(centralUnit(order.quantityMode === 'TICKET_INPUT_OUTPUT' ? '张' : order.inputUnit || order.unit, centralSession.language))}`)}${pdaDetailRow(ct(centralSession.language, 'produced'), `${cn(order.completedQty, centralSession.language)} ${ce(centralUnit(order.outputUnit || order.unit, centralSession.language))}`)}${pdaDetailRow(ct(centralSession.language, 'handed'), `${cn(order.returnedQty || 0, centralSession.language)} ${ce(centralUnit(order.outputUnit || order.unit, centralSession.language))}`)}</section>`
         content += direction(order, false) + receiptView(order)
       }
     }
@@ -368,6 +372,19 @@ export async function handleCentralPdaEvent(target: Element, event?: Event): Pro
     if (saving) return true
     if (field.dataset.centralField === 'scan') scanValue = field.value
     if (field.dataset.centralField === 'quantity') setQuantity(field.value)
+    if (field.dataset.centralField === 'operation-search') {
+      const query = field.value.trim().toLowerCase()
+      for (const group of document.querySelectorAll<HTMLElement>('[data-central-operation-group]')) {
+        let visible = 0
+        for (const item of group.querySelectorAll<HTMLElement>('[data-central-operation-item]')) {
+          const show = !query || (item.textContent || '').toLowerCase().includes(query)
+          item.classList.toggle('hidden', !show)
+          if (show) visible++
+        }
+        group.classList.toggle('hidden', visible === 0)
+      }
+      return true
+    }
     if (field.dataset.centralField === 'row' && event.type === 'change') {
       const location = locate(), action = location.tab === 'receive' ? 'receive' : location.view
       if (location.order) rowChoices.set(draftPrefix(location.order, action), field.value)
@@ -388,16 +405,28 @@ export async function handleCentralPdaEvent(target: Element, event?: Event): Pro
     case 'operation': {
       const { factories, operations } = context()
       {
-        const language = centralSession.language, accessoryNames = ['盘扣', '花朵']
-        const accessory = operations.filter(operation => accessoryNames.some(name => operation.operationName.includes(name)))
-        const others = operations.filter(operation => !accessory.includes(operation))
-        const direct = (path: string, zh: string, id: string) => `<button type="button" class="min-h-12 rounded-xl border bg-white p-3 text-base font-semibold" data-central-nav="${path}">${language === 'zh' ? zh : id}</button>`
-        const select = (operation: typeof operations[number]) => cb(centralOperationLabel(operation.operationName, language), 'operation-select', operation.operationId, operation.operationId === centralSession.currentOperation)
-        showOverlay(`<h2 class="mb-2 text-lg font-bold">${ct(language, 'factory')}</h2><div class="grid gap-2">${factories.map(factory => cb(centralFormalName(factory.name, factory.id, language), 'factory', factory.id, factory.id === centralSession.currentFactory)).join('')}</div>
-          <h2 class="my-3 text-lg font-bold">${language === 'zh' ? '辅料' : 'Aksesori'}</h2>
-          <div class="grid gap-2">${accessory.map(select).join('')}${direct(`/fcs/pda/central/lace/${locate().tab}`, '花边', 'Renda')}${direct(`/fcs/pda/central/webbing/${locate().tab}`, '织带', 'Bis')}${direct(`/fcs/pda/central/post/${locate().tab}`, '后整', 'Finishing')}</div>
-          <h2 class="my-3 text-lg font-bold">${language === 'zh' ? '其他工序' : 'Proses lain'}</h2>
-          <div class="grid gap-2">${others.map(select).join('')}${direct(`/fcs/pda/central/cut/${locate().tab}?factoryId=${ce(centralSession.currentFactory)}`, '裁床', 'Potong')}${direct(`/fcs/pda/central/binding/${locate().tab}`, '捆条', 'Bis')}${direct('/fcs/pda/central/wool/receive', '毛织', 'Rajut')}${direct('/fcs/pda/central/dye/receive', '染色', 'Pencelupan')}${direct(`/fcs/pda/central/print/${locate().tab}`, '印花', 'Pencetakan')}${direct(`/fcs/pda/central/wash/${locate().tab}`, '洗水', 'Pencucian')}</div>`)
+        const language = centralSession.language
+        const zh = language === 'zh'
+        const currentFactory = factories.find(factory => factory.id === centralSession.currentFactory)
+        const accessoryNames = ['盘扣', '花朵']
+        const specialNames = ['模板工序', '激光开袋', '特种车缝', '橡筋定长切割']
+        const choice = (operation: typeof operations[number]) => ({ id: operation.operationId, label: centralOperationLabel(operation.operationName, language) })
+        const accessoryOps = operations.filter(operation => accessoryNames.some(name => operation.operationName.includes(name)))
+        const specialOps = operations.filter(operation => specialNames.some(name => operation.operationName.includes(name)))
+        const assistOps = operations.filter(operation => !accessoryOps.includes(operation) && !specialOps.includes(operation))
+        showOverlay(`${renderCentralOperationMenu({
+          language,
+          tab: locate().tab,
+          factoryId: centralSession.currentFactory,
+          currentPath: appStore.getState().pathname,
+          currentOperationId: centralSession.currentOperation,
+          assistOperations: assistOps.map(choice),
+          specialOperations: specialOps.map(choice),
+          accessoryOperations: accessoryOps.map(choice),
+        })}<details class="mt-3 rounded-xl border border-[#dfe6ee] bg-white px-3">
+          <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 text-[15px] font-semibold text-[#1a293c]"><span>${zh ? '当前工厂' : 'Pabrik saat ini'} · ${ce(centralFormalName(currentFactory?.name, centralSession.currentFactory, language))}</span><span class="text-[#62748a]" aria-hidden="true">⌄</span></summary>
+          <div class="grid gap-2 border-t border-[#edf0f4] py-3">${factories.map(factory => `<button type="button" class="min-h-12 rounded-xl border px-3 py-2 text-left text-[15px] font-semibold ${factory.id === centralSession.currentFactory ? 'border-[#2461ed] bg-[#edf3ff] text-[#2054c0]' : 'border-[#ced9e7] bg-white text-[#1a293c]'}" data-central-action="factory" data-central-value="${ce(factory.id)}">${ce(centralFormalName(factory.name, factory.id, language))}</button>`).join('')}</div>
+        </details>`)
         break
       }
     }

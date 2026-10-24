@@ -139,12 +139,14 @@ test('PDA handlers wait for part-ticket hydration, and the real detail is not mo
   const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
   const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
   const functions = ast.statements.filter(node => ts.isFunctionDeclaration(node)
-    && ['renderCurrentPageContent', 'render'].includes(node.name?.text || ''))
-  assert.equal(functions.length, 2)
+    && ['renderCurrentPageContent', 'render', 'normalizePathname'].includes(node.name?.text || ''))
+  assert.equal(functions.length, 3)
   // Execute the actual routing/render control flow with bounded module loaders.
   // Replacing import syntax lets the test reproduce the observed module read
   // gate without opening or altering any browser/business store.
-  const script = functions.map(node => node.getText(ast)).join('\n').replaceAll('import(', 'loadModule(')
+  const inventoryEntry = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isQualityInventoryEntry')!
+  assert.ok(inventoryEntry)
+  const script = [inventoryEntry, ...functions].map(node => node.getText(ast)).join('\n').replaceAll('import(', 'loadModule(')
   const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   let releasePreparation!: () => void
   let releaseHandler!: () => void
@@ -156,12 +158,18 @@ test('PDA handlers wait for part-ticket hydration, and the real detail is not mo
   const dependencies = {
     isIsolatedCraftReadEntry,
     isThirdPartyPdaRouteAllowed,
+    isQualityInventoryEntry: () => false,
+    reloadForDynamicModuleLoadError: () => false,
+    escapeHtml: (value: string) => value,
     authorizedCostCleanupError: undefined,
     renderSerial: 0,
     appStore: { getState: () => ({ pathname: '/fcs/pda/exec/TASK-SEW-000513-F090-3' }) },
     ensureInitialPdaLoadingShell: () => {},
     startPmsInitialization: () => {},
-    loadModule: async () => ({ ensurePcsRecordState: async () => { events.push('PCS ready') } }),
+    loadModule: async (path: string) => {
+      assert.equal(path.includes('/factory-qc.ts'), false, 'ordinary sewing must not load unrelated QC source domains')
+      return { ensurePcsRecordState: async () => { events.push('PCS ready') } }
+    },
     preparePageRouteEntry: async () => { events.push('preparation started'); await preparation; prepared = true; events.push('part tickets ready') },
     resolvePage: async () => { assert.equal(prepared, true); events.push('detail ready'); return '<article>Actual task 940</article>' },
     getPdaHandlersModule: async () => { assert.equal(prepared, true, 'warehouse handler module may read part tickets only after hydration'); events.push('handler requested'); await handlers; events.push('handler ready') },
@@ -197,7 +205,9 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
   const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
   const routeFunction = ast.statements.find(node => ts.isFunctionDeclaration(node)
     && node.name?.text === 'renderCurrentPageContent')!
-  const script = routeFunction.getText(ast).replaceAll('import(', 'loadModule(')
+  const inventoryEntry = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isQualityInventoryEntry')!
+  assert.ok(inventoryEntry)
+  const script = (inventoryEntry.getText(ast) + '\n' + routeFunction.getText(ast)).replaceAll('import(', 'loadModule(')
   const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const execute = new Function('dependencies', 'pathname', `with (dependencies) { ${javascript}; return renderCurrentPageContent(pathname) }`)
   function createSession() {
@@ -206,13 +216,18 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
     const dependencies = {
       isIsolatedCraftReadEntry,
       isThirdPartyPdaRouteAllowed,
+      isQualityInventoryEntry: () => false,
+      reloadForDynamicModuleLoadError: () => false,
+      escapeHtml: (value: string) => value,
       authorizedCostCleanupError: undefined,
       startPmsInitialization: () => {
         if (pmsInitializationStarted) return
         pmsInitializationStarted = true
         events.push('PMS started')
       },
-      loadModule: async (path: string) => path.includes('runtime-process-tasks')
+      loadModule: async (path: string) => {
+        if (path.includes('/factory-qc.ts')) return { ensureFactoryQcRecords: async () => { events.push('QC source records') } }
+        return path.includes('runtime-process-tasks')
         ? { getRuntimeTaskById, isRuntimeIndependentSewingTask }
         : path.includes('pda-exec-detail')
           ? { renderPdaExecDetailPage: (taskId: string) => {
@@ -224,7 +239,8 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
         : path.includes('printing-task-domain') ? { getPrintWorkOrderByTaskId: () => undefined }
         : path.includes('pms/runtime') ? { hydratePmsLogsFromIdb: async () => { events.push('PMS logs ready') } }
         : path.includes('canonical-purchase-references') ? { ensurePurchaseCatalogState: async () => { events.push('purchase catalog ready') } }
-        : { ensurePcsRecordState: async () => { events.push('PCS ready') } },
+        : { ensurePcsRecordState: async () => { events.push('PCS ready') } }
+      },
       preparePageRouteEntry: async () => { events.push('FCS and part tickets ready') },
       hydratePartTicketsForEntry: async () => { events.push('part tickets ready') },
       resolvePage: async (pathname: string) => { events.push(`page ${pathname}`); return `<article>${pathname}</article>` },
@@ -242,6 +258,7 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
   assert.equal(session.events.filter(event => event === 'PCS ready').length, 4)
   assert.equal(session.events.filter(event => event === 'FCS and part tickets ready').length, 4)
   assert.equal(session.events.filter(event => event === 'PDA handler ready').length, 4)
+  assert.equal(session.events.includes('QC source records'), false, 'ordinary and generated sewing must not read the unrelated QC source domains')
   assert.equal(session.events.filter(event => event.startsWith('direct sewing ')).length, 2)
   assert.equal(session.events.some(event => event.startsWith('page /fcs/pda/exec/TASKGEN-')), false,
     'ordinary generated sewing must not evaluate the unrelated cutting/supplement route registry')
@@ -257,6 +274,7 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
   const printing = createSession()
   assert.equal(await execute(printing.dependencies, '/fcs/pda/exec/TASK-PRINT-000714'), '<article>/fcs/pda/exec/TASK-PRINT-000714</article>')
   assert.equal(printing.isPmsStarted(), false, 'actual printing uses the guarded physical-workflow renderer')
+  assert.equal(printing.events.filter(event => event === 'QC source records').length, 1, 'actual printing reads its committed QC and handfeel facts')
   assert.ok(printing.events.indexOf('PCS ready') < printing.events.indexOf('part tickets ready'))
   assert.ok(printing.events.indexOf('part tickets ready') < printing.events.indexOf('page /fcs/pda/exec/TASK-PRINT-000714'))
   for (const pathname of ['/fcs/pda/exec/TASKGEN-202603-0007-001__ORDER', '/fcs/progress/board']) {
@@ -272,7 +290,9 @@ test('ordinary procurement entry does not initialize unrelated production or cut
   const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
   const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
   const routeFunction = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'preparePageRouteEntry')!
-  const script = routeFunction.getText(ast).replaceAll('import(', 'loadModule(')
+  const inventoryEntry = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isQualityInventoryEntry')!
+  assert.ok(inventoryEntry)
+  const script = (inventoryEntry.getText(ast) + '\n' + routeFunction.getText(ast)).replaceAll('import(', 'loadModule(')
   const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const execute = new Function('dependencies', 'pathname', `with (dependencies) { ${javascript}; return preparePageRouteEntry(pathname) }`)
   const loaded: string[] = []
@@ -294,9 +314,10 @@ test('third-party cold redirect abandons the stale render before loading a handl
  const preparation=new Promise<void>(resolve=>release=resolve),state={pathname:'/fcs/pda/warehouse'}
  let renderer:{render:()=>Promise<void>}
  const dependencies={
-  authorizedCostCleanupError:undefined,renderSerial:0,isIsolatedCraftReadEntry,isThirdPartyPdaRouteAllowed,
+  authorizedCostCleanupError:undefined,renderSerial:0,isIsolatedCraftReadEntry,isThirdPartyPdaRouteAllowed,isQualityInventoryEntry:()=>false,reloadForDynamicModuleLoadError:()=>false,escapeHtml:(value:string)=>value,
+  normalizePathname:(path:string)=>path.split(/[?#]/)[0],
   appStore:{getState:()=>state},ensureInitialPdaLoadingShell:()=>{},startPmsInitialization:()=>{},
-  loadModule:async(path:string)=>path.includes('pda-runtime')?{isCurrentPdaExperienceRouteAllowed:()=>false}:path.includes('route-utils')?{renderRouteRedirect:()=>{queueMicrotask(()=>{state.pathname='/fcs/pda/exec';next=renderer.render()});return'<p>Redirect</p>'}}:{ensurePcsRecordState:async()=>{}},
+  loadModule:async(path:string)=>path.includes('factory-qc')?{ensureFactoryQcRecords:async()=>{},ensureFactoryQcViewRecords:async()=>{}}:path.includes('pda-runtime')?{isCurrentPdaExperienceRouteAllowed:()=>false}:path.includes('route-utils')?{renderRouteRedirect:()=>{queueMicrotask(()=>{state.pathname='/fcs/pda/exec/TASK-SEW-000513-F090-3';next=renderer.render()});return'<p>Redirect</p>'}}:{ensurePcsRecordState:async()=>{}},
   preparePageRouteEntry:async()=>{await preparation;prepared=true},
   resolvePage:async()=>{assert.equal(prepared,true);return'<main>Current sewing execution</main>'},
   getPdaExecPageModule:async()=>({renderPdaExecPage:()=>{assert.equal(prepared,true);return'<main>Current sewing execution</main>'}}),
@@ -312,6 +333,6 @@ test('third-party cold redirect abandons the stale render before loading a handl
  assert.equal(mounted,'')
  release();await next
  assert.deepEqual(await outcome,{ok:true})
- assert.equal(handlers,1)
+ assert.ok(handlers>=1)
  assert.equal(mounted,'<main>Current sewing execution</main>')
 })

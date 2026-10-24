@@ -2,12 +2,12 @@ import { isDyeYarnOrder, canSubmitDyeHandover, getDyeDispatchAvailableQty, getDy
   getDyeDispatchMaterial, submitDyeHandover, getDyeYarnShipmentSources } from '../../data/fcs/dyeing-task-domain.ts'
 import { getSourceActualReceipts, listFactoryReceipts } from '../../data/fcs/factory-receiving.ts'
 import { calculateYarnWeight, assertYarnShipment, yarnGrossLimit, weightGrams, type YarnTubeCounts } from '../../data/fcs/yarn-weight.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { getCentralDyeFact, assertCentralDyeActor, runCentralDyeCommand } from './dye-model.ts'
 
 export function centralDyeYarn(orderId: string, factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const fact = getCentralDyeFact(orderId, factoryId)
     if (!fact || !isDyeYarnOrder(fact.order)) return undefined
     const sources = getDyeYarnShipmentSources(orderId)

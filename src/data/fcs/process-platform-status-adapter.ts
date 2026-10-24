@@ -598,7 +598,7 @@ const SPECIFIC_HINTS: Record<string, Partial<Record<PlatformProcessStatusCode, P
     },
     PROCESSING: {
       riskLabel: '染厂内部加工中',
-      actionHint: '等待染色、后整和包装完成后交出',
+      actionHint: '等待染色、后道和包装完成后交出',
       ownerHint: '染厂',
     },
     WAIT_DELIVERY: {

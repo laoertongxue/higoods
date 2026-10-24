@@ -10,13 +10,13 @@ import {
   prepareFactoryReceipt, listFactoryMaterialUses, type FactoryReceiptInput
 } from '../../data/fcs/factory-receiving.ts'
 import { confirmFactoryMaterialReceipt } from '../../data/fcs/factory-receiving-links.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { runPrintingRecordCommand } from '../../data/fcs/printing-records.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { readCentralPrintWarehouse } from './print-warehouse-model.ts'
 
 export function listCentralPrintFacts(factoryId?: string) {
-  return withWashingStaticRead(() => listPrintingWorkOrders().flatMap(order => {
+  return withFactoryProcessStaticRead(() => listPrintingWorkOrders().flatMap(order => {
     const factory = getFactoryMasterRecordById(order.printFactoryId)
     if (!factory || !isCentralPdaFactory(factory) || (factoryId !== undefined && factory.id !== factoryId)) return []
     const workflow = getPrintingWorkflowFacts(order.workOrderId), stages = getPrintingProductionQuantities(order.workOrderId)
@@ -26,7 +26,7 @@ export function listCentralPrintFacts(factoryId?: string) {
 export type CentralPrintFact = ReturnType<typeof listCentralPrintFacts>[number]
 export function centralPrintFact(id: string, factoryId: string): CentralPrintFact | undefined {
   if (!id) return undefined
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const order = getPrintingWorkOrderById(id)
     if (!order || order.printFactoryId !== factoryId) return undefined
     const factory = getFactoryMasterRecordById(order.printFactoryId)
@@ -43,10 +43,10 @@ export function centralPrintEntryFactory(candidates: Array<string | undefined | 
   }) || ''
 }
 export const centralPrintPositions = getFactoryReceiptLocations
-export const centralPrintRevision = (id: string) => withWashingStaticRead(() => centralPrintingProductionRevision(id))
+export const centralPrintRevision = (id: string) => withFactoryProcessStaticRead(() => centralPrintingProductionRevision(id))
 export const centralPrintWarehouse = readCentralPrintWarehouse
 export function centralPrintIncoming(factoryId: string, id?: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const selected = id ? centralPrintFact(id, factoryId) : undefined
     const facts = id ? selected ? [selected] : [] : listCentralPrintFacts(factoryId)
     const ids = new Set(facts.filter(f => !f.closed).map(f => f.order.workOrderId)), receipts = listFactoryReceipts(factoryId).flatMap(r => r.lines)
@@ -90,7 +90,7 @@ export function centralPrintChoices(fact: CentralPrintFact): CentralPrintChoice[
 }
 /** Counts of physical input packages come from actual usage when recorded, otherwise retain the existing recorded count. */
 export function centralPrintUsedPackageCount(fact: CentralPrintFact) {
-return withWashingStaticRead(() => {
+return withFactoryProcessStaticRead(() => {
     const barcodes = new Set(listFactoryMaterialUses(fact.order.workOrderId).flatMap(use => use.lines.map(line => line.barcode).filter(Boolean)))
     return Math.max(fact.order.actualInput.usedRollCount, barcodes.size)
   })

@@ -21,7 +21,6 @@ export interface PostFinishingQcReferenceRecord {
   version: number
 }
 
-const STORAGE_KEY = 'higood-fcs-post-finishing-qc-reference-v1'
 
 function readPersistedRecords(): PostFinishingQcReferenceRecord[] { return [] }
 
@@ -122,4 +121,4 @@ export function resetPostFinishingQcReferences(): void {
   assertPostFinishingWrite()
 }
 
-registerPostFinishingRepository('references', STORAGE_KEY, () => records, value => { records = value })
+registerPostFinishingRepository('references', () => records, value => { records = value })

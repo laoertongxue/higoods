@@ -4,11 +4,11 @@ import {
   assertCentralPrintingActor, type PrintingRollBarcode,
 } from '../../data/fcs/printing-task-domain.ts'
 import { runPrintingRecordCommand } from '../../data/fcs/printing-records.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { centralPrintFact } from './print-model.ts'
 export type CentralPrintRollInput=Parameters<typeof updatePrintingRollBarcode>[2]
-export function centralPrintOutput(orderId:string,factoryId:string){return withWashingStaticRead(()=>{
+export function centralPrintOutput(orderId:string,factoryId:string){return withFactoryProcessStaticRead(()=>{
   const fact=centralPrintFact(orderId,factoryId)
   if(!fact)return undefined
   const documents=listPrintingDispatchDocuments().filter(doc=>doc.lines.some(line=>line.workOrderId===orderId))

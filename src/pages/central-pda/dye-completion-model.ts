@@ -1,10 +1,10 @@
 import { getDyeDocumentCompletion, completeDyeWorkOrderDocument } from '../../data/fcs/dyeing-task-domain.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { assertCentralDyeActor, getCentralDyeFact, runCentralDyeCommand } from './dye-model.ts'
 
 export function centralDyeCompletion(orderId: string, factoryId: string) {
-  return withWashingStaticRead(() => getCentralDyeFact(orderId, factoryId) ? getDyeDocumentCompletion(orderId) : undefined)
+  return withFactoryProcessStaticRead(() => getCentralDyeFact(orderId, factoryId) ? getDyeDocumentCompletion(orderId) : undefined)
 }
 
 export async function saveCentralDyeCompletion(orderId: string, actor: FactoryPdaUser,

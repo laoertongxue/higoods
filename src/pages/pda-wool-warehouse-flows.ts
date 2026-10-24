@@ -7,6 +7,7 @@ import { appStore } from '../state/store.ts'
 import { escapeHtml as e } from '../utils.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { pdaPill, pdaSectionTitle, pdaUi } from './pda-mobile-ui.ts'
 
 /** Warehouse reads the same stage ledger; it never performs receipt or processing again. */
 export function renderPdaWoolWarehouseFlows(factoryId: string, factoryName: string, direction: 'IN' | 'OUT'): string | null {
@@ -17,12 +18,11 @@ export function renderPdaWoolWarehouseFlows(factoryId: string, factoryName: stri
     .filter(flow => direction === 'IN' ? woolWarehouseFlowSignedQty(flow) > 0 : woolWarehouseFlowSignedQty(flow) < 0)
     .sort((a, b) => b.operatedAt.localeCompare(a.operatedAt) || b.flowId.localeCompare(a.flowId))
   const route = `/fcs/pda/warehouse/${direction === 'IN' ? 'inbound' : 'outbound'}-records`
-  const pages = Math.max(1, Math.ceil(rows.length / 10))
   const query = new URLSearchParams(appStore.getState().pathname.split('?')[1] || '')
-  const page = Math.min(pages, Math.max(1, Number(query.get('page')) || 1))
+  const limit = Math.max(20, Number(query.get('limit')) || 20)
   const receipts = listFactoryReceipts(factoryId)
   const labels = { PIECE_RECEIPT: '外加工片实收', YARN_RECEIPT: '纱线实收', YARN_ISSUE: '领用纱线', YARN_RETURN: '退回纱线', PROCESS_REPORT: '加工填报', HANDOVER: '交出', STOCK_ADJUSTMENT: '库存调整', STOCK_TRANSFER: '库存转移' }
-  const cards = rows.slice((page - 1) * 10, page * 10).map(flow => {
+  const cards = rows.slice(0, limit).map(flow => {
     const order = store.workOrders[flow.woolOrderId]
     const receiptLine = receipts.flatMap(receipt => receipt.lines).find(line => line.material.sku === flow.objectSkuCode)
     const yarn = order?.yarnMaterials?.find(line => line.sku === flow.objectSkuCode)
@@ -31,8 +31,47 @@ export function renderPdaWoolWarehouseFlows(factoryId: string, factoryName: stri
     const image = flow.unit === 'kg' ? yarn?.imageUrl || receiptLine?.material.imageUrl : order?.styleImageUrl
     const stage = order?.stage === 'KNITTING' ? '横机加工单' : '缝盘加工单'
     const automatic = flow.sourceRecordType === 'HANDOVER' && store.handovers.some(item => item.handoverId === flow.sourceRecordId && item.automatic)
-    return `<article class="space-y-2 rounded-xl border bg-white p-3 text-sm"><div class="flex gap-3">${renderWoolObjectImage(image, name)}<div class="min-w-0 break-all"><strong>${e(name)}</strong><p>${e(flow.objectSkuCode)}</p>${flow.unit !== 'kg' ? '<p class="text-xs text-muted-foreground">款式参考图</p>' : ''}</div></div><p>${e(labels[flow.businessType])}${automatic ? '（横机自动内部衔接）' : ''}：<strong>${Math.abs(woolWarehouseFlowSignedQty(flow))} ${e(flow.unit)}</strong></p><p class="break-all">${order ? `${stage} ${e(order.woolOrderNo)}` : '备料（未关联加工单）'}</p><p>${e(flow.operatedAt)} · ${e(flow.operatedBy)}</p><p class="break-all text-xs">批次 ${e(flow.batchNo || '未分批')} · 库位 ${e(flow.physicalLocationId || flow.defaultLocationId)}</p><details class="break-all text-xs"><summary>查看来源</summary><p>${e(flow.sourceRecordId)}</p><p>${e(flow.reason || '')}</p></details></article>`
+    const qty = Math.abs(woolWarehouseFlowSignedQty(flow))
+    return `<article class="${pdaUi.card} p-3">
+      <div class="flex gap-3">
+        ${renderWoolObjectImage(image, name)}
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="min-w-0 break-words text-[16px] font-semibold leading-6 text-[#1a293c]">${e(name)}</h3>
+            <strong class="shrink-0 text-[18px] leading-6 text-[#1a293c]">${qty} <span class="text-[13px] font-normal text-[#62748a]">${e(flow.unit)}</span></strong>
+          </div>
+          <p class="mt-1 break-all text-[13px] leading-5 text-[#62748a]">${e(flow.objectSkuCode)}</p>
+          <p class="mt-2 break-words text-[14px] font-semibold leading-5 text-[#1a293c]">${e(labels[flow.businessType])}${automatic ? '（横机自动内部衔接）' : ''}</p>
+          <p class="mt-1 break-all text-[13px] leading-5 text-[#1a293c]">${order ? `${stage} ${e(order.woolOrderNo)}` : '备料（未关联加工单）'}</p>
+          <p class="mt-1 break-words text-[12px] leading-5 text-[#62748a]">${e(flow.operatedAt)} · ${e(flow.operatedBy)}</p>
+        </div>
+      </div>
+      <details class="mt-3 border-t border-[#edf0f4] pt-2">
+        <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between text-[13px] font-medium text-[#62748a]"><span>批次、库位与来源</span><span aria-hidden="true">⌄</span></summary>
+        <div class="space-y-1 break-all pt-1 text-[12px] leading-5 text-[#62748a]">
+          <p>批次 ${e(flow.batchNo || '未分批')} · 库位 ${e(flow.physicalLocationId || flow.defaultLocationId)}</p>
+          <p>来源 ${e(flow.sourceRecordId)}</p>
+          ${flow.reason ? `<p>${e(flow.reason)}</p>` : ''}
+        </div>
+      </details>
+    </article>`
   }).join('')
-  const nav = (n: number, label: string) => `<button class="rounded border px-3 py-2" data-nav="${route}?page=${n}" ${n < 1 || n > pages ? 'disabled' : ''}>${label}</button>`
-  return renderPdaFrame(`<div class="space-y-3 p-3" data-wool-pda-warehouse-flows><header><h1 class="text-lg font-semibold">毛织${direction === 'IN' ? '入库' : '出库'}记录</h1><p>${e(factoryName)}</p><p class="text-sm">按单位汇总：${e(summarizeWoolQuantities(rows.map(flow => ({ ...flow, qty: Math.abs(woolWarehouseFlowSignedQty(flow)) }))))}</p></header>${cards || '<p>暂无记录。</p>'}<footer class="flex flex-wrap items-center justify-between gap-2 text-sm">${nav(page - 1, '上一页')}<span>${page} / ${pages} 页，共 ${rows.length} 条</span>${nav(page + 1, '下一页')}</footer></div>`, 'warehouse', { headerTitle: `毛织${direction === 'IN' ? '入库' : '出库'}`, disableTodoAutoOpen: true })
+  const more = rows.length > limit ? `<a class="${pdaUi.secondaryButton}" data-nav="${route}?limit=${limit + 20}" href="${route}?limit=${limit + 20}">加载更多 · 已显示 ${limit}/${rows.length}</a>` : ''
+  const summary = summarizeWoolQuantities(rows.map(flow => ({ ...flow, qty: Math.abs(woolWarehouseFlowSignedQty(flow)) })))
+  return renderPdaFrame(`<div class="${pdaUi.page}" data-wool-pda-warehouse-flows>
+    <div class="flex items-start justify-between gap-3 px-1">
+      <div class="min-w-0">
+        <h1 class="text-[26px] font-bold leading-8 text-[#1a293c]">毛织${direction === 'IN' ? '入库' : '出库'}</h1>
+        <p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${e(factoryName)}</p>
+      </div>
+      ${pdaPill(`${rows.length} 笔`, 'info')}
+    </div>
+    <section class="${pdaUi.card} p-3">
+      <p class="text-[13px] leading-5 text-[#62748a]">按单位汇总</p>
+      <p class="mt-1 break-words text-[18px] font-semibold leading-7 text-[#1a293c]">${e(summary)}</p>
+    </section>
+    ${pdaSectionTitle('最近记录', `已显示 ${Math.min(limit, rows.length)} / ${rows.length}`)}
+    <div class="space-y-2">${cards || '<div class="rounded-xl border border-dashed border-[#ccd8e7] bg-white px-4 py-8 text-center text-sm text-[#62748a]">暂无记录。</div>'}</div>
+    ${more}
+  </div>`, 'warehouse', { headerTitle: `毛织${direction === 'IN' ? '入库' : '出库'}`, disableTodoAutoOpen: true })
 }

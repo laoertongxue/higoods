@@ -333,7 +333,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     firstTrialLimitQty: 300,
     dispatchPolicyLabel: '黄牌提示：可选，但建议只派小单和非急单。',
     settlementPolicyLabel: '可按账本发起结算。',
-    recentRatingReason: '后整衔接有波动，派单前需确认交期余量。',
+    recentRatingReason: '后道衔接有波动，派单前需确认交期余量。',
     settlementBlocked: false,
     dispatchControl: 'WARN_CONFIRM',
     settlementControl: 'ALLOW',
@@ -442,7 +442,7 @@ export const thirdPartyFactoryPerformanceRecords: FactoryRatingPerformanceRecord
     deliveryDeductionScore: 0,
     qualityDeductionScore: 3,
     manualDeductionScore: 1,
-    resultSummary: '准时交付，轻微返工已在后整前修复。',
+    resultSummary: '准时交付，轻微返工已在后道前修复。',
   },
   {
     recordId: 'FRP-202607-002',

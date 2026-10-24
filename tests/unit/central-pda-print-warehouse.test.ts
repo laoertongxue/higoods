@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readCentralPrintWarehouse } from '../../src/pages/central-pda/print-warehouse-model.ts'
 import { captureFactoryReceivingData, restoreFactoryReceivingData, registerFactoryReceivingSource,
   prepareFactoryReceipt, savePreparedFactoryReceipt, type FactoryReceiptInput } from '../../src/data/fcs/factory-receiving.ts'
-import { withWashingStaticRead } from '../../src/data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../src/data/fcs/factory-process-storage.ts'
 import { readFactoryPdaExecutionUsers } from '../../src/data/fcs/store-domain-pda.ts'
 import { centralPrintInputLabel } from '../../src/pages/central-pda/print-input-label.ts'
 import { normalizePrintingUnit } from '../../src/data/fcs/printing-statistics.ts'
@@ -20,7 +20,7 @@ function fixture(run: () => void) {
   const positions = view.positions.filter(row => row.warehouse.warehouseKind === 'WAIT_PROCESS')
   const material = original.receipts.flatMap(receipt => receipt.lines).find(line => line.material.kind === 'FABRIC')!.material
   assert.ok(positions.length >= 2)
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     try {
       registerFactoryReceivingSource({ id: sourceId, documentNo: sourceId, type: 'ISSUE', processCode: 'PRINT',
         origin: { kind: 'WAREHOUSE', id: 'WH-FABRIC-001', name: '面料中央仓(GKP)', warehouseAttribute: '面料中央仓' },

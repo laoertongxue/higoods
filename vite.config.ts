@@ -350,7 +350,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ]), [], '^' + path + '$']),
           ['/fcs/craft/dyeing/reports', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/dyeing/reports.ts', ...craftRouteRegistry, ...craftReadInitialization,
-            '/src/data/fcs/fabric-washing.ts', '/src/data/fcs/fabric-washing-repository.ts',
+            '/src/data/fcs/factory-qc.ts', '/src/data/fcs/factory-qc-records.ts',
           ]), [], '^/fcs/craft/dyeing/reports$', baselineData],
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/special-craft/task-orders.ts', ...craftReadInitialization,
@@ -371,8 +371,8 @@ function preloadStaticFirstScreenRoutes(): Plugin {
             '/src/pages/sewing-outsourcing/daily-return-report.ts',
             ...returnReadInitialization,
           ]), ['/thumbnails/materials/pcs-reviewed/shirt-black.webp', '/thumbnails/materials/pcs-reviewed/jacket-black.webp', '/thumbnails/materials/pcs-reviewed/tee-black.webp']],
-          ['/fcs/sewing-outsourcing/daily-return-summary', routeStaticChunks(context.bundle, [
-            '/src/pages/sewing-outsourcing/daily-return-summary.ts',
+          ['/fcs/sewing-outsourcing/daily-return-statistics', routeStaticChunks(context.bundle, [
+            '/src/pages/sewing-outsourcing/daily-return-statistics.ts',
             ...returnReadInitialization,
           ]), []],
           ['/fcs/sewing-outsourcing/returns', routeStaticChunks(context.bundle, [

@@ -13,7 +13,6 @@ export function printDispatchError(error:unknown,lang:CentralPdaLanguage){
  const message=error instanceof Error?error.message:'',code=message.match(/PD_[A-Za-z]+/)?.[0],key=code?.slice(3) as keyof typeof labels.zh
  if(code&&key in labels.zh)return pdt(lang,key)
  if(lang==='id'){
-  if(/触摸|手感|需要洗水|洗水异常/.test(message))return pdt(lang,'needTouch')
   if(/同加工厂|同接收方|同接收仓|同单位/.test(message))return pdt(lang,'wrongScan')
   if(/先扫齐/.test(message))return pdt(lang,'scanFirst')
   if(/重复加入|不在本交出单/.test(message))return pdt(lang,'wrongScan')
@@ -40,7 +39,6 @@ export function renderPrintDispatch(orderId:string,factoryId:string,draft:PrintD
   if(rows.length>limit)html+=cb(ct(lang,'more'),'print-dispatch-more')
   html+=`<p class="my-2 break-words text-sm">${t('creator')} · ${ce(centralFormalName(doc.createdBy,doc.createdByUserId||'',lang))} · ${ce(centralTime(doc.createdAt,lang))}</p>`
   if(doc.handedOverAt)html+=`<p class="my-2 break-words text-sm">${t('sender')} · ${ce(centralFormalName(doc.handedOverBy,doc.handedOverByUserId||'',lang))} · ${ce(centralTime(doc.handedOverAt,lang))}</p>`
-  if(doc.status==='草稿'&&current.releaseError)html+=centralNotice(t('needTouch'))+`<div class="my-3 grid gap-2">${cb(lang==='id'?'Rabaan / kirim cuci':'触摸判断 / 送洗','print-wash-open')}</div>`
   if(!closed&&doc.status==='草稿')html+=`<div class="my-3 grid">${cb(t('void'),'print-dispatch-void')}</div>`
   if(doc.status==='已交出')html+=renderPrintDispatchReceipt(current,lang)
  }

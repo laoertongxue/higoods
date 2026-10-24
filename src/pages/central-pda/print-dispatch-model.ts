@@ -4,17 +4,15 @@ import {
   assertCentralPrintingActor, type PrintingDispatchDocument,
 } from '../../data/fcs/printing-task-domain.ts'
 import { findPdaHandoverRecord } from '../../data/fcs/pda-handover-events.ts'
-import { assertFabricWashingRelease } from '../../data/fcs/fabric-washing-gates.ts'
 import { ensureSpecialCraftRecords } from '../../data/fcs/special-craft-records.ts'
-import { ensureWashingRecords } from '../../data/fcs/fabric-washing-repository.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import { runPrintingRecordCommand } from '../../data/fcs/printing-records.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { centralPrintFact, centralPrintRevision } from './print-model.ts'
 
 export const printDispatchGroup=(o:{printFactoryId:string;receivingTargetId:string;receivingTargetName:string;receivingTargetWarehouseName:string;output:{qtyUnit:string}})=>JSON.stringify([o.printFactoryId,o.receivingTargetId,o.receivingTargetName,o.receivingTargetWarehouseName,o.output.qtyUnit])
 export interface PrintDispatchDraft { documentId:string;scan:string;operationId:string;revision:string }
-export function centralPrintDispatch(orderId:string,factoryId:string){return withWashingStaticRead(()=>{
+export function centralPrintDispatch(orderId:string,factoryId:string){return withFactoryProcessStaticRead(()=>{
  const fact=centralPrintFact(orderId,factoryId);if(!fact)return undefined
  const group=printDispatchGroup(fact.order),targetReady=!!(fact.order.receivingTargetId&&fact.order.receivingTargetName&&fact.order.receivingTargetWarehouseName),orders=listPrintingWorkOrders().filter(o=>o.printFactoryId===factoryId&&printDispatchGroup(o)===group)
  const allDocs=listPrintingDispatchDocuments(),docs=allDocs.filter(d=>d.lines.some(l=>l.workOrderId===orderId)||d.lines.length&&d.lines.every(l=>{const o=getPrintingWorkOrderById(l.workOrderId);return o&&printDispatchGroup(o)===group}))
@@ -24,20 +22,18 @@ export function centralPrintDispatch(orderId:string,factoryId:string){return wit
  const candidates=physical.filter(c=>targetReady&&!c.closed&&!c.roll.handoverRecordId&&!['已交出','已入库'].includes(c.roll.status)&&isPrintingRollReadyForDispatch(c.order,c.roll))
  return {fact,docs,candidates,physical,group,targetReady}
 })}
-export function centralPrintDispatchDocument(id:string){return withWashingStaticRead(()=>{
+export function centralPrintDispatchDocument(id:string){return withFactoryProcessStaticRead(()=>{
  const doc=listPrintingDispatchDocuments().find(d=>d.id===id);if(!doc)return undefined
  const rows=doc.lines.flatMap(line=>{const order=getPrintingWorkOrderById(line.workOrderId);return line.barcodeIds.map(id=>{
   const current=order?.barcodes.find(r=>r.id===id),saved=line.rolls?.find(r=>r.id===id),roll=doc.status==='草稿'?current||saved:saved||current
   return {order,workOrderId:line.workOrderId,roll:roll?{...roll,handoverRecordId:roll.handoverRecordId||current?.handoverRecordId}:undefined}
  })})
  const records=doc.status==='已交出'?[...new Set(rows.map(r=>r.roll?.handoverRecordId).filter((id):id is string=>!!id))].map(id=>findPdaHandoverRecord(id)).filter((r):r is NonNullable<typeof r>=>!!r&&r.handoverRecordStatus!=='VOIDED'):[]
- let releaseError=''
- if(doc.status==='草稿')for(const row of rows)if(row.order?.output.objectType==='面料'&&row.roll)try{assertFabricWashingRelease(row.workOrderId,row.roll.id,'HANDOUT')}catch(e){releaseError=e instanceof Error?e.message:String(e);break}
  const unknown=rows.some(r=>!r.order||!r.roll),scanned=rows.filter(r=>doc.scans?.some(s=>s.workOrderId===r.workOrderId&&s.barcodeId===r.roll?.id)).length
- return {doc,rows,records,unknown,scanned,releaseError,total:rows.reduce((n,r)=>n+(r.roll?.lengthY||0),0),unit:rows[0]?.order?.output.qtyUnit||'',canConfirm:doc.status==='草稿'&&!unknown&&!!doc.scanCompletedAt&&scanned===rows.length&&!releaseError,
+ return {doc,rows,records,unknown,scanned,total:rows.reduce((n,r)=>n+(r.roll?.lengthY||0),0),unit:rows[0]?.order?.output.qtyUnit||'',canConfirm:doc.status==='草稿'&&!unknown&&!!doc.scanCompletedAt&&scanned===rows.length,
   receiptUnknown:doc.status==='已交出'&&(!records.length||rows.some(r=>!r.roll?.handoverRecordId)||records.length!==new Set(rows.map(r=>r.roll?.handoverRecordId)).size)}
 })}
-export function centralPrintDispatchRevision(orderId:string,factoryId:string,documentId=''):string{return withWashingStaticRead(()=>{
+export function centralPrintDispatchRevision(orderId:string,factoryId:string,documentId=''):string{return withFactoryProcessStaticRead(()=>{
  const fact=centralPrintFact(orderId,factoryId),d=documentId?centralPrintDispatchDocument(documentId):undefined
  return fact?JSON.stringify([orderId,factoryId,centralPrintRevision(orderId),d?.doc,d?.rows.map(r=>[r.workOrderId,centralPrintRevision(r.workOrderId),r.roll])]):''
 })}
@@ -62,7 +58,7 @@ function assertDispatch(orderId:string,actor:FactoryPdaUser,documentId:string,re
  if(!state.targetReady)throw new Error('PD_targetMissing')
  if(current)for(const l of current.lines)assertCentralPrintingActor(l.workOrderId,actor)
 }
-async function prepare(actor:FactoryPdaUser,orderId:string){await ensureSpecialCraftRecords(true);await ensureWashingRecords(true);assertCentralPrintingActor(orderId,actor)}
+async function prepare(actor:FactoryPdaUser,orderId:string){await ensureSpecialCraftRecords(true);assertCentralPrintingActor(orderId,actor)}
 async function revisionHash(revision:string){const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(revision));return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 /** The physical scan creates/merges the native draft and records this same real scan in one save. */
 export async function scanCentralPrintDispatch(orderId:string,documentId:string,raw:string,actor:FactoryPdaUser,operationId:string,revision:string){

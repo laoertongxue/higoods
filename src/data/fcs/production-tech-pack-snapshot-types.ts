@@ -45,6 +45,7 @@ export interface TechPackPatternFileSnapshot extends TechnicalPatternFile {
 }
 
 export interface TechPackBomItemSnapshot extends TechnicalBomItem {
+  materialSkuCode?: string
   materialAlias?: string
   materialImageUrl?: string
 }
@@ -141,6 +142,8 @@ export interface ProductionOrderTechPackSnapshot {
   sourceTechPackVersionCode: string
   sourceTechPackVersionLabel: string
   garmentDifficultyGrade?: TechnicalGarmentDifficultyGrade
+  /** True only when the bound source actually supplied a difficulty; B may be a legacy display fallback. */
+  garmentDifficultyGradeSourcePresent?: boolean
   sourcePublishedAt: string
   snapshotAt: string
   snapshotBy: string

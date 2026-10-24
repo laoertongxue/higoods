@@ -65,6 +65,40 @@ const POST_FINISHING_PARTIAL_BROWSER_TESTS = new Set([
 const POST_FINISHING_PARTIAL_BROWSER_ENV = 'POST_FINISHING_EVIDENCE_ROOT=/tmp/post-finishing-partial-flow-20261019/receipt-browser PLAYWRIGHT_REUSE_EXISTING_SERVER=false'
 const POST_FINISHING_PARTIAL_BROWSER_CHECK = `${POST_FINISHING_PARTIAL_BROWSER_ENV} npm run test:e2e -- tests/post-finishing-partial-flow.spec.ts --workers=1 --reporter=json && ${POST_FINISHING_PARTIAL_BROWSER_ENV} npm run test:e2e -- tests/post-finishing-consumers.spec.ts tests/post-finishing-migration.spec.ts tests/post-finishing-pda-role-boundary.spec.ts tests/post-finishing-main-integration.spec.ts --workers=1 --reporter=json`
 
+// Exact task contracts: unknown quality-like names remain unrecognized. These
+// commands execute storage/UI assertions; a product build is never a substitute.
+const QUALITY_NATIVE_PATHS = new Set([
+  // Deleted old-demo contracts are verified absent by the current native runner.
+  'tests/browser-contracts/production-context-quality-migration.test.ts',
+  'tests/helpers/post-finishing-legacy-fixture.ts',
+  'tests/browser-contracts/pcs-record-db.test.ts',
+  'tests/browser-contracts/post-quality-storage.test.ts',
+  'tests/browser-contracts/quality-management-storage.test.ts',
+  'tests/browser-contracts/quality-demo-rebuild.test.ts',
+  'tests/browser-contracts/production-context-revision-read.test.ts',
+  'tests/browser-contracts/post-finishing-late-repository-read.test.ts',
+  'tests/browser-contracts/sample-bounded-action-storage.test.ts',
+  'tests/browser-contracts/sample-quality-source-storage.test.ts',
+  'tests/browser-contracts/sewing-execution-storage.test.ts',
+  'src/data/fcs/quality-demo-rebuild.ts',
+  'scripts/verification/run-quality-native-contracts.mjs',
+])
+const QUALITY_BROWSER_PATHS = [
+  'tests/quality-management-rules.spec.ts',
+  'tests/quality-management-list-contract.spec.ts',
+  'tests/quality-management-print-ready.spec.ts',
+  'tests/quality-inventory-generic-print-entry.spec.ts',
+  'tests/quality-fei-print-lazy-boundary.spec.ts',
+  'tests/finished-inventory-quality-flow.spec.ts',
+  'tests/sample-approval-quality.spec.ts',
+  'tests/print-service-post-route-card.spec.ts',
+]
+const QUALITY_BROWSER_CHECK = `PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test ${QUALITY_BROWSER_PATHS.join(' ')} --workers=1 --reporter=line`
+const QUALITY_SOURCE_NODE_PATHS = new Set([
+  'tests/fcs-downstream-read-order-tech-pack-snapshot.spec.ts',
+  'tests/pcs-r1-channel-rules.test.ts',
+])
+
 // Only canonical identity literals and associated local variable names changed.
 // This conservative AST contract cannot certify or bypass edits to legacy drivers.
 const SEAM_IDENTITY_ONLY_TESTS = new Set([
@@ -115,6 +149,7 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const fullChecks = new Set<string>()
   const unknownPaths: string[] = []
   const escalationReasons = new Set<string>()
+  let scopedPrototypeGovernance: string | undefined
 
   for (const path of changedPaths) {
     if (path === 'tests/browser-contracts/accessory-cutting-change-mock.test.ts') {
@@ -154,6 +189,18 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
     }
     if (path === 'tests/material-decision.spec.ts') {
       add(fullChecks, 'PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/material-decision.spec.ts --workers=1 --reporter=line')
+      continue
+    }
+    if (QUALITY_NATIVE_PATHS.has(path)) {
+      add(fullChecks, 'node scripts/verification/run-quality-native-contracts.mjs')
+      continue
+    }
+    if (QUALITY_BROWSER_PATHS.includes(path)) {
+      add(fullChecks, QUALITY_BROWSER_CHECK)
+      continue
+    }
+    if (QUALITY_SOURCE_NODE_PATHS.has(path)) {
+      add(fastChecks, `node --import tsx --test ${shellQuote(path)}`)
       continue
     }
     if (POST_FINISHING_PARTIAL_BROWSER_TESTS.has(path)) {
@@ -309,7 +356,8 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
     let handled = false
     const isPrototype = isPrototypePath(path)
     if (isPrototype) {
-      add(governanceChecks, taskScope('npm run check:prototype-design-governance', changedPaths))
+      scopedPrototypeGovernance = taskScope('npm run check:prototype-design-governance', changedPaths)
+      add(governanceChecks, scopedPrototypeGovernance)
     }
 
     if (path.startsWith('src/pages/')) {
@@ -443,6 +491,13 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       add(fullChecks, 'npm run build')
       escalationReasons.add('未知路径需要升级到安全的完整检查')
     }
+  }
+
+  // The list aggregate runs product governance for this same frozen task scope.
+  // Keep self-tests and the independent standard-list runtime check separate.
+  if (scopedPrototypeGovernance
+    && governanceChecks.has(taskScope('npm run check:list-page-governance', changedPaths))) {
+    governanceChecks.delete(scopedPrototypeGovernance)
   }
 
   return {

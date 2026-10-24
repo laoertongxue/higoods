@@ -315,7 +315,7 @@ function buildDocumentFromLegacyDoc(
           ...(variant === 'sewing' ? [
             { label: '是否本厂完成实际工序', value: `${doc.title} ${doc.processName} ${doc.craftName || ''}`.includes('后道') ? '是' : '按任务要求确认' },
             { label: '后道完成成衣件数', value: qtyText(doc.submittedQty, doc.qtyUnit) },
-            { label: '后道后流向', value: '交给后道工厂质检和复检' },
+            { label: '后道后流向', value: '交给后道工厂接收和质检' },
             { label: '关联后道加工单号', value: '待后道工厂接收后关联' },
           ] : []),
         ]),
@@ -408,7 +408,7 @@ function buildDocumentFromProcessHandover(
   const targetRoute = resolveTargetRoute(record)
 
   const postNote = postOrder
-    ? '后道交出只能来自复检完成后的后道交出仓；车缝厂完成任务链中的实际工序后需交给后道工厂接收、质检、复检，不能直接生成交货卡。'
+    ? '后道交出以原后道出货单的实际发出为准；车缝厂完成任务链中的实际工序后需交后道工厂接收和质检。'
     : undefined
 
   return {
@@ -483,7 +483,7 @@ function buildDocumentFromProcessHandover(
             { label: '来源车缝任务', value: postOrder.sourceSewingTaskNo },
             { label: '后道工厂', value: postOrder.managedPostFactoryName },
             { label: '后道来源', value: getPostFinishingSourceLabel(postOrder) },
-            { label: '复检确认成衣件数', value: qtyText(postOrder.recheckAction.confirmedGarmentQty, postOrder.recheckAction.qtyUnit) },
+            { label: '实际交出成衣件数', value: qtyText(postOrder.handoverAction?.handoverGarmentQty ?? 0, '件') },
           ] : []),
           ...(record.craftType === 'SPECIAL_CRAFT' ? [
             { label: '关联菲票', value: record.relatedFeiTicketIds.length > 0 ? record.relatedFeiTicketIds.join('、') : '待现场绑定' },

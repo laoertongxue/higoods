@@ -79,6 +79,7 @@ const legacyTagProcessMap: Record<string, string[]> = {
   水溶: ['WATER_SOLUBLE'],
   车缝: ['SEW'],
   后整: [...POST_STAGE_PROCESS_CODES],
+  后道: [...POST_STAGE_PROCESS_CODES],
 }
 
 const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {

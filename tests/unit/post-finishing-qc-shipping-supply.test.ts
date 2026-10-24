@@ -273,3 +273,19 @@ test('负数、未知 SKU、未授权实收差异以及未知状态不能生成�
   assert.ok(result.issues.some(issue => issue.code === 'INVALID_STATUS'))
   assert.equal(result.segments.length, 0)
 })
+
+test('合并兼容：当前直接出货可分两批且待出货仍在后道，抽检未抽随批放行不丢失',()=>{
+ const root=qc('QC-DIRECT',100)
+ Object.assign(root.results![0],{passedQty:30,releasedQty:100,uninspectedQty:70,inspectedQty:30})
+ const task=post(root);task.executionModel='ITEMS_V1';task.lines[0].expectedQty=100
+ const first=outbound(root,'DIRECT-A',40),second=outbound(root,'DIRECT-B',20)
+ for(const order of[first,second])Object.assign(order,{postTaskId:task.postTaskId,postTaskNo:task.postTaskNo,sourceType:'后道加工后',executionModel:'DIRECT_V2',status:'待出货'})
+ let result=project({qcs:[root],postTasks:[task],outbounds:[first,second]})
+ assert.deepEqual(result.issues,[]);assert.equal(result.segments.reduce((n,r)=>n+r.quantity,0),100)
+ assert.equal(result.segments.filter(r=>r.outboundOrderId).reduce((n,r)=>n+r.quantity,0),60)
+ first.status='已接收入库';first.lines[0].receivedQty=40
+ const actual=receive(first,40)
+ result=project({qcs:[root],postTasks:[task],outbounds:[first,second],receipts:[actual]})
+ assert.deepEqual(result.issues,[]);assert.equal(result.segments.filter(r=>r.position==='warehouse').reduce((n,r)=>n+r.quantity,0),40)
+ assert.equal(result.segments.reduce((n,r)=>n+r.quantity,0),100)
+})

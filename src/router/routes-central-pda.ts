@@ -3,7 +3,7 @@ import type { RouteRegistry } from './route-types.ts'
 export async function renderCentralPdaEntry(pathname: string): Promise<string> {
   // These pages prepare their own receiving/order records and failure recovery.
   // Do not let unrelated collections or cutting tickets fail before that page.
-  if (/^\/fcs\/pda\/central\/(?:lace|webbing|post|wool|wool-craft|dye|print)(?:\/|$)/.test(pathname.split('?')[0])) {
+  if (/^\/fcs\/pda\/central\/(?:lace|webbing|post|wool|wool-craft|dye|print|stenter)(?:\/|$)/.test(pathname.split('?')[0])) {
     return (await import('../pages/central-pda/entry.ts')).renderCentralPdaPage(pathname)
   }
   await (await import('../data/pcs-record-runtime.ts')).ensurePcsRecordState()
@@ -26,6 +26,6 @@ export const routes: RouteRegistry = {
     { pattern: /^\/fcs\/pda\/central\/dye\/(receive|execute|warehouse)(?:\/([^/]+))?$/, render: match => renderCentralPdaEntry(match[0]) },
     { pattern: /^\/fcs\/pda\/central\/water\/(receive|execute|warehouse)(?:\/([^/]+))?$/, render: match => renderCentralPdaEntry(match[0]) },
     { pattern: /^\/fcs\/pda\/central\/print\/(receive|execute|warehouse)(?:\/([^/]+))?$/, render: match => renderCentralPdaEntry(match[0]) },
-    { pattern: /^\/fcs\/pda\/central\/wash\/(receive|execute|warehouse)(?:\/([^/]+))?$/, render: match => renderCentralPdaEntry(match[0]) },
+    { pattern: /^\/fcs\/pda\/central\/stenter\/(receive|execute|warehouse)(?:\/([^/]+))?$/, render: match => renderCentralPdaEntry(match[0]) },
   ],
 }

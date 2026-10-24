@@ -5,6 +5,7 @@ import { escapeCssSelectorValue, escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
+import { assertThirdPartyReceiveTaskAllowed } from './pda-third-party-scope'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data'
 import {
   getTaskProcessDisplayName,
@@ -368,6 +369,7 @@ export function acceptPdaTaskWithRuntimeFallback(
 ): ProcessTask {
   const task = getTaskFactById(taskId)
   if (!task) throw new Error('任务不存在或已被移除')
+  assertThirdPartyReceiveTaskAllowed(factoryId, task, '接单')
   const processType = getMobileTaskProcessType(task)
   if (processType === 'PRINT') {
     acceptPrintWorkOrderPdaTask(taskId, by, acceptedAt)
@@ -401,9 +403,10 @@ export function acceptPdaTaskWithRuntimeFallback(
 }
 
 export function rejectPdaTaskWithRuntimeFallback(taskId: string, factoryId: string, reason: string, rejectedAt: string, rejectedBy: string): ProcessTask {
+  const task = getTaskFactById(taskId)
+  if (task) assertThirdPartyReceiveTaskAllowed(factoryId, task, '拒单')
   const runtimeTask = getRuntimeTaskById(taskId)
   if (runtimeTask) return rejectRuntimeTaskAssignment(taskId, { factoryId, reason, rejectedAt, rejectedBy })
-  const task = getTaskFactById(taskId)
   if (!task) throw new Error('任务不存在或已被移除')
   if (classifySewingDeliverySla(task) !== null) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
   if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) throw new Error('当前登录工厂与任务归属不一致，无权拒单')
@@ -1686,6 +1689,7 @@ export async function handlePdaTaskReceiveEvent(target: HTMLElement): Promise<bo
 
     try {
       if (runtimeTender) {
+        assertThirdPartyReceiveTaskAllowed(getCurrentFactoryId(), getTaskFactById(runtimeTender.taskId), '报价')
         const factoryId = getCurrentFactoryId()
         const quote = {
           factoryId,

@@ -107,14 +107,13 @@ test('未知发布测试仍升级，不能被目录前缀误判为已执行', ()
   assert.deepEqual(result.unknownPaths, ['tests/deploy/unknown.test.py'])
 })
 
-test('补料页面路由到专项检查和原型治理', () => {
+test('补料页面路由到业务专项，列表聚合覆盖同范围原型治理', () => {
   const result = routeAffectedChecks([
     'src/pages/cutting/supplement-management.ts',
   ])
 
   assert(result.fastChecks.includes('npm run check:cutting-supplement-process-work-orders'))
-  assert(result.governanceChecks.some((command) => command.startsWith('npm run check:prototype-design-governance -- --scope worktree --paths ')))
-  assert(result.governanceChecks.some((command) => command.startsWith('npm run check:list-page-governance -- --scope worktree --paths ')))
+  assert.deepEqual(result.governanceChecks, ["npm run check:list-page-governance -- --scope worktree --paths 'src/pages/cutting/supplement-management.ts'"])
 })
 
 test('裁片数据路由到裁床检查', () => {
@@ -281,16 +280,40 @@ test('分配业务检查脚本绑定对应专项，不将未知文件误判为�
 test('完整运行目录与 HTML 入口不能漏掉产品治理', () => {
   for (const path of ['src/main.ts', 'src/state/order.ts', 'src/domain/order.ts', 'src/utils/quantity.ts', 'src/styles/main.css', 'index.html']) {
     const result = routeAffectedChecks([path])
-    assert(result.governanceChecks.includes(`npm run check:prototype-design-governance -- --scope worktree --paths '${path}'`), path)
+    const governance = path === 'src/main.ts' ? 'check:list-page-governance' : 'check:prototype-design-governance'
+    assert(result.governanceChecks.includes(`npm run ${governance} -- --scope worktree --paths '${path}'`), path)
   }
 })
 
 test('短范围必须精确包含记录而不回退整工作区', () => {
   const result = routeAffectedChecks(['src/pages/example.ts', 'docs/prototype-review-records/current.md'])
   const scope = "-- --scope worktree --paths 'docs/prototype-review-records/current.md,src/pages/example.ts'"
-  assert(result.governanceChecks.includes(`npm run check:prototype-design-governance ${scope}`))
-  assert(result.governanceChecks.includes(`npm run check:list-page-governance ${scope}`))
+  assert.deepEqual(result.governanceChecks, [`npm run check:list-page-governance ${scope}`])
   assert(!result.governanceChecks.some((command) => command.includes('--all')))
+})
+
+test('混合变更聚合完整任务范围，只去重产品治理并保留专项、自测与未知路径兜底', () => {
+  const paths = [
+    'src/pages/cutting/supplement-management.ts',
+    'src/data/fcs/cutting-transfer-bags.ts',
+    'src/components/ui/list-table.ts',
+    'scripts/workflow-governance/prototype-review.ts',
+    'docs/prototype-review-records/current.md',
+    'tools/unknown-generator.ts',
+  ]
+  const result = routeAffectedChecks(paths)
+  const scope = `-- --scope worktree --paths '${[...paths].sort().join(',')}'`
+
+  assert(result.governanceChecks.includes(`npm run check:list-page-governance ${scope}`))
+  assert(!result.governanceChecks.includes(`npm run check:prototype-design-governance ${scope}`))
+  assert(result.governanceChecks.includes('npm run check:prototype-design-governance -- --self-test'))
+  assert(result.governanceChecks.includes('npm run check:standard-list-page-template'))
+  assert(result.fastChecks.includes('npm run test:workflow-governance'))
+  assert(result.fastChecks.includes('npm run check:cutting-supplement-process-work-orders'))
+  assert(result.fastChecks.includes('npm run check:cutting:all'))
+  assert(result.fullChecks.includes('npm run build'))
+  assert.deepEqual(result.unknownPaths, ['tools/unknown-generator.ts'])
+  assert(result.escalationReasons.some((reason) => reason.includes('未知路径')))
 })
 
 test('长范围使用完整worktree与冻结基线而不丢文档或门禁', (t) => {
@@ -317,8 +340,7 @@ test('长范围使用完整worktree与冻结基线而不丢文档或门禁', (t)
   const result = routeAffectedChecks(paths)
   assert.deepEqual(result.changedPaths, paths)
   assert.deepEqual(result.unknownPaths, [])
-  assert(result.governanceChecks.includes('npm run check:prototype-design-governance -- --scope worktree'))
-  assert(result.governanceChecks.includes('npm run check:list-page-governance -- --scope worktree'))
+  assert.deepEqual(result.governanceChecks, ['npm run check:list-page-governance -- --scope worktree'])
   for (const command of result.governanceChecks) {
     assert(Buffer.byteLength(command) <= 32 * 1024)
     const argv = execFileSync('/bin/sh', ['-c', `set -- ${command}; printf '%s\\0' "$@"`], { encoding: 'utf8' }).split('\0').filter(Boolean)
@@ -570,6 +592,22 @@ test('原型全功能清理只接入明确消费者，旧演示夹具必须逐�
  const perf=routeAffectedChecks(['scripts/check-prototype-full-function-performance.mjs']);assert.deepEqual(perf.unknownPaths,[]);assert.deepEqual(perf.fastChecks,["node --check 'scripts/check-prototype-full-function-performance.mjs'"])
 })
 
+
+test('质检明确新增原生及原页面套件有真实执行路由，未知同名前缀不获豁免', () => {
+  const native=routeAffectedChecks(['tests/browser-contracts/post-quality-storage.test.ts','src/data/fcs/quality-demo-rebuild.ts','tests/browser-contracts/production-context-quality-migration.test.ts','tests/helpers/post-finishing-legacy-fixture.ts'])
+  assert.deepEqual(native.unknownPaths,[])
+  assert.deepEqual(native.fullChecks,['node scripts/verification/run-quality-native-contracts.mjs'])
+  const ui=routeAffectedChecks(['tests/quality-management-rules.spec.ts','tests/finished-inventory-quality-flow.spec.ts'])
+  assert.deepEqual(ui.unknownPaths,[])
+  assert.equal(ui.fullChecks.length,1)
+  for(const name of ['quality-management-rules','quality-management-list-contract','quality-management-print-ready','quality-inventory-generic-print-entry','quality-fei-print-lazy-boundary','finished-inventory-quality-flow','sample-approval-quality','print-service-post-route-card']) assert.ok(ui.fullChecks[0].includes(`tests/${name}.spec.ts`))
+  assert.ok(ui.fullChecks[0].includes('PLAYWRIGHT_REUSE_EXISTING_SERVER=false'))
+  assert.ok(ui.fullChecks[0].includes('--workers=1'))
+  assert.deepEqual(routeAffectedChecks(['tests/quality-unknown.spec.ts']).unknownPaths,['tests/quality-unknown.spec.ts'])
+  const source=routeAffectedChecks(['tests/pcs-r1-channel-rules.test.ts'])
+  assert.deepEqual(source.unknownPaths,[])
+  assert.deepEqual(source.fastChecks,["node --import tsx --test 'tests/pcs-r1-channel-rules.test.ts'"])
+})
 
 test('辅料静态Mock专项运行实际浏览器契约，性能采集只做语法核验', () => {
   const route = routeAffectedChecks(['tests/browser-contracts/accessory-workflow-mock.test.ts', 'scripts/check-accessory-workflow-mock-performance.mjs'])

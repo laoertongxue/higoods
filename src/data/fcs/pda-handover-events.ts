@@ -1,4 +1,4 @@
-import { assertFabricWashingRelease } from './fabric-washing-gates.ts'
+import { registerFactoryProcessSnapshot } from './factory-process-storage.ts'
 import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks, isStoredDesignRevisionHandoverHead } from './design-revision-pcs-storage.ts'
 import { productionContextStorage, PRODUCTION_CONTEXT_KEYS, isProductionContextReady, onProductionContextChanged } from './production-context-records.ts'
 import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
@@ -80,7 +80,6 @@ import {
   listPostFinishingFactoryReturns,
   type PostFinishingFactoryReturnDelivery,
   listPostFinishingWaitHandoverWarehouseRecords,
-  receivePostFinishingOutboundOrder,
   type PostFinishingWaitHandoverWarehouseRecord,
 } from './post-finishing-full-flow.ts'
 import {
@@ -1058,8 +1057,8 @@ function normalizeIdSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').slice(-16) || 'UNKNOWN'
 }
 
-function buildPostFinishingHandoutHeadId(recheckOrderNo: string): string {
-  return `HOH-POST-${normalizeIdSegment(recheckOrderNo)}`
+function buildPostFinishingHandoutHeadId(outboundOrderNo: string): string {
+  return `HOH-POST-${normalizeIdSegment(outboundOrderNo)}`
 }
 
 function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
@@ -1105,7 +1104,7 @@ function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
       qtyDiffTotal: qtyExpectedTotal - handedOverQty,
       sourceDocId: record.outboundOrderId,
       sourceDocNo: record.outboundOrderNo,
-      scopeLabel: `处理后复核合格成衣 ${record.skuCount} 个 SKU`,
+      scopeLabel: `本单待发成衣 ${record.skuCount} 个 SKU`,
       executorKind: 'EXTERNAL_FACTORY',
       transitionFromPrev: 'SAME_FACTORY_CONTINUE',
       transitionToNext: 'RETURN_TO_WAREHOUSE',
@@ -2461,13 +2460,7 @@ function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
 
 const FORMAL_HANDOUT_STORAGE_KEY = 'higood.formal-merged-handout-actions.v1'
 const formalHandoutStateKeys = ['handoverHeadAdditions', 'pickupRecordAdditions', 'handoutRecordAdditions', 'pickupRecordOverrides', 'handoutRecordOverrides', 'handoutRecordVersionHistory', 'headCompletionOverrides'] as const
-export function persistPdaHandoverState(expectedSource?: { handoverId: string; taskId: string; productionOrderId: string; sourceDocId: string; sourceBusinessType: 'DYE_WORK_ORDER' | 'WATER_SOLUBLE_WORK_ORDER' | 'PRINT_WORK_ORDER' }): void {
-  if (expectedSource) {
-    const head = handoverHeadAdditions.get(expectedSource.handoverId)
-    if (!head || head.taskId !== expectedSource.taskId || head.productionOrderNo !== expectedSource.productionOrderId || head.sourceDocId !== expectedSource.sourceDocId || head.sourceBusinessType !== expectedSource.sourceBusinessType || !expectedSource.sourceDocId.trim()) throw new Error('交接头与原加工单来源不一致，本次未保存。')
-    if (!productionOrders.some(order => order.productionOrderId === expectedSource.productionOrderId && !initialProductionOrderIds.has(order.productionOrderId))) throw new Error('该接收来源不是本次正式生产单，不写入正式交接动作存储。')
-  }
-  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+function formalHandoutSnapshot(): string {
   const snapshot = capturePdaHandoverState()
   for (const [, head] of snapshot.handoverHeadAdditions) {
     if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head) && !isStoredDesignRevisionHandoverHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
@@ -2492,14 +2485,25 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
     getPdaHandoverRecordsByHead(head.handoverId, head).forEach(record => recordIds.add(record.recordId))
   }
   const taskIds = new Set(heads.map(([, head]) => head.taskId))
-  getDesignRevisionFcsStorage().setItem(FORMAL_HANDOUT_STORAGE_KEY, JSON.stringify({ version: 1, handoverHeadAdditions: heads,
+  return JSON.stringify({ version: 1, handoverHeadAdditions: heads,
     pickupRecordAdditions: snapshot.pickupRecordAdditions.filter(([id]) => headIds.has(id)),
     pickupRecordOverrides: snapshot.pickupRecordOverrides.filter(([, record]) => Boolean(record.handoverId && headIds.has(record.handoverId))), handoutRecordAdditions: records,
     handoutRecordOverrides: snapshot.handoutRecordOverrides.filter(([id]) => recordIds.has(id)),
     handoutRecordVersionHistory: snapshot.handoutRecordVersionHistory.filter(([id]) => taskIds.has(id)),
     headCompletionOverrides: snapshot.headCompletionOverrides.filter(([id]) => headIds.has(id)),
-  }))
+  })
 }
+
+export function persistPdaHandoverState(expectedSource?: { handoverId: string; taskId: string; productionOrderId: string; sourceDocId: string; sourceBusinessType: 'DYE_WORK_ORDER' | 'WATER_SOLUBLE_WORK_ORDER' | 'PRINT_WORK_ORDER' }): void {
+  if (expectedSource) {
+    const head = handoverHeadAdditions.get(expectedSource.handoverId)
+    if (!head || head.taskId !== expectedSource.taskId || head.productionOrderNo !== expectedSource.productionOrderId || head.sourceDocId !== expectedSource.sourceDocId || head.sourceBusinessType !== expectedSource.sourceBusinessType || !expectedSource.sourceDocId.trim()) throw new Error('交接头与原加工单来源不一致，本次未保存。')
+    if (!productionOrders.some(order => order.productionOrderId === expectedSource.productionOrderId && !initialProductionOrderIds.has(order.productionOrderId))) throw new Error('该接收来源不是本次正式生产单，不写入正式交接动作存储。')
+  }
+  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+  getDesignRevisionFcsStorage().setItem(FORMAL_HANDOUT_STORAGE_KEY, formalHandoutSnapshot())
+}
+
 let lastRestoredFormalHandoutRaw: string | null = null
 function readFormalHandoutActions(): void {
   const raw = (typeof window === 'undefined' && typeof localStorage === 'undefined') ? null : getDesignRevisionFcsStorage().getItem(FORMAL_HANDOUT_STORAGE_KEY)
@@ -2549,6 +2553,7 @@ function isFormalPrintHandoutHead(head: PdaHandoverHead): boolean {
 }
 
 function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: () => T): T {
+  if (head?.processBusinessCode === 'POST_FINISHING') throw new Error('历史后道通用交出记录只读，请在原后道出货单办理实际发出和仓库实收。')
   if (head?.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head) && !isStoredDesignRevisionHandoverHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
   const formalPreparation = Boolean(head && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId)))
@@ -3370,7 +3375,7 @@ function buildHandoutLineRecord(
 
 interface FactoryHandoutCompletionFact { handoverId:string;taskId:string;completedAt:string;completedBy:string }
 function factoryHandoutCompletion(handoverId:string):FactoryHandoutCompletionFact | null {
-  if(typeof document!=='undefined' && !isProductionContextReady()) return null
+  if(typeof document!=='undefined' && !isProductionContextReady(PRODUCTION_CONTEXT_KEYS.effects)) return null
   const raw=productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
   return raw ? JSON.parse(raw).entries.find(([id]:[string,unknown])=>id===`factory-completion:${handoverId}`)?.[1] ?? null : null
 }
@@ -3378,7 +3383,7 @@ onProductionContextChanged(PRODUCTION_CONTEXT_KEYS.effects,invalidatePdaHandover
 
 /** 开工时生成的空交出单头；交出明细仍由原有交接事实读取。 */
 function persistedStartedHandoverHeads(): PdaHandoverHead[] {
-  if (typeof document !== 'undefined' && !isProductionContextReady()) return []
+  if (typeof document !== 'undefined' && !isProductionContextReady(PRODUCTION_CONTEXT_KEYS.effects)) return []
   const raw = productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
   return raw ? JSON.parse(raw).entries.filter(([id]: [string, unknown]) => id.startsWith('started-handover-head:')).map(([, head]: [string, PdaHandoverHead]) => structuredClone(head)) : []
 }
@@ -3768,7 +3773,9 @@ function buildNonWoolHeadsInternal(): PdaHandoverHead[] {
   if (!cachedBuiltHeads) {
     cachedBuiltHeads = recomputeHeadsInternal()
   }
-  return cachedBuiltHeads.filter((head) => head.processBusinessCode !== 'WOOL').map(head =>
+  // Post outbounds belong to a different authoritative repository. Their current
+  // prepare/dispatch/receipt facts must not depend on a generic-head cache event.
+  return [...cachedBuiltHeads.filter((head) => head.processBusinessCode !== 'WOOL' && head.processBusinessCode !== 'POST_FINISHING'), ...recomputePostFinishingHeadsInternal()].map(head =>
     (handoutRecordAdditions.get(head.handoverId) || []).some(record => record.postReturnLink) ? refreshHandoutHeadSummary(head) : head)
 }
 
@@ -3799,10 +3806,7 @@ function recomputePostFinishingHeadsInternal(): PdaHandoverHead[] {
 }
 
 function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
-  if (!cachedPostFinishingBuiltHeads) {
-    cachedPostFinishingBuiltHeads = recomputePostFinishingHeadsInternal()
-  }
-  return cachedPostFinishingBuiltHeads
+  return recomputePostFinishingHeadsInternal()
 }
 
 function listHeadsSorted(factoryId?: string, includeWool = true, taskIds?: ReadonlySet<string>, matchesHead?: (head: Readonly<PdaHandoverHead>) => boolean): PdaHandoverHead[] {
@@ -4018,6 +4022,7 @@ function savePickupRecord(record: PdaPickupRecord): void {
 }
 
 function saveHandoutRecord(record: PdaHandoverRecord): void {
+  if (findHead(record.handoverId)?.processBusinessCode === 'POST_FINISHING') throw new Error('历史后道通用交出记录只读，请在原后道出货单办理。')
   const current = findRecord(record.recordId, record.handoverId)
   const projectionVersionSignature = (item: PdaHandoverRecord): string => JSON.stringify({
     recordId: item.handoverRecordId || item.recordId,
@@ -4631,60 +4636,10 @@ export function ensureHandoverOrderForStartedTask(taskId: string, options: { inc
   return { taskId, handoverOrderId, created: true }
 }
 
-function resolvePostFinishingLineForCreate(
-  head: PdaHandoverHead,
-  submittedQty: number,
-): {
-  warehouseRecordId: string
-  outboundOrderId: string
-  outboundOrderNo: string
-  recheckOrderId: string
-  recheckOrderNo: string
-  skuLineId: string
-  skuId: string
-  skuCode: string
-  spuName: string
-  colorName: string
-  sizeName: string
-  qtyUnit: string
-  availableHandoverGarmentQty: number
-} | undefined {
-  if (!isPostFinishingGeneratedHead(head)) return undefined
-  const submittedBySkuLineId = new Map<string, number>()
-  getPdaHandoverRecordsByHead(head.handoverId).forEach((record) => {
-    if (!record.postFinishingSkuLineId) return
-    submittedBySkuLineId.set(
-      record.postFinishingSkuLineId,
-      (submittedBySkuLineId.get(record.postFinishingSkuLineId) || 0) + (record.submittedQty || 0),
-    )
-  })
-  const lines = listPostFinishingWaitHandoverWarehouseRecords()
-    .filter((record) => record.outboundOrderNo === head.sourceDocNo || record.outboundOrderId === head.sourceDocId)
-    .flatMap((record) => record.lines.map((line) => {
-      const skuLineId = `${record.warehouseRecordId}:${line.sku.skuId}`
-      return {
-        warehouseRecordId: record.warehouseRecordId,
-        outboundOrderId: record.outboundOrderId,
-        outboundOrderNo: record.outboundOrderNo,
-        recheckOrderId: record.recheckOrderId,
-        recheckOrderNo: record.recheckOrderNo,
-        skuLineId,
-        skuId: line.sku.skuId,
-        skuCode: line.sku.skuCode,
-        spuName: line.sku.spuName,
-        colorName: line.sku.colorName,
-        sizeName: line.sku.sizeName,
-        qtyUnit: line.sku.qtyUnit,
-        availableHandoverGarmentQty: Math.max(line.availableQty - (submittedBySkuLineId.get(skuLineId) || 0), 0),
-      }
-    }))
-  const matched = lines.find((line) => line.availableHandoverGarmentQty >= submittedQty)
-  if (!matched) {
-    const totalAvailable = sumBy(lines, (line) => line.availableHandoverGarmentQty)
-    if (totalAvailable <= 0) throw new Error('当前复检库存已全部交出')
-    throw new Error(`本次交出数量不能超过单个复检明细可交出库存，请按 SKU 分批交出；当前最大可交出 ${Math.max(...lines.map((line) => line.availableHandoverGarmentQty))}${head.qtyUnit}`)
-  }
-  return matched
+/** 后道只在原出货单确认实际发出；旧通用交出记录保留只读。 */
+function resolvePostFinishingLineForCreate(head: PdaHandoverHead, _submittedQty: number): undefined {
+  if (isPostFinishingGeneratedHead(head)) throw new Error('后道请打开原出货单，核对全部 SKU 后确认实际发出。历史通用交出记录只读。')
+  return undefined
 }
 
 export function validateWaterSolubleHandoverScan(head: PdaHandoverHead, scanCode: string): string | null {
@@ -4737,11 +4692,6 @@ export function createFactoryHandoverRecord(input: {
   if (!head || head.headType !== 'HANDOUT') {
     throw new Error(`未找到交出单：${input.handoverOrderId}`)
   }
-  if(head.sourceBusinessType==='PRINT_WORK_ORDER'||head.processBusinessCode==='PRINT') {
-    const id=head.sourceDocId||input.printingOrderId||''
-    if(input.printingValidatedRollIds?.length)input.printingValidatedRollIds.forEach(rollId=>assertFabricWashingRelease(id,rollId,'HANDOUT'))
-    else assertFabricWashingRelease(id,'__SCOPE__','HANDOUT')
-  }
   if(input.centralPrintingActor){
     if((head.sourceBusinessType!=='PRINT_WORK_ORDER'&&head.processBusinessCode!=='PRINT')||!input.printingOrderId||input.printingTaskId!==head.taskId||(head.sourceDocId&&input.printingOrderId!==head.sourceDocId))throw new Error('PRINT_wrongActor')
     assertCentralPrintingFactoryActor(head.factoryId||'',input.centralPrintingActor)
@@ -4783,7 +4733,7 @@ export function createFactoryHandoverRecord(input: {
       throw new Error(`水溶交出必须使用原 BOM 单位“${waterOrder.qtyUnit}”，不能改为“${input.qtyUnit.trim() || '空单位'}”。`)
     }
   }
-  const postFinishingLine = resolvePostFinishingLineForCreate(head, input.submittedQty)
+  resolvePostFinishingLineForCreate(head, input.submittedQty)
 
   const existing = getPdaHandoverRecordsByHead(head.handoverId)
   const sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)
@@ -4814,25 +4764,19 @@ export function createFactoryHandoverRecord(input: {
       taskId: head.taskId,
       sourceTaskId: head.taskId,
       sequenceNo,
-      handoutItemLabel: input.handoutItemLabel || (postFinishingLine ? `${postFinishingLine.skuCode} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName} / ${input.submittedQty}${postFinishingLine.qtyUnit}` : undefined),
-      postFinishingRecheckOrderId: postFinishingLine?.recheckOrderId,
-      postFinishingRecheckOrderNo: postFinishingLine?.recheckOrderNo,
-      postFinishingWarehouseRecordId: postFinishingLine?.warehouseRecordId,
-      postFinishingSkuLineId: postFinishingLine?.skuLineId,
-      objectType: postFinishingLine ? 'FINISHED_GARMENT' : input.objectType,
+      handoutItemLabel: input.handoutItemLabel,
+      objectType: input.objectType,
       garmentEquivalentQty: input.garmentEquivalentQty,
-      materialCode: input.materialCode || waterOrder?.materialCode || postFinishingLine?.skuCode,
-      materialName: input.materialName || waterOrder?.materialName || (postFinishingLine ? '后道复检合格成衣' : undefined),
-      materialSpec: input.materialSpec || waterOrder?.materialSpec || (postFinishingLine ? `${postFinishingLine.spuName} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName}` : undefined),
-      skuCode: garmentSku?.skuCode || input.skuCode || postFinishingLine?.skuCode,
-      skuColor: garmentSku?.color || input.skuColor || postFinishingLine?.colorName,
-      skuSize: garmentSku?.size || input.skuSize || postFinishingLine?.sizeName,
-      pieceName: input.pieceName || (postFinishingLine ? '成衣' : undefined),
+      materialCode: input.materialCode || waterOrder?.materialCode,
+      materialName: input.materialName || waterOrder?.materialName,
+      materialSpec: input.materialSpec || waterOrder?.materialSpec,
+      skuCode: garmentSku?.skuCode || input.skuCode,
+      skuColor: garmentSku?.color || input.skuColor,
+      skuSize: garmentSku?.size || input.skuSize,
+      pieceName: input.pieceName,
       cutPieceLines: input.cutPieceLines?.map((line) => ({ ...line })),
       handoutObjectType:
-        postFinishingLine
-          ? 'GARMENT'
-          : waterOrder
+        waterOrder
             ? 'MATERIAL'
           : input.handoutObjectType
           ? input.handoutObjectType
@@ -4878,7 +4822,6 @@ export function createFactoryHandoverRecord(input: {
     })
     invalidatePdaHandoverHeadCache()
   }
-  if (postFinishingLine) invalidatePdaHandoverHeadCache()
   return cloneRecord(created)
 
   })
@@ -4922,44 +4865,8 @@ export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord, preserveEx
   return findPdaHandoverRecord(record.recordId) ?? cloneRecord(record)
 }
 
-function writeBackCurrentPostFinishingOutboundIfComplete(
-  head: PdaHandoverHead,
-  updatedRecord: PdaHandoverRecord,
-  receiverWrittenAt: string,
-  receiverWrittenBy: string,
-): void {
-  if (head.processBusinessCode !== 'POST_FINISHING' || !updatedRecord.postFinishingWarehouseRecordId) return
-  const outbound = getPostFinishingFullFlowOutboundOrder(head.sourceDocNo || head.sourceDocId || '')
-  if (!outbound) throw new Error('当前后道出货单不存在，不能通过旧交出事实继续收货。')
-  const candidateRecords = getPdaHandoverRecordsByHead(head.handoverId)
-    .filter((record) => record.recordId !== updatedRecord.recordId)
-    .concat(updatedRecord)
-  const quantities = outbound.lines.map((line) => {
-    const skuRecords = candidateRecords.filter((record) => record.skuCode === line.sku.skuCode)
-    const submittedQty = sumBy(skuRecords, (record) => record.submittedQty || 0)
-    const fullyWrittenBack = skuRecords.length > 0 && skuRecords.every((record) => typeof record.receiverWrittenQty === 'number')
-    return {
-      skuId: line.sku.skuId,
-      expectedQty: line.outboundQty,
-      submittedQty,
-      receivedQty: sumBy(skuRecords, (record) => record.receiverWrittenQty || 0),
-      fullyWrittenBack,
-    }
-  })
-  if (!quantities.every((line) => line.submittedQty >= line.expectedQty && line.fullyWrittenBack)) return
-  if (quantities.some((line) => line.receivedQty !== line.expectedQty)) {
-    throw new Error('后道出货实收存在差异，请在当前成衣仓收货入口完成授权确认。')
-  }
-  receivePostFinishingOutboundOrder({
-    outboundOrderNo: outbound.outboundOrderNo,
-    actor: {
-      actorId: 'PDA-GARMENT-WAREHOUSE',
-      actorName: receiverWrittenBy,
-      roleName: '成衣仓收货员',
-    },
-    receivedQuantities: quantities.map((line) => ({ skuId: line.skuId, receivedQty: line.receivedQty })),
-    nowMs: new Date(receiverWrittenAt.replace(' ', 'T')).getTime(),
-  })
+function writeBackCurrentPostFinishingOutboundIfComplete(head: PdaHandoverHead, _record: PdaHandoverRecord, _at: string, _by: string): void {
+  if (head.processBusinessCode === 'POST_FINISHING') throw new Error('历史后道通用交出记录只读，请在原后道出货单完成仓库实收。')
 }
 
 // 准备工艺分次接收始终写原交出记录，目标加工单明确绑定，不另建库存账。
@@ -5066,6 +4973,7 @@ export function writeBackHandoverRecord(input: {
     ))
   }
   const head = findPdaHandoverHead(current.handoverId)
+  if (head?.processBusinessCode === 'POST_FINISHING') throw new Error('历史后道通用交出记录只读，请查看原后道出货单。')
   if (!head) {
     throw new Error(`未找到交出单：${current.handoverId}`)
   }
@@ -5113,6 +5021,7 @@ export function acceptHandoverRecordDiff(handoverRecordId: string): PdaHandoverR
   }
   if (current.postReturnLink) throw new Error('该记录实收来自原后道回货，请在原单处理差异。')
   const head = findPdaHandoverHead(current.handoverId)
+  if (head?.processBusinessCode === 'POST_FINISHING') throw new Error('历史后道通用交出记录只读，请查看原后道出货单。')
   if (!head) {
     throw new Error(`未找到交出单：${current.handoverId}`)
   }
@@ -5567,3 +5476,5 @@ registerTmfPreparationHandoverReader(readCurrentPreparationHandoverRecord)
 import { registerTmfPreparationHandoverReader } from './tmf-source-readers.ts'
 
 registerDesignRevisionFcsCacheHooks('handover', { capture: capturePdaHandoverState, restore(value) { const snapshot = structuredClone(value); delete snapshot.persistedActionsRaw; restorePdaHandoverState(snapshot) }, hydrate() { lastRestoredFormalHandoutRaw = null; readFormalHandoutActions() } })
+
+registerFactoryProcessSnapshot(FORMAL_HANDOUT_STORAGE_KEY, formalHandoutSnapshot)

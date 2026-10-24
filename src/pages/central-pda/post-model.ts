@@ -107,12 +107,10 @@ export async function completeCentralPostQc(qcTaskId: string, results: CentralQc
 import { POST_FINISHING_QC_DEFECT_REASON_OPTIONS } from '../../data/fcs/post-finishing-full-flow.ts'
 export function centralPostDefectReasons() { return POST_FINISHING_QC_DEFECT_REASON_OPTIONS }
 import {
-  appendPostFinishingProcessCompletion, submitPostFinishingForRecheck, claimPostFinishingRecheckOrder,
-  scanPostFinishingRecheckSkuBarcode, completePostFinishingRecheckOrderFullFlow, receivePostFinishingOutboundOrder,
+  appendPostFinishingProcessCompletion, receivePostFinishingOutboundOrder,
   getPostFinishingProcessProgress, listPostFinishingFullFlowRecheckOrders, listPostFinishingWaitHandoverWarehouseRecords,
 } from '../../data/fcs/post-finishing-full-flow.ts'
 function processActor(user: FactoryPdaUser): PostFinishingActor { return actualPostUser(user, user.roleId === 'ROLE_ADMIN' ? '后道主管' : '后道操作员') }
-function recheckActor(user: FactoryPdaUser): PostFinishingActor { return actualPostUser(user, user.roleId === 'ROLE_ADMIN' ? '复检主管' : '复检员') }
 function warehouseReceiver(user: FactoryPdaUser): PostFinishingActor { return actualPostUser(user, '仓库收货人员') }
 export function centralPostProcessProgress(postTaskId: string) { return getPostFinishingProcessProgress(postTaskId) }
 export function centralPostRechecks(factoryId: string) {
@@ -155,32 +153,6 @@ export async function registerCentralPostProcess(postTaskId: string, processItem
   }
   return runPostFinishingCommand(() => appendPostFinishingProcessCompletion({ postTaskId, processItem: processItem as never, quantities, responsible: actor, actor, operationId: crypto.randomUUID(), unprocessedReason }))
 }
-export async function submitCentralPostRecheck(postTaskId: string, user: FactoryPdaUser, requested?: Array<{ skuId: string; quantity: number }>) {
-  const actor = processActor(user), progress = getPostFinishingProcessProgress(postTaskId)
-  const quantities = requested?.length
-    ? requested.filter(line => line.quantity > 0)
-    : progress.lines.filter(line => line.availableForRecheckQty > 0).map(line => ({ skuId: line.sku.skuId, quantity: line.availableForRecheckQty }))
-  if (!quantities.length) throw new Error('当前没有可交复检数量。')
-  return runPostFinishingCommand(() => submitPostFinishingForRecheck({ postTaskId, quantities, actor, operationId: crypto.randomUUID() }))
-}
-export async function claimCentralPostRecheck(recheckOrderNo: string, user: FactoryPdaUser) {
-  const actor = recheckActor(user)
-  return runPostFinishingCommand(() => claimPostFinishingRecheckOrder({ recheckOrderNo, actor }))
-}
-export async function scanCentralPostBarcode(recheckOrderId: string, skuId: string, scannedBarcode: string, user: FactoryPdaUser) {
-  const actor = recheckActor(user)
-  return runPostFinishingCommand(() => scanPostFinishingRecheckSkuBarcode({ recheckOrderId, skuId, scannedBarcode, actor }))
-}
-export async function completeCentralPostRecheck(recheckOrderId: string, user: FactoryPdaUser, requested?: Array<{ skuId: string; handoverQty: number }>, authorization?: { scanValue: string; differenceReason: string }) {
-  const actor = recheckActor(user), record = listPostFinishingFullFlowRecheckOrders().find(row => row.recheckOrderId === recheckOrderId)
-  if (!record) throw new Error('复检单不存在。')
-  const results = record.lines.map(line => {
-    const submitted = requested?.find(row => row.skuId === line.sku.skuId)?.handoverQty
-    if (submitted !== undefined && (!Number.isSafeInteger(submitted) || submitted < 0)) throw new Error('复检数量必须是大于等于 0 的整数。')
-    return { skuId: line.sku.skuId, handoverQty: submitted ?? line.expectedQty }
-  })
-  return runPostFinishingCommand(() => completePostFinishingRecheckOrderFullFlow({ recheckOrderId, actor, results, authorization }))
-}
 export async function receiveCentralPostOutbound(outboundOrderNo: string, user: FactoryPdaUser, requested?: Array<{ skuId: string; receivedQty: number }>, authorization?: { scanValue: string; differenceReason: string }) {
   const actor = warehouseReceiver(user)
   const order = listPostFinishingFullFlowOutboundOrders().find(row => row.outboundOrderNo === outboundOrderNo)
@@ -191,9 +163,4 @@ export async function receiveCentralPostOutbound(outboundOrderNo: string, user: 
     return { skuId: line.sku.skuId, receivedQty: submitted ?? line.outboundQty }
   })
   return runPostFinishingCommand(() => receivePostFinishingOutboundOrder({ outboundOrderNo, targetWarehouseId: order.targetWarehouseId || 'WH-AC', actor, receivedQuantities, authorization }))
-}
-import { markPostFinishingRecheckSkuRelabeled } from '../../data/fcs/post-finishing-full-flow.ts'
-export async function markCentralPostRelabeled(recheckOrderId: string, skuId: string, user: FactoryPdaUser) {
-  const actor = recheckActor(user)
-  return runPostFinishingCommand(() => markPostFinishingRecheckSkuRelabeled({ recheckOrderId, skuId, actor }))
 }

@@ -355,7 +355,7 @@ test('Vite suppressed full-owner: concurrent pending entries remove only their o
 
 function actualCore() {
   return actualModule('src/data/fcs/process-order-task-link-core.ts', {
-    removePredeterminedWashing: (entries: unknown) => entries,
+    removeRetiredProcessRouteEntries: (entries: unknown) => entries,
     getProductionOrderProcessEntries: () => [], processTasks: [], productionOrders: [],
     readRuntimeTaskById: () => undefined, readRuntimeTasks: () => [],
     listGeneratedCutOrderSourceRecords: () => [], listSpecialCraftTaskOrders: () => [], listWoolWorkOrders: () => [],

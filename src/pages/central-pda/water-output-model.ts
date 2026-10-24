@@ -3,7 +3,7 @@ import { getWaterOutputRolls, listWaterDispatchDocuments, isWaterRollAvailable, 
 import { assertCentralWaterSolubleActor } from '../../data/fcs/water-soluble-task-domain.ts'
 import { runWaterSolubleRecordCommand } from '../../data/fcs/water-soluble-records.ts'
 import { listHandoverOrdersByTaskId, getPdaHandoverRecordsByHead } from '../../data/fcs/pda-handover-events.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import type { ProcessDispatchDocument } from '../../data/fcs/process-output-types.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { centralWaterFact, listCentralWaterFacts } from './water-model.ts'
@@ -16,7 +16,7 @@ function assertOrder(orderId: string, actor: FactoryPdaUser) {
   return fact
 }
 export function centralWaterOutput(orderId: string, factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const fact = centralWaterFact(orderId, factoryId)
     if (!fact) return undefined
     const documents = listWaterDispatchDocuments().filter(doc => doc.lines.some(line => line.orderId === orderId))
@@ -28,7 +28,7 @@ export function centralWaterOutput(orderId: string, factoryId: string) {
   })
 }
 export function centralWaterDispatch(docId: string, factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const doc = listWaterDispatchDocuments().find(doc => doc.id === docId)
     return doc?.lines.length && doc.lines.every(line => line.factoryId === factoryId && !!centralWaterFact(line.orderId, factoryId)) ? doc : undefined
   })
@@ -97,11 +97,11 @@ export async function voidCentralWaterDispatch(docId: string, actor: FactoryPdaU
   }, operationId, intent(actor, 'water-void-dispatch', { docId }))
 }
 export function resolveCentralWaterRoll(code: string, factoryId: string) {
-  return withWashingStaticRead(() => listCentralWaterFacts(factoryId).flatMap(fact => getWaterOutputRolls(fact.order.waterOrderId)
+  return withFactoryProcessStaticRead(() => listCentralWaterFacts(factoryId).flatMap(fact => getWaterOutputRolls(fact.order.waterOrderId)
     .filter(roll => roll.barcode === code.trim()).map(roll => ({ orderId: fact.order.waterOrderId, roll }))))
 }
 export function centralWaterReceiptHistory(orderId: string, factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const fact = centralWaterFact(orderId, factoryId)
     if (!fact) return []
     const records = listHandoverOrdersByTaskId(fact.order.taskId, { includeWool: false }).flatMap(head => getPdaHandoverRecordsByHead(head.handoverId, head))

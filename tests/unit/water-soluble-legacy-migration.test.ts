@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { listWaterSolubleWorkOrders } from '../../src/data/fcs/water-soluble-task-domain.ts'
 import { waterSolubleLegacyTargets } from '../../src/data/fcs/water-soluble-legacy-migration.ts'
-import { WATER_EXECUTION_STORAGE_KEY } from '../../src/data/fcs/fabric-washing-storage-bridge.ts'
+import { WATER_EXECUTION_STORAGE_KEY } from '../../src/data/fcs/factory-process-storage.ts'
 import { assertWaterSolubleLegacyMigrated } from '../../src/data/fcs/water-soluble-legacy-source.ts'
 import { getDesignRevisionFcsStorage } from '../../src/data/fcs/design-revision-pcs-storage.ts'
 

@@ -3,18 +3,19 @@ import type { CentralWoolExecution, CentralWoolExecutionLine } from './wool-mode
 import type { WoolDomainStore } from '../../data/fcs/wool-domain/store.ts'
 import { getWoolProcessReportEffectiveQty } from '../../data/fcs/wool-domain/queries.ts'
 import { cb, ce, cn, ct, centralFormalName, centralTime } from './ui.ts'
+import { pdaUi } from '../pda-mobile-ui.ts'
 import { renderWoolHandoverForm, renderWoolHandoverRecords } from './wool-handover-view.ts'
 import type { CentralWoolHandoverTarget, CentralWoolReceiptActor } from './wool-handover-model.ts'
 import { wt, woolInput, woolPhoto, woolColorName } from './wool-ui.ts'
 
 export const woolGarmentUnit = (language: CentralPdaLanguage) => language === 'zh' ? '件' : 'pcs'
-export function woolExecutionIdentity(row: CentralWoolExecution, language: CentralPdaLanguage) {
+export function woolExecutionIdentity(row: CentralWoolExecution, language: CentralPdaLanguage, card = true) {
   const order = row.order, name = centralFormalName(order.styleName, order.styleNo, language)
-  return `<section class="my-3 rounded-xl border bg-white p-3"><div class="flex gap-3">${woolPhoto(order.styleImageUrl, name, language)}<div class="min-w-0"><strong class="block break-words">${ce(name)}</strong><p class="mt-1 break-words">${ce(order.woolOrderNo)}</p><p class="mt-1 break-words text-sm">${ce(order.productionOrderNo)}</p></div></div></section>`
+  return `<section class="${card ? pdaUi.card + ' p-3' : 'mb-2'}"><div class="flex gap-3">${woolPhoto(order.styleImageUrl, name, language)}<div class="min-w-0 flex-1"><strong class="block break-words text-[17px] font-semibold leading-6 text-[#1a293c]">${ce(name)}</strong><p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${ce(order.woolOrderNo)}</p><p class="mt-1 break-words text-[13px] leading-5 text-[#62748a]">${ce(order.productionOrderNo)}</p></div></div></section>`
 }
 export function renderWoolExecutionList(rows: CentralWoolExecution[], language: CentralPdaLanguage, limit: number) {
   const unit = woolGarmentUnit(language)
-  return rows.slice(0, limit).map(row => `<article class="mb-4" data-wool-execution-order="${ce(row.order.woolOrderId)}">${woolExecutionIdentity(row, language)}<div class="mb-2 grid gap-2">${row.lines.map(line => `<p class="break-words">${ce(line.line.outputSkuCode)} · ${ct(language, 'produced')} ${cn(line.readiness.reportedQty, language)} ${unit}</p>`).join('')}</div>${cb(ct(language, 'detail'), 'wool-execute-open', row.order.woolOrderId)}</article>`).join('')
+  return rows.slice(0, limit).map(row => `<article class="${pdaUi.card} mb-2 p-3" data-wool-execution-order="${ce(row.order.woolOrderId)}">${woolExecutionIdentity(row, language, false)}<div class="space-y-1">${row.lines.map(line => `<p class="break-words text-[14px] leading-5 text-[#1a293c]">${ce(line.line.outputSkuCode)} · ${ct(language, 'produced')} <b>${cn(line.readiness.reportedQty, language)} ${unit}</b></p>`).join('')}</div><button type="button" class="${pdaUi.actionRow} mt-3" data-central-action="wool-execute-open" data-central-value="${ce(row.order.woolOrderId)}"><span class="text-[16px] font-semibold text-[#1a293c]">${ct(language, 'detail')}</span><span class="text-[#8090a4]" aria-hidden="true">›</span></button></article>`).join('')
 }
 export function renderWoolExecutionDetail(options: {
   row: CentralWoolExecution; line?: CentralWoolExecutionLine; language: CentralPdaLanguage;

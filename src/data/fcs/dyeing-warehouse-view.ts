@@ -1,10 +1,10 @@
-import { washingOutputStock } from './fabric-washing-gates.ts'
 import {
   listFactoryInternalWarehouses,
   listFactoryWaitProcessStockItems,
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseNodeRows,
   listFactoryWarehouseStocktakeOrders,
+  listStenterHandfeelOutputStock,
   type FactoryInternalWarehouse,
   type FactoryWaitHandoverStockItem,
   type FactoryWaitProcessStockItem,
@@ -24,6 +24,7 @@ export interface DyeingWarehouseViewFilters {
   timeRange?: '7D' | '30D' | 'ALL'
 }
 export interface DyeingWarehouseView {
+  factoryOptions: Array<{ factoryId: string; factoryName: string }>
   factoryIds: string[]
   taskIds: string[]
   dyeOrderIds: string[]
@@ -63,10 +64,10 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
       const order = facts.find((f) => f.order.dyeOrderId === line?.dyeOrderId)?.order
       return {
         ...row,
-        washingOrderId: line?.washingOrderId,
-        sourceRecordId: order?.dyeOrderId || line?.washingOrderId || line?.sourceId || row.sourceRecordId,
+        stenterHandfeelOrderId: line?.stenterHandfeelOrderId,
+        sourceRecordId: order?.dyeOrderId || line?.stenterHandfeelOrderId || line?.sourceId || row.sourceRecordId,
         taskId: order?.taskId,
-        taskNo: order?.taskNo || line?.taskNo || (line?.washingOrderId ? line.sourceDocumentNo : '备料（未关联加工单）'),
+        taskNo: order?.taskNo || line?.taskNo || (line?.stenterHandfeelOrderId ? line.sourceDocumentNo : '备料（未关联加工单）'),
         factoryName: dyeFactoryTabLabel(row.factoryId, row.factoryName),
       }
     })
@@ -79,10 +80,10 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
       const order = facts.find((f) => f.order.dyeOrderId === line?.dyeOrderId)?.order
       return {
         ...row,
-        washingOrderId: line?.washingOrderId,
-        sourceRecordId: order?.dyeOrderId || line?.washingOrderId || line?.sourceId || row.sourceRecordId,
+        stenterHandfeelOrderId: line?.stenterHandfeelOrderId,
+        sourceRecordId: order?.dyeOrderId || line?.stenterHandfeelOrderId || line?.sourceId || row.sourceRecordId,
         taskId: order?.taskId,
-        taskNo: order?.taskNo || line?.taskNo || (line?.washingOrderId ? line.sourceDocumentNo : '备料（未关联加工单）'),
+        taskNo: order?.taskNo || line?.taskNo || (line?.stenterHandfeelOrderId ? line.sourceDocumentNo : '备料（未关联加工单）'),
         factoryName: dyeFactoryTabLabel(row.factoryId, row.factoryName),
       }
     })
@@ -183,9 +184,10 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
         receiverName: o.receiverName,
         handoverOrderId: o.handoverOrderId,
         handoverOrderNo: o.handoverOrderNo,
-        receiverWrittenQty: f.actual.length ? f.downstreamReceived : undefined,
-        differenceQty: f.actual.length ? f.difference : undefined,
-        status: f.availableOutput > 0 ? '待交出' : f.actual.length === f.records.length ? '已回写' : '已交出',
+        inTransitQty: f.pendingReceiptQty,
+        receiverWrittenQty: f.hasActualDownstreamReceipt ? f.downstreamReceived : undefined,
+        differenceQty: f.hasActualDownstreamReceipt ? f.difference : undefined,
+        status: f.availableOutput > 0 ? '待交出' : f.hasActualDownstreamReceipt && !f.hasPendingDownstreamReceipt ? '已回写' : '已交出',
         remark: '包装完成入仓，实际交出扣仓；下游实收独立记录。',
       })
     }
@@ -221,11 +223,33 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
         remark: received ? '下游已登记实际接收' : '已交出，等待下游登记实际接收',
       })
     }
+    for (const transfer of f.handfeelTransfers) {
+      outboundRecords.push({
+        ...common,
+        materialSku: f.outputSku,
+        outboundRecordId: 'STENTER-SEND-' + transfer.id,
+        outboundRecordNo: transfer.orderNo + ' / ' + transfer.barcode,
+        warehouseId: outputWarehouse?.warehouseId || `${o.dyeFactoryId}-WAIT_HANDOVER`,
+        warehouseName: `${f.factoryName} · 待交出仓`,
+        sourceTaskId: o.taskId, sourceTaskNo: o.taskNo,
+        sourceRecordId: o.dyeOrderId, sourceRecordNo: o.dyeOrderNo,
+        receiverKind: '加工任务', receiverName: transfer.factoryName,
+        fabricRollNo: transfer.barcode, outboundQty: transfer.sentQty,
+        inTransitQty: transfer.receivedQty === undefined ? transfer.sentQty : 0,
+        receiverWrittenQty: transfer.receivedQty, differenceQty: transfer.difference,
+        operatorName: transfer.sentBy, outboundAt: transfer.sentAt,
+        status: transfer.receivedQty === undefined ? '已出库' : Math.abs(transfer.difference!) > 0.000001 ? '差异' : '已回写',
+        relatedWaitHandoverStockItemId: `DYE-OUTPUT-${o.dyeOrderId}`,
+        remark: `定型机手感单 ${transfer.orderNo}；${o.dyeFactoryId === transfer.factoryId ? '厂内实际转入' : '实际交给' + transfer.factoryName}；${transfer.receivedQty === undefined ? '待实际接收' : '已按实际数量接收'}`,
+      })
+    }
   }
   const stocks = waitProcessItems.filter((x) =>
     matches(x, [x.sourceRecordNo, x.itemName, x.materialSku, x.taskNo, x.fabricRollNo]),
   )
-  waitHandoverItems.push(...washingOutputStock())
+  waitHandoverItems.push(...listStenterHandfeelOutputStock())
+  const factoryOptions = [...new Map([...waitProcessItems, ...waitHandoverItems].map(item => [item.factoryId, item.factoryName]))]
+    .map(([factoryId, factoryName]) => ({ factoryId, factoryName }))
   const outputs = waitHandoverItems.filter((x) => matches(x, [x.taskNo, x.itemName, x.materialSku, x.fabricRollNo, x.handoverOrderNo]))
   const inbounds = inboundRecords.filter(
     (x) => matches(x, [x.sourceRecordNo, x.itemName, x.materialSku, x.taskNo]) && inDate(x.receivedAt),
@@ -244,8 +268,8 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
       if (stock)
         usageRecords.push({
           ...stock,
-          taskNo: facts.find((f) => f.order.dyeOrderId === use.dyeOrderId)?.order.taskNo || (use.washingOrderId ? stock.taskNo : undefined) || use.waterOrderId || use.dyeOrderId!,
-          sourceRecordId: use.washingOrderId || use.waterOrderId || use.dyeOrderId!,
+          taskNo: facts.find((f) => f.order.dyeOrderId === use.dyeOrderId)?.order.taskNo || (use.stenterHandfeelOrderId ? stock.taskNo : undefined) || use.waterOrderId || use.dyeOrderId!,
+          sourceRecordId: use.stenterHandfeelOrderId || use.waterOrderId || use.dyeOrderId!,
           issuedQty: line.qty,
           usedAt: use.at,
           usedBy: use.operatorName,
@@ -261,6 +285,7 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
   }
   const factoryIds = [...new Set([...stocks, ...outputs, ...inbounds, ...outbounds].map((x) => x.factoryId))]
   return {
+    factoryOptions,
     usageRecords,
     factoryIds,
     taskIds: facts.map((f) => f.order.taskId),

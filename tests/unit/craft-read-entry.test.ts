@@ -150,8 +150,12 @@ test('入驻只跳过无关采购初始化，原PCS/FCS准备与PDA处理器保�
   }
   visit(render)
   assert.ok(condition)
+  const inventoryEntry = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isQualityInventoryEntry')!
+  assert.ok(inventoryEntry)
+  const inventoryGuard = ts.transpileModule(inventoryEntry.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const initialize = new Function('normalizedPathname', 'isIsolatedCraftReadEntry', `
-    const factoryReceiptReadEntry = false, isolatedPcsList = false, postFinishingEntry = false,
+    ${inventoryGuard}
+    const factoryReceiptReadEntry = false, factorySourceListEntry = false, isolatedPcsList = false, postFinishingEntry = false,
       cuttingReleaseChainEntry = false, sewingPdaExecutionOrHandover = false, generatedPdaTask = null;
     return ${condition.getText(ast)};
   `) as (path: string, isolated: typeof isIsolatedCraftReadEntry) => boolean

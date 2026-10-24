@@ -11,6 +11,7 @@ import { listCentralSpecialOperations } from './special-model.ts'
 import { centralOperationLabel } from './operation-label.ts'
 import { renderCentralPdaFrame, type CentralPdaFrameInput, type CentralPdaTab } from './frame.ts'
 import { cb, ce, ct, centralNotice, centralFormalName } from './ui.ts'
+import { renderCentralOperationMenu } from './operation-menu.ts'
 import { translateDyeNumber, dyeNumber } from './dye-ui.ts'
 import { centralWebbingOrders, centralWebbingOrder, centralWebbingScan, webbingInputs, webbingTipIssues, centralWebbingActions, saveCentralWebbingReceipt, saveCentralWebbingExecution, webbingTipMaterials, webbingTipEndCount, webbingTipReturnCandidates, type CentralWebbingReceipt, type CentralWebbingAction, type CentralWebbingExecution, type WebbingOrder, type WebbingTipIssue } from './webbing-model.ts'
 import { wt, webbingIdentity, webbingFacts, webbingPending, webbingHistory, webbingStatus, webbingError, webbingActionLabel, webbingExecutionRows, webbingBaseLedger } from './webbing-view.ts'
@@ -242,7 +243,8 @@ export async function handleCentralWebbingEvent(target: Element, event?: Event):
     case 'webbing-photo': if (value) { if (failedPhotos.has(value)) { const img = root()?.querySelector<HTMLImageElement>('[data-webbing-photo]'); if (img) { img.hidden = false; img.parentElement?.querySelector('[data-webbing-photo-error]')?.remove(); img.src = value + (value.includes('?') ? '&' : '?') + 'pdaRetry=' + Date.now() } } else openOverlay(`<img class="max-h-[75dvh] w-full object-contain" src="${ce(value)}" alt="${ce(order()?.material?.materialName || t('photo'))}">`) } break
     case 'operation': {
       const specials = listCentralSpecialOperations(session.currentFactory).filter(operation => /盘扣|花朵/.test(operation.operationName))
-      openOverlay(`<h2 class="mb-2 text-lg font-bold">${lang() === 'id' ? 'Aksesori' : '辅料'}</h2><div class="grid gap-2">${specials.map(operation => cb(centralOperationLabel(operation.operationName, lang()), 'webbing-accessory', operation.operationId)).join('')}${cb(wt(lang(), 'webbing'), 'webbing-close', undefined, true)}${cb(lang() === 'id' ? 'Renda' : '花边', 'webbing-lace')}</div><h2 class="my-3 text-lg font-bold">${lang() === 'id' ? 'Proses lain' : '其他工序'}</h2><div class="grid gap-2">${cb(lang() === 'id' ? 'Proses lain' : '其他工序', 'webbing-other')}</div>`); break
+      openOverlay(renderCentralOperationMenu({ language: lang(), tab: route().tab, factoryId: session.currentFactory, currentPath: appStore.getState().pathname, accessoryOperations: specials.map(operation => ({ id: operation.operationId, label: centralOperationLabel(operation.operationName, lang()) })) }))
+      break
     }
     case 'webbing-accessory': session.currentOperation = value || ''; saveCentralSessionPreference(); navigate('/fcs/pda/central/receive'); break
     case 'webbing-lace': navigate(`/fcs/pda/central/lace/${route().tab}`); break

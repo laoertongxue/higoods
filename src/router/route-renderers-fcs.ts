@@ -19,9 +19,12 @@ function createAsyncRenderer<TArgs extends unknown[]>(
   let modulePromise: Promise<Record<string, unknown>> | null = null
 
   return async (...args: TArgs): Promise<string> => {
-    if (/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(exportName)) {
-      await import('../data/fcs/fabric-washing.ts')
-      try { await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingRecords() } catch(error) { return '<p class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 刷新后重试。</p>' }
+    const shippedReadOnly=exportName==='renderPdaHandoverPage' && typeof location!=='undefined'
+      && location.pathname==='/fcs/pda/handover' && new URLSearchParams(location.search).get('tab')==='shipped'
+    const postReceiptReadOnly=exportName==='renderPdaHandoverDetailPage' && typeof location!=='undefined'
+      && location.pathname.startsWith('/fcs/pda/handover/HOH-POST-')
+    if (/FactoryQc|StenterHandfeel|Printing|Dyeing|WaterSoluble|ProductionOrderDetail|TechPack|Snapshot|WaitProcess|WaitHandover/.test(exportName)) {
+      try { await (await import('../data/fcs/factory-qc.ts')).ensureFactoryQcRecords() } catch(error) { return '<p class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 原记录未被覆盖，恢复存储权限后重新读取。</p>' }
     }
     // Production details read their bound PCS technical version and material specification.
     // Load that scope before importing the page: its context reads PCS records at import time.
@@ -43,7 +46,9 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       'renderProgressBoardPage', 'renderProgressTaskDetailPage',
       'renderProductionOrderProgressTrackingPage', 'renderSewingProductionOrderDurationPage',
     ].includes(exportName)
-    if (postFinishingScope || ppicReturnReadScope) {
+    const qcOnly=['renderPostFinishingQcOrdersPage','renderPostFinishingQcWorkbenchPage'].includes(exportName)
+    const inventoryQcOnly=postFinishingScope && (await import('../data/fcs/post-finishing-qc-entry.ts')).isPreparedInventoryQcRoute((await import('../state/store.ts')).appStore.getState().pathname)
+    if ((postFinishingScope && !inventoryQcOnly && exportName!=='renderPostFinishingQcWorkbenchPage' && exportName!=='renderPostFinishingFullFlowPrintPage') || ppicReturnReadScope) {
       // 必须在页面和命令可用前注册必要分摊事实；直接后道入口与填报入口一致。
       await import('../data/fcs/ppic-daily-return-records.ts')
     }
@@ -67,11 +72,11 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()
     }
-    if (['renderSewingOutsourcingTasksPage', 'renderSewingMaterialHandoverPage', 'renderPdaHandoverPage', 'renderPrintPreviewPage'].includes(exportName)) {
-      await (await import('../data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+    if (!inventoryQcOnly && ['renderSewingOutsourcingTasksPage', 'renderSewingMaterialHandoverPage', 'renderPdaHandoverPage', 'renderPrintPreviewPage'].includes(exportName)) {
+      await (await import('../data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing(shippedReadOnly?{readOnly:true}:undefined)
     }
     if (exportName === 'renderUnifiedDispatchWorkbenchPage') await (await import('../data/wls/accessory-warehouse-records.ts')).ensureAccessoryWarehouseRecords()
-    if (postFinishingScope) await (await import('../data/wls/accessory-warehouse-post-finishing.ts')).prepareAccessoryPostFinishing()
+    if (postFinishingScope && !inventoryQcOnly && !qcOnly && exportName!=='renderPostFinishingFullFlowPrintPage') await (await import('../data/wls/accessory-warehouse-post-finishing.ts')).prepareAccessoryPostFinishing({readOnly:true})
     const renderer = module[exportName]
 
     if (typeof renderer !== 'function') {
@@ -300,9 +305,9 @@ export const renderPpicDailyReturnReportPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/daily-return-report.ts'),
   'renderPpicDailyReturnReportPage',
 )
-export const renderPpicDailyReturnSummaryPage = createAsyncRenderer(
-  () => import('../pages/sewing-outsourcing/daily-return-summary.ts'),
-  'renderPpicDailyReturnSummaryPage',
+export const renderPpicDailyStatisticsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/daily-return-statistics.ts'),
+  'renderPpicDailyStatisticsPage',
 )
 export const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/responsibility-transfers'),
@@ -691,14 +696,6 @@ export const renderPostFinishingQcOrdersPage = createAsyncRenderer(
 export const renderPostFinishingQcWorkbenchPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/qc-workbench'),
   'renderPostFinishingQcWorkbenchPage',
-)
-export const renderPostFinishingRecheckOrdersPage = createAsyncRenderer(
-  () => import('../pages/process-factory/post-finishing/recheck-orders'),
-  'renderPostFinishingRecheckOrdersPage',
-)
-export const renderPostFinishingRecheckOrderDetailPage = createAsyncRenderer(
-  () => import('../pages/process-factory/post-finishing/recheck-orders'),
-  'renderPostFinishingRecheckOrderDetailPage',
 )
 export const renderPostFinishingWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/warehouse'),

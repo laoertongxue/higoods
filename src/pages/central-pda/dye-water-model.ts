@@ -1,11 +1,11 @@
 import { canContinueDyeWaterSoluble, executeCentralDyeWaterSoluble, type DyeWaterSolublePauseDecision } from '../../data/fcs/dyeing-task-domain.ts'
 import { readFactoryPdaExecutionUsers, type FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { getCentralDyeFact, assertCentralDyeActor, runCentralDyeCommand } from './dye-model.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 
 export function centralDyeWater(orderId: string, factoryId: string) {
   if (!orderId) return undefined
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
   const fact = getCentralDyeFact(orderId, factoryId)
   if (!fact?.order.requiresWaterSoluble) return undefined
   const order = fact.order, node = fact.nodes.find(node => node.nodeCode === 'WATER_SOLUBLE')

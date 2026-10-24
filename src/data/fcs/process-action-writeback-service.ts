@@ -1091,7 +1091,8 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
   } else if (actionCode === 'DYE_FINISH_ROLLING') {
     completeDyeNode(payload.sourceId, 'ROLL', { outputQty: qty, operatorName })
   } else if (actionCode === 'DYE_FINISH_PACKING') {
-    completeDyeNode(payload.sourceId, 'PACK', { outputQty: qty, operatorName })
+    const rollCount = getFormFieldValue(fields, ['包装卷数', '完成卷数', '卷数'])
+    completeDyeNode(payload.sourceId, 'PACK', { outputQty: qty, operatorName, ...(rollCount ? { outputRollCount: Number(rollCount) } : {}) })
   } else if (actionCode === 'DYE_SUBMIT_HANDOVER') {
     if (payload.sourceChannel === '移动端') assertDyeWorkOrderOnlineActionAllowed(payload.sourceId, '交出')
     const result = submitDyeHandover(payload.sourceId, {

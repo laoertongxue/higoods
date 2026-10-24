@@ -61,11 +61,15 @@ assert.ok(
   'src/data/fcs/cutting/generated-fei-tickets.ts',
   'src/domain/fcs-cutting-piece-truth/index.ts',
   'src/pages/process-factory/cutting/marker-piece-explosion.ts',
-  'src/pages/process-factory/cutting/marker-spreading-model.ts',
 ].forEach((relativePath) => {
   const source = read(relativePath)
-  assert.ok(source.includes('production-order-tech-pack-runtime'), `${relativePath} 必须改为走生产单快照访问器`)
+  const originalOrderAccessor = relativePath === 'src/data/fcs/cutting/generated-cut-orders.ts' || relativePath === 'src/data/fcs/cutting/generated-fei-tickets.ts'
+  assert.ok(source.includes('production-order-tech-pack-runtime') || (originalOrderAccessor && source.includes("from '../production-orders.ts'") && source.includes('getProductionOrderTechPackSnapshot')), `${relativePath} 必须从明确生产单快照访问器读取，不得按款式切换最新版`)
   assert.ok(!source.includes('pcs-technical-data-runtime-source'), `${relativePath} 不得再引用旧的 spuCode 兼容源`)
 })
+
+const spreadingPresentation=read('src/pages/process-factory/cutting/marker-spreading-model.ts')
+assert.ok(spreadingPresentation.includes("import type { MaterialPrepRow }") && spreadingPresentation.includes('productionOrderId'), '铺布纯模型沿用上游明确生产单资料，不为展示重复拉取技术包')
+assert.ok(!spreadingPresentation.includes('pcs-technical-data-runtime-source'), '铺布模型不能恢复按款号查询最新版的旧源')
 
 console.log('fcs-downstream-read-order-tech-pack-snapshot.spec.ts PASS')

@@ -2,7 +2,7 @@ import { getDyeOutputRolls, getDyeOutputRollDefaults, saveDyeOutputRolls, delete
   getDyeDispatchAvailableQty, getDyeDispatchMaterial, getDyeDispatchPartner, isDyeYarnOrder,
   listDyeDispatchDocuments, isDyeRollAvailable, createDyeDispatchDocument, scanDyeDispatchRoll,
   saveDyeDispatchTransport, finishDyeDispatchDocument, type DyeOutputRoll, type DyeDispatchDocument } from '../../data/fcs/dyeing-task-domain.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 import { getCentralDyeFact, listCentralDyeFacts, assertCentralDyeActor, runCentralDyeCommand } from './dye-model.ts'
 
@@ -13,7 +13,7 @@ async function revisionDigest(value: unknown) {
   return [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 export function centralDyeOutput(orderId: string, factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const fact = getCentralDyeFact(orderId, factoryId)
     if (!fact) return undefined
     const documents = listDyeDispatchDocuments().filter(doc => doc.lines.some(line => line.orderId === orderId))
@@ -28,7 +28,7 @@ export function centralDyeOutput(orderId: string, factoryId: string) {
   })
 }
 export function centralDyeDispatch(id: string, factoryId: string) {
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const doc = listDyeDispatchDocuments().find(doc => doc.id === id)
     return doc?.lines.length && doc.lines.every(line => line.factoryId === factoryId && !!getCentralDyeFact(line.orderId, factoryId)) ? doc : undefined
   })
@@ -42,7 +42,7 @@ export function centralDyeLabelRevision(orderId: string, rollId: string, factory
 export function resolveCentralDyeOutputScan(code: string, factoryId: string) {
   const value = code.trim()
   return listCentralDyeFacts(factoryId).flatMap(fact => {
-    if (!withWashingStaticRead(() => getDyeOutputRolls(fact.order.dyeOrderId).some(roll => roll.barcode === value))) return []
+    if (!withFactoryProcessStaticRead(() => getDyeOutputRolls(fact.order.dyeOrderId).some(roll => roll.barcode === value))) return []
     const state = centralDyeOutput(fact.order.dyeOrderId, factoryId)
     return state?.rolls.filter(roll => roll.barcode === value).map(roll => ({ orderId: fact.order.dyeOrderId, orderNo: fact.order.dyeOrderNo, roll })) || []
   })

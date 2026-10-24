@@ -28,13 +28,12 @@ export function printError(error: unknown, lang: CentralPdaLanguage) {
   if (/历史完成卷数|历史.*卷数/.test(message)) return pt(lang, 'historyRollsUnknown')
   if (/花型|图案|打样|米样/.test(message)) return pt(lang, 'artworkMissing')
   if (/印制|转印|工序|前道|开始加工|未开工/.test(message)) return pt(lang, 'stageNotReady')
-  if (/洗水|手感/.test(message)) return pt(lang, 'washGate')
   if (/产出|损耗|卷数|在制/.test(message)) return pt(lang, 'invalidOutput')
   return dyeErrorText(error, lang)
 }
 export interface PrintWorkDraft { raw: string; count: string; loss: string; printer: string; initialPrinter?:string;revision: string; operationId: string }
-export const printFieldClass = 'mt-2 min-h-14 w-full rounded-xl border border-slate-300 bg-white p-3 text-lg'
-export function printField(label: string, value: string, key: string, numeric = true) { return `<label class="my-3 block font-semibold">${ce(label)}<input class="${printFieldClass}" data-central-print-field="${ce(key)}" value="${ce(value)}" inputmode="${numeric ? 'decimal' : 'text'}" autocomplete="off"></label>` }
+export const printFieldClass = 'mt-1 h-[52px] w-full rounded-xl border border-[#bdcadb] bg-white px-3 text-[20px] font-semibold text-[#1a293c] outline-none focus:border-[#2461ed]'
+export function printField(label: string, value: string, key: string, numeric = true) { return `<label class="my-3 block text-[15px] font-semibold leading-6 text-[#1a293c]">${ce(label)}<input class="${printFieldClass}" data-central-print-field="${ce(key)}" value="${ce(value)}" inputmode="${numeric ? 'decimal' : 'text'}" autocomplete="off"></label>` }
 const rounded = (n: number) => Math.round(n * 100) / 100
 /** The employee enters a delta; the current Web domain receives its cumulative facts. */
 export function printProductionInput(fact: CentralPrintFact, choice: CentralPrintChoice, draft: PrintWorkDraft, lang: CentralPdaLanguage): CentralPrintingProductionInput {

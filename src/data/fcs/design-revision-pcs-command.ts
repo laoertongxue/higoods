@@ -35,13 +35,12 @@ export async function runDesignRevisionFcsCommand<T>(target: unknown, recipe: ()
     return Array.isArray(value) ? value.some(matchesSpecialCraft)
       : !!value && typeof value === 'object' && Object.values(value).some(matchesSpecialCraft)
   }
-  const storageBridge = await import('./fabric-washing-storage-bridge.ts')
-  if (matchesSpecialCraft(target) || storageBridge.isSpecialCraftStorageTarget(target)) {
+  const { isSpecialCraftStorageTarget } = await import('./factory-process-storage.ts')
+  if (matchesSpecialCraft(target) || isSpecialCraftStorageTarget(target)) {
     return (await import('./special-craft-records.ts')).runSpecialCraftRecordCommand(target, recipe)
   }
-  const { ensureWashingRecords, runWashingRecordCommand } = await import('./fabric-washing-repository.ts')
-  const { isWashingStorageTarget } = await import('./fabric-washing-storage-bridge.ts')
-  await ensureWashingRecords()
-  if (isWashingStorageTarget(target)) return runWashingRecordCommand(recipe, crypto.randomUUID(), JSON.stringify(target))
+  const { runFactoryQcProcessCommand } = await import('./factory-qc.ts')
+  const handled = await runFactoryQcProcessCommand(target, recipe)
+  if (handled.handled) return handled.result as T
   return isDesignRevisionFcsTarget(target) ? runPcsRecordCommand(recipe) : recipe()
 }

@@ -1,6 +1,6 @@
 import { commitPcsRecords, readPcsRecords, type PcsStoredRecord, type PcsMigrationReceipt } from '../pcs-record-db.ts'
 import { decodeLegacyWaterSolubleExecution } from './water-soluble-task-domain.ts'
-import { WATER_EXECUTION_STORAGE_KEY, withWashingStaticRead, sameProcessLedgerRow } from './fabric-washing-storage-bridge.ts'
+import { WATER_EXECUTION_STORAGE_KEY, withFactoryProcessStaticRead, sameProcessLedgerRow } from './factory-process-storage.ts'
 import { centralLedgerRecordId, SPECIAL_CRAFT_LEDGER_RECORDS } from './central-execution-record-bridge.ts'
 import { waterSolubleLegacyRaw } from './water-soluble-legacy-source.ts'
 
@@ -9,7 +9,7 @@ const fingerprint = async (raw: string) => [...new Uint8Array(await crypto.subtl
 type WaterLedgerValue = { legacyKey: string; path: string; key: string; tuple: boolean; value: unknown }
 
 export function waterSolubleLegacyTargets(raw: string): Array<Omit<PcsStoredRecord, 'version'>> {
-  return withWashingStaticRead(() => decodeLegacyWaterSolubleExecution(raw).map(order => {
+  return withFactoryProcessStaticRead(() => decodeLegacyWaterSolubleExecution(raw).map(order => {
     const value: WaterLedgerValue = { legacyKey: WATER_EXECUTION_STORAGE_KEY, path: 'orders', key: order.waterOrderId, tuple: false, value: order }
     return { id: centralLedgerRecordId(WATER_EXECUTION_STORAGE_KEY, value), collection: SPECIAL_CRAFT_LEDGER_RECORDS, value }
   }))

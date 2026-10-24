@@ -14,6 +14,7 @@ import {
   type SpecialCraftVisibleFactoryType,
 } from './process-craft-dict.ts'
 import type { TechnicalProcessEntry } from '../pcs-technical-data-version-types.ts'
+import { removeRetiredProcessRouteEntries } from '../tech-pack-process-route.ts'
 
 // 旧 FCS 本地技术包 mock 数据已清空；生产链路统一读取生产需求单当前正式技术包。
 export type TechPackStatus = 'DRAFT' | 'ENABLED' | 'DISABLED'
@@ -846,9 +847,9 @@ function resolveProcessEntryDictionaryFields(entry: TechPackProcessEntry): Pick<
       getProcessStageByCode(stageCode)?.stageName
       || entry.stageName,
     processCode: processDef?.processCode || resolvedProcessCode,
-    processName: processDef?.processName || (['WASH', 'craft-wash'].includes(resolvedProcessCode) && entry.processName === '水洗' ? '洗水' : entry.processName),
+    processName: processDef?.processName || entry.processName,
     craftCode: craftDef?.craftCode || entry.craftCode,
-    craftName: craftDef?.craftName || (['WASH', 'craft-wash'].includes(resolvedProcessCode) && entry.craftName === '水洗' ? '洗水' : entry.craftName),
+    craftName: craftDef?.craftName || entry.craftName,
   }
 }
 
@@ -927,7 +928,7 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
 export function listTechPackProcessEntries(spuCode: string): TechPackProcessEntry[] {
   const techPack = getTechPackBySpuCode(spuCode)
   if (!techPack) return []
-  return (techPack.processEntries ?? []).map((item) => resolveTechPackProcessEntryRule(item))
+  return removeRetiredProcessRouteEntries(techPack.processEntries ?? []).map((item) => resolveTechPackProcessEntryRule(item))
 }
 
 export function getTechPackProcessEntryById(spuCode: string, entryId: string): TechPackProcessEntry | null {

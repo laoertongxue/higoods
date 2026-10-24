@@ -1,4 +1,4 @@
-import { renderWashingWarehouseSection } from './wls/raw/washing-stock.ts'
+import { renderStenterWarehouseSection } from './wls/raw/stenter-handfeel-stock.ts'
 // @page-pattern: list
 // WH-001–006：原交出单中转区域实收；按实际收货员登记。
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
@@ -97,7 +97,7 @@ export function renderWlsInboundPage(): string {
   state.selected = null; state.busy = false
   controller.installColumnDragEvents(); loadRows()
   const view = controller.getView()
-  return `<div data-wls-inbound-root data-skip-page-rerender="true">${renderWashingWarehouseSection()}${renderStandardListPage({
+  return `<div data-wls-inbound-root data-skip-page-rerender="true">${renderStenterWarehouseSection()}${renderStandardListPage({
     title: '中转区域收货',
     primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-sm"><label>收货员姓名 <input class="rounded border p-2" data-wls-inbound-field="actorName" value="${escapeHtml(state.actorName)}" placeholder="填写实际操作人姓名"></label></div>`,
     feedbackHtml: `<p role="status" data-wls-inbound-feedback>${escapeHtml(state.feedback)}</p>`,

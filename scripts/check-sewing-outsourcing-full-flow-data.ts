@@ -1,3 +1,4 @@
+import { buildInspectionSnapshotFromConfigurations } from '../src/data/fcs/quality-management-records.ts'
 import assert from 'node:assert/strict'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -6,6 +7,8 @@ import {
   confirmCutPieceReleaseAvailableQty,
   getCutPieceDispatchReadinessForTask,
   listCutPieceReleaseAvailableQtyVersions,
+  listCutPieceReleaseMatrixVersions,
+  listCutPieceReleaseTargetSnapshots,
   resetCutPieceReleasePrototypeStoreForTesting,
 } from '../src/data/fcs/cut-piece-release.ts'
 import {
@@ -46,7 +49,6 @@ import {
 import {
   getSewingSampleApprovalRecord,
   handoffPreProductionSampleToApprover,
-  markPreProductionSampleFactoryCompleted,
   receivePreProductionSampleByPpic,
   recordSampleApprovalFeedbackToFactory,
   startSampleApproval,
@@ -131,16 +133,22 @@ const initialReadiness = getCutPieceDispatchReadinessForTask({
   skuLines: [{ skuCode: 'SKU-005-S-GRY', color: 'Grey', size: 'S', qty: 500 }],
 })
 assert.equal(initialReadiness.canDispatch, false, '裁床放行数量不足时PPIC不得分配对应车缝数量')
+// 当前装袋/实物来源会形成新的矩阵版本；目标仍引用原已确认的不可变目标。
+// 不把历史静态matrix v1冒充当前实际放行依据，也不修改裁床规则。
+const releaseMatrixBasis = listCutPieceReleaseMatrixVersions('PO-202603-0002').at(-1)
+const releaseTargetBasis = listCutPieceReleaseTargetSnapshots('PO-202603-0002').at(-1)
+assert(releaseMatrixBasis, '必须存在当前裁片矩阵依据')
+assert(releaseTargetBasis, '必须存在已经确认的不可变目标依据')
 const release = confirmCutPieceReleaseAvailableQty({
   productionOrderId: 'PO-202603-0002',
-  basisMatrixVersion: 1,
-  basisTargetVersion: 1,
+  basisMatrixVersion: releaseMatrixBasis.version,
+  basisTargetVersion: releaseTargetBasis.matrixVersion,
   releaseQtyByColorSize: { 'Grey::S': 500, 'Grey::M': 700, 'Grey::L': 800, 'Grey::XL': 500 },
-  riskReason: '裁床确认完整部位与当前可做数量后放行。',
+  riskReason: '隔离验收：按当前实物齐套短缺确认风险放行到原目标，短缺保留，不虚构补齐。',
   confirmedBy: '裁床主管 王敏',
   confirmedAt: '2026-09-01 08:40:00',
 })
-assert.equal(release.ok, true)
+assert.equal(release.ok, true, release.message)
 record({
   step: '裁片放行后开放PPIC分配',
   objectIds: ['PO-202603-0002', release.version!.releaseVersionId],
@@ -201,8 +209,8 @@ record({
 const releaseVersionsBeforeReject = listCutPieceReleaseAvailableQtyVersions('PO-202603-0002').length
 const rejectedReleaseDecrease = confirmCutPieceReleaseAvailableQty({
   productionOrderId: 'PO-202603-0002',
-  basisMatrixVersion: 1,
-  basisTargetVersion: 1,
+  basisMatrixVersion: releaseMatrixBasis.version,
+  basisTargetVersion: releaseTargetBasis.matrixVersion,
   releaseQtyByColorSize: { 'Grey::S': 399, 'Grey::M': 700, 'Grey::L': 800, 'Grey::XL': 500 },
   riskReason: '验证不得低于分配占用。',
   confirmedBy: '裁床主管 王敏',
@@ -424,10 +432,6 @@ record({
 const factoryActor = { actorId: assignment.factoryId, actorName: `${assignment.factoryName} 样衣员`, role: 'FACTORY' as const }
 const currentPpicActor = { actorId: transferTarget.ppicId, actorName: transferTarget.ppicName, role: 'PPIC' as const }
 const approverActor = { actorId: 'SAMPLE-APPROVER-E2E-001', actorName: '批版人员 林慧', role: 'SAMPLE_APPROVER' as const }
-markPreProductionSampleFactoryCompleted({
-  commandId: 'CMD-PPIC-E2E-SAMPLE-FACTORY', assignmentId: assignment.assignmentId, actor: factoryActor,
-  samplePhotoUrls: ['/shirt-sample.jpg'], completedAt: '2026-09-01 14:30:00',
-})
 receivePreProductionSampleByPpic({
   commandId: 'CMD-PPIC-E2E-SAMPLE-RECEIVE', assignmentId: assignment.assignmentId, actor: currentPpicActor,
   receivedSamplePhotoUrls: ['/shirt-sample.jpg', '/shirt-sample.jpg?detail=1'],
@@ -437,7 +441,7 @@ handoffPreProductionSampleToApprover({
   commandId: 'CMD-PPIC-E2E-SAMPLE-HANDOFF', assignmentId: assignment.assignmentId, actor: currentPpicActor,
   approverTeamName: '大货批版组', handedAt: '2026-09-01 15:10:00',
 })
-startSampleApproval({ commandId: 'CMD-PPIC-E2E-SAMPLE-START', assignmentId: assignment.assignmentId, actor: approverActor, receivedAt: '2026-09-01 15:15:00' })
+startSampleApproval({ inspectionStandardSnapshot:buildInspectionSnapshotFromConfigurations({sourceKind:'PRE_PRODUCTION_SAMPLE'}), commandId: 'CMD-PPIC-E2E-SAMPLE-START', assignmentId: assignment.assignmentId, actor: approverActor, receivedAt: '2026-09-01 15:15:00' })
 const suggestion = submitSampleApprovalSuggestion({
   commandId: 'CMD-PPIC-E2E-SAMPLE-SUGGESTION', assignmentId: assignment.assignmentId, actor: approverActor,
   conclusion: 'HAS_PROBLEM',
@@ -447,7 +451,8 @@ const suggestion = submitSampleApprovalSuggestion({
     materialUsageComment: '辅料安装保持自然松量。',
     otherComment: '大货按本批版建议执行。',
   },
-  approvalSheetPhotoUrls: ['/approval-sheet.jpg'], requiresAnotherApproval: false, uploadedAt: '2026-09-01 15:30:00',
+  issues:[{itemId:getSewingSampleApprovalRecord(assignment.assignmentId)!.inspectionStandardSnapshot!.items[0].id,note:'口袋位置按尺寸表核对'}],
+  approvalSheetPhotoUrls: ['/approval-sheet.jpg'], uploadedAt: '2026-09-01 15:30:00',
 })
 recordSampleApprovalFeedbackToFactory({
   commandId: 'CMD-PPIC-E2E-SAMPLE-FEEDBACK', assignmentId: assignment.assignmentId, actor: currentPpicActor,
@@ -462,7 +467,7 @@ record({
   step: '产前版样衣实物与批版建议',
   objectIds: [sampleRecord.sample.sampleId, suggestion.suggestionVersionId],
   after: { physicalObject: '产前版样衣', samplePhotoCount: sampleRecord.sample.ppicReceivedSamplePhotoUrls.length, businessAction: '批版建议', status: sampleRecord.sample.status, currentPpic: sampleRecord.sample.currentPpicName, conclusion: suggestion.conclusion, structuredComments: suggestion.structuredComments },
-  assertions: ['三方车缝工厂先制作一件大货产前版', 'PPIC接收实物并交批版人员且多张照片全部保留', '批版人员按线下四类意见结构化上传建议', 'PPIC反馈工厂后才能进入大货执行依据'],
+  assertions: ['三方车缝工厂先制作一件大货产前版', 'PPIC接收实物并交批版人员且多张照片全部保留', '批版人员按本次标准项目记录具体问题', 'PPIC登记反馈，不作为大货许可'],
 })
 
 const materialOrder = productionOrders.find((order) => order.techPackSnapshot?.bomItems.some((item) => item.type === '面料' || item.type === '辅料') && order.demandSnapshot.skuLines.length)

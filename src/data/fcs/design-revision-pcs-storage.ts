@@ -1,5 +1,5 @@
 import { parsePrintExecution, serializePrintExecution } from './printing-execution-storage.ts'
-import { readWashingStorage, writeWashingStorage } from './fabric-washing-storage-bridge.ts'
+import { readFactoryProcessStorage, writeFactoryProcessStorage } from './factory-process-storage.ts'
 
 export const PCS_FCS_COLLECTIONS = [
   'higood-pcs-fcs-design-revision-dye-v1', 'higood-pcs-fcs-design-revision-print-v1',
@@ -259,13 +259,13 @@ export function prepareWoolReceivingBaseline(run: () => void): void {
 export function getDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
   const storage = getUnscopedDesignRevisionFcsStorage()
   return {
-    getItem(key) { return readWashingStorage(key, storage.getItem(key)) },
+    getItem(key) { return readFactoryProcessStorage(key, storage.getItem(key)) },
     setItem(key, raw) {
-      const result = writeWashingStorage(key, raw, storage.getItem(key))
+      const result = writeFactoryProcessStorage(key, raw, storage.getItem(key))
       if (!result.handled) storage.setItem(key, result.raw ?? raw)
     },
     removeItem(key) {
-      const result = writeWashingStorage(key, '{}', storage.getItem(key))
+      const result = writeFactoryProcessStorage(key, '{}', storage.getItem(key))
       if (!result.handled) storage.removeItem(key)
     },
   }

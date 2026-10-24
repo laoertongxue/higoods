@@ -6,6 +6,7 @@ import {
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import {
+  listPostFinishingFullFlowOutboundOrders,
   listPostFinishingWaitHandoverWarehouseMovements,
   listPostFinishingWaitHandoverWarehouseRecords,
 } from '../data/fcs/post-finishing-full-flow.ts'
@@ -40,7 +41,7 @@ import {
 import { renderRouteRedirect } from '../router/route-utils.ts'
 import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 
-type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
+type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '仓库实收' | '差异' | '异议中'
 
 interface WaitHandoverState {
   status: WaitHandoverFilter
@@ -66,7 +67,7 @@ const FILTERS: Array<{ value: WaitHandoverFilter; label: string }> = [
   { value: '全部', label: '全部' },
   { value: '待交出', label: '待交出' },
   { value: '已交出', label: '已交出' },
-  { value: '已回写', label: '已回写' },
+  { value: '仓库实收', label: '仓库实收' },
   { value: '差异', label: '差异' },
   { value: '异议中', label: '异议中' },
 ]
@@ -277,7 +278,6 @@ function renderLocationDialog(): string {
 interface PostFinishingWaitHandoverRow {
   warehouseRecordId: string
   warehouseRecordNo: string
-  recheckOrderNo: string
   outboundOrderNo: string
   sourceProductionOrderNo: string
   sourceTaskNo: string
@@ -299,12 +299,14 @@ interface PostFinishingWaitHandoverRow {
 
 function getPostFinishingWaitHandoverRows(): PostFinishingWaitHandoverRow[] {
   const movements = listPostFinishingWaitHandoverWarehouseMovements()
+  const outbounds = listPostFinishingFullFlowOutboundOrders()
   return listPostFinishingWaitHandoverWarehouseRecords().flatMap((record) => record.lines.map((line) => {
     const lineMovements = movements.filter((movement) => movement.warehouseRecordId === record.warehouseRecordId)
+    const outbound = outbounds.find(row => row.outboundOrderId === record.outboundOrderId)
+    const received = outbound?.lines.find(row => row.sku.skuId === line.sku.skuId)?.receivedQty ?? 0
     return {
       warehouseRecordId: `${record.warehouseRecordId}:${line.sku.skuId}`,
       warehouseRecordNo: record.warehouseRecordId,
-      recheckOrderNo: record.recheckOrderNo,
       outboundOrderNo: record.outboundOrderNo,
       sourceProductionOrderNo: record.productionOrderNo,
       sourceTaskNo: record.postTaskNo || record.qcTaskNo,
@@ -316,14 +318,14 @@ function getPostFinishingWaitHandoverRows(): PostFinishingWaitHandoverRow[] {
       skuSummary: `${line.sku.skuCode} ${line.sku.colorName}/${line.sku.sizeName}`,
       waitHandoverGarmentQty: line.inboundQty,
       submittedHandoverGarmentQty: line.handedOverQty,
-      receivedHandoverGarmentQty: line.handedOverQty,
-      diffGarmentQty: 0,
+      receivedHandoverGarmentQty: received,
+      diffGarmentQty: outbound?.status === '已接收入库' ? received-line.handedOverQty : 0,
       qtyUnit: line.sku.qtyUnit,
       handoverRecordNo: record.status === '已交出' ? record.outboundOrderNo : undefined,
       status: record.status,
       flowRecords: lineMovements.map((movement) => {
         const qty = movement.quantities.find((item) => item.sku.skuId === line.sku.skuId)?.quantity || 0
-        return { flowType: movement.movementType, sourceActionRecordNo: record.outboundOrderNo, qty, qtyUnit: line.sku.qtyUnit, operatedAt: movement.operatedAt, remark: movement.movementType, beforeQty: movement.movementType === '复检完成入仓' ? 0 : line.inboundQty, afterQty: movement.movementType === '复检完成入仓' ? line.inboundQty : 0 }
+        return { flowType: movement.movementType, sourceActionRecordNo: record.outboundOrderNo, qty, qtyUnit: line.sku.qtyUnit, operatedAt: movement.operatedAt, remark: movement.movementType, beforeQty: ['出货准备入区','复检完成入仓'].includes(movement.movementType) ? 0 : line.inboundQty, afterQty: ['出货准备入区','复检完成入仓'].includes(movement.movementType) ? line.inboundQty : 0 }
       }),
     }
   }))
@@ -332,7 +334,7 @@ function getPostFinishingWaitHandoverRows(): PostFinishingWaitHandoverRow[] {
 function getPostFinishingWaitHandoverStatus(row: PostFinishingWaitHandoverRow): string {
   if (row.diffGarmentQty !== 0) return '差异'
   if (row.submittedHandoverGarmentQty <= 0) return '待交出'
-  if (row.submittedHandoverGarmentQty >= row.waitHandoverGarmentQty && row.receivedHandoverGarmentQty >= row.submittedHandoverGarmentQty) return '已回写'
+  if (row.submittedHandoverGarmentQty >= row.waitHandoverGarmentQty && row.receivedHandoverGarmentQty >= row.submittedHandoverGarmentQty) return '仓库实收'
   if (row.submittedHandoverGarmentQty >= row.waitHandoverGarmentQty) return '已交出'
   return '部分交出'
 }
@@ -351,14 +353,14 @@ function renderPostFinishingWaitHandoverDetailDrawer(): string {
         <div class="mt-4 rounded-2xl border bg-card px-4 py-4 shadow-sm">
           ${renderCompactFieldList([
             { label: '仓库记录', value: row.warehouseRecordNo },
-            { label: '复检单', value: row.recheckOrderNo },
+            { label: '出货单', value: row.outboundOrderNo },
             { label: '生产单', value: row.sourceProductionOrderNo },
             { label: '后道生产任务', value: row.sourceTaskNo },
             { label: '款式', value: `${row.spuCode} / ${row.spuName}` },
             { label: 'SKU', value: row.skuSummary },
             { label: '待交出', value: `${row.waitHandoverGarmentQty} ${row.qtyUnit}` },
             { label: '已交出', value: `${row.submittedHandoverGarmentQty} ${row.qtyUnit}` },
-            { label: '已回写', value: `${row.receivedHandoverGarmentQty} ${row.qtyUnit}` },
+            { label: '仓库实收', value: `${row.receivedHandoverGarmentQty} ${row.qtyUnit}` },
             { label: '差异', value: `${row.diffGarmentQty} ${row.qtyUnit}` },
             { label: '最新交出记录', value: row.handoverRecordNo || '-' },
             { label: '状态', value: getPostFinishingWaitHandoverStatus(row) },
@@ -394,7 +396,7 @@ function renderPostFinishingWaitHandoverPage(): string {
       </section>
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <div class="text-base font-semibold">后道待交出仓</div>
-        <div class="mt-1 text-xs text-muted-foreground">复检完成入待交出仓，交出记录提交后扣减。</div>
+        <div class="mt-1 text-xs text-muted-foreground">准备出货进入待出货区，确认实际发出后扣减。仓库实收单独核对。</div>
         <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${rows.length}</div><div class="text-muted-foreground">SKU</div></div>
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${waitQty}</div><div class="text-muted-foreground">待交出</div></div>
@@ -414,9 +416,9 @@ function renderPostFinishingWaitHandoverPage(): string {
             </div>
             <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
               <div>生产单：${escapeHtml(item.sourceProductionOrderNo)}</div>
-              <div>复检单：${escapeHtml(item.recheckOrderNo)}</div>
+              <div>出货单：${escapeHtml(item.outboundOrderNo)}</div>
               <div>待交出 / 已交出：${item.waitHandoverGarmentQty} / ${item.submittedHandoverGarmentQty} ${escapeHtml(item.qtyUnit)}</div>
-              <div>已回写 / 差异：${item.receivedHandoverGarmentQty} / ${item.diffGarmentQty} ${escapeHtml(item.qtyUnit)}</div>
+              <div>仓库实收 / 差异：${item.receivedHandoverGarmentQty} / ${item.diffGarmentQty} ${escapeHtml(item.qtyUnit)}</div>
               <div>最新交出记录：${escapeHtml(item.handoverRecordNo || '待提交')}</div>
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
@@ -425,7 +427,7 @@ function renderPostFinishingWaitHandoverPage(): string {
               <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(item.sourceTaskNo))}">查看任务</button>
             </div>
           </article>
-        `).join('') : renderMobilePageEmptyState('暂无后道待交出库存', '复检完成后，会进入后道待交出仓。')}
+        `).join('') : renderMobilePageEmptyState('暂无后道待交出库存', '准备出货后进入待出货区。')}
       </section>
       ${renderPostFinishingWaitHandoverDetailDrawer()}
     </div>

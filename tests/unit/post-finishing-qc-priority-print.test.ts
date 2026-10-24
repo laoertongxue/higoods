@@ -96,8 +96,13 @@ test('刷新打印先等待当前资料，再局部发布全部紧急区，最�
     disabled: false, textContent: '刷新需求并打印',
     parentElement: { querySelector: () => status },
     ownerDocument: { querySelectorAll: () => slots, defaultView: { print: () => { events.push('print'); assert.ok(htmlBySlot.every(html => html.includes('post-finishing-qc-shipping-priority'))) } } },
-    closest: () => button,
+    closest: (selector:string) => selector==='[data-qc-shipping-print]'?button:root,
   }
+  const feedback={textContent:''},root={dataset:{} as Record<string,string>,isConnected:true,querySelector:(selector:string)=>selector==='[data-print-ready-feedback]'?feedback:null,querySelectorAll:(selector:string)=>selector==='[data-real-barcode]'?[{querySelector:()=>({})}]:selector.includes('verified-print')?[button]:[]}
+  const globals=['window','document'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]as const)
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{fonts:{ready:Promise.resolve()}}})
+  Object.defineProperty(globalThis,'window',{configurable:true,value:button.ownerDocument.defaultView})
+  try {
   const operation = handleQcShippingPriorityPrint(button as unknown as HTMLElement)
   assert.equal(button.disabled, true)
   assert.deepEqual(events, [], '读取完成前不能更新纸面或开始打印')
@@ -106,4 +111,5 @@ test('刷新打印先等待当前资料，再局部发布全部紧急区，最�
   assert.equal(htmlBySlot[0], htmlBySlot[1], '同一来源主明细必须共用同一 DTO 和统计时间')
   assert.equal(button.disabled, false)
   assert.equal(button.textContent, '刷新需求并打印')
+  }finally{for(const[key,descriptor]of globals)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key)}
 })

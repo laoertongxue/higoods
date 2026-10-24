@@ -4,7 +4,7 @@ export type CentralPdaTab = 'receive' | 'execute' | 'warehouse'
 export type CentralPdaLanguage = 'zh' | 'id'
 
 export interface CentralPdaFrameInput {
-  family?: 'lace' | 'binding' | 'webbing' | 'post' | 'wool-stock' | 'wool-craft' | 'wool' | 'cutting' | 'special' | 'dye' | 'water' | 'print' | 'washing'
+  family?: 'lace' | 'binding' | 'webbing' | 'post' | 'wool-stock' | 'wool-craft' | 'wool' | 'cutting' | 'special' | 'dye' | 'water' | 'print' | 'stenter'
   accountName: string
   accountNo: string
   factoryName: string
@@ -38,11 +38,11 @@ export function renderCentralPdaFrame(input: CentralPdaFrameInput): string {
   const text = labels[input.language]
   const account = [input.accountName, input.accountNo].filter(Boolean).join(' · ')
   const icon = (name: string) => `<i data-lucide="${name}" class="h-6 w-6 shrink-0" aria-hidden="true"></i>`
-  return `<section class="mx-auto flex h-[100dvh] min-h-0 w-full max-w-[420px] flex-col overflow-hidden bg-slate-100 text-slate-900" data-central-pda-root data-central-family="${input.family || 'special'}" lang="${input.language === 'id' ? 'id' : 'zh-CN'}">
+  return `<section class="mx-auto flex h-[100dvh] min-h-0 w-full max-w-[420px] flex-col overflow-hidden bg-[#f2f5f9] text-[#1a293c]" data-central-pda-root data-central-family="${input.family || 'special'}" lang="${input.language === 'id' ? 'id' : 'zh-CN'}">
     <header class="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
       <div class="min-w-0 flex-1">
-        <div class="break-words text-base font-bold leading-6">${escapeHtml(account)}</div>
-        <div class="break-words text-sm leading-5 text-slate-600">${escapeHtml(input.factoryName)}</div>
+        <div class="truncate text-base font-bold leading-6" title="${escapeHtml(account)}">${escapeHtml(account)}</div>
+        <div class="truncate text-sm leading-5 text-slate-600" title="${escapeHtml(input.factoryName)}">${escapeHtml(input.factoryName)}</div>
       </div>
       <button type="button" class="flex min-h-12 min-w-12 shrink-0 flex-col items-center justify-center gap-1 px-1 text-sm text-blue-700" data-central-action="language" aria-label="${text.language}">${icon('globe')}<span>${input.language === 'id' ? 'ID' : '中文'}</span></button>
       <button type="button" class="flex min-h-12 min-w-12 shrink-0 flex-col items-center justify-center gap-1 px-1 text-sm text-blue-700" data-central-action="logout" aria-label="${text.logout}">${icon('power')}<span>${text.exit}</span></button>

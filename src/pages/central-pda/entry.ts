@@ -8,7 +8,7 @@ let special: typeof import('./page.ts') | undefined
 let dye: typeof import('./dye-page.ts') | undefined
 let water: typeof import('./water-page.ts') | undefined
 let print: typeof import('./print-page.ts') | undefined
-let washing: typeof import('./washing-page.ts') | undefined
+let stenter: typeof import('./stenter-page.ts') | undefined
 let binding: typeof import('./binding-page.ts') | undefined
 let webbing: typeof import('./webbing-page.ts') | undefined
 let post: typeof import('./post-page.ts') | undefined
@@ -79,10 +79,10 @@ export async function renderCentralPdaPage(path: string) {
     if (!current()) return ''
     return cutting.renderCentralCuttingPage(path, current)
   }
-  if (/^\/fcs\/pda\/central\/wash(?:\/|$)/.test(path.split('?')[0])) {
-    washing ??= await import('./washing-page.ts')
+  if (/^\/fcs\/pda\/central\/stenter(?:\/|$)/.test(path.split('?')[0])) {
+    stenter ??= await import('./stenter-page.ts')
     if (!current()) return ''
-    return washing.renderCentralWashingPage(path, current)
+    return stenter.renderCentralStenterPage(path, current)
   }
   if (/^\/fcs\/pda\/central\/print(?:\/|$)/.test(path.split('?')[0])) {
     if (!print) try {
@@ -127,13 +127,41 @@ export function mountCentralPdaPage() {
   else if (visibleFamily() === 'wool-craft') woolCraft?.mountCentralWoolCraftPage()
   else if (visibleFamily() === 'wool') wool?.mountCentralWoolPage()
   else if (visibleFamily() === 'cutting') cutting?.mountCentralCuttingPage()
-  else if (visibleFamily() === 'washing') washing?.mountCentralWashingPage()
   else if (visibleFamily() === 'print') print?.mountCentralPrintPage()
+  else if (visibleFamily() === 'stenter') stenter?.mountCentralStenterPage()
   else if (visibleFamily() === 'water') water?.mountCentralWaterPage()
   else if (visibleFamily() === 'dye') dye?.mountCentralDyePage()
   else special?.mountCentralPdaPage()
 }
 export async function handleCentralPdaEvent(target: Element, event?: Event) {
+  if (event?.type === 'input' && target.matches('[data-central-operation-search]')) {
+    const query = (target as HTMLInputElement).value.trim().toLowerCase()
+    for (const group of document.querySelectorAll<HTMLElement>('[data-central-operation-group]')) {
+      let visible = 0
+      for (const item of group.querySelectorAll<HTMLElement>('[data-central-operation-item]')) {
+        const show = !query || (item.textContent || '').toLowerCase().includes(query)
+        item.classList.toggle('hidden', !show)
+        if (show) visible++
+      }
+      group.classList.toggle('hidden', visible === 0)
+    }
+    return true
+  }
+  if (event?.type === 'click') {
+    const operation = target.closest<HTMLElement>('[data-central-action="operation-select"]')
+    if (operation && target.closest('[data-central-pda-root]')) {
+      const { centralSession, saveCentralSessionPreference } = await import('./session.ts')
+      const value = operation.dataset.centralValue || ''
+      if (value) {
+        centralSession.currentOperation = value
+        saveCentralSessionPreference()
+        const parts = appStore.getState().pathname.split('?')[0].split('/')
+        const tab = (['receive', 'execute', 'warehouse'] as const).find(item => parts.includes(item)) || 'receive'
+        appStore.navigate(`/fcs/pda/central/${tab}`)
+      }
+      return true
+    }
+  }
   if (processEntryFailure && target.closest('[data-central-pda-root]')?.querySelector('[data-central-dye-entry-failure], [data-central-print-entry-failure]')) {
     if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'F1') {
       event.preventDefault(); target.closest('[data-central-pda-root]')?.querySelector<HTMLButtonElement>('[data-central-footer] button')?.focus(); return true
@@ -158,8 +186,8 @@ export async function handleCentralPdaEvent(target: Element, event?: Event) {
     }
     return true
   }
-  return visibleFamily(target) === 'lace' ? lace?.handleCentralLaceEvent(target, event) : visibleFamily(target) === 'post' ? post?.handleCentralPostEvent(target, event) : visibleFamily(target) === 'webbing' ? webbing?.handleCentralWebbingEvent(target, event) : visibleFamily(target) === 'binding' ? binding?.handleCentralBindingEvent(target, event) : visibleFamily(target) === 'wool-stock' ? woolStock?.handleCentralWoolWarehouseEvent(target, event) : visibleFamily(target) === 'wool-craft' ? woolCraft?.handleCentralWoolCraftEvent(target, event) : visibleFamily(target) === 'wool' ? wool?.handleCentralWoolEvent(target, event) : visibleFamily(target) === 'cutting' ? cutting?.handleCentralCuttingEvent(target, event) : visibleFamily(target) === 'washing' ? washing?.handleCentralWashingEvent(target, event) : visibleFamily(target) === 'print' ? print?.handleCentralPrintEvent(target, event) : visibleFamily(target) === 'water' ? water?.handleCentralWaterEvent(target, event) : visibleFamily(target) === 'dye' ? dye?.handleCentralDyeEvent(target, event) : special?.handleCentralPdaEvent(target, event)
+  return visibleFamily(target) === 'lace' ? lace?.handleCentralLaceEvent(target, event) : visibleFamily(target) === 'post' ? post?.handleCentralPostEvent(target, event) : visibleFamily(target) === 'webbing' ? webbing?.handleCentralWebbingEvent(target, event) : visibleFamily(target) === 'binding' ? binding?.handleCentralBindingEvent(target, event) : visibleFamily(target) === 'wool-stock' ? woolStock?.handleCentralWoolWarehouseEvent(target, event) : visibleFamily(target) === 'wool-craft' ? woolCraft?.handleCentralWoolCraftEvent(target, event) : visibleFamily(target) === 'wool' ? wool?.handleCentralWoolEvent(target, event) : visibleFamily(target) === 'cutting' ? cutting?.handleCentralCuttingEvent(target, event) : visibleFamily(target) === 'print' ? print?.handleCentralPrintEvent(target, event) : visibleFamily(target) === 'stenter' ? stenter?.handleCentralStenterEvent(target, event) : visibleFamily(target) === 'water' ? water?.handleCentralWaterEvent(target, event) : visibleFamily(target) === 'dye' ? dye?.handleCentralDyeEvent(target, event) : special?.handleCentralPdaEvent(target, event)
 }
 export function closeCentralPdaOverlay() {
-  return visibleFamily() === 'lace' ? lace?.closeCentralLaceOverlay() : visibleFamily() === 'post' ? post?.closeCentralPostOverlay() : visibleFamily() === 'webbing' ? webbing?.closeCentralWebbingOverlay() : visibleFamily() === 'binding' ? binding?.closeCentralBindingOverlay() : visibleFamily() === 'wool-stock' ? woolStock?.closeCentralWoolWarehouseOverlay() : visibleFamily() === 'wool-craft' ? woolCraft?.closeCentralWoolCraftOverlay() : visibleFamily() === 'wool' ? wool?.closeCentralWoolOverlay() : visibleFamily() === 'cutting' ? cutting?.closeCentralCuttingOverlay() : visibleFamily() === 'washing' ? washing?.closeCentralWashingOverlay() : visibleFamily() === 'print' ? print?.closeCentralPrintOverlay() : visibleFamily() === 'water' ? water?.closeCentralWaterOverlay() : visibleFamily() === 'dye' ? dye?.closeCentralDyeOverlay() : special?.closeCentralPdaOverlay()
+  return visibleFamily() === 'lace' ? lace?.closeCentralLaceOverlay() : visibleFamily() === 'post' ? post?.closeCentralPostOverlay() : visibleFamily() === 'webbing' ? webbing?.closeCentralWebbingOverlay() : visibleFamily() === 'binding' ? binding?.closeCentralBindingOverlay() : visibleFamily() === 'wool-stock' ? woolStock?.closeCentralWoolWarehouseOverlay() : visibleFamily() === 'wool-craft' ? woolCraft?.closeCentralWoolCraftOverlay() : visibleFamily() === 'wool' ? wool?.closeCentralWoolOverlay() : visibleFamily() === 'cutting' ? cutting?.closeCentralCuttingOverlay() : visibleFamily() === 'print' ? print?.closeCentralPrintOverlay() : visibleFamily() === 'stenter' ? stenter?.closeCentralStenterOverlay() : visibleFamily() === 'water' ? water?.closeCentralWaterOverlay() : visibleFamily() === 'dye' ? dye?.closeCentralDyeOverlay() : special?.closeCentralPdaOverlay()
 }

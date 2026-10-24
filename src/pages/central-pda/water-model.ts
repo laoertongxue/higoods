@@ -8,12 +8,12 @@ import { eligibleReceivingSource, listFactoryReceivingSources, listFactoryReceip
   listFactoryMaterialUses, getHistoricalReceiptPosition, type FactoryReceiptInput } from '../../data/fcs/factory-receiving.ts'
 import { getWaterSolubleOrderImageManifest } from '../../data/fcs/process-order-image-manifest.ts'
 import { resolveTerminalProcessOrderReceivingTarget } from '../../data/fcs/process-order-receiving-target.ts'
-import { withWashingStaticRead } from '../../data/fcs/fabric-washing-storage-bridge.ts'
+import { withFactoryProcessStaticRead } from '../../data/fcs/factory-process-storage.ts'
 import type { FactoryPdaUser } from '../../data/fcs/store-domain-pda.ts'
 
 const actorFact = (actor: FactoryPdaUser) => ({ userId: actor.userId, name: actor.name, factoryId: actor.factoryId })
 export function listCentralWaterFacts(factoryId?: string) {
-  return withWashingStaticRead(() => listWaterSolubleWorkOrders().flatMap(order => {
+  return withFactoryProcessStaticRead(() => listWaterSolubleWorkOrders().flatMap(order => {
     const factory = order.factoryId && getFactoryMasterRecordById(order.factoryId)
     if (!factory || !isCentralPdaFactory(factory) || (factoryId !== undefined && order.factoryId !== factoryId)) return []
     const received = getWaterSolubleReceivedMaterialQty(order.waterOrderId),input = order.inputQty || 0
@@ -40,7 +40,7 @@ export function centralWaterDownstream(orderId: string, factoryId: string) {
 export const centralWaterPositions = getFactoryReceiptLocations
 export function centralWaterIncoming(factoryId: string, orderId?: string) {
   const ids = new Set(listCentralWaterFacts(factoryId).filter(fact => fact.canReceive && (!orderId || fact.order.waterOrderId === orderId)).map(fact => fact.order.waterOrderId))
-  return withWashingStaticRead(() => {
+  return withFactoryProcessStaticRead(() => {
     const receipts = listFactoryReceipts(factoryId).flatMap(receipt => receipt.lines)
     return listFactoryReceivingSources(factoryId).filter(eligibleReceivingSource).flatMap(source => source.lines.flatMap(line => {
       if (!line.waterOrderId || !ids.has(line.waterOrderId)) return []
@@ -85,7 +85,7 @@ export async function saveCentralWaterAction(orderId: string, input: CentralWate
   }, operationId, JSON.stringify({ orderId, input, actor: actor.userId, expectedRevision }))
 }
 export function centralWaterInputStock(factoryId: string) {
-  return withWashingStaticRead(() => listCentralWaterFacts(factoryId).flatMap(fact => {
+  return withFactoryProcessStaticRead(() => listCentralWaterFacts(factoryId).flatMap(fact => {
     const facts = getProcessOrderReceivingFacts(fact.order.waterOrderId, 'water', factoryId),uses = listFactoryMaterialUses(fact.order.waterOrderId)
     return facts.receipts.flatMap(receipt => receipt.lines.map(line => {
       const used = uses.reduce((sum, use) => sum + use.lines.filter(row => row.receiptLineId === line.id)

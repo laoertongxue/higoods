@@ -26,6 +26,7 @@ const action = (name: string) => `data-wls-finished-inbound-action="${name}" dat
 function root(): HTMLElement | null { return typeof document === 'undefined' ? null : document.querySelector(ROOT) }
 function blocked(row: Row | undefined): string {
   if (!row?.outboundOrderNo) return '未找到完整成衣仓出货单，请重新查询。'
+  if (row.status === '待出货') return '后道尚未确认实际发出，暂不能接收。'
   if (row.status !== '待仓库接收') return '该单已确认接收入库，不能重复收货。'
   if (!row.lines.length || new Set(row.lines.map(l => l.sku.skuId)).size !== row.lines.length
     || row.lines.some(l => !l.sku.skuId || !l.sku.skuCode || !l.sku.qtyUnit || !Number.isInteger(l.outboundQty) || l.outboundQty < 0)) return '原单 SKU、数量或单位不完整，请联系交出方核对。'

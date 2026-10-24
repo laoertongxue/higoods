@@ -30,19 +30,3 @@ export const POST_FINISHING_PRODUCTION_SOURCE_FIXTURES = seeds.map((seed, orderI
     qtyUnit: '件' as const,
   })),
 }))
-
-// 只修正这 15 个验收 SKU 的旧示意图；数量、质检结果、日志和用户图片原样保留。
-// 已解析的历史快照包含回货/QC/后道/出货多处冻结 SKU，因此逐处修正同一图片字段。
-export function migratePostFinishingMockImages(snapshot: unknown): void {
-  if (!snapshot || typeof snapshot !== 'object') return
-  if (Array.isArray(snapshot)) {
-    snapshot.forEach(migratePostFinishingMockImages)
-    return
-  }
-  const record = snapshot as Record<string, unknown>
-  const source = POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.find((item) => item.spuCode === record.spuCode)
-  const legacy = seeds.find((item) => item.spuCode === record.spuCode)
-  const sku = source?.skus.find((item) => item.skuCode === record.skuCode && item.colorName === record.colorName && item.sizeName === record.sizeName)
-  if (sku && record.imageUrl === legacy?.imageUrl) record.imageUrl = sku.imageUrl
-  Object.values(record).forEach(migratePostFinishingMockImages)
-}

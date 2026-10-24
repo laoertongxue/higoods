@@ -8,6 +8,8 @@ import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColu
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { finishedInventoryRealtimeRows, type FinishedInventoryRealtimeRow } from '../../../data/wls/finished-inventory-quality.ts'
+import { renderFinishedInventoryTasksPanel, handleFinishedInventoryQualityEvent } from './inventory-quality.ts'
 import { stockRealtimeSeed } from '../../../data/wls/seed/stock-seed'
 import { readUnifiedQcShippingStockRows, getQcShippingInventoryWarning } from '../../../data/fcs/post-finishing-qc-shipping-priority-runtime.ts'
 import { materialCategoryLabelMap } from '../../../data/wls/shared/warehouse-config'
@@ -110,9 +112,9 @@ const finishedColumns: StandardListColumn<StockRealtimeItem>[] = [
     render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
   { key: 'warehouseName', title: '仓库名称', width: 160, sortable: true, sortValue: r => r.warehouseName,
     render: r => `<span class="text-slate-600">${escapeHtml(r.warehouseName)}</span>` },
-  { key: 'totalStock', title: '总库存', width: 90, align: 'right', sortable: true, sortValue: r => r.spotStock + r.transitStock,
-    render: r => `<span class="font-medium text-slate-700">${r.spotStock + r.transitStock}</span>` },
-  { key: 'spotStock', title: '现货库存', width: 100, align: 'right', sortable: true, sortValue: r => r.spotStock,
+  { key: 'totalStock', title: '总库存', width: 90, align: 'right', sortable: true, sortValue: r => (r as FinishedInventoryRealtimeRow).physicalQuantity ?? (r.spotStock + r.transitStock),
+    render: r => `<span class="font-medium text-slate-700">${(r as FinishedInventoryRealtimeRow).physicalQuantity ?? (r.spotStock + r.transitStock)}</span>` },
+  { key: 'spotStock', title: '正常已上架库存', width: 100, align: 'right', sortable: true, sortValue: r => r.spotStock,
     render: r => `<span class="text-slate-600">${r.spotStock}</span>` },
   { key: 'transitStock', title: '在途库存', width: 100, align: 'right', sortable: true, sortValue: r => r.transitStock,
     render: r => `<span class="text-slate-600">${r.transitStock}</span>` },
@@ -124,8 +126,10 @@ const finishedColumns: StandardListColumn<StockRealtimeItem>[] = [
     render: r => `<span class="font-semibold text-red-800">${r.damagedStock}</span>` },
   { key: 'preSaleOrderOccupiedQuantity', title: '预售订单占用', width: 120, align: 'right', sortable: true, sortValue: r => r.preSaleOrderOccupiedQuantity,
     render: r => `<span class="font-semibold text-red-700">${r.preSaleOrderOccupiedQuantity}</span>` },
-  { key: 'spotOrderOccupiedQuantity', title: '现货订单占用', width: 120, align: 'right', sortable: true, sortValue: r => r.spotOrderOccupiedQuantity,
+  { key: 'spotOrderOccupiedQuantity', title: '订单排除数量', width: 120, align: 'right', sortable: true, sortValue: r => r.spotOrderOccupiedQuantity,
     render: r => `<span class="font-semibold text-red-700">${r.spotOrderOccupiedQuantity}</span>` },
+  { key: 'pendingPutawayQuantity', title: '待上架', width: 90, align: 'right', render: r => String((r as FinishedInventoryRealtimeRow).pendingPutawayQuantity || 0) },
+  { key: 'actions', title: '操作', width: 160, required: true, actionColumn: true, render: r => state.activeVariant === 'finished' && (r as FinishedInventoryRealtimeRow).warehouseId ? `<a class="rounded bg-blue-600 px-3 py-2 text-white text-xs" href="/wls/finished/inventory-quality?warehouseId=${encodeURIComponent((r as FinishedInventoryRealtimeRow).warehouseId)}&styleId=${encodeURIComponent((r as FinishedInventoryRealtimeRow).styleId)}" data-nav="/wls/finished/inventory-quality?warehouseId=${encodeURIComponent((r as FinishedInventoryRealtimeRow).warehouseId)}&styleId=${encodeURIComponent((r as FinishedInventoryRealtimeRow).styleId)}">本仓本款全部送检</a>` : '' },
   { key: 'availableStock', title: '可售库存', width: 100, align: 'right', sortable: true,
     sortValue: r => r.spotStock <= 0 ? 0 : Math.max(0, r.spotStock - r.preSaleOrderOccupiedQuantity - r.spotOrderOccupiedQuantity),
     render: r => {
@@ -137,10 +141,12 @@ const finishedColumns: StandardListColumn<StockRealtimeItem>[] = [
 /* ---------- Transit columns (adds unit) ---------- */
 
 const transitColumns: StandardListColumn<StockRealtimeItem>[] = [
-  ...finishedColumns.slice(0, 4),
+  ...finishedColumns.slice(0, 4).map(column => column.key === 'image' ? { ...column,
+    render: (r: StockRealtimeItem) => `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.productName)}" class="h-12 w-12 rounded-md border border-slate-200 object-cover" onerror="this.style.display='none'">` } : column),
   { key: 'unit', title: '单位', width: 70, sortable: true, sortValue: r => r.unit || '',
     render: r => `<span class="text-slate-600">${escapeHtml(r.unit || '-')}</span>` },
-  ...finishedColumns.slice(4),
+  ...finishedColumns.slice(4).filter(column => !['pendingPutawayQuantity', 'actions'].includes(column.key)).map(column => ({ ...column,
+    title: column.key === 'spotStock' ? '现货库存' : column.key === 'spotOrderOccupiedQuantity' ? '现货订单占用' : column.title })),
 ]
 
 /* ---------- Raw material columns ---------- */
@@ -202,14 +208,29 @@ function ensurePreferencesLoaded(): void {
 /* ---------- Data accessors ---------- */
 
 function getFinishedItems(): StockRealtimeItem[] {
-  return (state.activeVariant === 'finished' ? readUnifiedQcShippingStockRows() : stockRealtimeSeed).filter(item => {
-    if (state.activeVariant === 'transit') return item.warehouse_type === 'TRANSIT'
-    return item.warehouse_type !== 'TRANSIT' && item.warehouse_type !== 'FABRIC' && item.warehouse_type !== 'ACCESSORY' && item.warehouse_type !== 'YARN' && item.warehouse_type !== 'CONSUMABLE' && item.warehouse_type !== 'PACKAGING'
-  })
+  return state.activeVariant === 'transit' ? stockRealtimeSeed.filter(item => item.warehouse_type === 'TRANSIT') : readUnifiedQcShippingStockRows()
 }
 
 function getRawItems(): MaterialInventorySummary[] {
   return RAW_MATERIAL_INVENTORY
+}
+
+function filteredRowCount(finishedItems?: StockRealtimeItem[]): number {
+  const kw = state.keyword.trim().toLowerCase()
+  if (state.activeVariant === 'raw') {
+    return getRawItems().filter(item => {
+      if (state.categoryFilter && item.material_category !== state.categoryFilter) return false
+      if (state.warehouseFilter && item.warehouse_name !== state.warehouseFilter) return false
+      if (!kw) return true
+      return `${item.material_name} ${item.spu_code} ${item.sku_code} ${item.warehouse_name}`.toLowerCase().includes(kw)
+    }).length
+  }
+  return (finishedItems || getFinishedItems()).filter(item => {
+    if (state.exactSku && item.sku !== state.exactSku) return false
+    if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
+    if (!kw) return true
+    return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
+  }).length
 }
 
 /* ---------- Filters ---------- */
@@ -263,8 +284,11 @@ function renderWorkspace(): string {
   ensurePreferencesLoaded()
   const variant = state.activeVariant
   const cols = activeColumns()
-  const finishedItems = variant === 'raw' ? [] : getFinishedItems()
+  // One coherent read per render; a later render reads the live facts again.
+  const finishedItems = variant === 'raw' ? undefined : getFinishedItems()
+  const total = filteredRowCount(finishedItems)
   const rows = filteredRows(finishedItems)
+  const filteredFinishedItems = rows as StockRealtimeItem[]
 
   const sorted = sortStandardListRows(rows, state.sort, (row, key) => {
     const col = cols.find(c => c.key === key)
@@ -280,9 +304,9 @@ function renderWorkspace(): string {
         { label: '辅料', value: `${RAW_MATERIAL_INVENTORY.filter(i => i.material_category === 'ACCESSORY').length} 条` },
       ]
     : [
-        { label: '商品总数', value: `${finishedItems.length} 条` },
-        { label: '现货充足', value: `${finishedItems.filter(i => i.spotStock > 10).length} 条` },
-        { label: '低库存', value: `${finishedItems.filter(i => i.spotStock <= 10 && i.spotStock > 0).length} 条` },
+        { label: '商品总数', value: `${total} 条` },
+        { label: '现货充足', value: `${filteredFinishedItems.filter(i => i.spotStock > 10).length} 条` },
+        { label: '低库存', value: `${filteredFinishedItems.filter(i => i.spotStock <= 10 && i.spotStock > 0).length} 条` },
       ]
 
   return renderStandardListPage({
@@ -320,7 +344,7 @@ function renderVariant(variant: Variant): string {
   state.sort = null
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   ensurePreferencesLoaded()
-  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div>${variant === 'finished' ? renderFinishedInventoryTasksPanel('outbound') : ''}</div>`
 }
 
 export function renderFinishedStockRealtime(): string {
@@ -336,6 +360,7 @@ export function renderTransitStockRealtime(): string {
 }
 
 export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): boolean {
+  if (handleFinishedInventoryQualityEvent(target, event)) return true
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {

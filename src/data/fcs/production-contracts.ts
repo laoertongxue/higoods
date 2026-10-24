@@ -405,5 +405,5 @@ export function resetProductionContractsForTests(): void {
   productionContextStorage.removeItem(STORAGE_KEY)
 }
 
-if (typeof document === 'undefined' || isProductionContextReady()) hydrateContractState()
+if (typeof document === 'undefined' || isProductionContextReady(STORAGE_KEY)) hydrateContractState()
 onProductionContextChanged(STORAGE_KEY,hydrateContractState)

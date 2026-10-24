@@ -21,12 +21,19 @@ const hooks = registerHooks({
     if (!target) return result
     const source = typeof result.source === 'string' ? result.source : Buffer.from(result.source as Uint8Array).toString('utf8')
     const tree = ts.createSourceFile(url, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-    const declaration = tree.statements.find((node): node is ts.FunctionDeclaration => ts.isFunctionDeclaration(node) && node.name?.text === target[0])
-    assert.ok(declaration?.body, `read boundary ${target[0]} exists`)
-    const offset = declaration.body.getStart(tree) + 1
-    const injection = `const __qcuReader = globalThis.${readerKey}?.${target[1]}; if (__qcuReader) return __qcuReader();`
-    instrumented.add(target[0]!)
-    return { ...result, source: source.slice(0, offset) + injection + source.slice(offset) }
+    const targets=url.endsWith('/pcs-record-db.ts')?[target[0],'readPcsRecordProjection']:[target[0]]
+    const edits=targets.map(name=>{
+      const declaration=tree.statements.find((node):node is ts.FunctionDeclaration=>ts.isFunctionDeclaration(node)&&node.name?.text===name)
+      assert.ok(declaration?.body,`read boundary ${name} exists`)
+      instrumented.add(name)
+      const injection=name==='readPcsRecordProjection'
+       ? `const __qcuReader=globalThis.${readerKey}?.pcs;if(__qcuReader){const __read=await __qcuReader();return __read.records.filter(row=>selectors.some(selector=>selector.id===row.id || selector.prefix&&row.id.startsWith(selector.prefix))).map(project).filter(row=>row!==null);}`
+       : `const __qcuReader = globalThis.${readerKey}?.${target[1]}; if (__qcuReader) return __qcuReader();`
+      return {offset:declaration.body.getStart(tree)+1,injection}
+    }).sort((a,b)=>b.offset-a.offset)
+    let rewritten=source
+    for(const edit of edits)rewritten=rewritten.slice(0,edit.offset)+edit.injection+rewritten.slice(edit.offset)
+    return {...result,source:rewritten}
   },
 })
 
@@ -158,5 +165,5 @@ for (const changedSource of ['保持一致', '出库需求', '后道revision', '
 })
 
 test('QCU-056：三类读取探针均绑定到真实源入口而非替代计算函数', () => {
-  assert.deepEqual([...instrumented].sort(), ['loadFinishedOutboundOrders', 'readGarmentReplacementSnapshotForPriority', 'readPcsRecords'].sort())
+  assert.deepEqual([...instrumented].sort(), ['loadFinishedOutboundOrders', 'readGarmentReplacementSnapshotForPriority', 'readPcsRecords','readPcsRecordProjection'].sort())
 })

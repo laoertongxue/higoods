@@ -8,7 +8,8 @@ import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { showListFeedback } from '../../../components/ui/list-feedback.ts'
-import { warehouseStockSeed, WAREHOUSE_STOCK_ZONES, WAREHOUSE_STOCK_WAREHOUSES, type WarehouseStockRow } from './seed.ts'
+import { finishedInventoryOnlineRows } from '../../../data/wls/finished-inventory-quality.ts'
+type WarehouseStockRow = ReturnType<typeof finishedInventoryOnlineRows>[number]
 
 const stockTypeClass: Record<string, string> = {
   正常: 'bg-emerald-50 text-emerald-700',
@@ -44,7 +45,7 @@ const columns: StandardListColumn<WarehouseStockRow>[] = [
   { key: 'spu', title: 'SPU', width: 150, required: true, freezeable: true, sortable: true, sortValue: r => r.spu,
     render: r => `<span class="font-mono text-xs text-blue-600">${escapeHtml(r.spu)}</span>` },
   { key: 'sku', title: 'SKU', width: 150, required: true, freezeable: true, sortable: true, sortValue: r => r.sku,
-    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
+    render: r => `<div class="flex items-center gap-2"><button type="button" data-pda-image-preview-url="${escapeHtml(r.imageUrl)}" data-pda-image-preview-title="${escapeHtml(r.productName)}" aria-label="查看${escapeHtml(r.productName)}图片"><img class="h-12 w-12 object-contain" src="${escapeHtml(r.imageUrl)}" alt="${escapeHtml(r.productName)}" onerror="this.replaceWith(document.createTextNode('图片加载失败'))"></button><span>${escapeHtml(r.productName)}<br>${escapeHtml(r.sku)}</span></div>` },
   { key: 'zone', title: '库区', width: 90, sortable: true, sortValue: r => r.zone,
     render: r => `<span class="text-slate-600">${escapeHtml(r.zone)}</span>` },
   { key: 'stockType', title: '库存类型', width: 100, sortable: true, sortValue: r => r.stockType,
@@ -85,28 +86,27 @@ function ensurePreferencesLoaded(): void {
 
 const STALE_DAYS = 15
 
-function staleCutoff(): string {
-  const latest = [...warehouseStockSeed].map(r => r.countedAt).sort().at(-1) || ''
+function staleCutoff(rows: WarehouseStockRow[]): string {
+  const latest = rows.map(r => r.countedAt).sort().at(-1) || ''
   const date = new Date(latest.replace(' ', 'T'))
   if (Number.isNaN(date.getTime())) return ''
   date.setDate(date.getDate() - STALE_DAYS)
   return date.toISOString().slice(0, 10)
 }
 
-function isStale(row: WarehouseStockRow): boolean {
-  const cutoff = staleCutoff()
+function isStale(row: WarehouseStockRow, cutoff: string): boolean {
   if (!cutoff) return false
   return (row.countedAt.slice(0, 10) || '') < cutoff
 }
 
-function filteredRows(): WarehouseStockRow[] {
+function filteredRows(rows = finishedInventoryOnlineRows(), cutoff = staleCutoff(rows)): WarehouseStockRow[] {
   const kw = state.keyword.trim().toLowerCase()
   const min = state.minQty.trim() === '' ? null : Number(state.minQty)
   const max = state.maxQty.trim() === '' ? null : Number(state.maxQty)
-  return warehouseStockSeed.filter(r => {
+  return rows.filter(r => {
     if (state.warehouseFilter && r.warehouseName !== state.warehouseFilter) return false
     if (state.zoneFilter && r.zone !== state.zoneFilter) return false
-    if (state.staleFilter === '仅15天未盘点' && !isStale(r)) return false
+    if (state.staleFilter === '仅15天未盘点' && !isStale(r, cutoff)) return false
     if (min !== null && Number.isFinite(min) && r.onHand < min) return false
     if (max !== null && Number.isFinite(max) && r.onHand > max) return false
     if (!kw) return true
@@ -114,11 +114,11 @@ function filteredRows(): WarehouseStockRow[] {
   })
 }
 
-function renderFilters(): string {
+function renderFilters(rows: WarehouseStockRow[]): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="SPU / SKU / 库区 / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
-    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${WAREHOUSE_STOCK_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
-    <label><span class="mb-1 block text-xs text-muted-foreground">库区类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="zone"><option value="">全部类型</option>${WAREHOUSE_STOCK_ZONES.map(z => `<option value="${escapeHtml(z)}" ${state.zoneFilter === z ? 'selected' : ''}>${escapeHtml(z)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${[...new Set(rows.map(row => row.warehouseName))].map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">库区类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="zone"><option value="">全部类型</option>${[...new Set(rows.map(row => row.zone))].map(z => `<option value="${escapeHtml(z)}" ${state.zoneFilter === z ? 'selected' : ''}>${escapeHtml(z)}</option>`).join('')}</select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">库存-15天未盘点</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="stale"><option value="">全部</option><option value="仅15天未盘点" ${state.staleFilter === '仅15天未盘点' ? 'selected' : ''}>仅 15 天未盘点</option></select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">数量最小</span><input type="number" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.minQty)}" placeholder="最小" data-${EVENT_PREFIX}-field="minQty"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">数量最大</span><input type="number" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.maxQty)}" placeholder="最大" data-${EVENT_PREFIX}-field="maxQty"></label>
@@ -127,27 +127,29 @@ function renderFilters(): string {
 
 function renderWorkspace(): string {
   ensurePreferencesLoaded()
-  const all = filteredRows()
+  const rows = finishedInventoryOnlineRows()
+  const cutoff = staleCutoff(rows)
+  const all = filteredRows(rows, cutoff)
   const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
-  const detailRow = state.detailId ? warehouseStockSeed.find(r => r.id === state.detailId) : undefined
+  const detailRow = state.detailId ? rows.find(r => r.id === state.detailId) : undefined
   const uniqueSkuCount = new Set(all.map(r => r.spu)).size
   const totalStock = all.reduce((sum, r) => sum + r.onHand, 0)
-  const staleSkuCount = new Set(all.filter(isStale).map(r => r.spu)).size
+  const staleSkuCount = new Set(all.filter(row => isStale(row, cutoff)).map(r => r.spu)).size
   const fmStock = all.filter(r => r.warehouseName === 'F&M WH').reduce((sum, r) => sum + r.onHand, 0)
   const acStock = all.filter(r => r.warehouseName === 'A&C WH').reduce((sum, r) => sum + r.onHand, 0)
   return renderStandardListPage({
     title: '仓库库存管理',
     primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('创建盘点单', { prefix: EVENT_PREFIX, action: 'create' }, 'plus')}</div>`,
-    filtersHtml: renderFilters(),
+    filtersHtml: renderFilters(rows),
     statsHtml: renderStandardListStats([
       { label: '总 SKU', value: `${uniqueSkuCount} 个` },
       { label: '总库存', value: `${totalStock} 件` },
       { label: '净增长（今日）', value: '0 件' },
       { label: '15天未盘点 SKU', value: `${staleSkuCount} 个` },
-      { label: '分仓 F&M WH', value: `${fmStock} 件` },
-      { label: '分仓 A&C WH', value: `${acStock} 件` },
+      { label: '可售库存', value: `${all.reduce((sum, row) => sum + row.available, 0)} 件` },
+      { label: '待上架', value: `${all.filter(row => row.stockType === '待上架').reduce((sum, row) => sum + row.onHand, 0)} 件` },
     ]),
     listTitle: '库存列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,

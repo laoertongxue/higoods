@@ -7,7 +7,6 @@ import { handlePostFinishingMaterialTransfersEvent } from './material-transfers.
 import { handlePostFinishingOutboundOrderEvent } from './outbound-orders.ts'
 import { handlePostFinishingQcOrdersEvent } from './qc-orders.ts'
 import { handlePostFinishingQcWorkbenchEvent } from './qc-workbench.ts'
-import { handlePostFinishingRecheckOrdersEvent } from './recheck-orders.ts'
 import { handlePostFinishingTasksEvent } from './tasks.ts'
 import { handlePostFinishingReturnFlowEvent } from './warehouse.ts'
 import { handlePostFinishingWorkOrderDetailEvent } from './work-order-detail.ts'
@@ -73,7 +72,6 @@ export async function handlePostFinishingEvent(target: HTMLElement, event?: Even
   if (await handlePostFinishingWorkOrdersEvent(target, event)) return true
   if (await handlePostFinishingQcWorkbenchEvent(target, event)) return true
   if (await handlePostFinishingQcOrdersEvent(target, event)) return true
-  if (await handlePostFinishingRecheckOrdersEvent(target, event)) return true
   if (await handlePostFinishingReturnFlowEvent(target, event)) return true
   if (await handlePostFinishingOutboundOrderEvent(target, event)) return true
 
