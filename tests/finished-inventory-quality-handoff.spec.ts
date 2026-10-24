@@ -39,12 +39,12 @@ async function receipt(form: Locator, short = 0) {
     await input.fill(String(expected - (index === 0 ? short : 0)))
   }
 }
-async function create(page: Page) {
+async function create(page: Page, quantity = 80) {
   await inventoryNavigation(page, '冷启动即时库存', '/wls/finished/stock/realtime', async () => { await expect(page.getByRole('heading', { name: '即时库存查询 — 成衣', exact: true })).toBeVisible(); await expect(page.locator('tr').filter({hasText:'SKU-GC-20001'}).first().getByRole('link',{name:'本仓本款全部送检'})).toBeVisible() })
   await inventoryClick(page, '打开整批送检预览', page.locator('tr').filter({ hasText: 'SKU-GC-20001' }).first().getByRole('link', { name: '本仓本款全部送检' }), () => expect(page.getByRole('heading', { name: '确认整批库存送检' })).toBeVisible())
   await expect(page.getByRole('heading', { name: '确认整批库存送检' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: '实际出库人' })).toHaveCount(0)
-  await inventoryClick(page, '送检下架出库并回读', page.getByRole('button', { name: '确认下架出库 72 件' }), async () => { await expect(page.getByRole('heading', { name: '库存送检流转详情' })).toBeVisible(); expect((await snapshot(page)).applications).toHaveLength(1) })
+  await inventoryClick(page, '送检下架出库并回读', page.getByRole('button', { name: `确认下架出库 ${quantity} 件` }), async () => { await expect(page.getByRole('heading', { name: '库存送检流转详情' })).toBeVisible(); expect((await snapshot(page)).applications).toHaveLength(1) })
   await expect(page.getByRole('heading', { name: '库存送检流转详情' })).toBeVisible()
   const app = (await snapshot(page)).applications[0]
   expect(app.createdBy).toBe('管理员')
@@ -63,7 +63,7 @@ for (const withProcessing of [false,true]) test(`真实页面完成成衣仓送�
   // Existing current-account context; use a free QC account while the default static sample is in progress.
   await page.addInitScript(() => localStorage.setItem('higood-fcs-post-finishing-current-actor-v1', 'PF-USER-QC-MGR'))
   console.log('回放节点：送检')
-  const app = await create(page)
+  const app = await create(page, 72)
   // These two complete branches run against the real 13-application default
   // dataset. Other pending batches remain present throughout this own batch.
   await page.goto(WLS)
@@ -259,10 +259,10 @@ test('后道实收差异保留真实数量，成衣仓详情没有后道办理�
   await form.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   const saved = await snapshot(page)
-  expect(saved.applications[0].lines.reduce((n, row) => n + (row.receivedQty || 0), 0)).toBe(71)
+  expect(saved.applications[0].lines.reduce((n, row) => n + (row.receivedQty || 0), 0)).toBe(79)
   expect(saved.differences).toHaveLength(1)
   await page.goto(`${WLS}?id=${encodeURIComponent(app.id)}`)
-  await expect(page.getByText('原仓实际出库72件；后道实际接收71件')).toBeVisible()
+  await expect(page.getByText('原仓实际出库80件；后道实际接收79件')).toBeVisible()
   await expect(page.locator('[data-fiq-form]')).toHaveCount(0)
 })
 
@@ -343,7 +343,7 @@ test('成衣库存质检筛选查询、更多条件和重置联动统计；接�
  await expect(page.locator('tbody')).not.toContainText(qc.qcTaskNo)
  await page.goto(WLS);await page.getByLabel('后道接收状态',{exact:true}).selectOption('DIFFERENCE');await query()
  await expect(page.getByRole('link',{name:app.applicationNo,exact:true})).toBeVisible()
- await expect(page.locator('tbody')).toContainText('72 / 71')
+ await expect(page.locator('tbody')).toContainText('80 / 79')
 })
 
 test('成衣库存质检查询、重置与日期错误完整响应',async({page},info)=>{
