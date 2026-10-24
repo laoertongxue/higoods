@@ -1,7 +1,0 @@
-
-> higoods-vanilla-clone@1.0.0 check:post-finishing-current-read-model
-> node --import tsx scripts/check-post-finishing-current-read-model.ts
-
-post-finishing current read model passed: formal task visibility, independent QC facts, quantities and chargeback preserved
-(node:79409) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)

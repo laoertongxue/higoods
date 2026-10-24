@@ -19,4 +19,4 @@
 | QA-001 | §5 | 业务/持久化与页面两轮验收 | W4 | scripts/check-dyeing-quantity-reconciliation.ts；审查记录第7节 | quantity/build/types/browser | 7页、明细、打印 | 已验证 | 审查记录第7节、证据目录 | 用户授权；Codex本地验证；75f85bad+verified-version.json，产品接受待用户确认 |
 | SCOPE-001 | §1 | 仅三项修复范围、保留其他工作区改动 | W4 | 本轮基线 SHA256 与 verified-version.json 对照 | 本轮文件清单审查；git diff --check | 不适用：范围控制 | 已验证 | 审查记录第7节、证据目录 | 用户授权；Codex本地验证；75f85bad+verified-version.json，产品接受待用户确认 |
 
-最终合并发布前已统一重验：[2026-09-12 染厂审查记录](prototype-review-records/2026-09-12-dyeing-audit-closure.md)。以该记录及最终任务收据的文件版本为准，旧阶段验证不替代当前证据。
+最终合并发布前已统一重验：2026-09-12 染厂审查记录（历史验收产物已清理）。以该记录及最终任务收据的文件版本为准，旧阶段验证不替代当前证据。

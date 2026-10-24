@@ -1,1 +1,0 @@
-{"geometry":42,"layoutFailures":[],"performanceSamples":105,"maxMs":631.3794579999994,"slow":[],"failedImages":[],"actionFailures":[],"errors":[],"assetsMatched":true}

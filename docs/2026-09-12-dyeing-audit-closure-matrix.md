@@ -1,6 +1,6 @@
 # 染厂审查问题需求追踪矩阵
 
-总体设计：[设计](2026-09-12-dyeing-audit-closure-design.md)；实施依据：[计划](2026-09-12-dyeing-audit-closure-plan.md)；最终证据：[审查记录](prototype-review-records/2026-09-12-dyeing-audit-closure.md)。24 个原子要求与设计逐条双向对应。自动化规则与命名页面分别验证，用户需求确认不等同于发布后的产品接受。
+总体设计：[设计](2026-09-12-dyeing-audit-closure-design.md)；实施依据：[计划](2026-09-12-dyeing-audit-closure-plan.md)；最终证据：审查记录（历史验收产物已清理）。24 个原子要求与设计逐条双向对应。自动化规则与命名页面分别验证，用户需求确认不等同于发布后的产品接受。
 
 实现位置中的数据文件位于 src/data/fcs，页面文件位于 src/pages/process-factory/dyeing，pda-exec-detail.ts 位于 src/pages。截图为本机留存，不将演示库存当作现场库存。
 

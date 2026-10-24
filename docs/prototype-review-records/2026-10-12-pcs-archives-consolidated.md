@@ -263,7 +263,7 @@ W4 专项与验收：删除扫描、主档/基础/染色/印花等分支、原�
 
 验证版本 TAB-v1：基线 HEAD 不变，实际为未提交任务差异。页面源码 SHA256 `284b9595847f8c35725a769865b38c93242f33ba3dcd547756d60e8468e45983`；浏览器脚本 SHA256 `b2fc30941bc2705ab1079172d0f0af72bf7bc07144171d41edaf9ec2f93aab8e`；生产预览 index SHA256 `1fa0661a7554d1482256e0ec013992109c22948eca1c07ec7ee2dd6b038d83ae`。Chromium 149.0.7827.55，独立浏览器上下文，网络缓存禁用，上海时区；5轮，最后一轮1280×720，其余1366×768。用户浏览器数据未改。
 
-证据索引：[原始浏览器结果](../verification-evidence/2026-10-12-material-archive-tabs/evidence.json)、[性能家族统计](../verification-evidence/2026-10-12-material-archive-tabs/performance-summary.json)。420个真实事件/加载样本，82个家族，每家族至少5个；最大243.2000000178814ms，全部<=1000ms。起点为导航开始或真实事件，完成包含目标内容、可视图片、字体、两帧绘制；保存另等待本次附件记录与Blob持久回读。三类主档与SKU分别保存并刷新；四类加工规格重复补充文件，旧资产和执行文件引用保留；染色写入失败时记录/Blob均不变，文件输入保留；切换取消/确认及样图大图开关通过。
+证据索引：原始浏览器结果（历史验收产物已清理）、性能家族统计（历史验收产物已清理）。420个真实事件/加载样本，82个家族，每家族至少5个；最大243.2000000178814ms，全部<=1000ms。起点为导航开始或真实事件，完成包含目标内容、可视图片、字体、两帧绘制；保存另等待本次附件记录与Blob持久回读。三类主档与SKU分别保存并刷新；四类加工规格重复补充文件，旧资产和执行文件引用保留；染色写入失败时记录/Blob均不变，文件输入保留；切换取消/确认及样图大图开关通过。
 
 自动化绑定：TAB-01～06/08由 `tests/unit/pcs-material-archive-tabs.test.ts` 的9项专项覆盖；TAB-01/03～08/10～11由 `tests/browser-contracts/pcs-material-archive-tabs.test.ts` 实际页面覆盖；TAB-09由 `tests/pcs-r1-material-plans.test.ts`、`tests/pcs-simple-material-downstream.test.ts`、`tests/unit/tmf-material-references.test.ts`、`tests/unit/pcs-material-process-roundtrip.test.ts` 及相邻单位/成本/包装与耗材配件页面覆盖。相关Node专项83项通过；构建815项单元检查及Vite构建通过。PDA、打印、导入导出本轮未修改，自动化保留边界核查，不重跑无关操作。
 
@@ -330,8 +330,8 @@ W4 专项与验收：删除扫描、主档/基础/染色/印花等分支、原�
 
 REF-v1实际HEAD仍为基线加未提交差异；源码SHA256 `1edbb87db76860598712d56739692f529d4788c880f3038cc0ae7a96375263be`，浏览器脚本SHA256 `6f4ef95aceeabc14bf22bd67360b275b511b26e261acf2cf328d50d4913af139`，运行index SHA256 `29b3fa4cfa3c5784db8479d7f097030eb52d00515d8c55e659fe5eeae2d9a5f9`。Chromium149.0.7827.55，上海时区，禁用网络缓存；独立浏览器上下文。服务PID96414及cwd已核对为同一工作树。款式ID `style_demand_SPU_QC_001`、SKU ID `skuSeed_style_demand_SPU_QC_001_001` 是带真实演示关联的原型记录，非用户截图中自建记录。
 
-[原始浏览器证据](../verification-evidence/2026-10-12-product-technical-reference/evidence.json)和[性能汇总](../verification-evidence/2026-10-12-product-technical-reference/performance-summary.json)覆盖REF-01～08。75样本、15家族，每家族5次，最大261.69999998807907ms，全部<=1000ms；四轮1366×768，一轮1280×720。导航/真实事件为起点，目标内容、可视实物图片、字体和两帧绘制为终点。新增保存、文件迁移、PDA、打印、导入导出均不适用，本轮未改这些动作或格式。
+原始浏览器证据（历史验收产物已清理）和性能汇总（历史验收产物已清理）覆盖REF-01～08。75样本、15家族，每家族5次，最大261.69999998807907ms，全部<=1000ms；四轮1366×768，一轮1280×720。导航/真实事件为起点，目标内容、可视实物图片、字体和两帧绘制为终点。新增保存、文件迁移、PDA、打印、导入导出均不适用，本轮未改这些动作或格式。
 
-[款式页面](../verification-evidence/2026-10-12-product-technical-reference/style-1366.png)、[规格页面](../verification-evidence/2026-10-12-product-technical-reference/sku-1280.png)。REF-01～04自动化为 `tests/pcs-r1-product-rules.test.ts`；REF-05另绑定 `tests/pcs-engineering-bom-version-workflow.spec.ts` 和浏览器技术包直达；REF-06/07为当前浏览器契约；REF-08绑定两轮审查及最终收据。所有实现位置均为 `src/pages/pcs-product-archives.ts` 的DETAIL_TABS、styleBody、skuBody、renderDetail和页签事件；REF-05相关业务消费者未改。
+款式页面（历史验收产物已清理）、规格页面（历史验收产物已清理）。REF-01～04自动化为 `tests/pcs-r1-product-rules.test.ts`；REF-05另绑定 `tests/pcs-engineering-bom-version-workflow.spec.ts` 和浏览器技术包直达；REF-06/07为当前浏览器契约；REF-08绑定两轮审查及最终收据。所有实现位置均为 `src/pages/pcs-product-archives.ts` 的DETAIL_TABS、styleBody、skuBody、renderDetail和页签事件；REF-05相关业务消费者未改。
 
 构建815项单元检查及Vite构建通过；产品29项专项和BOM工作流通过。精确运行器路由测试通过，新浏览器和产品专项不使用构建代替运行。原失败日志与本轮日志存放 `/tmp/product-tech-*.log`，收据最终输出 `/tmp/product-technical-reference-final/task-receipt.json`，冻结文件后生成；工具会再次执行必要浏览器/构建检查，旧原始证据保留原版本。该技术交付不代表本轮已合并main或发布。

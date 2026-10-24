@@ -1,9 +1,0 @@
-✔ 旧后道整包转换不能绕过受管辅料退出边界：归档前后均保留原源、不写回退休事实 (1267.001875ms)
-ℹ tests 1
-ℹ suites 0
-ℹ pass 1
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ todo 0
-ℹ duration_ms 1682.427458

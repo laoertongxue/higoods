@@ -1,6 +1,6 @@
 # 采购管理线上核查与原型补齐记录（2026-10-13）
 
-> 当前阶段：测试环境21个保留页面的可用入口清单已封版，正在原型实施。最终测试站写入、无样本状态、服务器错误/外部待对接保持明确边界。当前实施追踪见 [实施计划](prototype-review-records/pms-alignment-20261013/implementation-plan.md)、[原子矩阵](prototype-review-records/pms-alignment-20261013/requirements-matrix.json) 和 [测试21页覆盖](prototype-review-records/pms-alignment-20261013/inventory/coverage21-recommendation.md)。以下正式环境历史核查章节保留原身份，不能作为当前完成证据。
+> 当前阶段：测试环境21个保留页面的可用入口清单已封版，正在原型实施。最终测试站写入、无样本状态、服务器错误/外部待对接保持明确边界。当前实施追踪见 [实施计划](prototype-review-records/pms-alignment-20261013/implementation-plan.md)、原子矩阵（历史验收产物已清理） 和 测试21页覆盖（历史验收产物已清理）。以下正式环境历史核查章节保留原身份，不能作为当前完成证据。
 >
 > 本记录继承当前 `AGENTS.md`，只记录本任务的范围、证据、差异和后续工作，不新增项目治理规则。
 

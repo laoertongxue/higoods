@@ -88,4 +88,4 @@
 
 ## 当前身份与工厂范围（2026-10-17）
 
-缝边绣只保留 `AUX-OP-SEAM-EMBROIDERY` / `CRAFT_3000010`。12类辅助与4类特种均按工艺固定唯一承接厂：烫画／直喷使用FLOWER，其余辅助使用APF，特种使用SPF；列表无多工厂Tab。原单据、节点和交接事实不因类别合并而删除或相互覆盖。历史版见[恢复索引](retired-craft-history.md)，本次状态见[实施记录](prototype-review-records/2026-10-17-seam-embroidery-unification.md)。
+缝边绣只保留 `AUX-OP-SEAM-EMBROIDERY` / `CRAFT_3000010`。12类辅助与4类特种均按工艺固定唯一承接厂：烫画／直喷使用FLOWER，其余辅助使用APF，特种使用SPF；列表无多工厂Tab。原单据、节点和交接事实不因类别合并而删除或相互覆盖。历史版见[恢复索引](retired-craft-history.md)，本次状态见实施记录（历史验收产物已清理）。

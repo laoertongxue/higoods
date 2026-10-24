@@ -1,7 +1,0 @@
-
-> higoods-vanilla-clone@1.0.0 check:post-finishing-return-source-generalization
-> node --import tsx scripts/check-post-finishing-return-source-generalization.ts
-
-post-finishing return source generalization passed: 正式来源、KOL 排除、任意回货序号、部分 SKU 为 0 和累计守恒均已覆盖
-(node:1747) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)

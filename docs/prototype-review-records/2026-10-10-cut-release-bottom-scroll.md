@@ -30,7 +30,7 @@
 
 ### 页面证据
 
-- 版本：分支 `codex/sidebar-menu-group-ui`，HEAD `b747ab9bd1aa61a054f1c2af4865f7670c748a8b` 加本次样式差异；工作树 `/Users/laoer/.codex/worktrees/9ec5/higoods`。源码、样式、运行资产及探针 SHA256 见 [滚动结果](../verification-evidence/2026-10-10-cut-release-bottom-scroll/scroll-results.json)。同工作树 `http://127.0.0.1:4190` Vite 生产预览，已按最终源码重新构建；隔离 Chrome，Asia/Shanghai，原有完整静态演示数据及对应真实图片，无用户资料清理或减量。
+- 版本：分支 `codex/sidebar-menu-group-ui`，HEAD `b747ab9bd1aa61a054f1c2af4865f7670c748a8b` 加本次样式差异；工作树 `/Users/laoer/.codex/worktrees/9ec5/higoods`。源码、样式、运行资产及探针 SHA256 见 滚动结果（历史验收产物已清理）。同工作树 `http://127.0.0.1:4190` Vite 生产预览，已按最终源码重新构建；隔离 Chrome，Asia/Shanghai，原有完整静态演示数据及对应真实图片，无用户资料清理或减量。
 - 证据：两个生产单均按 1920×1080、1920×1200、1366×768、1280×720、1024×768 验收；每组五次。文档高度等于视口、外层 `scrollY` 始终为 0，主内容到达真实底部；60 张最终原始 PNG 的顶栏 logo、底部前三个操作及卡片底边在同次 DOM 坐标中均通过像素核对，截图前后外壳位置一致。主代理人工核对 `final-PO14673-1920x1200.png` 和 `final-PO14671-1024x768.png`，无原大块空白或外壳移出。全部原始截图、几何值、样本与日志保存在 `output/playwright/release-bottom-scroll/`。
 - 相邻路径：调整放行后取消、展开目标候选后取消、展开与收起版本日志、从底部单元格打开详情并用 Esc 关闭、刷新通过。额外 600px 窄屏两个矩阵水平滚动 294.5px 时，固定颜色列的屏幕横坐标保持 67px。裁片放行列表的主内容回弹配置仍为 `auto`，确认规则仅匹配详情。无页面异常。
 - 原始反证与处理：修改前 PO14673 在 1920×1080 下文档错误增高至 2346px，外层可滚至 1266.5px，产生全屏空白，保存 `before-document-bottom.png`。仅加入 `relative` 时 DOM 数值通过，但真实图片仍显示回弹空白；第二轮审查阻断该结果，未将其作为完成证据。`contain` 对照只阻止外壳回弹，主内容仍回弹；`none` 对照消除内外回弹，随后写入详情专用规则并重新构建完整复测。两个旧数值假通过截图作为负例，被最终像素检查准确拒绝，原图及 `relative-only-scroll-results.json` 原样保留。

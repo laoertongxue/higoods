@@ -1,1 +1,0 @@
-两处同一身份修复均按type明确选择，不使用OR回退：collection内exact ID和documentNo。固定实际D10 row同时有QC和post身份，原脚本red为合法qcID查找失败；修复后父卡/QC主单/QC明细均按自身ID/No，并核各5SKU/总1000，未知ID三种仍拒绝。无业务/资产/测量起止/门槛/样本覆盖修改。node syntax及纯expected契约通过，实际三个打印入口内容/几何及正式仍须执行。

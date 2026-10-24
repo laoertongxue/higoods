@@ -1,6 +1,6 @@
 # V7 生产单时效图示接入实施计划
 
-日期：2026-10-08（接入实施日志）。接入基线已发布main 86593df8502d751362cdbab8676510bc233ef0b9并确认Vercel Production成功；接入整体验收仍有独立门禁未关闭，发布不等于产品接受。下文工作包、资源哈希和样本记录各自的历史版本。2026-10-08至09用户授权的文案歧义修复为新的本地增量，状态、109条问题及当前验证版本以[文案实施计划](copy-clarity-plan-20261008.md)、[文案追踪矩阵](copy-clarity-matrix.csv)和[本轮回执](../../prototype-review-records/2026-10-09-production-timing-copy-clarity.md)为准。业务定义以 `v7-integration-design.md` 及用户最新确认为准；原接入门禁继续使用 `v7-integration-matrix.csv`，不得用本轮清单覆盖原始证据。
+日期：2026-10-08（接入实施日志）。接入基线已发布main 86593df8502d751362cdbab8676510bc233ef0b9并确认Vercel Production成功；接入整体验收仍有独立门禁未关闭，发布不等于产品接受。下文工作包、资源哈希和样本记录各自的历史版本。2026-10-08至09用户授权的文案歧义修复为新的本地增量，状态、109条问题及当前验证版本以[文案实施计划](copy-clarity-plan-20261008.md)、[文案追踪矩阵](copy-clarity-matrix.csv)和本轮回执（历史验收产物已清理）为准。业务定义以 `v7-integration-design.md` 及用户最新确认为准；原接入门禁继续使用 `v7-integration-matrix.csv`，不得用本轮清单覆盖原始证据。
 
 ## 1. 范围与依赖
 

@@ -1,5 +1,0 @@
-{"family":"cold-list","run":1,"ms":960,"status":"PASS","start":"navigationStart","completion":"correct visible result, ready visible images, two animation frames; save includes native transaction readback"}
-{"family":"cold-list","run":2,"ms":900.3999999761581,"status":"PASS","start":"navigationStart","completion":"correct visible result, ready visible images, two animation frames; save includes native transaction readback"}
-{"family":"cold-list","run":3,"ms":887.1000000238419,"status":"PASS","start":"navigationStart","completion":"correct visible result, ready visible images, two animation frames; save includes native transaction readback"}
-{"family":"cold-list","run":4,"ms":890.5,"status":"PASS","start":"navigationStart","completion":"correct visible result, ready visible images, two animation frames; save includes native transaction readback"}
-{"family":"cold-list","run":5,"ms":874.3000000119209,"status":"PASS","start":"navigationStart","completion":"correct visible result, ready visible images, two animation frames; save includes native transaction readback"}

@@ -1,5 +1,0 @@
---- formal-original-b943.mjs
-+++ diagnostic-harness.mjs
-@@ calibration quantity only @@
--for(const quantity of calibration?[1000]:[100,1000])
-+for(const quantity of calibration?[100]:[100,1000])

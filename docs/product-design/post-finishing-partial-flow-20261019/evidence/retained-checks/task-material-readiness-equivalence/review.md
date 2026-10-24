@@ -1,7 +1,0 @@
-# 后道辅料当前归属与原新完整结果对照
-
-现有窄Node IDB helper加载实际非空21张配料投影；公开WLS保存命令建立合法单号别名、恢复和实际生产主数据单号变化，5阶段147次实际F公开readiness查询完整值与原版一致，25,816字节、SHA83998f6586f5f60d1e96091eaf16a93d9da9a9d073a97c3a95098c349e0f94e5。包含原F demo legacy fallback、未知/空来源、旧JSON损坏拒绝、存储恢复后sticky失败仍拒绝及显式重新读取恢复。旧hook仅按当前真实URL读取before WLS源，无改F或生产准备源。原/新各fresh进程，原先helper缺PCS升级transaction的无效运行保留，最终脚本先建立空只读PCS来源fixture，明确不证明PCS升级、事务原子或浏览器业务。
-
-既有身份8unit当前全部通过，含保存别名、实时元数据、stock/LS/sticky失败，日志保留。独立只读 /root/web_partial_flow 确认新增一行managed否时返回undefined继续原F fallback；有归属时原完整准备/归档/调拨/实收全部保持。候选判断每次执行原来源门禁，异常不被转成无辅料；其他WLS命令不改。原新SHA26583bf44a50674dfbc06100617ec9c3dc9f78b5581fda7b71015aaaab6d988b/1df0b1f415e42cb45e8838667ac562bb7b4a5b3ae48a39d0d6e0b091cfac7aad。
-
-此为语义对照，真实D10完整终点和main I1–I4/最终51浏览器仍由对应报告关闭，不把Node耗时当性能证据。

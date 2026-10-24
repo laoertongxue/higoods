@@ -1,9 +1,0 @@
-# 商品中心、物料档案与渠道店铺商品：第二轮详细核查：版本入口
-
-本文件的完整历史内容已按提交 `821b9ea54040ec03662acbe6ae3d2c62608fe273` 冻结。[读取该版本原文](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-04-product-material-domain-audit-v2/README.md)。原文件 SHA256：`6ef5fac10bb72efa189d71edff679071d2919adf9e1fec4d608ae9c21f4c9b01`。本文件记录的原验收结论只属于原版对象与环境，不能转作新需求的通过证据。
-
-2026-10-17 起，相关当前定义为唯一“缝边绣”，操作身份 `AUX-OP-SEAM-EMBROIDERY`，工艺代码 `CRAFT_3000010`。辅助工艺12类、特种工艺4类，共16类；烫画／直喷固定FLOWER，其他辅助固定APF，特种固定SPF；辅助／特种列表不提供多工厂切换。类别合并不能合并或丢弃不同来源、节点、加工单、实收、交出、库存及附件事实。
-
-本次实施、未完成项及证据见[缝边绣统一与工艺固定承接厂调整](../../prototype-review-records/2026-10-17-seam-embroidery-unification.md)。完整退役路径及恢复方式见[历史资料恢复索引](../../retired-craft-history.md)。
-
-历史记录未改名、改数值或重写结论；原文中的单号、采样与操作记载在该Git版本完整保留。本次资料退役不处理浏览器业务记录。

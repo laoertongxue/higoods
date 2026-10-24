@@ -1,1 +1,0 @@
-仅两种QC类型明确根data-print-document-no精确核对；保留真实CODE128的data-barcode-value与生产单正文及所有工厂/款/图片/数量/材料/几何。源模板194/223行明确根，renderBarcode178行和real-barcode42行没有documentNo正文text，故旧body.text断言不适用；原actual只有此错误也与源码一致。产品/资产不变。额外QC_DETAIL其余表格/SKU列/工厂/数量检查逐项与同一模板核对，仍须实际浏览器通过，不以静态审查代替。

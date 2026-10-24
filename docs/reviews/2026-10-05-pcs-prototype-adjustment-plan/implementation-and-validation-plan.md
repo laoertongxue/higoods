@@ -1,6 +1,6 @@
 # PCS 原型调整：实施工作包与验收计划 R1
 
-计划日期：2026-10-05；状态更新：2026-10-06。**用户已授权执行 R1，各工作包已有本地实现，仍在逐项验收，尚未关闭。** 执行依据为 [方案正文](prototype-adjustment-proposal.md)、[字段字典](field-dictionary.csv)、[原子需求矩阵](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv)。本文件没有授权数据库写入、浏览器资料删除、提交或发布。实际结果以 [实施进度](implementation-progress.md) 和 [当前证据索引](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/current-requirement-evidence.json) 为准。
+计划日期：2026-10-05；状态更新：2026-10-06。**用户已授权执行 R1，各工作包已有本地实现，仍在逐项验收，尚未关闭。** 执行依据为 [方案正文](prototype-adjustment-proposal.md)、字段字典（历史验收产物已清理）、[原子需求矩阵](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv)。本文件没有授权数据库写入、浏览器资料删除、提交或发布。实际结果以 实施进度（历史验收产物已清理） 和 [当前证据索引](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/current-requirement-evidence.json) 为准。
 
 ## 1. 完成标准与依赖顺序
 
@@ -46,7 +46,7 @@
 
 物料旧整包项 `higood-pcs-material-archive-store-v2` 已由代码确认。其他旧项按现有仓库登记，不猜键名。转换前记录旧键/对象仓库/附件与归属，关闭受影响旧写入；转换后读回核对实体、关系、数量、单位、引用，再按既有规则处理已验证来源。不做整站清空，不把转换按钮塞回 PCS，不把旧表包裹为一条新快照继续写。
 
-若同动作对象在现有存储中分库，先收口本动作的存储边界再宣称原子性；不能把两个成功提示视为一个事务。保存成功以事务 complete 为准，失败保留原记录和本页输入。当前已完成的事务、失败保护和转换验证见 [实施记录](implementation-progress.md) 与 [证据说明](evidence/README.md)，未闭环入口继续按矩阵登记。
+若同动作对象在现有存储中分库，先收口本动作的存储边界再宣称原子性；不能把两个成功提示视为一个事务。保存成功以事务 complete 为准，失败保留原记录和本页输入。当前已完成的事务、失败保护和转换验证见 实施记录（历史验收产物已清理） 与 证据说明（历史验收产物已清理），未闭环入口继续按矩阵登记。
 
 ## 4. 角色、状态和动作验收表
 
@@ -85,7 +85,7 @@
 
 ## 6. 连续正常与边界验收场景
 
-下列预期结果是测试设计，**不直接作为执行结果**。实际已测范围与剩余工作见 [剩余验收清单](remaining-validation.md)；自动化检查验证关系、金额、保存不变量，浏览器检查验证实际入口、可用信息和恢复。保留场景编号，不因局部测试通过而将整场景预填“通过”。
+下列预期结果是测试设计，**不直接作为执行结果**。实际已测范围与剩余工作见 剩余验收清单（历史验收产物已清理）；自动化检查验证关系、金额、保存不变量，浏览器检查验证实际入口、可用信息和恢复。保留场景编号，不因局部测试通过而将整场景预填“通过”。
 
 | 场景 | 操作和输入 | 明确预期 | 对应范围 |
 |---|---|---|---|

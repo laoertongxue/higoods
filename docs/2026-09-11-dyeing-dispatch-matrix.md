@@ -29,4 +29,4 @@
 | VERIFY-001 | §4 | 两轮验收、追踪、治理和收据 | VERIFY | 本矩阵；审查记录；task-receipt.json | workflow:verify：通过；CodeGraph 待同步 0 | 1366×768 / 1280×720；适用打印见证据，纯数据条目页面不适用 | 已验证 | docs/prototype-review-records/2026-09-12-dyeing-dispatch.md | 用户需求/2026-09-11；Codex 验证/75f85bad + 当前差异 |
 
 
-最终合并发布前已统一重验：[2026-09-12 染厂审查记录](prototype-review-records/2026-09-12-dyeing-audit-closure.md)。以该记录及最终任务收据的文件版本为准，旧阶段验证不替代当前证据。
+最终合并发布前已统一重验：2026-09-12 染厂审查记录（历史验收产物已清理）。以该记录及最终任务收据的文件版本为准，旧阶段验证不替代当前证据。

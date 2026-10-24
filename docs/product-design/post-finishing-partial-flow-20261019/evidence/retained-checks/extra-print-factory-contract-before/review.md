@@ -1,1 +1,0 @@
-单一条件新增expected.type不等于POST_ORDER，其他字段检查/终点/时限/样本数无变化。有效需求方案5.6、现有page metadata及actual失败只有factory一项证明采集适用性错误。原body未保存，不冒称有原DOM快照。加工父卡版式未含factory，其完整身份/SKU/分项/全部子单/可交/图片/条码/几何保持断言；OUTBOUND、GENERIC_OUTBOUND、QC_ORDER、QC_DETAIL工厂检查均保留。生产资产逐字节未改，Node syntax通过；新extra及正式结果必须实际采集。

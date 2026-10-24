@@ -1,6 +1,6 @@
 # PCS 商品、物料与渠道店铺商品原型调整方案 R1
 
-日期：2026-10-05。**本文件定义目标原型；用户已授权按 R1 执行，当前实现与验证状态见 [实施进度](implementation-progress.md)，不以方案正文宣称完成。** 业务来源为 [已确认基线](../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md)、[64 项登记](../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md)、[字段细化稿](../2026-10-04-product-material-domain-audit-v2/field-contract-candidates.md)。设计阶段的版本与现场差距见 [现状证据](current-prototype-evidence.md)。字段级清单、原子需求及工作包均由 [阅读入口](README.md) 链接。
+日期：2026-10-05。**本文件定义目标原型；用户已授权按 R1 执行，当前实现与验证状态见 实施进度（历史验收产物已清理），不以方案正文宣称完成。** 业务来源为 已确认基线（历史验收产物已清理）、64 项登记（历史验收产物已清理）、字段细化稿（历史验收产物已清理）。设计阶段的版本与现场差距见 现状证据（历史验收产物已清理）。字段级清单、原子需求及工作包均由 [阅读入口](README.md) 链接。
 
 ## 1. 目标、范围与交付边界
 

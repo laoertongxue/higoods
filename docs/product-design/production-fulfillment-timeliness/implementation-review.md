@@ -51,7 +51,7 @@
 
 Chromium 149.0.7827.55；1366×768、1280×720、主管1024×768、大屏1920×1080。冷加载45次最高99.1ms、刷新45次最高70.5ms；所有导航最大135.6ms，点击最大34.2ms，输入最大31.6ms，选项切换最大57.1ms，PDF生成最大48.154ms。是否达标按原始值判定，这里的小数仅用于阅读。
 
-[最终证据摘要](implementation-evidence/summary.json) · [1308条原始样本](implementation-evidence/verification.json) · [版本内容哈希](implementation-evidence/build-manifest.json) · [甘特截图](implementation-evidence/gantt-1366.png) · [打印样张](implementation-evidence/task-report.pdf)。相邻原物料总览5项只读回归也通过。
+最终证据摘要（历史验收产物已清理） · 1308条原始样本（历史验收产物已清理） · 版本内容哈希（历史验收产物已清理） · 甘特截图（历史验收产物已清理） · 打印样张（历史验收产物已清理）。相邻原物料总览5项只读回归也通过。
 
 浏览器测量从导航/事件开始，等待对应路由内容和必要图片完成后经过实际绘制帧；所有原始值保存，不用平均值判断。冷加载清理的是隔离验收上下文缓存；未清用户浏览器数据。PDF打印记录生成文件可用时间。
 

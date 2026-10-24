@@ -1,7 +1,0 @@
-# 主入口后道打印类型补齐
-
-root核对before/current差异仅main两处postFinishingEntry中的documentType类型数组新增原出货单/条码类型，精确路由保持。print-preview与print-fei-entry-before字节相同，stage25三FEI改动撤回。
-
-独立只读审查 /root/web_partial_flow 无确定缺陷：saved effects非null仍独立分支恢复；未命中两个新类型的打印/采购路由保持；局部predicate每次计算，跳过并不标记sourceEffects/PMS已初始化，后续导航仍可读取。原生产上下文、部位票、裁床事件准备未删除。current main SHA57d3c0251b5ed83e10410aaff0539a792d3b26ff4d2368b3e43940b90f3497e2，对照before b53185a732a4a61cdc544fd5cbbeb3aced568115412a4c637dcd8d991cc9d4d5。
-
-实际main类型范围0错误、全量原19范围外错误；build exit0，1335/1335，Vite22.97秒。仅此构建/静态结果，不代替实际性能与最终浏览器。

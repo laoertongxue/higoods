@@ -12,4 +12,4 @@
 
 所有条目均由 Codex 在当前分支、同工作树 5188 验证；业务确认人为本任务用户，未声明产品接受回执。验证基线 HEAD 996fae8d，最终实现差异由任务收据绑定。
 
-自动化：`scripts/check-dyeing-demand-source.ts`（22 行）、`scripts/check-dyeing-list-sections.ts`、`scripts/check-dyeing-single-upstream.ts` 通过。页面与打印证据详见 [审查记录](prototype-review-records/2026-09-12-dyeing-demand-source.md)，浏览器报告 `/private/tmp/dye-demand-source-acceptance/browser-results.json`。正向核对 DS-001..005 均有实现及证据；反向核对仅来源展示、查询、导出和打印改动，无新增生成规则或跨模块业务变更。
+自动化：`scripts/check-dyeing-demand-source.ts`（22 行）、`scripts/check-dyeing-list-sections.ts`、`scripts/check-dyeing-single-upstream.ts` 通过。页面与打印证据详见 审查记录（历史验收产物已清理），浏览器报告 `/private/tmp/dye-demand-source-acceptance/browser-results.json`。正向核对 DS-001..005 均有实现及证据；反向核对仅来源展示、查询、导出和打印改动，无新增生成规则或跨模块业务变更。

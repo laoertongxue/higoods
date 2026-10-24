@@ -1,7 +1,0 @@
-{
-  "retained": "/tmp/pms-final-ui-20261013/formal-v12-5360-current.json",
-  "actualOrigin": "http://127.0.0.1:5350",
-  "actualVersion": "v11",
-  "reason": "Old functions closed over earlier run object; replacing run binding did not move helper. Final V12 tab944169540 remained blank. Previous21 v12-first labels not finalV12 evidence. New functions pass exact tab explicitly, derive count from actual DOM, no global closure route object.",
-  "acceptedForV12": false
-}

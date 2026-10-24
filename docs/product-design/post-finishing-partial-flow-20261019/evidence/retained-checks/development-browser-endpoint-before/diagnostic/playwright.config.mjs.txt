@@ -1,2 +1,0 @@
-import {defineConfig} from '/Users/laoer/.codex/worktrees/81b7/higoods/node_modules/@playwright/test/index.mjs';
-export default defineConfig({testDir:'/tmp/pf-b6-diagnostic',testMatch:'b6.spec.ts',workers:1,timeout:120000,expect:{timeout:30000},use:{baseURL:'http://127.0.0.1:43916'},webServer:{command:'npm run dev -- --host 127.0.0.1 --port 43916 --strictPort',cwd:'/Users/laoer/.codex/worktrees/81b7/higoods',url:'http://127.0.0.1:43916',reuseExistingServer:false,timeout:120000},outputDir:'/tmp/pf-b6-diagnostic/output'});

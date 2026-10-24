@@ -43,12 +43,12 @@
 ### 页面证据
 
 - 版本：`codex/product-archive-technical-reference-cleanup`，HEAD `abc80b6a5716fb62b031dbdbd66f2c561a2b8b9c`及本轮未提交差异。源码SHA256 `1edbb87db76860598712d56739692f529d4788c880f3038cc0ae7a96375263be`，浏览器脚本SHA256 `6f4ef95aceeabc14bf22bd67360b275b511b26e261acf2cf328d50d4913af139`，运行index SHA256 `29b3fa4cfa3c5784db8479d7f097030eb52d00515d8c55e659fe5eeae2d9a5f9`。服务 `http://127.0.0.1:43222`，PID96414，工作树 `/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods`；Chromium149.0.7827.55、上海时区、网络缓存禁用，独立上下文，1366×768和1280×720。
-- 证据：[原始结果](../verification-evidence/2026-10-12-product-technical-reference/evidence.json)、[款式1366](../verification-evidence/2026-10-12-product-technical-reference/style-1366.png)、[规格1280](../verification-evidence/2026-10-12-product-technical-reference/sku-1280.png)。命名路由 `/pcs/products/styles/style_demand_SPU_QC_001`、`/pcs/products/specifications/skuSeed_style_demand_SPU_QC_001_001`；两页直达/刷新/保留页签/旧事件通过，技术包独立路由按原版本ID直达通过。
+- 证据：原始结果（历史验收产物已清理）、款式1366（历史验收产物已清理）、规格1280（历史验收产物已清理）。命名路由 `/pcs/products/styles/style_demand_SPU_QC_001`、`/pcs/products/specifications/skuSeed_style_demand_SPU_QC_001_001`；两页直达/刷新/保留页签/旧事件通过，技术包独立路由按原版本ID直达通过。
 
 ### 性能结论
 
 - 结论：通过
-- 依据：[性能统计](../verification-evidence/2026-10-12-product-technical-reference/performance-summary.json)。15个命名冷加载、刷新及保留页签家族各5个样本，75个完整响应均<=1000ms，最大261.69999998807907ms；真实导航/事件开始至内容、必要图片、字体与两帧绘制完成。未增写操作，不把未涉及模块纳入性能倍增。
+- 依据：性能统计（历史验收产物已清理）。15个命名冷加载、刷新及保留页签家族各5个样本，75个完整响应均<=1000ms，最大261.69999998807907ms；真实导航/事件开始至内容、必要图片、字体与两帧绘制完成。未增写操作，不把未涉及模块纳入性能倍增。
 
 ### 验证命令
 

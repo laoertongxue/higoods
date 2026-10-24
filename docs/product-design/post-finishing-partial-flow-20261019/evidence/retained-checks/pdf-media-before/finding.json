@@ -1,7 +1,0 @@
-{
-  "finding": "checkPrintPage restores explicit screen media; following page.pdf inherits screen override, so actual PDF contains toolbars and wrong pagination despite correct print-media DOM geometry.",
-  "formalReport": "performance/integrated-20261020/final-shared-navigation-formal/report.json",
-  "sourceManifestSha256": "47dfd8b4e0420435572ba3eae427da2d003b729e3f5b50188bf1372d0368536a",
-  "impact": "50 PDF-generation samples and actual PDF quality require replacement; 470 non-PDF samples remain original-version evidence. No product runtime or actual geometry assertions change.",
-  "status": "confirmed; repair and new PDF validation pending"
-}

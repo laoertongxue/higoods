@@ -1,7 +1,0 @@
-{
-  "authorization": "Root stage25 one1000cold CPU+read-only Network initiator observer; no canonical/product change",
-  "canonicalSha256": "b943e1e07f205da5b8ef20e444c4d558c2e1c60a6e3bc12bca1df30ef6515d93",
-  "diagnosticSha256": "651d4a3e6a4884dbc07803969af76678ec2a1780680d131026c76efdc4e7f110",
-  "changedLocations": 3,
-  "changes": "Only declare observer array, enable/read Network.requestWillBeSent, and save initiators at CPU stop. Quantity/fixture/spec/endpoints/threshold untouched."
-}

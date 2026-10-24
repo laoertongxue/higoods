@@ -29,7 +29,7 @@
 
 ### 页面证据
 
-- 版本：分支 `codex/sidebar-menu-group-ui`，HEAD `1a2df088fa8e39863b59290cde9e7e86cd84d431` 加本次两处样式差异。源码 SHA256 `eda130addae05d0a9e095ede6032f494d33ba7b73ff58a7609ac39faff85ee9c`。工作树 `/Users/laoer/.codex/worktrees/9ec5/higoods`；`http://127.0.0.1:4190` 同工作树 Vite 生产预览，已重新构建；隔离 Chrome 会话，Asia/Shanghai，视口 1920×1080、1366×768、1280×720、1024×768。运行资产及完整原始数据见 [布局结果](../verification-evidence/2026-10-10-cut-release-detail-layout/layout-results.json)。
+- 版本：分支 `codex/sidebar-menu-group-ui`，HEAD `1a2df088fa8e39863b59290cde9e7e86cd84d431` 加本次两处样式差异。源码 SHA256 `eda130addae05d0a9e095ede6032f494d33ba7b73ff58a7609ac39faff85ee9c`。工作树 `/Users/laoer/.codex/worktrees/9ec5/higoods`；`http://127.0.0.1:4190` 同工作树 Vite 生产预览，已重新构建；隔离 Chrome 会话，Asia/Shanghai，视口 1920×1080、1366×768、1280×720、1024×768。运行资产及完整原始数据见 布局结果（历史验收产物已清理）。
 - 证据：四种视口均无正文与外壳横向溢出；小屏矩阵在自身容器滚动。四组物料矩阵、目标与确认矩阵四个颜色行、款式与物料图片保持完整。1920px 卡片宽度由 1392px 增至 1600px。裁片详情、更新历史、返回列表、新窗口和刷新通过，无页面异常。截图见 `output/playwright/release-detail-layout/verified-1920.png`、`verified-1366.png`、`verified-1280.png`、`verified-1024.png`、`drawer-1024.png`；同目录保存调整前截图与验证脚本。首次探针误用旧按钮的精确名称而超时，原始日志保留为 `layout-check-first-attempt.log`，按当前实际可访问名称修正探针并完整重放通过，未为探针更改产品行为。
 
 ### 性能结论

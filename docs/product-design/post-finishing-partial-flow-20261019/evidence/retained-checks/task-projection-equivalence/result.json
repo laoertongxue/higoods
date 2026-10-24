@@ -1,7 +1,0 @@
-{
-  "equal": true,
-  "stages": 11,
-  "bytes": 1929647,
-  "sha256": "f8a4ae47f5db4b04b6867a79b5cac16f11db9dd96850acf1b051f6bd95787898",
-  "boundary": "11 public-command states, complete task/work-order/point-lookup/full progress equality. Fixed isolated Node clock, no browser persistence/performance claim. Same current SC provider on both sides; hook replaces only before F/V source."
-}
