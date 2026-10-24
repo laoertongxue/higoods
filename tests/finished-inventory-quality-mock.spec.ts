@@ -60,6 +60,7 @@ test('Mock待办从现有节点继续实收、QC、包装、交出、返仓接�
  await inventoryClick(page,'Mock返仓待收记录实收',receiving.getByRole('button'),()=>expect(receiving).toHaveCount(0))
  const putaway=app('待返仓上架'),putawayTransfer=mock.inventory.transfers.find(row=>row.applicationId===putaway.id&&row.category==='正常返仓')!
  await page.goto('/wls/finished/putaway');const shelving=page.locator(`[data-fiq-form="putaway"][data-transfer-id="${putawayTransfer.id}"]`)
+ await expect(shelving).toBeVisible();await expect(shelving.locator('select')).toHaveCount(putawayTransfer.lines.length)
  for(const select of await shelving.locator('select').all())await select.selectOption({index:1})
  await inventoryClick(page,'Mock待上架记录上架',shelving.getByRole('button'),()=>expect(shelving).toHaveCount(0))
  const rework=app('待goto_global返工接收');await page.goto('/fcs/production/inventory-rework-receipts?id='+encodeURIComponent(rework.id));const returning=page.locator('[data-fiq-form="receive-transfer"]')

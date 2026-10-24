@@ -392,6 +392,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   if (pagePath.startsWith('/fcs/quality-management/')) return event ? (await import('./pages/quality-management/index.ts')).handleQualityManagementEvent(event) : false
   if (pagePath === '/fcs/sewing-outsourcing/sample-approval-suggestions') return (await import('./pages/sewing-outsourcing/sample-approval-suggestions.ts')).handleSampleApprovalSuggestionsEvent(eventTarget, event)
   if (pagePath === '/wls/finished/stock/realtime') return (await import('./pages/wls/finished/stock-realtime.ts')).handleStockRealtimeEvent(eventTarget, event)
+  if (pagePath === '/wls/finished/outbound-orders') return (await import('./pages/wls/finished/outbound-orders.ts')).handleFinishedOutboundOrdersEvent(eventTarget, event)
   if (['/fcs/craft/post-finishing/inventory-quality', '/fcs/production/inventory-rework-receipts'].includes(pagePath) || pagePath === '/wls/finished/inventory-quality' || pagePath.startsWith('/wls/finished/inventory-quality/')) return (await import('./pages/wls/finished/inventory-quality.ts')).handleFinishedInventoryQualityEvent(eventTarget, event)
   if (pagePath === '/fcs/progress/material') {
     // This list owns its fields; typing and opening a native select must not

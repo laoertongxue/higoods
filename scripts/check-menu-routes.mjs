@@ -13,6 +13,7 @@ const routeModulePaths = [
   path.join(repoRoot, 'src/router/routes-pcs.ts'),
   path.join(repoRoot, 'src/router/routes-los.ts'),
   path.join(repoRoot, 'src/router/routes-pda.ts'),
+  path.join(repoRoot, 'src/router/routes-central-pda.ts'),
   path.join(repoRoot, 'src/router/routes-pms.ts'),
 ]
 

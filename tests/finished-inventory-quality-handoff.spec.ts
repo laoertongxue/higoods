@@ -74,7 +74,11 @@ for (const withProcessing of [false,true]) test(`真实页面完成成衣仓送�
   initialMockNos.push(...await page.locator('tbody a').filter({hasText:/^INVQC-/}).allTextContents())
   expect(initialMockNos.filter(no=>no!==app.applicationNo).sort()).toEqual(inventoryMock.cases.map(row=>row.applicationNo).sort())
   await page.screenshot({path:info.outputPath('full-mock-baseline-second-page.png'),fullPage:true})
-  await inventoryNavigation(page,'成衣出库列表直达','/wls/finished/outbound-orders',()=>expect(page.getByRole('combobox',{name:'出库类型',exact:true})).toBeVisible())
+  await inventoryNavigation(page,'成衣出库列表直达','/wls/finished/outbound-orders',async()=>{
+    await expect(page.getByRole('combobox',{name:'出库类型',exact:true})).toBeVisible()
+    await expect(page.getByText('正在读取已保存的出库单',{exact:true})).toHaveCount(0)
+    await expect(page.locator('[data-outbound-feedback] [role="alert"]')).toHaveCount(0)
+  })
   await page.getByRole('combobox', { name: '出库类型', exact: true }).selectOption('成衣质检')
   await page.getByRole('textbox',{name:'搜索出库单号 / 关联单号 / 跟踪单号',exact:true}).fill(app.applicationNo)
   await inventoryClick(page,'成衣质检出库筛选',page.getByRole('button',{name:'搜索',exact:true}),()=>expect(page.locator('tbody tr')).toHaveCount(1))

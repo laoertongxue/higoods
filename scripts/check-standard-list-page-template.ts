@@ -1116,9 +1116,10 @@ function assertDefaultPageSize(html: string, message: string): void {
 const supplementStorageKey = 'higood:list-page:/fcs/craft/cutting/supplement-management'
 const defaultSupplementStorage = createMemoryStorageWithSeed()
 const supplementDom = installSupplementBrowser(defaultSupplementStorage)
-// 该DOM/Storage夹具明确使用一个已读的空部位票快照；不模拟未读取成功的库。
+// 该DOM/Storage夹具明确使用已读的空部位票和接收快照；不模拟未读取成功的库。
 // 页面依赖现在会拒绝未初始化的来源，需在导入页面之前完成只读准备。
 await (await import('../src/data/fcs/cutting/part-ticket-records.ts')).hydratePartTicketRecords({ revision: 0, records: [] })
+await (await import('../src/data/fcs/cutting/cutting-pickup-records.ts')).hydrateCuttingPickupRecords({ revision: 0, records: [] })
 const supplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-check')
 const publishedSupplementRecords = supplementPage.bootstrapSupplementManagementMockData()
 supplementPage.renderCraftCuttingSupplementManagementPage()

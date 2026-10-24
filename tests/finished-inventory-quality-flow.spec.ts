@@ -177,8 +177,13 @@ async function assertStockPagesAndChannel(page: Page, app: any, stage: string) {
     expect(Number(match[0].availableStock)).toBe(row.available); expect(Number(match[0].pendingPutawayQuantity)).toBe(row.pending)
   }
   await filterStockPage(page, '/wls/finished/stock/location', '仓位库存查询', 'wls-finished-stock-location', app.styleNo)
-  const location = await readStandardTable(page, 'quantity')
-  for (const row of expected) expect(location.filter(r => r.sku.includes(row.sku) && r.warehouseName === app.warehouseName).reduce((n, r) => n + Number(r.quantity), 0)).toBe(row.physical)
+  let location: Array<Record<string, string>> = []
+  // Applying a query redraws this table asynchronously. Assert its actual
+  // per-SKU physical totals after that redraw, rather than reading the old rows.
+  await expect.poll(async () => {
+    location = await readStandardTable(page, 'quantity')
+    return expected.map((row: any) => location.filter(r => r.sku.includes(row.sku) && r.warehouseName === app.warehouseName).reduce((n, r) => n + Number(r.quantity), 0))
+  }).toEqual(expected.map((row: any) => row.physical))
   await filterStockPage(page, '/wls/online/warehouse-stock', '仓库库存管理', 'wls-online-warehouse-stock', app.styleNo)
   const online = await readStandardTable(page, 'available')
   for (const row of expected) {

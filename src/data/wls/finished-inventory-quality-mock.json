@@ -21503,7 +21503,7 @@
       {
         "recordId": "PF-PC-MOCK-PROCESS:PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002:熨烫",
         "operationId": "MOCK-PROCESS:PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002:熨烫",
-        "intent": "{\"postTaskId\":\"PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002\",\"processItem\":\"熨烫\",\"quantities\":[{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_001\",\"quantity\":50},{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_002\",\"quantity\":50}],\"responsible\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"actor\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"}}",
+        "intent": "{\"postTaskId\":\"PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002\",\"processItem\":\"熨烫\",\"quantities\":[{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_001\",\"quantity\":50},{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_002\",\"quantity\":50}],\"responsible\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"actor\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"unprocessedReason\":\"\"}",
         "postTaskId": "PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002",
         "processItem": "熨烫",
         "quantities": [
@@ -21531,7 +21531,7 @@
       {
         "recordId": "PF-PC-MOCK-PROCESS:PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002:包装",
         "operationId": "MOCK-PROCESS:PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002:包装",
-        "intent": "{\"postTaskId\":\"PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002\",\"processItem\":\"包装\",\"quantities\":[{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_001\",\"quantity\":50},{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_002\",\"quantity\":50}],\"responsible\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"actor\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"}}",
+        "intent": "{\"postTaskId\":\"PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002\",\"processItem\":\"包装\",\"quantities\":[{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_001\",\"quantity\":50},{\"skuId\":\"skuSeed_style_demand_PRJ_202603_002_002\",\"quantity\":50}],\"responsible\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"actor\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"unprocessedReason\":\"\"}",
         "postTaskId": "PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00002",
         "processItem": "包装",
         "quantities": [
@@ -21559,7 +21559,7 @@
       {
         "recordId": "PF-PC-MOCK-PROCESS:PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00007:熨烫",
         "operationId": "MOCK-PROCESS:PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00007:熨烫",
-        "intent": "{\"postTaskId\":\"PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00007\",\"processItem\":\"熨烫\",\"quantities\":[{\"skuId\":\"skuSeed_style_demand_PRJ_202603_004_001\",\"quantity\":46},{\"skuId\":\"skuSeed_style_demand_PRJ_202603_004_002\",\"quantity\":50}],\"responsible\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"actor\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"}}",
+        "intent": "{\"postTaskId\":\"PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00007\",\"processItem\":\"熨烫\",\"quantities\":[{\"skuId\":\"skuSeed_style_demand_PRJ_202603_004_001\",\"quantity\":46},{\"skuId\":\"skuSeed_style_demand_PRJ_202603_004_002\",\"quantity\":50}],\"responsible\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"actor\":{\"actorId\":\"PF-USER-POST\",\"actorName\":\"周后道操作员\",\"roleName\":\"后道操作员\"},\"unprocessedReason\":\"\"}",
         "postTaskId": "PF-POST-INV-FI-APP-MOCK-INVQC-20261024-00007",
         "processItem": "熨烫",
         "quantities": [

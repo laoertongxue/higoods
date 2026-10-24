@@ -333,6 +333,7 @@ export async function resolvePage(pathname: string): Promise<string> {
   }
   // The inventory entry owns its prepared source; loading the complete WLS registry here also loads unrelated dyeing/receiving pages.
   if (normalizedPathname === '/wls/finished/stock/realtime') return (await import('../pages/wls/finished/stock-realtime.ts')).renderFinishedStockRealtime()
+  if (normalizedPathname === '/wls/finished/outbound-orders') return (await import('../pages/wls/finished/outbound-orders.ts')).renderFinishedOutboundOrders()
   if (normalizedPathname === '/wls/finished/inventory-quality' || normalizedPathname.startsWith('/wls/finished/inventory-quality/')) {
     return (await import('../pages/wls/finished/inventory-quality.ts')).renderFinishedInventoryQuality()
   }
