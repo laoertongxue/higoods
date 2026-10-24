@@ -203,6 +203,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pcs-feedback-comments', title: '评论明细', icon: 'MessageSquare', href: '/pcs/product-feedback/comments' },
             { key: 'pcs-feedback-products', title: '商品评价汇总', icon: 'BadgeCheck', href: '/pcs/product-feedback/products' },
             { key: 'pcs-feedback-analysis', title: '反馈分析', icon: 'ChartBar', href: '/pcs/product-feedback/analysis' },
+            { key: 'pcs-feedback-issues', title: '问题跟进', icon: 'ClipboardCheck', href: '/pcs/product-feedback/issues' },
           ],
         },
         {

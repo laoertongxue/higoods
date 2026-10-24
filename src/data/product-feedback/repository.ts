@@ -4,12 +4,13 @@ import { getChannelListing, listChannelVariants } from '../pcs-channel-catalog.t
 import { getSkuArchiveById } from '../pcs-sku-archive-repository.ts'
 import { applyFeedbackCommand, canonicalFeedbackTime } from './model.ts'
 import { createFeedbackSeed } from './mock.ts'
+import { phase2 } from './phase2-model.ts'
 import type { FeedbackCommand, FeedbackSnapshot } from './types.ts'
 
 export const FEEDBACK_DATABASE_NAME = 'higood-product-feedback-v1'
 const STORE_NAME = 'records'
-type Collection = 'schedules' | 'tasks' | 'executions' | 'batches' | 'comments' | 'metrics' | 'logs' | 'notes' | 'historyDrafts' | 'reviewDrafts'
-const collections: Collection[] = ['schedules', 'tasks', 'executions', 'batches', 'comments', 'metrics', 'logs', 'notes', 'historyDrafts', 'reviewDrafts']
+type Collection = 'translations' | 'suggestions' | 'issues' | 'issueActions' | 'issuePlans' | 'issueJudgments' | 'issueReviews' | 'actionAttachments' | 'schedules' | 'tasks' | 'executions' | 'batches' | 'comments' | 'metrics' | 'logs' | 'notes' | 'historyDrafts' | 'reviewDrafts'
+const collections: Collection[] = ['translations', 'suggestions', 'issues', 'issueActions', 'issuePlans', 'issueJudgments', 'issueReviews', 'actionAttachments', 'schedules', 'tasks', 'executions', 'batches', 'comments', 'metrics', 'logs', 'notes', 'historyDrafts', 'reviewDrafts']
 interface StoredRecord { key: string; collection: Collection | 'meta'; value: unknown }
 let dbPromise: Promise<IDBDatabase> | null = null
 let snapshot: FeedbackSnapshot | null = null
@@ -20,8 +21,27 @@ function database(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('当前浏览器无法读取本地资料。可以查看固定示例，业务操作尚未保存。')); return }
-    const request = indexedDB.open(FEEDBACK_DATABASE_NAME, 1)
-    request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains(STORE_NAME)) request.result.createObjectStore(STORE_NAME, { keyPath: 'key' }) }
+    const request = indexedDB.open(FEEDBACK_DATABASE_NAME, 4)
+    request.onupgradeneeded = event => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'key' })
+      else if (event.oldVersion < 3) request.transaction!.objectStore(STORE_NAME).clear()
+      if (!db.objectStoreNames.contains('attachments')) db.createObjectStore('attachments', { keyPath: 'id' })
+      else if (event.oldVersion < 3) request.transaction!.objectStore('attachments').clear()
+      const records = request.transaction!.objectStore(STORE_NAME)
+      if (event.oldVersion === 3) {
+        // Old Mock review drafts never saved these dates; keep all other records and attachments.
+        const cursor = records.openCursor()
+        cursor.onsuccess = () => {
+          const row = cursor.result
+          if (!row) return
+          const record = row.value as StoredRecord, value = record.value as { draft?: boolean; nextDueDate?: string; targetDate?: string }
+          if (record.collection === 'issueReviews' && value.draft && (value.nextDueDate === undefined || value.targetDate === undefined)) row.delete()
+          row.continue()
+        }
+      }
+      records.put({ key: 'meta:phase2-cutover', collection: 'meta', value: { cutover: 'feedback-phase2-v1.1-review-draft-dates' } })
+    }
     request.onerror = () => reject(request.error || new Error('本地资料打开失败。'))
     request.onblocked = () => reject(new Error('其他标签页仍占用资料，请关闭旧标签页后重新读取。'))
     request.onsuccess = () => { request.result.onversionchange = () => { request.result.close(); dbPromise = null }; resolve(request.result) }
@@ -29,13 +49,14 @@ function database(): Promise<IDBDatabase> {
   return dbPromise
 }
 function project(seed: FeedbackSnapshot, records: StoredRecord[]): FeedbackSnapshot {
-  const result = structuredClone(seed)
+  const result = phase2(structuredClone(seed))
   for (const row of records) {
+    if (row.key === 'meta:phase2-cutover') continue
     if (row.collection === 'meta') { const meta = row.value as Pick<FeedbackSnapshot, 'version' | 'asOf'>; result.version = meta.version; result.asOf = meta.asOf; continue }
     const values = result[row.collection] as Array<{ id: string }>, value = row.value as { id: string }, index = values.findIndex(v => v.id === value.id)
     if (index >= 0) values[index] = structuredClone(value); else values.push(structuredClone(value))
   }
-  return result
+  return phase2(result)
 }
 function read(db: IDBDatabase, seed: FeedbackSnapshot): Promise<FeedbackSnapshot> {
   return new Promise((resolve, reject) => {
@@ -70,19 +91,21 @@ function validateReferences(command: FeedbackCommand, current: FeedbackSnapshot)
     if (a.skuId) { const sku = getSkuArchiveById(a.skuId), variants = listChannelVariants(listing.id).filter(v => v.platformVariantId === comment.raw.platformVariantId), mapping = variants.flatMap(v => [...v.mappingHistory].filter(h => h.effectiveAt <= a.sourceEventAt!).sort((x, y) => y.effectiveAt.localeCompare(x.effectiveAt)).slice(0, 1)).find(h => h.internalSkuId === a.skuId && h.version === a.mappingVersion); if (!sku || sku.styleId !== a.styleId || !mapping) throw new Error('所选购买规格缺少适用于来源事件时间生效区间的映射记录。') }
   }
 }
-export async function runFeedbackCommand(command: FeedbackCommand): Promise<void> {
+export async function runFeedbackCommand(command: FeedbackCommand, files: Array<{ id: string; blob: Blob }> = []): Promise<void> {
   await ensureFeedbackState()
   if (failure) throw new Error(failure)
   const db = await database(), seed = createFeedbackSeed()
   await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite'), store = tx.objectStore(STORE_NAME), request = store.getAll()
+    const tx = db.transaction([STORE_NAME, 'attachments'], 'readwrite'), store = tx.objectStore(STORE_NAME), request = store.getAll()
     let caught: unknown = null
     request.onsuccess = () => {
       try {
         // State, expected versions and operation identity are checked inside the committing transaction.
         const current = project(seed, request.result)
         validateReferences(command, current)
-        const next = applyFeedbackCommand(current, command)
+        const next = phase2(applyFeedbackCommand(current, command))
+        for (const file of files) { const metadata = next.actionAttachments.find(a => a.id === file.id); if (!metadata || metadata.type !== file.blob.type || metadata.size !== file.blob.size) throw new Error('附件与行动引用不一致'); tx.objectStore('attachments').put(file) }
+        if (command.type === 'p2-action' && command.attachments?.some(a => !files.some(f => f.id === a.id))) throw new Error('附件文件尚未准备完成')
         if (command.type === 'ingest-batch' || command.type === 'process-batch') for (const comment of next.comments.filter(c => c.firstBatchId === (command.type === 'ingest-batch' ? command.batch.id : command.batchId) && !c.association.styleId)) {
           const listing = getChannelListing(comment.raw.listingId)
           if (!listing || listing.storeId !== comment.raw.storeId || listing.platformProductId !== comment.raw.platformProductId) throw new Error('评论来源链接尚未与已有渠道商品档案对应，请核对来源。')
@@ -103,3 +126,7 @@ export async function runFeedbackCommand(command: FeedbackCommand): Promise<void
 }
 
 export function resetFeedbackRuntimeForTests(): void { snapshot = null; readiness = null; failure = ''; if (dbPromise) void dbPromise.then(db => db.close()).catch(() => {}); dbPromise = null }
+
+export async function readFeedbackAttachment(id: string): Promise<Blob> {
+  const db = await database(); return new Promise((resolve,reject) => { const tx=db.transaction('attachments','readonly'),request=tx.objectStore('attachments').get(id); let blob:Blob; request.onsuccess=()=>{blob=request.result?.blob};tx.oncomplete=()=>blob?resolve(blob):reject(new Error('附件文件不可读取'));tx.onabort=()=>reject(tx.error);tx.onerror=()=>reject(tx.error) })
+}

@@ -1276,7 +1276,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
     // Feedback pages prepare their own comment and product records. Unrelated
     // production recovery must not block this independent business entry.
-    if (/^\/pcs\/product-feedback(?:\/(?:collection|batches|comments|products|analysis))?\/?$/.test(normalizedPathname)) {
+    if (/^\/pcs\/product-feedback(?:\/(?:collection|batches|comments|products|analysis|issues(?:\/[^/]+)?))?\/?$/.test(normalizedPathname)) {
       previousRenderedPagePathname = normalizedPathname
       return await resolvePage(pathname)
     }

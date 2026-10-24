@@ -51,9 +51,10 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     ['comments', 'Comments', () => import('../pages/product-feedback/comments.ts')],
     ['products', 'Products', () => import('../pages/product-feedback/products.ts')],
     ['analysis', 'Analysis', () => import('../pages/product-feedback/analysis.ts')],
+    ['issues', 'Issues', () => import('../pages/product-feedback/issues.ts')],
   ].map(([slug, name, loader]) => ({
     cacheKey: `pcs-feedback-${slug}`,
-    matches: (pathname: string) => pathname === `/pcs/product-feedback/${slug}`,
+    matches: (pathname: string) => pathname === `/pcs/product-feedback/${slug}` || slug === 'issues' && pathname.startsWith('/pcs/product-feedback/issues/'),
     importModule: loader as () => Promise<HandlerModule>,
     eventExport: `handleFeedback${name}Event`,
     inputExport: `handleFeedback${name}Input`,

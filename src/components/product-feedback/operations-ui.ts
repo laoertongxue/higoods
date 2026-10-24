@@ -47,7 +47,7 @@ export const listState = (): ListState => ({ page: 1, sort: null, preferences: n
 const preferenceStorage = { getItem(key: string): string | null { try { return window.localStorage.getItem(key) } catch { return null } }, setItem(key: string, value: string): void { try { window.localStorage.setItem(key, value) } catch { /* 有界列偏好失败不影响业务事实。 */ } }, removeItem(key: string): void { try { window.localStorage.removeItem(key) } catch { /* 仍使用当前会话的默认偏好。 */ } } }
 export function preferences<T>(state: ListState, prefix: string, columns: StandardListColumn<T>[]): StandardListColumnPreferences {
   const defaults = { order: columns.map(c => c.key), visibleKeys: columns.filter(c => !c.key.startsWith('extra-')).map(c => c.key), frozenKeys: columns.filter(c => c.freezeable).slice(0, 2).map(c => c.key), pageSize: 20 }
-  if (!state.preferences) state.preferences = loadListColumnPreferences(preferenceStorage, `higood-${prefix}-columns-v1`, columns, defaults, [20, 50, 100])
+  if (!state.preferences) state.preferences = loadListColumnPreferences(preferenceStorage, `higood-${prefix}-columns-v1`, columns, defaults, [10, 20])
   return state.preferences
 }
 function prepareOperationsList<T>(state: ListState, preferencePrefix: string, columns: StandardListColumn<T>[], rows: T[]) {
@@ -61,7 +61,7 @@ export function renderOperationsTable<T>(state: ListState, preferencePrefix: str
 }
 export function renderOperationsPagination<T>(state: ListState, preferencePrefix: string, columns: StandardListColumn<T>[], rows: T[], eventPrefix = preferencePrefix): string {
   const { page } = prepareOperationsList(state, preferencePrefix, columns, rows)
-  return renderTablePagination({ ...page, actionPrefix: eventPrefix, pageSizeOptions: [20, 50, 100], skipPageRerender: true })
+  return renderTablePagination({ ...page, actionPrefix: eventPrefix, pageSizeOptions: [10, 20], skipPageRerender: true })
 }
 export function columnDialog<T>(state: ListState, prefix: string, columns: StandardListColumn<T>[]): string {
   const prefs = preferences(state, prefix, columns)
@@ -70,7 +70,7 @@ export function columnDialog<T>(state: ListState, prefix: string, columns: Stand
   return renderStandardListColumnSettings({ title: '列设置', columns, preferences: prefs, eventPrefix: prefix, maxFrozenWidth: 460, skipPageRerender: true }).replace('<div class="fixed inset-0 z-50">', '<div class="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="列设置" tabindex="-1">').replace('<div class="p-6">', `<div class="p-6">${moves}`)
 }
 export function listAction<T>(node: HTMLElement, action: string, state: ListState, prefix: string, columns: StandardListColumn<T>[]): boolean {
-  const prefs = preferences(state, prefix, columns), persist = () => { state.preferences = normalizeListColumnPreferences(columns, prefs, [20, 50, 100]); saveListColumnPreferences(preferenceStorage, `higood-${prefix}-columns-v1`, state.preferences) }
+  const prefs = preferences(state, prefix, columns), persist = () => { state.preferences = normalizeListColumnPreferences(columns, prefs, [10, 20]); saveListColumnPreferences(preferenceStorage, `higood-${prefix}-columns-v1`, state.preferences) }
   if (action === 'sort-column') { const key = node.dataset.columnKey || ''; state.sort = state.sort?.key !== key ? { key, direction: 'asc' } : state.sort.direction === 'asc' ? { key, direction: 'desc' } : null; state.page = 1; return true }
   if (action === 'prev-page' || action === 'next-page') { state.page = Math.max(1, state.page + (action === 'next-page' ? 1 : -1)); return true }
   if (action === 'restore-column-settings') { state.preferences = null; preferenceStorage.removeItem(`higood-${prefix}-columns-v1`); state.sort = null; return true }
@@ -83,7 +83,7 @@ export function listAction<T>(node: HTMLElement, action: string, state: ListStat
   else return false
   persist(); return true
 }
-export function pageSize<T>(state: ListState, prefix: string, columns: StandardListColumn<T>[], value: string): void { const prefs = preferences(state, prefix, columns); prefs.pageSize = [20, 50, 100].includes(Number(value)) ? Number(value) : 20; state.page = 1; saveListColumnPreferences(preferenceStorage, `higood-${prefix}-columns-v1`, prefs) }
+export function pageSize<T>(state: ListState, prefix: string, columns: StandardListColumn<T>[], value: string): void { const prefs = preferences(state, prefix, columns); prefs.pageSize = [10, 20].includes(Number(value)) ? Number(value) : 20; state.page = 1; saveListColumnPreferences(preferenceStorage, `higood-${prefix}-columns-v1`, prefs) }
 export function drawer(prefix: string, title: string, content: string, footer = ''): string { return `<div class="fixed inset-0 z-50 flex justify-end bg-slate-950/35"><button class="absolute inset-0" aria-label="关闭详情" data-${prefix}-action="close-dialog" data-skip-page-rerender="true"></button><section role="dialog" aria-modal="true" aria-label="${h(title)}" tabindex="-1" class="relative flex h-full w-full max-w-[840px] flex-col bg-background shadow-xl"><header class="flex shrink-0 items-center justify-between gap-3 border-b p-4"><h2 class="text-lg font-semibold">${h(title)}</h2>${button(prefix, 'close-dialog', '关闭')}</header><div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">${content}</div>${footer ? `<footer class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t bg-background p-4">${footer}</footer>` : ''}</section></div>` }
 const focusReturn = new Map<string, HTMLElement | null>()
 export function replaceOverlay(prefix: string, html: string, busy = false): void {

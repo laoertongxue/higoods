@@ -1,3 +1,4 @@
+import { applyPhase2Command } from './phase2-model.ts'
 import { FEEDBACK_RULE_VERSION, FEEDBACK_THEMES, FEEDBACK_VALUES, type FeedbackBatch, type FeedbackClassification, type FeedbackCommand, type FeedbackComment, type FeedbackCommentFilter, type FeedbackCounts, type FeedbackExecution, type FeedbackPersonnel, type FeedbackRange, type FeedbackRawReview, type FeedbackSchedule, type FeedbackSnapshot, type FeedbackSourceRow, type FeedbackSummary, type FeedbackTask, type FeedbackTaskAssessment } from './types.ts'
 
 export function canonicalFeedbackTime(value: string): string { if (!validDate(value.slice(0, 10)) || !/(Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('时间必须包含有效日期、时间与时区。'); return new Date(value).toISOString() }
@@ -55,13 +56,13 @@ function covers(target: FeedbackRange, ranges: FeedbackRange[]): boolean {
   for (const range of [...ranges].sort((a, b) => a.start.localeCompare(b.start))) { if (range.start > cursor) break; if (range.end > cursor) cursor = range.end; if (cursor >= target.end) return true }
   return false
 }
-function executionRanges(execution: FeedbackExecution): FeedbackRange[] {
+export function executionRanges(execution: FeedbackExecution): FeedbackRange[] {
   let ranges = [execution.coverage.range]
   for (const gap of execution.coverage.missingRanges) ranges = ranges.flatMap(range => !overlap(range, gap) ? [range] : [range.start < gap.start ? { start: range.start, end: gap.start } : null, gap.end < range.end ? { start: gap.end, end: range.end } : null].filter((x): x is FeedbackRange => !!x))
   return ranges
 }
 function validExecution(execution: FeedbackExecution): boolean { const c = execution.coverage; return execution.status === '结束' && !!execution.endedAt && execution.startedAt <= execution.endedAt && c.range.start < c.range.end && c.verified && c.allRatings && c.includesRatingOnly && c.includesWithoutImages && !!c.endReason.trim() && !!c.evidence.trim() }
-function usableCoverage(execution: FeedbackExecution): boolean { return validExecution(execution) || execution.status === '失败' && execution.coverage.missingRanges.length > 0 && validExecution({ ...execution, status: '结束' }) }
+export function usableCoverage(execution: FeedbackExecution): boolean { return validExecution(execution) || execution.status === '失败' && execution.coverage.missingRanges.length > 0 && validExecution({ ...execution, status: '结束' }) }
 function coverageSatisfied(task: FeedbackTask, executions: FeedbackExecution[]): boolean {
   const fullStore = executions.filter(e => e.coverage.scope === '全店评价入口' && e.coverage.missingListingIds.length === 0)
   if (covers(task.target, fullStore.flatMap(executionRanges))) return true
@@ -250,7 +251,8 @@ export function applyFeedbackCommand(previous: FeedbackSnapshot, command: Feedba
   if (previousOperation) { if (previousOperation.payloadDigest && previousOperation.payloadDigest !== commandDigest) throw new Error('同一操作编号不能提交不同内容，请重新发起操作。'); return snapshot }
   let objectId = '', detail = ''
   const commentFor = (id: string, version: number) => { const c = snapshot.comments.find(c => c.id === id); if (!c) throw new Error('评论不存在，请重新读取。'); if (c.version !== version) throw new Error('评论已被其他操作更新，输入已保留，请重新读取。'); return c }
-  if (command.type === 'save-review-draft') {
+  if (command.type.startsWith('p2-')) { const result = applyPhase2Command(snapshot, command, actor, at); objectId = result.objectId; detail = result.detail }
+  else if (command.type === 'save-review-draft') {
     const d = command.draft, prior = snapshot.reviewDrafts.find(x => x.id === d.id)
     if ((prior?.version || 0) !== command.expectedVersion) throw new Error('核查工作草稿已变化，请重新读取。')
     if (d.kind === 'coverage' ? !snapshot.executions.some(e => e.id === d.objectId) : !snapshot.tasks.some(t => t.id === d.objectId)) throw new Error('工作草稿对应任务或执行不存在。')
@@ -338,7 +340,7 @@ export function applyFeedbackCommand(previous: FeedbackSnapshot, command: Feedba
     e.coverage.verified = false; e.version++; t.version++; objectId = t.id; detail = `新证据要求重新核查：${command.reason}`
   } else if (command.type === 'save-note') {
     if (!command.scope.trim() || !command.content.trim() || !command.commentIds.length || command.commentIds.some(id => !snapshot.comments.some(c => c.id === id))) throw new Error('观察备注须引用当前筛选范围和至少一条存在的评论。')
-    snapshot.notes.push({ id: command.operationId, scope: command.scope, commentIds: [...new Set(command.commentIds)], content: command.content, actor, at }); objectId = command.operationId; detail = command.content
+    snapshot.notes.push({ order: snapshot.version+1, id: command.operationId, scope: command.scope, commentIds: [...new Set(command.commentIds)], content: command.content, actor, at }); objectId = command.operationId; detail = command.content
   } else if (command.type === 'ingest-batch') { ingestFeedbackBatch(snapshot, command.batch, command.execution, at); objectId = command.batch.id; detail = '批次持久保存；实际平台采集在现有工具完成' }
   else if (command.type === 'process-batch') { processFeedbackBatch(snapshot, command, at); objectId = command.batchId; detail = '按原始行推进后处理，原接收事实及历版回执保留' }
   else if (command.type === 'finish-execution') {
@@ -349,6 +351,6 @@ export function applyFeedbackCommand(previous: FeedbackSnapshot, command: Feedba
     Object.assign(execution, ended, { version: execution.version + 1 }); objectId = execution.id; detail = '来源终结清单已封存；全部声明批次持久接收后才能认定完整交付'
   }
   if (command.draftId && ['review-coverage', 'rejudge-task'].includes(command.type)) { const draft = snapshot.reviewDrafts.find(d => d.id === command.draftId); if (draft) { draft.resolved = true; draft.version++; draft.updatedAt = at } }
-  snapshot.logs.push({ id: command.operationId, objectId, action: command.type, detail, actor, at, payloadDigest: commandDigest }); snapshot.version++; snapshot.asOf = maxTime([previous.asOf, snapshot.asOf, at])!
+  snapshot.logs.push({ order: snapshot.version+1, id: command.operationId, objectId, action: command.type, detail, actor, at, payloadDigest: commandDigest }); snapshot.version++; snapshot.asOf = maxTime([previous.asOf, snapshot.asOf, at])!
   return snapshot
 }

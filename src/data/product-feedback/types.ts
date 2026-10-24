@@ -1,3 +1,4 @@
+import type { FeedbackPhase2Collections, FeedbackPhase2Payload } from './phase2-types.ts'
 import type { ChannelCode } from '../pcs-channel-catalog-types.ts'
 
 export const FEEDBACK_OWNER = '小羊.高阳.kiko'
@@ -85,11 +86,11 @@ export interface FeedbackMetric {
   id: string; listingId: string; name: '销量' | '平台累计评论数' | '平台评分'; value: number | null; unit: string
   basis: '累计' | '区间'; range: FeedbackRange | null; asOf: string; source: string
 }
-export interface FeedbackLog { id: string; objectId: string; action: string; detail: string; actor: string; at: string; before?: string; after?: string; payloadDigest?: string }
-export interface FeedbackSnapshot {
+export interface FeedbackLog { order?: number; id: string; objectId: string; action: string; detail: string; actor: string; at: string; before?: string; after?: string; payloadDigest?: string }
+export interface FeedbackSnapshot extends FeedbackPhase2Collections {
   version: number; seedVersion: string; asOf: string; schedules: FeedbackSchedule[]; tasks: FeedbackTask[]
   executions: FeedbackExecution[]; batches: FeedbackBatch[]; comments: FeedbackComment[]; metrics: FeedbackMetric[]
-  logs: FeedbackLog[]; notes: Array<{ id: string; scope: string; commentIds: string[]; content: string; actor: string; at: string }>
+  logs: FeedbackLog[]; notes: Array<{ order?: number; id: string; scope: string; commentIds: string[]; content: string; actor: string; at: string }>
   historyDrafts: FeedbackHistoryDraft[]
   reviewDrafts: FeedbackReviewDraft[]
 }
@@ -119,6 +120,7 @@ export interface FeedbackPersonnel {
 }
 export interface FeedbackCommandBase { operationId: string; actor: string; at?: string; draftId?: string }
 export type FeedbackCommand = FeedbackCommandBase & (
+  | FeedbackPhase2Payload
   | { type: 'save-schedule'; schedule: Omit<FeedbackSchedule, 'version' | 'createdAt' | 'updatedAt' | 'actor'>; expectedVersion: number }
   | { type: 'create-history'; task: Omit<FeedbackTask, 'version' | 'createdAt' | 'scheduleVersion'>; allowOverlap: boolean }
   | { type: 'create-history-plan'; tasks: Array<Omit<FeedbackTask, 'version' | 'createdAt' | 'scheduleVersion'>>; allowOverlap: boolean; draftId?: string }
