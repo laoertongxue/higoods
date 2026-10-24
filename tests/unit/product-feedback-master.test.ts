@@ -11,12 +11,12 @@ const catalog = JSON.parse(baseline['higood-pcs-channel-catalog-v1']) as Channel
 const styles = JSON.parse(baseline['higood-pcs-style-archive-store-v3']).records
 const skus = JSON.parse(baseline['higood-pcs-sku-archive-store-v1']).records
 
-test('A01 商品反馈六页处于系统设置前，不占用商品档案入口', () => {
+test('A01 商品反馈七页处于系统设置前，不占用商品档案入口', () => {
   const items = menusBySystem.pcs.flatMap(group => group.items)
   const feedback = items.findIndex(item => item.key === 'pcs-menu-product-feedback')
   assert.ok(feedback > 0)
   assert.equal(items[feedback + 1].key, 'pcs-menu-settings')
-  assert.deepEqual(items[feedback].children?.map(item => item.title), ['采集工作台', '采集记录', '评论明细', '商品评价汇总', '反馈分析', '问题跟进'])
+  assert.deepEqual(items[feedback].children?.map(item => item.title), ['采集工作台', '采集记录', '评论明细', '商品评价汇总', '反馈分析', '共性问题', '问题跟进'])
 })
 
 test('A45 首批九店唯一身份、code、市场与时区引用共享档案', () => {

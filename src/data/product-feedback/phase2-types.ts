@@ -24,6 +24,7 @@ export interface FeedbackIssue {
 }
 export const FEEDBACK_ACTION_TYPES = ['商品核查', '规格/版型调整', '图片/描述调整', '包装/发货核查', '其他'] as const
 export interface FeedbackIssueAction {
+  experienceRef?: { id:string; revision:number; stamp:string }
   id: string; issueId: string; round: number; version: number; type: typeof FEEDBACK_ACTION_TYPES[number]; content: string; owner: string
   dueDate: string; status: '未开始' | '进行中' | '已完成' | '已取消'; startedAt: string; completedAt: string; result: string
   effect: '无需观察' | '已生效' | '生效时间未确认' | ''; effectiveAt: string; effectEvidence: string; progress: string[]; attachmentIds: string[]

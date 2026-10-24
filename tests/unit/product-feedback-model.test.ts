@@ -21,7 +21,7 @@ function declaredCollection(original: FeedbackExecution, batches: FeedbackBatch[
 
 
 test('mock references all nine agreed stores and every review has a real source display name within two pages', () => {
-  const s = createFeedbackSeed(); assert.equal(s.schedules.length, 9); assert.equal(s.tasks.length, 30); assert.equal(s.comments.length, 33); assert.equal(FEEDBACK_STORE_CODES.length, 9)
+  const s = createFeedbackSeed(); assert.equal(s.schedules.length, 9); assert.equal(s.tasks.length, 30); assert.equal(s.comments.length, 36); assert.equal(FEEDBACK_STORE_CODES.length, 9)
   for (const key of ['schedules', 'tasks', 'comments', 'executions', 'batches'] as const) assert.ok(s[key].length <= 40)
   assert.ok(s.comments.every(c => c.raw.author.trim() && c.association.styleId)); assert.ok(s.tasks.every(t => t.owner === FEEDBACK_OWNER))
   assert.equal(s.tasks.filter(t => t.type === '日常采集' && t.businessDate === '2026-10-23').length, 9)

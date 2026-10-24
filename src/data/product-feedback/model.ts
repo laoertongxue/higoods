@@ -1,4 +1,5 @@
 import { applyPhase2Command } from './phase2-model.ts'
+import { applyPhase3Command, experienceAvailable, experienceStamp } from './phase3-model.ts'
 import { FEEDBACK_RULE_VERSION, FEEDBACK_THEMES, FEEDBACK_VALUES, type FeedbackBatch, type FeedbackClassification, type FeedbackCommand, type FeedbackComment, type FeedbackCommentFilter, type FeedbackCounts, type FeedbackExecution, type FeedbackPersonnel, type FeedbackRange, type FeedbackRawReview, type FeedbackSchedule, type FeedbackSnapshot, type FeedbackSourceRow, type FeedbackSummary, type FeedbackTask, type FeedbackTaskAssessment } from './types.ts'
 
 export function canonicalFeedbackTime(value: string): string { if (!validDate(value.slice(0, 10)) || !/(Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('时间必须包含有效日期、时间与时区。'); return new Date(value).toISOString() }
@@ -251,7 +252,9 @@ export function applyFeedbackCommand(previous: FeedbackSnapshot, command: Feedba
   if (previousOperation) { if (previousOperation.payloadDigest && previousOperation.payloadDigest !== commandDigest) throw new Error('同一操作编号不能提交不同内容，请重新发起操作。'); return snapshot }
   let objectId = '', detail = ''
   const commentFor = (id: string, version: number) => { const c = snapshot.comments.find(c => c.id === id); if (!c) throw new Error('评论不存在，请重新读取。'); if (c.version !== version) throw new Error('评论已被其他操作更新，输入已保留，请重新读取。'); return c }
-  if (command.type.startsWith('p2-')) { const result = applyPhase2Command(snapshot, command, actor, at); objectId = result.objectId; detail = result.detail }
+  if(command.type==='p2-action'&&command.intent==='保存'&&!command.action.version&&command.action.experienceRef){const ref=command.action.experienceRef,e=snapshot.experiences?.find(e=>e.id===ref.id);if(!e||e.revision!==ref.revision||!experienceAvailable(snapshot,e)||experienceStamp(snapshot,e)!==ref.stamp)throw new Error('引用经验修订或来源已变化，请重新核对，行动输入已保留')}
+  if (command.type.startsWith('p3-')) { const result = applyPhase3Command(snapshot, command, actor, at); objectId = result.objectId; detail = result.detail }
+  else if (command.type.startsWith('p2-')) { const result = applyPhase2Command(snapshot, command, actor, at); objectId = result.objectId; detail = result.detail }
   else if (command.type === 'save-review-draft') {
     const d = command.draft, prior = snapshot.reviewDrafts.find(x => x.id === d.id)
     if ((prior?.version || 0) !== command.expectedVersion) throw new Error('核查工作草稿已变化，请重新读取。')

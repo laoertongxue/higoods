@@ -1,4 +1,5 @@
 import { addPhase2Seed } from './phase2-mock.ts'
+import { preparePhase3Seed, addPhase3Seed } from './phase3-mock.ts'
 import { listChannelStores } from '../pcs-channel-store-repository.ts'
 import { getPcsChannelCatalogSnapshot } from '../pcs-channel-catalog.ts'
 import { getStyleArchiveById } from '../pcs-style-archive-repository.ts'
@@ -7,7 +8,7 @@ import { withPcsDemoData } from '../pcs-record-runtime.ts'
 import { batchCounts, buildDailyTasks, dailyWindow, dateShift, feedbackMd5, ingestFeedbackBatch, jakartaInstant, reviewIdentity } from './model.ts'
 import { FEEDBACK_OWNER, type FeedbackBatch, type FeedbackComment, type FeedbackExecution, type FeedbackRawReview, type FeedbackSnapshot, type FeedbackTag } from './types.ts'
 
-export const FEEDBACK_SEED_VERSION = 'feedback-phase2-v1.1-20261024-3'
+export const FEEDBACK_SEED_VERSION = 'feedback-phase3-v1.1-20261024-1'
 export const FEEDBACK_MOCK_DATE = '2026-10-23'
 export const FEEDBACK_STORE_CODES = ['IDLCD3W8X6', 'IDLC2XWXEM', 'IDLCNHWLC3', 'IDLCEXWXE6', 'IDLCLGLL62', 'IDLCWNWW6Q', 'IDLC7U2LWUA', 'IDLC6EW72S', 'IDLCHVWXRR']
 
@@ -86,7 +87,9 @@ function buildFeedbackSeed(): FeedbackSnapshot {
   // The second product metric deliberately distinguishes a real zero in the scenario from unavailable data.
   const secondListing = targetStores[0] && listingFor(targetStores[0].id, true)
   if (secondListing) snapshot.metrics.push({ id: 'feedback-metric-zero', listingId: secondListing.id, name: '销量', value: 0, unit: '件', basis: '区间', range: dailyWindow(date).target, asOf: at, source: '固定 Mock 区间销量快照，非实际销量' })
+  preparePhase3Seed(snapshot)
   addPhase2Seed(snapshot)
+  addPhase3Seed(snapshot)
   return snapshot
 }
 

@@ -28,7 +28,7 @@ function entryHarness(options: { ownReadFails?: boolean } = {}) {
 }
 
 test('feedback routes render their own records when unrelated production reads fail', async () => {
-  for (const path of ['/pcs/product-feedback', ...['collection', 'batches', 'comments', 'products', 'analysis'].map(page => `/pcs/product-feedback/${page}?storeId=ST-FB-001#list`)]) {
+  for (const path of ['/pcs/product-feedback', ...['collection', 'batches', 'comments', 'products', 'analysis', 'issues', 'topics', 'topics/feedback-topic-1', 'topics/experiences', 'topics/experiences/feedback-experience-1'].map(page => `/pcs/product-feedback/${page}?storeId=ST-FB-001#list`)]) {
     const { run, calls } = entryHarness()
     assert.equal(await run(path), '<h1>商品反馈</h1>')
     assert.deepEqual(calls, [`page:${path}`])

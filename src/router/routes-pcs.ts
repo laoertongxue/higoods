@@ -27,6 +27,7 @@ export const routes: RouteRegistry = {
     '/pcs/product-feedback/comments': async () => (await import('../pages/product-feedback/comments.ts')).renderFeedbackCommentsPage(),
     '/pcs/product-feedback/products': async () => (await import('../pages/product-feedback/products.ts')).renderFeedbackProductsPage(),
     '/pcs/product-feedback/issues': async () => (await import('../pages/product-feedback/issues.ts')).renderFeedbackIssuesPage(),
+    '/pcs/product-feedback/topics': async () => (await import('../pages/product-feedback/topics.ts')).renderFeedbackTopicsPage(),
     '/pcs/product-feedback/analysis': async () => (await import('../pages/product-feedback/analysis.ts')).renderFeedbackAnalysisPage(),
     '/pcs/production-preparation/orders': () => renderers.renderPcsEngineeringMasterListPage(),
     '/pcs/production-preparation/design-revision': () => renderers.renderPcsDesignRevisionListPage(),
@@ -96,6 +97,7 @@ export const routes: RouteRegistry = {
     { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)\/edit$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2], m[3]) },
     { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn)\/([^/]+)\/skus\/([^/]+)\/process$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2], m[3], true) },
     { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)$/, render: m => renderers.renderPcsMaterialSkuDetailPage(m[1], m[2], m[3]) },
+    { pattern: /^\/pcs\/product-feedback\/topics(?:\/experiences)?(?:\/[^/]+)?$/, render: async () => (await import('../pages/product-feedback/topics.ts')).renderFeedbackTopicsPage() },
     {
       pattern: /^\/pcs\/product-feedback\/issues\/([^/]+)$/,
       render: async (match) => (await import('../pages/product-feedback/issues.ts')).renderFeedbackIssuesPage(decodeURIComponent(match[1])),

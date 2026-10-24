@@ -1,4 +1,5 @@
 import type { FeedbackPhase2Collections, FeedbackPhase2Payload } from './phase2-types.ts'
+import type { FeedbackPhase3Collections, FeedbackPhase3Payload } from './phase3-types.ts'
 import type { ChannelCode } from '../pcs-channel-catalog-types.ts'
 
 export const FEEDBACK_OWNER = '小羊.高阳.kiko'
@@ -87,7 +88,7 @@ export interface FeedbackMetric {
   basis: '累计' | '区间'; range: FeedbackRange | null; asOf: string; source: string
 }
 export interface FeedbackLog { order?: number; id: string; objectId: string; action: string; detail: string; actor: string; at: string; before?: string; after?: string; payloadDigest?: string }
-export interface FeedbackSnapshot extends FeedbackPhase2Collections {
+export interface FeedbackSnapshot extends FeedbackPhase2Collections, FeedbackPhase3Collections {
   version: number; seedVersion: string; asOf: string; schedules: FeedbackSchedule[]; tasks: FeedbackTask[]
   executions: FeedbackExecution[]; batches: FeedbackBatch[]; comments: FeedbackComment[]; metrics: FeedbackMetric[]
   logs: FeedbackLog[]; notes: Array<{ order?: number; id: string; scope: string; commentIds: string[]; content: string; actor: string; at: string }>
@@ -120,6 +121,7 @@ export interface FeedbackPersonnel {
 }
 export interface FeedbackCommandBase { operationId: string; actor: string; at?: string; draftId?: string }
 export type FeedbackCommand = FeedbackCommandBase & (
+  | FeedbackPhase3Payload
   | FeedbackPhase2Payload
   | { type: 'save-schedule'; schedule: Omit<FeedbackSchedule, 'version' | 'createdAt' | 'updatedAt' | 'actor'>; expectedVersion: number }
   | { type: 'create-history'; task: Omit<FeedbackTask, 'version' | 'createdAt' | 'scheduleVersion'>; allowOverlap: boolean }
