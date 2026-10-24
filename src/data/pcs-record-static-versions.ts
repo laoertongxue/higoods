@@ -9,6 +9,7 @@ const introducedIds = new Set<string>()
 const register = (key: string, group: string, ids: readonly string[]) => {
   ids.forEach(id => introducedIds.add(`${key}/${group}/${encodeURIComponent(id)}`))
 }
+register('higood-pcs-channel-store-v1', 'stores', Array.from({ length: 9 }, (_, index) => `ST-FB-${String(index + 1).padStart(3, '0')}`))
 
 register('higood-pcs-style-archive-store-v3', 'records', [
   'style_r1_wms_tee', 'style_r1_physical_set', 'style_r1_virtual_bundle',
@@ -40,4 +41,6 @@ export function isPcsNewStaticRecord(id: string): boolean {
   if (!id.startsWith('higood-pcs-channel-catalog-v1/')) return false
   return /\/(listings|variants|fieldBaselines)\/channel-listing-wms-demo-[12](?:$|-|%3A)/.test(id)
     || /\/prices\/ST-00[17]%3Asku_r1_wms_tee_black_s%3A/.test(id)
+    || /\/(listings|variants|fieldBaselines)\/channel-listing-feedback-\d+(?:$|-|%3A)/.test(id)
+    || /\/prices\/ST-FB-\d+%3A/.test(id)
 }

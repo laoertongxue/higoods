@@ -85,7 +85,7 @@ function renderMenuItem(item: MenuItem, state: AppState, collapsed: boolean): st
   const activePathname = state.pathname.split('#')[0].split('?')[0] || '/'
   const isActive = item.href === activePathname
   const childActive = item.children?.some((child) => child.href === activePathname) ?? false
-  const expanded = childActive || (state.expandedItems[item.key] ?? false)
+  const expanded = state.expandedItems[item.key] ?? childActive
 
   const baseButtonClass = toClassName(
     'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
@@ -101,6 +101,7 @@ function renderMenuItem(item: MenuItem, state: AppState, collapsed: boolean): st
         title="${collapsed ? escapeHtml(item.title) : ''}"
         data-action="${hasChildren ? 'toggle-menu-item' : 'open-tab'}"
         data-item-key="${item.key}"
+        ${hasChildren ? `aria-expanded="${expanded && !collapsed}"` : ''}
         data-tab-key="${item.key}"
         data-tab-title="${escapeHtml(item.title)}"
         data-tab-href="${item.href ?? ''}"

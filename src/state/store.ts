@@ -862,7 +862,12 @@ class AppStore {
   }
 
   toggleItem(itemKey: string): void {
-    const nextValue = !this.state.expandedItems[itemKey]
+    const item = getCurrentMenus(this.state.pathname)
+      .flatMap((group) => group.items)
+      .find((entry) => entry.key === itemKey)
+    const activePathname = normalizePathname(this.state.pathname)
+    const childActive = item?.children?.some((child) => child.href === activePathname) ?? false
+    const nextValue = !(this.state.expandedItems[itemKey] ?? childActive)
     this.patch({
       expandedItems: {
         ...this.state.expandedItems,

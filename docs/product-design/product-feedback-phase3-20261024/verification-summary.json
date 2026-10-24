@@ -1,0 +1,480 @@
+{
+  "date": "2026-10-24",
+  "branch": "codex/product-feedback-phase3",
+  "base": "297cdf4ffb83a4b174a37221e5aafcc7774d5c6d",
+  "sourceHashes": {
+    "src/components/product-feedback/insights-shared.ts": "defd55c12c01fc50e65fcfacdcbbcd47d3892ad388bb616a5851f26eca995cac",
+    "src/components/product-feedback/phase3-shared.ts": "8304378d0e2af63c2fc44030ab7690f5ba6a970d5fb1230818b26a5c8d5d73e4",
+    "src/data/app-shell-config.ts": "16ce357d73334b9e4635a2985af918b597f28d897f726ef67b95beccea4215c4",
+    "src/data/product-feedback/mock.ts": "3ee39df4b7438784bae0eeb9ce02d0e013ad91a1a9389c1838d2e4d9f1e5cd2a",
+    "src/data/product-feedback/model.ts": "69f13e28c29e40aebe5c6ef4235be0d08855a91581d5ccd3894ccf7af9efcaac",
+    "src/data/product-feedback/phase2-types.ts": "2a207c729932f96eeb46a0a8aa4eb26180bcd7eb41b0d6126013345e54daee5f",
+    "src/data/product-feedback/phase3-mock.ts": "e449bb2fda1b328a6c90378f5cd2a7b4fb6f244d4bea0c3cd01500393aa025e2",
+    "src/data/product-feedback/phase3-model.ts": "9b7ffb2fc5849339072a97985c5a127c98607efde9145acc3b2100b8bcd4f510",
+    "src/data/product-feedback/phase3-rules.ts": "d2f196b52029b749d87031aa8350b72487118cc16d511f84d52dfe9e2219e34c",
+    "src/data/product-feedback/phase3-types.ts": "12054df1894d23d6a5cff439e6ce07f95feac445936479e2c96180ae5f961259",
+    "src/data/product-feedback/repository.ts": "f0090acb3a91f15fa9c48e014835fded617998e34f72e8eb7f27a64889753f2e",
+    "src/data/product-feedback/types.ts": "d5af34447cdc7233022ed25b3d7d84a1a29f686268fa565585da607b3dd3b36e",
+    "src/main-handlers/pcs-handlers.ts": "789d07e7c8285bc7c52d5c695874573862b7b2d18a77b13d478b4ac52c99be57",
+    "src/main.ts": "207ae70cfa8025bdd5ed250be6c745f5d9321f64a6400c60d1c297d4a3a36740",
+    "src/pages/product-feedback/analysis.ts": "af41859d6c2e9e569b780ddcb2665caa920418576df6ba78b411d460c0718893",
+    "src/pages/product-feedback/comments.ts": "acee18c417ea2d1e2c76f67d704b76f7a433e413a3b8f1920f61c233352af604",
+    "src/pages/product-feedback/comparison.ts": "ff168bfe2217f35395b63b3d2cd204243799b1b28e5ed1781e5d25295b061149",
+    "src/pages/product-feedback/detail-analysis.ts": "ff75edf79f47e3bee50495ebbd3a7467cf05249d3dfc158172ff2e37d8981ff0",
+    "src/pages/product-feedback/issues.ts": "ab5c889cfbec816d8f4834fe80428a018285f5d4341861e421df3d6e4f74908e",
+    "src/pages/product-feedback/processing.ts": "72365b6d47113540e451e940069d40755c023213ac0a4942cbe51bc8e93fbd00",
+    "src/pages/product-feedback/products.ts": "4b11e250a8312524233079bb25ac36282a6f8aad7f46c931e6bcfb3bd4b229a5",
+    "src/pages/product-feedback/topics.ts": "21f2bb14117345aad490e9a9d34e4d610afee2e4bfaa60bf830a3d3c96f284c1",
+    "src/router/routes-pcs.ts": "97c63deb9df35e6748a7ef8656d71f3e2b8938f1b35eece3f1310feef1ceca58",
+    "tests/unit/product-feedback-master.test.ts": "9382af2476eb259048eb6a130cbec7f1b8dbd56d50a98c935796715f5fd5bb43",
+    "tests/unit/product-feedback-model.test.ts": "e81e68667968cf96b53c3649bca55ee7504cbbd027dd34a6ff13400855c2d575",
+    "tests/unit/product-feedback-phase2.test.ts": "490a4f8c396e68cd160485e42e7517fc6a01cbcc88068f99423cd7494f4883e5",
+    "tests/unit/product-feedback-phase3.test.ts": "2f70791338581cc576e8bea68947ed6cd35a66a9b6c006877791dd1113c2230b",
+    "tests/unit/product-feedback-route-entry.test.ts": "7909f7ba8ea0991e0365056ae315a8085595a2672f40043245f0d34033572ff7"
+  },
+  "environment": {
+    "url": "http://127.0.0.1:4187",
+    "viewport": "1366×768",
+    "browser": "155.0.8059.85",
+    "timeZone": "Asia/Shanghai",
+    "businessTimeZone": "Asia/Jakarta",
+    "cache": "cold独立浏览器上下文；其余保留缓存",
+    "data": "36条静态评论；操作样本只写当前隔离浏览器记录"
+  },
+  "performance": {
+    "samples": {
+      "cold": [
+        476.60000002384186,
+        410.60000002384186,
+        407.2000000178814,
+        405.39999997615814,
+        411.19999998807907
+      ],
+      "refresh": [
+        381,
+        349.19999998807907,
+        314.30000001192093,
+        365.2000000178814,
+        365.2999999821186
+      ],
+      "topics": [
+        365.40000000596046,
+        347.7000000178814,
+        315.09999999403954,
+        348.80000001192093,
+        298.40000000596046
+      ],
+      "details": [
+        382.5,
+        364.59999999403954,
+        348.5,
+        348.59999999403954,
+        348.7000000178814
+      ],
+      "comparison": [
+        348.7000000178814,
+        348.40000000596046,
+        365.09999999403954,
+        348.69999998807907,
+        365.90000000596046
+      ],
+      "openEditor": [
+        62.599999994039536,
+        32.099999994039536,
+        33,
+        33.19999998807907,
+        32.599999994039536
+      ],
+      "saveDraft": [
+        82.40000000596046,
+        82.60000002384186,
+        81.90000000596046,
+        73.40000000596046,
+        82
+      ],
+      "classifyNext": [
+        121.10000002384186,
+        144,
+        77.69999998807907,
+        99.10000002384186,
+        115.09999999403954
+      ],
+      "export": [
+        116.2000000178814,
+        101.2999999821186,
+        114.5,
+        99.09999999403954,
+        147.2000000178814
+      ],
+      "spaTopics": [
+        115.5,
+        116,
+        99.5,
+        114,
+        114.7999999821186
+      ]
+    },
+    "maximum": {
+      "cold": 476.60000002384186,
+      "refresh": 381,
+      "topics": 365.40000000596046,
+      "details": 382.5,
+      "comparison": 365.90000000596046,
+      "openEditor": 62.599999994039536,
+      "saveDraft": 82.60000002384186,
+      "classifyNext": 144,
+      "export": 147.2000000178814,
+      "spaTopics": 116
+    },
+    "passed": true,
+    "startEnd": "加载从导航起点至目标内容、图片/字体和两次绘制就绪；动作从捕获真实点击至目标绘制；保存含持久回读；导出含下载完成"
+  },
+  "pages": {
+    "results": [
+      {
+        "route": "collection",
+        "width": 1366,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "batches",
+        "width": 1366,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "comments",
+        "width": 1366,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "products",
+        "width": 1366,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "analysis",
+        "width": 1366,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "topics",
+        "width": 1366,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "issues",
+        "width": 1366,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "collection",
+        "width": 1280,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "batches",
+        "width": 1280,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "comments",
+        "width": 1280,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "products",
+        "width": 1280,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "analysis",
+        "width": 1280,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "topics",
+        "width": 1280,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      },
+      {
+        "route": "issues",
+        "width": 1280,
+        "overflow": false,
+        "brokenImages": 0,
+        "table": 1
+      }
+    ],
+    "errors": [],
+    "processingEscape": true,
+    "imageEscape": true,
+    "columnsEscape": true
+  },
+  "storage": {
+    "cutoverVersion": 5,
+    "keysAfterCutover": [
+      "meta:phase2-cutover",
+      "meta:phase3-cutover"
+    ],
+    "sameAfterReload": true,
+    "unrelated": {
+      "key": "keep",
+      "value": "unrelated-retained"
+    },
+    "failedUnchanged": true,
+    "inputRetained": "失败时保留当前输入，恢复后再保存",
+    "recoveredDraft": {
+      "id": "4f403ad5-b7b3-4350-bf11-5563e79c68ec",
+      "commentId": "feedback-comment-mock-5",
+      "stamp": "41d2d616cdb0fe5f87a2c2fbf8330b98",
+      "contentVersion": 1,
+      "classificationId": "p2-fixed-class-5",
+      "ruleVersion": "P3-V1.1",
+      "result": "明确表现",
+      "items": [
+        {
+          "ruleId": "fabric-thin",
+          "evidence": "terlalu tipis",
+          "basis": "原文",
+          "translationId": "",
+          "note": ""
+        },
+        {
+          "ruleId": "photo-diff",
+          "evidence": "tidak seperti foto",
+          "basis": "原文",
+          "translationId": "",
+          "note": ""
+        }
+      ],
+      "note": "失败时保留当前输入，恢复后再保存",
+      "state": "草稿",
+      "revision": 2,
+      "order": 126,
+      "actor": "小羊.高阳.kiko",
+      "at": "2026-10-24T03:14:05.463Z",
+      "reason": ""
+    }
+  },
+  "pagination": {
+    "rows": 16,
+    "scroll": {
+      "left": 800,
+      "client": 1044,
+      "width": 2473
+    },
+    "correct": true,
+    "bodyOverflow": false
+  },
+  "singleMember": {
+    "singleMemberVisible": true,
+    "readback": true
+  },
+  "exports": [
+    {
+      "file": "export-0.csv",
+      "rows": 15,
+      "sha256": "1aaba5f6853404b9f999a7c1e709603cea23b5e89c4e75b0b7f56426e3c396b2"
+    },
+    {
+      "file": "export-1.csv",
+      "rows": 15,
+      "sha256": "1aaba5f6853404b9f999a7c1e709603cea23b5e89c4e75b0b7f56426e3c396b2"
+    },
+    {
+      "file": "export-2.csv",
+      "rows": 15,
+      "sha256": "1aaba5f6853404b9f999a7c1e709603cea23b5e89c4e75b0b7f56426e3c396b2"
+    },
+    {
+      "file": "export-3.csv",
+      "rows": 15,
+      "sha256": "1aaba5f6853404b9f999a7c1e709603cea23b5e89c4e75b0b7f56426e3c396b2"
+    },
+    {
+      "file": "export-4.csv",
+      "rows": 15,
+      "sha256": "1aaba5f6853404b9f999a7c1e709603cea23b5e89c4e75b0b7f56426e3c396b2"
+    }
+  ],
+  "invalidEvidence": [
+    "pages-invalid-assets-building.log（构建资产未就绪，不纳入页面结论）",
+    "performance-final.log（观察器绑定被替换节点，终点无效）",
+    "performance-verified.log（导出按钮选择器歧义；其余有效样本从持久运行对象恢复，原始值见performance-and-pagination.log）",
+    "browser-storage*.log早期中断（开发热更新触发未保存确认，最终隔离重放见storage-final.log）"
+  ],
+  "limits": [
+    "仅单浏览器本地Mock",
+    "不代表真实采集、多人共享或工厂验收",
+    "无对应买家原图不伪造实拍，商品图片使用真实对应档案",
+    "全量类型检查保留19个范围外既有问题，本模块0错误"
+  ],
+  "currentFlows": {
+    "fine": [
+      {
+        "state": "草稿",
+        "revision": 1,
+        "items": 2
+      },
+      {
+        "state": "已确认",
+        "revision": 2,
+        "items": 2
+      }
+    ],
+    "topicLinked": true,
+    "archiveChildrenUnchanged": true,
+    "archiveSnapshot": true,
+    "oldEnabledPreserved": true,
+    "action": [
+      {
+        "state": "未开始",
+        "revision": 2
+      }
+    ],
+    "comparison": {
+      "state": "已保存",
+      "total": 35,
+      "experiences": [
+        {
+          "id": "feedback-experience-1",
+          "revision": 2
+        }
+      ],
+      "usage": 1
+    }
+  },
+  "mainWorkspaceObservation": {
+    "originalCount": 19,
+    "unchanged": 17,
+    "changedDuringTask": [
+      "src/pages/process-factory/post-finishing/qc-workbench.ts",
+      "tests/quality-management-rules.spec.ts"
+    ],
+    "handling": "全部产品写入只在隔离工作树；仅观察到主工作区相关外部变化，未复制、重置或覆盖"
+  },
+  "priorPerformance": {
+    "samples": {
+      "cold": [
+        540,
+        429,
+        466.80000001192093,
+        448.30000001192093,
+        455.19999998807907
+      ],
+      "refresh": [
+        414.90000000596046,
+        398.09999999403954,
+        348.30000001192093,
+        398.59999999403954,
+        398.09999999403954
+      ],
+      "topics": [
+        364.7999999821186,
+        363.7000000178814,
+        366.09999999403954,
+        379.59999999403954,
+        381.69999998807907
+      ],
+      "details": [
+        397.59999999403954,
+        382.10000002384186,
+        398.80000001192093,
+        364.40000000596046,
+        383.09999999403954
+      ],
+      "comparison": [
+        380.2000000178814,
+        480.59999999403954,
+        432.5,
+        413.59999999403954,
+        398.69999998807907
+      ],
+      "openEditor": [
+        60.30000001192093,
+        31.799999982118607,
+        32.599999994039536,
+        33.80000001192093,
+        32.60000002384186
+      ],
+      "saveDraft": [
+        77.80000001192093,
+        82.89999997615814,
+        83.10000002384186,
+        80.7000000178814,
+        81.89999997615814
+      ],
+      "classifyNext": [
+        114.80000001192093,
+        116.09999999403954,
+        114.7000000178814,
+        115.30000001192093,
+        115
+      ],
+      "export": [
+        266,
+        99,
+        99.30000001192093,
+        99.69999998807907,
+        99
+      ],
+      "spaTopics": [
+        80.59999999403954,
+        64.40000000596046,
+        64.5,
+        80.2999999821186,
+        81.69999998807907
+      ]
+    },
+    "maximum": {
+      "cold": 540,
+      "refresh": 414.90000000596046,
+      "topics": 381.69999998807907,
+      "details": 398.80000001192093,
+      "comparison": 480.59999999403954,
+      "openEditor": 60.30000001192093,
+      "saveDraft": 83.10000002384186,
+      "classifyNext": 116.09999999403954,
+      "export": 266,
+      "spaTopics": 81.69999998807907
+    },
+    "passed": true,
+    "startEnd": "加载从导航起点至目标内容、图片/字体和两次绘制就绪；动作从捕获真实点击至目标绘制，保存含持久回读；导出含下载文件完成"
+  },
+  "governance": {
+    "command": "npm run check:list-page-governance -- --scope worktree --paths <23项受管源文件及产品记录>",
+    "passed": true,
+    "log": "governance-delivery.log",
+    "scope": "7个改变的列表页，23项产品源文件，1份产品记录；未纳入无关主工作区变化"
+  },
+  "finalUiReadback": {
+    "evidence": "delivery-pages.log",
+    "comparisonListAndDetail": true,
+    "topicListAndDetail": true
+  }
+}
