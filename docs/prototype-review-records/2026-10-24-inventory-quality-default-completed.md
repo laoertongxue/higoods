@@ -31,7 +31,7 @@
 
 ## 页面证据
 - 版本：上述基准加本次增量的生产构建；http://127.0.0.1:43259；Chromium149，Asia/Jakarta；列表及已完成详情1366×768、待办续办1280×720；index.html SHA256 `1867a114e3ddf97275247627a9e8280079a980f232809333429ef77fdc25d939`。
-- 证据根：`/tmp/higoods-inventory-qc-default-completed-release/`；formal目录15次回放与截图、new-cycle目录2次完整后续流程、runtime-at-formal.json固定1375个文件；原始线上独立回放证据仍保留在inventory-qc-online-full-flow-20261024目录。
+- 证据：`/tmp/higoods-inventory-qc-default-completed-release/`的default-list-13.png、completed-direct-76.png、completed-processing-72.png；formal目录15次回放与截图、new-cycle目录2次完整后续流程、runtime-at-formal.json固定1375个文件；原始线上独立回放证据仍保留在inventory-qc-online-full-flow-20261024目录。
 - 入口：成衣库存质检13条和第二页、两笔已完成详情、后道加工详情、原待办实收/QC/包装/分类交出、预入库、上架、goto_global接收及即时库存。
 
 ## 性能结论
