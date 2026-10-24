@@ -9,12 +9,12 @@ async function saved(page:Page){return page.evaluate(async()=>{
  const request=indexedDB.open('higood-pcs-records'),db=await new Promise<IDBDatabase>((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})
  try{return await new Promise<any[]>((resolve,reject)=>{const read=db.transaction('records').objectStore('records').getAll();read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error)})}finally{db.close()}
 })}
-test('Mock默认11条申请打开即见，两页与状态统计一致，刷新不整包写种子',async({page},info)=>{
+test('Mock默认13条申请打开即见，两页与状态统计一致，刷新不整包写种子',async({page},info)=>{
  await page.setViewportSize({width:1366,height:768})
- await inventoryNavigation(page,'Mock申请列表冷启动',WLS,async()=>{await expect(page.getByRole('heading',{name:'成衣库存质检',exact:true})).toBeVisible();await expect(page.locator('tbody tr')).toHaveCount(10);await expect(page.getByText('申请总数',{exact:true}).locator('..')).toContainText('11')})
+ await inventoryNavigation(page,'Mock申请列表冷启动',WLS,async()=>{await expect(page.getByRole('heading',{name:'成衣库存质检',exact:true})).toBeVisible();await expect(page.locator('tbody tr')).toHaveCount(10);await expect(page.getByText('申请总数',{exact:true}).locator('..')).toContainText('13')})
  expect((await saved(page)).filter(row=>row.id.startsWith('higood-finished-inventory/'))).toHaveLength(0)
  await page.screenshot({path:info.outputPath('mock-default-first-page.png'),fullPage:true})
- await inventoryClick(page,'Mock申请第二页',page.getByRole('button',{name:'下一页',exact:true}),async()=>{await expect(page.locator('tbody tr')).toHaveCount(1);await expect(page.locator('tbody')).toContainText(mock.cases[0].applicationNo)})
+ await inventoryClick(page,'Mock申请第二页',page.getByRole('button',{name:'下一页',exact:true}),async()=>{await expect(page.locator('tbody tr')).toHaveCount(3);await expect(page.locator('tbody')).toContainText(mock.cases[0].applicationNo)})
  await page.screenshot({path:info.outputPath('mock-default-second-page.png'),fullPage:true})
  await page.reload();await expect(page.locator('tbody tr')).toHaveCount(10)
  expect((await saved(page)).filter(row=>row.id.startsWith('higood-finished-inventory/'))).toHaveLength(0)
@@ -22,15 +22,47 @@ test('Mock默认11条申请打开即见，两页与状态统计一致，刷新�
  await saveInventoryTimings(page,info)
 })
 test('Mock出库、质检、加工、分类出货、返仓和返工入口均可直接看到关联数据',async({page},info)=>{
- await page.goto('/wls/finished/outbound-orders');await page.getByRole('combobox',{name:'出库类型',exact:true}).selectOption('成衣质检');await page.getByRole('button',{name:'搜索',exact:true}).click();await expect(page.locator('tbody tr')).toHaveCount(11)
- await page.goto('/fcs/craft/post-finishing/qc-orders?sourceKind=WAREHOUSE_STOCK');await expect(page.locator('tbody tr')).toHaveCount(10);await expect(page.locator('tbody')).toContainText('成衣库存质检')
- await page.goto('/fcs/craft/post-finishing/work-orders?sourceKind=WAREHOUSE_STOCK');await expect(page.locator('tbody tr')).toHaveCount(2)
+ await page.goto('/wls/finished/outbound-orders');await page.getByRole('combobox',{name:'出库类型',exact:true}).selectOption('成衣质检');await page.getByRole('button',{name:'搜索',exact:true}).click();await expect(page.locator('tbody tr')).toHaveCount(13)
+ await page.goto('/fcs/craft/post-finishing/qc-orders?sourceKind=WAREHOUSE_STOCK');await expect(page.locator('tbody tr')).toHaveCount(12);await expect(page.locator('tbody')).toContainText('成衣库存质检')
+ await page.goto('/fcs/craft/post-finishing/work-orders?sourceKind=WAREHOUSE_STOCK');await expect(page.locator('tbody tr')).toHaveCount(3)
  await page.goto('/fcs/craft/post-finishing/outbound-orders?sourceKind=WAREHOUSE_STOCK');const total=mock.inventory.transfers.filter(row=>row.category!=='送后道').length;await expect(page.locator('tbody tr')).toHaveCount(Math.min(20,total));await expect(page.getByText(new RegExp(`共 ${total} 条，当前`))).toBeVisible();await page.getByRole('button',{name:'下一页',exact:true}).click();await expect(page.locator('tbody tr')).toHaveCount(total-20)
  await page.goto('/wls/finished/pre-inbound');await expect(page.locator('[data-fiq-form="receive-transfer"]').first()).toBeVisible()
  await page.goto('/wls/finished/putaway');await expect(page.locator('[data-fiq-form="putaway"]').first()).toBeVisible()
  await page.goto('/fcs/production/inventory-rework-receipts');await expect(page.locator('tbody')).toContainText(app('待goto_global返工接收').applicationNo)
  await page.screenshot({path:info.outputPath('mock-rework-entry.png'),fullPage:true})
  const rows=await saved(page);expect(rows.filter(row=>row.id.startsWith('higood-finished-inventory/'))).toHaveLength(0);expect(rows.filter(row=>!row.deleted&&row.value?.inventoryApplicationId?.startsWith('FI-APP-MOCK-'))).toHaveLength(0)
+})
+
+test('两笔线上完整流程默认直达，质检、加工与三类交接刷新后可读且不写种子',async({page},info)=>{
+ await page.setViewportSize({width:1366,height:768})
+ for(const [number,quantity,normal,processed] of [['INVQC-20261024-222e43126b',80,76,false],['INVQC-20261024-2db1fa26c7',76,72,true]] as const){
+  const sample=mock.inventory.applications.find(row=>row.applicationNo===number)!
+  await inventoryNavigation(page,'已完成样本详情直达',WLS+'?id='+encodeURIComponent(sample.id),async()=>{
+   await expect(page.getByRole('heading',{name:'库存送检流转详情',exact:true})).toBeVisible()
+   await expect(page.getByText('已完成',{exact:true}).first()).toBeVisible()
+   await expect(page.getByText(`原仓实际出库${quantity}件；后道实际接收${quantity}件`,{exact:true})).toBeVisible()
+   await expect(page.getByText(`实检${quantity}件；实检合格${normal}件；未检放行0件；瑕疵2件；返工2件`,{exact:true})).toBeVisible()
+  })
+  await expect(page.locator('[data-fiq-form]')).toHaveCount(0)
+  for(const title of ['正常返仓 → 中央总仓-成衣仓','瑕疵入仓 → 独立瑕疵品仓','返工交接 → goto_global']){
+   const card=page.getByRole('article').filter({has:page.getByRole('heading',{name:title,exact:true})})
+   await expect(card).toContainText('已完成')
+  }
+  await page.getByRole('heading',{name:'正常返仓 → 中央总仓-成衣仓',exact:true}).scrollIntoViewIfNeeded()
+  await page.screenshot({path:info.outputPath(`${processed?'processing':'direct'}-completed.png`),fullPage:true})
+  if(processed){
+   await inventoryClick(page,'已完成样本加工单查看',page.getByRole('link',{name:'查看后道加工单',exact:true}),async()=>{
+    await expect(page.locator('[data-web-post-task]')).toContainText('业务类型：成衣库存质检')
+    await expect(page.getByRole('region',{name:'各加工项进度'})).toContainText(`${normal} / ${normal}`)
+    await expect(page.locator('[data-web-post-task]')).toContainText('后道完成')
+   })
+   await page.screenshot({path:info.outputPath('default-two-steps-completed.png'),fullPage:true})
+  }else await expect(page.getByRole('link',{name:'查看后道加工单',exact:true})).toHaveCount(0)
+  await page.goto(WLS+'?id='+encodeURIComponent(sample.id));await page.reload()
+  await expect(page.getByText('已完成',{exact:true}).first()).toBeVisible()
+ }
+ expect((await saved(page)).filter(row=>row.id.startsWith('higood-finished-inventory/'))).toHaveLength(0)
+ await saveInventoryTimings(page,info)
 })
 test('Mock待办从现有节点继续实收、QC、包装、交出、返仓接收、上架及返工接收，刷新保留',async({page},info)=>{
  test.setTimeout(120000)

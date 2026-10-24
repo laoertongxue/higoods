@@ -11,13 +11,13 @@ import { ensureQualityManagementRecords } from '../src/data/fcs/quality-manageme
 
 // Offline authoring only. The product reads the resulting static records and
 // never runs this script or writes a batch of samples when a page opens.
-const version = '2026-10-24-inventory-quality-mock-v1'
+const version = '2026-10-24-inventory-quality-mock-v2'
 const styleCodes = ['001','002','003','004','005','006','010','011'].map(code => `STYLE-PRJ-202603-${code}`)
 const catalogue = listSkuArchives()
 const seed = createFinishedInventoryBaseSeed()
 seed.applications = []; seed.transfers = []; seed.movements = []; seed.differences = []; seed.scopes = []
 seed.lots = seed.lots.filter(lot => !lot.sourceRef.includes('inventory-quality-mock'))
-const baseIds = new Set(seed.lots.map(lot => lot.id))
+const baseLots = new Map(seed.lots.map(lot => [lot.id,JSON.stringify(lot)]))
 const styles = styleCodes.map(code => {
   const skus = catalogue.filter(sku => sku.styleCode === code && sku.skuImageUrl.startsWith('/materials/pcs-reviewed/')).slice(0,2)
   if (skus.length !== 2) throw new Error(`${code}缺少两条正式SKU与对应图片`)
@@ -36,17 +36,18 @@ flow.registerPostFinishingInventoryQcCompletion(stock.completeFinishedInventoryQ
 flow.registerPostFinishingInventoryPostBridge({progress:stock.updateFinishedInventoryPostProgress,shipped:stock.finishedInventoryPostShippedQuantities})
 const warehouse={actorId:'WEB-ADMIN',actorName:'管理员',roleName:'仓库收货人员'}, qcActor=flow.POST_FINISHING_ACCEPTANCE_ACTORS.qcB, postActor=flow.POST_FINISHING_ACCEPTANCE_ACTORS.postOperator
 let sequence=0, clock=0
-let uuid=0
+let uuid=0, interval=5*60*1000
 const RealDate=Date
 globalThis.Date=new Proxy(RealDate,{construct:(target,args)=>Reflect.construct(target,args.length?args:[clock]),get:(target,key)=>key==='now'?()=>clock:Reflect.get(target,key)})
 Object.defineProperty(crypto,'randomUUID',{configurable:true,value:()=>`00000000-0000-4000-8000-${String(++uuid).padStart(12,'0')}`})
 const cases:Array<{id:string;applicationNo:string;stage:string;styleNo:string;outboundQty:number}> = []
-const iso=()=>new Date(clock).toISOString(), tick=()=>{clock+=5*60*1000;return clock}
+const iso=()=>new Date(clock).toISOString(), tick=()=>{clock+=interval;return clock}
 function receive(application:any, short=0){tick();return stock.receiveFinishedInventoryQualityApplication({applicationId:application.id,actor:postActor,at:iso(),quantities:application.lines.map((line:any,index:number)=>({skuId:line.skuId,quantity:line.outboundQty-(index===0?short:0)}))})}
-function inspect(application:any,processItems:string[],reject=false){
+function inspect(application:any,processItems:string[],reject=false,blackFirst=false){
   let qc=flow.claimPostFinishingQcTask({qcTaskNo:application.qcTaskNo,actor:qcActor,nowMs:tick()})
   let remaining=flow.getPostFinishingQcInspectionSummary(qc.qcTaskId)!.remainingQty
-  flow.submitPostFinishingQcRound({qcTaskId:qc.qcTaskId,actor:qcActor,operationId:`MOCK-ROUND:${application.id}:1`,nowMs:tick(),lines:qc.lines.map((line,index)=>{
+  const lines=blackFirst?[...qc.lines].sort((a,b)=>Number(b.sku.skuCode==='SKU-GC-20001')-Number(a.sku.skuCode==='SKU-GC-20001')):qc.lines
+  flow.submitPostFinishingQcRound({qcTaskId:qc.qcTaskId,actor:qcActor,operationId:`MOCK-ROUND:${application.id}:1`,nowMs:tick(),lines:lines.map((line,index)=>{
     const quantity=Math.min(remaining,line.expectedQty);remaining-=quantity
     return {skuId:line.sku.skuId,passedQty:quantity-(reject&&index===0?4:0),defectQty:reject&&index===0?2:0,returnQty:reject&&index===0?2:0,issues:reject&&index===0?[{itemId:'garment-clean',note:'演示检查结果：2件瑕疵、2件返工；商品识别图不作为缺陷凭证'}]:[]}
   })})
@@ -96,15 +97,35 @@ for(let index=0;index<8;index++){
   if(index===4)continue
   transfer(app,index===5?'ship':index===6?'receive':'putaway',index===7)
 }
+// Rebuild the two public-site walkthroughs as one chronological warehouse
+// history. The second batch consumes the first return: 80 -> 76 -> 72 normal.
+// Keep the visible original numbers; new Mock identities distinguish these
+// reproducible examples from records authored in an independent browser.
+interval=5000
+for(const [operationId,stage,at,processItems] of [
+  ['MOCK-ONLINE-NOPROCESS-b3d3cc91-7167-447d-82ef-01222e43126b','已完成（线上完整流程·不加工）','2026-10-24T08:48:25.678Z',[]],
+  ['MOCK-ONLINE-PROCESS-5d69f7be-03ee-4d2a-9559-432db1fa26c7','已完成（线上完整流程·熨烫包装）','2026-10-24T08:55:44.708Z',['熨烫','包装']],
+] as const){
+  clock=Date.parse(at)
+  const preview=stock.previewFinishedInventoryQuality(FINISHED_INVENTORY_NORMAL_WAREHOUSE.id,'style_r1_wms_tee')
+  let app=stock.createFinishedInventoryQualityApplication({preview,operationId,actor:warehouse,at:iso()})
+  cases.push({id:app.id,applicationNo:app.applicationNo,stage,styleNo:app.styleNo,outboundQty:preview.eligibleQty})
+  app=receive(app);inspect(app,[...processItems],true,true)
+  if(processItems.length)completeProcessing(app)
+  transfer(app,'ship');transfer(app,'receive',true);transfer(app,'putaway',true);transfer(app,'putaway')
+}
 const inventory=captureFinishedInventoryState()
-inventory.lots=inventory.lots.filter(lot=>!baseIds.has(lot.id))
+inventory.lots=inventory.lots.filter(lot=>baseLots.get(lot.id)!==JSON.stringify(lot))
 inventory.exclusions=[]
 const ids=new Set(inventory.applications.map(row=>row.id))
 const rows=projectPostFinishingStaticRecords('flow',row=>row)
 const post={qcTasks:rows.filter(row=>row.collection==='flow/qcTasks'&&ids.has((row.value as any).inventoryApplicationId)).map(row=>row.value),postTasks:rows.filter(row=>row.collection==='flow/postTasks'&&ids.has((row.value as any).inventoryApplicationId)).map(row=>row.value),processCompletions:[] as unknown[],logs:[] as unknown[]}
 const postIds=new Set(post.postTasks.map((task:any)=>task.postTaskId)),qcIds=new Set(post.qcTasks.map((task:any)=>task.qcTaskId))
 post.processCompletions=rows.filter(row=>row.collection==='flow/processCompletions'&&postIds.has((row.value as any).postTaskId)).map(row=>row.value)
-post.logs=listPostFinishingOperationLogs().filter(row=>qcIds.has(row.objectId)||postIds.has(row.objectId)).map((row,index)=>({...row,logId:`PF-INVENTORY-MOCK-LOG-${String(index+1).padStart(3,'0')}`}))
+const priorApplicationIds=new Set(cases.slice(0,11).map(row=>row.id))
+const priorObjectIds=new Set([...post.qcTasks.filter((row:any)=>priorApplicationIds.has(row.inventoryApplicationId)).map((row:any)=>row.qcTaskId),...post.postTasks.filter((row:any)=>priorApplicationIds.has(row.inventoryApplicationId)).map((row:any)=>row.postTaskId)])
+let priorLog=0,onlineLog=0
+post.logs=listPostFinishingOperationLogs().filter(row=>qcIds.has(row.objectId)||postIds.has(row.objectId)).map(row=>({...row,logId:priorObjectIds.has(row.objectId)?`PF-INVENTORY-MOCK-LOG-${String(++priorLog).padStart(3,'0')}`:`PF-INVENTORY-ONLINE-LOG-${String(++onlineLog).padStart(3,'0')}`}))
 const target=new URL('../src/data/wls/finished-inventory-quality-mock.json',import.meta.url)
 const output=JSON.stringify({version,cases,inventory,post},null,2)+'\n'
 if(process.argv.includes('--check'))assert.equal(readFileSync(target,'utf8'),output,'固定Mock必须能由原业务命令完整重建')

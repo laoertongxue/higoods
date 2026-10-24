@@ -53,6 +53,9 @@ export function createFinishedInventoryBaseSeed(): FinishedInventoryState {
 export function createFinishedInventorySeed(): FinishedInventoryState {
   const seed=createFinishedInventoryBaseSeed()
   const examples=structuredClone(inventoryMock.inventory) as unknown as FinishedInventoryState
-  for(const key of ['lots','exclusions','applications','transfers','movements','differences','scopes'] as const)(seed[key] as unknown[]).push(...examples[key])
+  // A completed cycle can consume an original bin. Its current balance replaces
+  // that bin's baseline instead of appending a second copy of the same stock.
+  seed.lots=[...new Map([...seed.lots,...examples.lots].map(lot=>[lot.id,lot])).values()]
+  for(const key of ['exclusions','applications','transfers','movements','differences','scopes'] as const)(seed[key] as unknown[]).push(...examples[key])
   return seed
 }

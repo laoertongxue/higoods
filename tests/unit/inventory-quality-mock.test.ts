@@ -10,13 +10,13 @@ import { getQualityConfiguration } from '../../src/data/fcs/quality-management-r
 
 registerPostFinishingInventoryPostBridge({progress:updateFinishedInventoryPostProgress,shipped:finishedInventoryPostShippedQuantities})
 
-test('默认11条库存质检覆盖两页及各待办，原可送检款保留，三端来源均有对应原单',()=>{
+test('默认13条库存质检覆盖两页及各待办，两笔线上完整流程已并入连续库存',()=>{
  const seed=createFinishedInventorySeed(),qcs=listPostFinishingFullFlowQcTasks(),posts=listPostFinishingFullFlowPostTasks()
- assert.equal(seed.applications.length,11);assert.ok(seed.applications.length<=20)
+ assert.equal(seed.applications.length,13);assert.ok(seed.applications.length<=20)
  const states=seed.applications.map(finishedInventoryApplicationStatus)
  for(const stage of ['待后道实收','待完成QC','待后道加工','待分类交接及上架','已完成'])assert.ok(states.includes(stage),stage)
- assert.equal(states.filter(stage=>stage==='已完成').length,3)
- assert.equal(seed.lots.filter(lot=>lot.styleId==='style_r1_wms_tee'&&lot.quality==='正常').reduce((n,row)=>n+row.quantity,0),100)
+ assert.equal(states.filter(stage=>stage==='已完成').length,5)
+ assert.equal(seed.lots.filter(lot=>lot.styleId==='style_r1_wms_tee'&&lot.quality==='正常').reduce((n,row)=>n+row.quantity,0),92)
  for(const app of seed.applications){
   const outbound=seed.transfers.find(row=>row.id===app.outboundId)!;assert.ok(outbound);assert.equal(outbound.category,'送后道')
   assert.equal(outbound.applicationId,app.id);assert.equal(outbound.lines.reduce((n,row)=>n+row.quantity,0),app.lines.reduce((n,row)=>n+row.outboundQty,0))
@@ -51,10 +51,38 @@ test('Mock身份、对应图片、出库库位、分类去向与实物守恒；�
    else for(const transfer of seed.transfers.filter(row=>row.applicationId===app.id&&row.category!=='送后道'))if(!transfer.receivedAt||transfer.category==='返工交接')total+=transfer.lines.reduce((n,row)=>n+row.quantity,0)
    total+=seed.differences.filter(row=>row.applicationId===app.id).reduce((n,row)=>n-row.quantity,0)
   }
-  assert.equal(total,100,styleId)
+  assert.equal(total,styleId==='style_r1_wms_tee'?105:100,styleId)
  }
  assert.equal(seed.differences.filter(row=>!row.resolvedAt).length,1)
  assert.ok(seed.differences.some(row=>row.resolvedAt&&row.reason&&row.disposition))
  assert.ok(seed.transfers.some(row=>row.category==='正常返仓'&&row.receivedAt&&!row.putawayAt))
  assert.ok(seed.transfers.some(row=>row.category==='返工交接'&&row.shippedAt&&!row.receivedAt))
+})
+
+test('线上不加工80件与加工76件的原单号可直接追溯，第二笔消耗第一笔返仓实物',()=>{
+ const seed=createFinishedInventorySeed(),qcs=listPostFinishingFullFlowQcTasks(),posts=listPostFinishingFullFlowPostTasks()
+ const first=seed.applications.find(row=>row.applicationNo==='INVQC-20261024-222e43126b')!
+ const second=seed.applications.find(row=>row.applicationNo==='INVQC-20261024-2db1fa26c7')!
+ assert.ok(first);assert.ok(second)
+ for(const [app,outbound,normal,processItems] of [[first,80,76,[]],[second,76,72,['熨烫','包装']]] as const){
+  assert.equal(finishedInventoryApplicationStatus(app),'已完成')
+  assert.equal(app.lines.reduce((n,row)=>n+row.outboundQty,0),outbound)
+  assert.equal(app.lines.reduce((n,row)=>n+row.receivedQty!,0),outbound)
+  assert.deepEqual(app.processItems||[],[...processItems])
+  assert.equal(app.qcResults!.reduce((n,row)=>n+row.passedQty,0),normal)
+  assert.equal(app.qcResults!.reduce((n,row)=>n+row.defectQty,0),2)
+  assert.equal(app.qcResults!.reduce((n,row)=>n+row.reworkQty,0),2)
+  const qc=qcs.find(row=>row.qcTaskId===app.qcTaskId)!
+  assert.ok(qc);assert.equal(qc.sourceKind,'WAREHOUSE_STOCK');assert.equal(qc.inspection!.rounds.length,2)
+  const transfers=seed.transfers.filter(row=>row.applicationId===app.id&&row.category!=='送后道')
+  assert.equal(transfers.length,3)
+  for(const row of transfers){assert.ok(row.shippedAt);assert.ok(row.receivedAt);if(row.category!=='返工交接')assert.ok(row.putawayAt)}
+  if(processItems.length){const post=posts.find(row=>row.postTaskId===app.postTaskId)!;assert.ok(post);assert.equal(getPostFinishingProcessProgress(post).lines.reduce((n,row)=>n+row.completedQty,0),normal)}
+  else assert.equal(app.postTaskId,undefined)
+ }
+ assert.ok(Date.parse(first.completedAt!)<Date.parse(second.createdAt))
+ const firstReturn=seed.transfers.find(row=>row.applicationId===first.id&&row.category==='正常返仓')!
+ const lots=new Map(seed.lots.map(row=>[row.id,row]))
+ const reused=second.lines.flatMap(line=>line.allocations).filter(allocation=>lots.get(allocation.lotId)!.sourceRef===firstReturn.id).reduce((n,row)=>n+row.quantity,0)
+ assert.ok(reused>=56,'原仓首笔剩余仅20件，第二笔76件至少56件来自首笔返仓')
 })

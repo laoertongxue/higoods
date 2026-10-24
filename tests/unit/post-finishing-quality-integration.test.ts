@@ -3,13 +3,13 @@ import { beforeEach, test } from 'node:test'
 import * as flow from '../../src/data/fcs/post-finishing-full-flow.ts'
 import { ensureQualityManagementRecords } from '../../src/data/fcs/quality-management-records.ts'
 import { preparePostFinishingInventoryBridge } from '../../src/data/fcs/post-finishing-inventory-bridge.ts'
-import { createFinishedInventorySeed } from '../../src/data/wls/finished-inventory-quality-seed.ts'
+import { createFinishedInventoryBaseSeed } from '../../src/data/wls/finished-inventory-quality-seed.ts'
 import { restoreFinishedInventoryState } from '../../src/data/wls/finished-inventory-records.ts'
 import * as inventory from '../../src/data/wls/finished-inventory-quality.ts'
 const qc={actorId:'QC-INTEGRATION',actorName:'隔离QC办理人',roleName:'QC质检员'}
 const wh={actorId:'WH-INTEGRATION',actorName:'隔离成衣仓办理人',roleName:'仓库收货人员'}
 let seq=0
-beforeEach(async()=>{flow.resetPostFinishingFullFlow();const state=createFinishedInventorySeed();state.exclusions=[];restoreFinishedInventoryState(state);await ensureQualityManagementRecords();await preparePostFinishingInventoryBridge()})
+beforeEach(async()=>{flow.resetPostFinishingFullFlow();const state=createFinishedInventoryBaseSeed();state.exclusions=[];restoreFinishedInventoryState(state);await ensureQualityManagementRecords();await preparePostFinishingInventoryBridge()})
 function linesFor(task:flow.PostFinishingQcTask,passedQty:number,defectQty=0,returnQty=0){
  const summary=flow.getPostFinishingQcInspectionSummary(task.qcTaskId)!,itemId=task.inspection!.snapshot.items[0].id
  let passed=passedQty,defect=defectQty,returned=returnQty
