@@ -238,6 +238,8 @@ const specialCraftMenuExactRoutes = buildSpecialCraftMenuExactRoutes()
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/craft/post-finishing/inventory-quality': async () => (await import('../pages/wls/finished/inventory-quality.ts')).renderFinishedInventoryQualityPage(),
+    '/fcs/production/inventory-rework-receipts': async () => (await import('../pages/wls/finished/inventory-quality.ts')).renderFinishedInventoryQualityPage(),
     '/fcs/craft/printing/qc-orders': () => renderFactoryQcListPage('PRINTING'),
     '/fcs/craft/dyeing/qc-orders': () => renderFactoryQcListPage('DYEING'),
     '/fcs/craft/dyeing/stenter-handfeel/work-orders': () => renderStenterHandfeelListPage(false),

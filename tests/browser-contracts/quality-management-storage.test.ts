@@ -111,7 +111,7 @@ test('类别附加新增项仍被指定款覆盖时，不允许删项或停用�
 
 test('未知条件可保留草稿但不能生效，编辑页明确显示并可移除不支持条件',{timeout:60000},()=>isolated(async page=>{
  const result=await page.evaluate(async()=>{
-  const m=await import('/src/data/fcs/quality-management-records.ts'),db=await import('/src/data/pcs-record-db.ts'),ui=await import('/src/pages/quality-management/index.ts');await m.ensureQualityManagementRecords()
+  const m=await import('/src/data/fcs/quality-management-records.ts'),db=await import('/src/data/pcs-record-db.ts'),ui=await import('/src/pages/quality-management/index.ts');await m.prepareQualityConfigurationSchema();await m.ensureQualityManagementRecords()
   const draft=m.buildQualityConfigurationDraft('ADDITIONAL');if(draft.kind!=='ADDITIONAL')throw Error('kind');draft.applicability.styleIds=['UNKNOWN-ATTRIBUTE'];draft.applicability.attributes=[{key:'hasButton',value:'true'}];draft.items=[{id:'button-check',dimension:'辅料配件',name:'扣子',content:'检查扣子',criterion:'牢固',references:[]}];await m.saveQualityConfigurationDraft(draft)
   const before=JSON.stringify((await db.readPcsRecords([m.QUALITY_CONFIGURATION_NAMESPACE])).records);let error='';try{await m.publishQualityConfiguration(draft.id)}catch(failure){error=String(failure)}
   await ui.prepareQualityManagementPage('/fcs/quality-management/additional-standards/'+draft.id+'/edit');document.body.innerHTML=ui.renderQualityManagementPage('/fcs/quality-management/additional-standards/'+draft.id+'/edit');document.addEventListener('click',event=>void ui.handleQualityManagementEvent(event))

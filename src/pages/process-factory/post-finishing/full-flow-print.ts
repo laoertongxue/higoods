@@ -1,3 +1,4 @@
+import { listFinishedInventoryTransfers, finishedInventoryTransferStatus } from '../../../data/wls/finished-inventory-quality.ts'
 import { postFinishingPrintProgressFields } from '../../../data/fcs/post-finishing-print-progress.ts'
 // @page-pattern: detail
 
@@ -150,14 +151,15 @@ export function renderPostFinishingFullFlowPrintPage(): string {
         '后道加工单流转卡',
         `${task.qcTaskNo} · ${task.productionOrderNo} · ${task.processItems.join('、')}`,
         task.postTaskNo,
-        `/fcs/pda/post-finishing/execute?id=${encodeURIComponent(task.postTaskNo)}`,
+        task.inventoryApplicationId ? `/fcs/craft/post-finishing/work-orders/${encodeURIComponent(task.postTaskId)}` : `/fcs/pda/post-finishing/execute?id=${encodeURIComponent(task.postTaskNo)}`,
         [
-          { label: '送货单 / 质检单', value: `${task.deliveryOrderNo} / ${task.qcTaskNo}` },
-          { label: '生产单 / 第几次回货', value: `${task.productionOrderNo} / 第 ${task.returnIndex} 次` },
+          { label: '业务类型', value: task.inventoryApplicationId ? '成衣库存质检' : '工厂回货质检' },
+          { label: task.inventoryApplicationId ? '送检申请 / 质检单' : '送货单 / 质检单', value: `${task.deliveryOrderNo} / ${task.qcTaskNo}` },
+          ...(task.inventoryApplicationId ? [] : [{ label: '生产单 / 第几次回货', value: `${task.productionOrderNo} / 第 ${task.returnIndex} 次` }]),
           { label: '后道工序', value: task.processItems.join('、') },
           ...postFinishingPrintProgressFields(task.postTaskId),
           { label: '全部后道完成 / 可准备出货', value: `${getPostFinishingProcessProgress(task).totalCompletedQty} / ${getPostFinishingProcessProgress(task).availableForOutboundQty} 件` },
-          { label: '全部出货单', value: listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === task.postTaskId).map(row => `${row.outboundOrderNo}（${row.status}）`).join('、') || '尚未出货' },
+          { label: '全部出货单', value: (task.inventoryApplicationId ? listFinishedInventoryTransfers(task.inventoryApplicationId).filter(row=>row.category!=='送后道').map(row=>`${row.applicationNo} · ${row.category}（${finishedInventoryTransferStatus(row)}）`) : listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === task.postTaskId).map(row => `${row.outboundOrderNo}（${row.status}）`)).join('、') || '尚未出货' },
           { label: '质检交接时间', value: qcTask?.completedAt ? new Date(qcTask.completedAt).toLocaleString('zh-CN') : '—' },
         ],
         task.lines.map((line) => ({ sku: line.sku, qty: line.expectedQty })),

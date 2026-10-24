@@ -391,7 +391,8 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   if (pagePath.startsWith('/fcs/quality-management/')) return event ? (await import('./pages/quality-management/index.ts')).handleQualityManagementEvent(event) : false
   if (pagePath === '/fcs/sewing-outsourcing/sample-approval-suggestions') return (await import('./pages/sewing-outsourcing/sample-approval-suggestions.ts')).handleSampleApprovalSuggestionsEvent(eventTarget, event)
-  if (pagePath === '/wls/finished/inventory-quality' || pagePath.startsWith('/wls/finished/inventory-quality/')) return (await import('./pages/wls/finished/inventory-quality.ts')).handleFinishedInventoryQualityEvent(eventTarget, event)
+  if (pagePath === '/wls/finished/stock/realtime') return (await import('./pages/wls/finished/stock-realtime.ts')).handleStockRealtimeEvent(eventTarget, event)
+  if (['/fcs/craft/post-finishing/inventory-quality', '/fcs/production/inventory-rework-receipts'].includes(pagePath) || pagePath === '/wls/finished/inventory-quality' || pagePath.startsWith('/wls/finished/inventory-quality/')) return (await import('./pages/wls/finished/inventory-quality.ts')).handleFinishedInventoryQualityEvent(eventTarget, event)
   if (pagePath === '/fcs/progress/material') {
     // This list owns its fields; typing and opening a native select must not
     // initialize unrelated factory execution modules or consume native clicks.
@@ -1085,7 +1086,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     previousRenderedPagePathname = normalizedPathname
     return
   }
-  if (isQualityInventoryEntry(normalizedPathname)) {
+  if (isQualityInventoryEntry(normalizedPathname) || ['/fcs/craft/post-finishing/inventory-quality', '/fcs/production/inventory-rework-receipts'].includes(normalizedPathname)) {
     // Inventory queries consume their own facts and canonical product/channel
     // identity. The original joint command prepares finishing before a write.
     await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState([
@@ -1111,6 +1112,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
   let qcReadEntry=false
   let productionPrintSnapshot: import('./data/fcs/cutting/cutting-record-repository.ts').CuttingRecordSnapshot | undefined
   if(postFactReadEntry) {
+    if (['/fcs/craft/post-finishing/qc-orders','/fcs/craft/post-finishing/work-orders','/fcs/craft/post-finishing/outbound-orders'].some(path=>normalizedPathname===path || normalizedPathname.startsWith(path+'/')) || normalizedPathname.startsWith('/fcs/pda/exec/PF-POST-INV-') || normalizedPathname === '/fcs/craft/post-finishing/print' || normalizedPathname.startsWith('/fcs/pda/post-finishing/')) await (await import('./data/fcs/post-finishing-inventory-bridge.ts')).preparePostFinishingInventoryBridge()
     // Fetch the independent repository module early; its hydration still waits
     // for PCS, preserving all original source/read failure gates.
     const postRecordModule = import('./data/fcs/post-finishing-records.ts')
@@ -1165,7 +1167,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
         previousRenderedPagePathname=normalizedPathname
         return
       }
-      if(qcEntry.isPreparedInventoryQcRoute(appStore.getState().pathname)) {
+      if(qcEntry.isPreparedInventoryPostRoute(appStore.getState().pathname)) {
         // Execution and paper preview consume the already-received QC facts.
         // The original QC mutation handler prepares the warehouse participant
         // before any joint completion; viewing does not reread unrelated stock.
@@ -1359,6 +1361,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       return await records.withAccessoryWarehouseRecords(async () => (await import('./pages/sewing-outsourcing/material-handover.ts')).renderSewingMaterialHandoverPage(),
         (await import('./data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing)
     }
+    if (['/fcs/craft/post-finishing/inventory-quality', '/fcs/production/inventory-rework-receipts'].includes(normalizedPathname)) { await preparePageRouteEntry(normalizedPathname); return await resolvePage(pathname) }
     if (normalizedPathname === '/fcs/craft/post-finishing/material-transfers') return await resolvePage(pathname)
     if (normalizedPathname === '/fcs/pda/handover') {
       const pickupVersionId = new URLSearchParams(pathname.split('?')[1] || '').get('sewingPickupVersionId')

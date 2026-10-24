@@ -1,5 +1,5 @@
 // @page-pattern: list
-import { renderFinishedInventoryTasksPanel, handleFinishedInventoryQualityEvent } from './inventory-quality.ts'
+import { handleFinishedInventoryQualityEvent } from './inventory-quality.ts'
 import { escapeHtml as e } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage } from '../../../components/ui/list-page.ts'
@@ -8,6 +8,7 @@ import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColu
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 import { FINISHED_OUTBOUND_SEED, OUTBOUND_STATUSES, emptyFinishedOutboundFilters, filterFinishedOutboundOrders, outboundQuantity, loadFinishedOutboundOrders, saveFinishedOutboundAction, type FinishedOutboundOrder, type FinishedOutboundProduct, type FinishedOutboundFilters, type FinishedOutboundAction } from '../../../data/wls/finished-outbound-orders.ts'
+import { listFinishedInventoryOutboundOrders } from '../../../data/wls/finished-inventory-quality.ts'
 import { createOutboundWaybillPdf } from './outbound-waybill.ts'
 
 const PREFIX = 'wls-outbound-orders'
@@ -30,6 +31,8 @@ const orderUrl = (id: string) => `${PATH}?id=${encodeURIComponent(id)}`
 const rowData = (row: FinishedOutboundOrder) => `data-order-id="${e(row.id)}"`
 const controlClass = 'h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm'
 
+const allOutboundRows = (): FinishedOutboundOrder[] => [...listFinishedInventoryOutboundOrders(), ...state.rows]
+
 function thumbnail(product: FinishedOutboundProduct): string {
   return `<div class="relative h-14 w-14 shrink-0 overflow-hidden rounded border bg-slate-50"><button type="button" class="h-full w-full" data-pda-image-preview-url="${e(product.imageUrl)}" data-pda-image-preview-title="${e(product.sku)}" data-skip-page-rerender="true" aria-label="查看 ${e(product.sku)} 大图"><img src="${e(product.imageUrl)}" alt="${e(product.spu)} ${e(product.sku)} 商品图" class="h-full w-full object-contain" onload="this.parentElement.nextElementSibling.hidden=true" onerror="this.hidden=true;this.parentElement.nextElementSibling.textContent='图片加载失败';this.parentElement.nextElementSibling.hidden=false"></button><span class="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/90 text-center text-[10px] text-slate-500">加载中</span></div>`
 }
@@ -51,7 +54,7 @@ const columns: StandardListColumn<FinishedOutboundOrder>[] = [
   { key: 'orderNos', title: '单号', width: 245, required: true, freezeable: true, render: row => `<div class="space-y-1 text-xs">${copyLine('出库单号', row.outboundOrderNo)}${copyLine('关联单号', row.relatedOrderNo)}${copyLine('跟踪单号', row.trackingNo, row)}<div class="break-all text-slate-500">备注：${e(row.remark || '—')}</div></div>` },
   { key: 'products', title: '商品信息', width: 325, required: true, freezeable: true, render: productsHtml },
   { key: 'warehouse', title: '出库仓库', width: 120, freezeable: true, render: row => `<span class="text-xs">${e(row.warehouse)}(${e(row.warehouse)})</span>` },
-  { key: 'orderType', title: '订单类型', width: 95, freezeable: true, render: row => `<div class="space-y-1 text-xs"><div>${e(row.orderType)}</div><div>${e(row.platform)}</div></div>` },
+  { key: 'orderType', title: '出库类型', width: 95, freezeable: true, render: row => `<div class="space-y-1 text-xs"><div>${e(row.orderType)}</div><div>${e(row.platform)}</div></div>` },
   { key: 'quantity', title: '出库数量', width: 90, align: 'center', render: row => `${outboundQuantity(row)} 件` },
   { key: 'printCount', title: '面单打印次数', width: 110, align: 'center', render: row => String(row.printCount) },
   { key: 'status', title: '状态', width: 90, required: true, render: row => `<span class="whitespace-nowrap rounded px-2 py-1 text-xs ${tones[row.status]}">${e(row.status)}</span>` },
@@ -80,15 +83,15 @@ function select(name: keyof FinishedOutboundFilters, label: string, first: strin
   return `<select class="${controlClass}" aria-label="${label}" data-${PREFIX}-field="${name}" data-skip-page-rerender="true"><option value="">${first}</option>${options.map(([value, text]) => `<option value="${e(value)}" ${state.draft[name] === value ? 'selected' : ''}>${e(text)}</option>`).join('')}</select>`
 }
 function statusTabs(): string {
-  const filtered = filterFinishedOutboundOrders(state.rows, state.filters)
+  const filtered = filterFinishedOutboundOrders(allOutboundRows(), state.filters)
   return `<div class="flex flex-wrap gap-2" data-outbound-status-tabs>${['', ...OUTBOUND_STATUSES].map(status => `<button type="button" class="min-h-8 rounded border px-3 py-1 text-xs ${state.status === status ? 'border-blue-500 bg-blue-500 font-medium text-white' : 'border-blue-200 bg-white text-slate-600 hover:bg-blue-50'}" ${action('status')} data-status="${e(status)}" aria-pressed="${state.status === status}">${status || '全部'} (${status ? filtered.filter(row => row.status === status).length : filtered.length})</button>`).join('')}</div>`
 }
 function filtersHtml(): string {
   const range = (label: string, from: keyof FinishedOutboundFilters, to: keyof FinishedOutboundFilters) => `<div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-xs text-slate-600">${label}</span><div class="flex min-w-0 flex-1 items-center gap-2">${field(from, `${label}开始`, '开始时间')}<span class="text-slate-400">-</span>${field(to, `${label}截止`, '截止时间')}</div></div>`
-  return `<div class="space-y-3 rounded-lg border bg-white p-4"><div class="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-6"><div class="col-span-2">${field('keyword', '搜索出库单号 / 关联单号 / 跟踪单号')}</div>${field('spu', 'SPU搜索')}${field('sku', 'SKU搜索')}${select('warehouse', '出库仓库', '全部仓库', [['A&C WH', 'A&C WH (A&C WH)'], ['F&M WH', 'F&M WH (F&M WH)']])}${select('platform', '平台', '全部平台', [['Tiktok', 'Tiktok'], ['Shopee', 'Shopee']])}${select('hasLabel', '是否已出面单', '是否已出面单', [['yes', '已出面单'], ['no', '未出面单']])}${select('orderType', '订单类型', '全部出库类型', [['现货订单', '现货订单'], ['预售订单', '预售订单']])}${select('pickType', '拣货类型', '全部拣货类型', [['single', '一票一件'], ['multiple', '一票多件']])}${select('kol', 'KOL订单', '全部订单', [['yes', 'KOL订单'], ['no', '非KOL订单']])}${select('stock', '库存状态', '全部库存状态', [['shortage', '缺货'], ['available', '有货']])}<div class="flex gap-2">${select('sortField', '排序字段', '排序字段', [['createdAt', '创建时间'], ['pickedAt', '拣货时间'], ['deadline', '揽收时效'], ['shippedAt', '发货时间']])}${select('sortDirection', '排序方式', '排序方式', [['asc', '升序'], ['desc', '降序']])}</div></div><div class="grid grid-cols-1 gap-3 xl:grid-cols-3">${range('创建时间', 'createdFrom', 'createdTo')}${range('揽收时效', 'deadlineFrom', 'deadlineTo')}${range('发货时间', 'shippedFrom', 'shippedTo')}</div><div class="flex flex-wrap items-center justify-between gap-3"><div data-outbound-tabs>${statusTabs()}</div><div class="flex gap-2"><button type="button" class="h-9 rounded bg-blue-500 px-4 text-sm text-white" ${action('query')}>搜索</button><button type="button" class="h-9 rounded border px-4 text-sm" ${action('reset')}>清除</button></div></div><p hidden class="text-xs text-red-700" data-outbound-filter-error role="alert"></p></div>`
+  return `<div class="space-y-3 rounded-lg border bg-white p-4"><div class="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-6"><div class="col-span-2">${field('keyword', '搜索出库单号 / 关联单号 / 跟踪单号')}</div>${field('spu', 'SPU搜索')}${field('sku', 'SKU搜索')}${select('warehouse', '出库仓库', '全部仓库', [...new Set(allOutboundRows().map(row => row.warehouse))].map(name => [name, name] as const))}${select('platform', '平台', '全部平台', [['Tiktok', 'Tiktok'], ['Shopee', 'Shopee']])}${select('hasLabel', '是否已出面单', '是否已出面单', [['yes', '已出面单'], ['no', '未出面单']])}${select('orderType', '出库类型', '全部出库类型', [['现货订单', '现货订单'], ['预售订单', '预售订单'], ['成衣质检', '成衣质检']])}${select('pickType', '拣货类型', '全部拣货类型', [['single', '一票一件'], ['multiple', '一票多件']])}${select('kol', 'KOL订单', '全部订单', [['yes', 'KOL订单'], ['no', '非KOL订单']])}${select('stock', '库存状态', '全部库存状态', [['shortage', '缺货'], ['available', '有货']])}<div class="flex gap-2">${select('sortField', '排序字段', '排序字段', [['createdAt', '创建时间'], ['pickedAt', '拣货时间'], ['deadline', '揽收时效'], ['shippedAt', '发货时间']])}${select('sortDirection', '排序方式', '排序方式', [['asc', '升序'], ['desc', '降序']])}</div></div><div class="grid grid-cols-1 gap-3 xl:grid-cols-3">${range('创建时间', 'createdFrom', 'createdTo')}${range('揽收时效', 'deadlineFrom', 'deadlineTo')}${range('发货时间', 'shippedFrom', 'shippedTo')}</div><div class="flex flex-wrap items-center justify-between gap-3"><div data-outbound-tabs>${statusTabs()}</div><div class="flex gap-2"><button type="button" class="h-9 rounded bg-blue-500 px-4 text-sm text-white" ${action('query')}>搜索</button><button type="button" class="h-9 rounded border px-4 text-sm" ${action('reset')}>清除</button></div></div><p hidden class="text-xs text-red-700" data-outbound-filter-error role="alert"></p></div>`
 }
 function rowsForPage() {
-  const page = paginateStandardListRows(filterFinishedOutboundOrders(state.rows, state.filters, state.status), state.currentPage, preferences().pageSize)
+  const page = paginateStandardListRows(filterFinishedOutboundOrders(allOutboundRows(), state.filters, state.status), state.currentPage, preferences().pageSize)
   state.currentPage = page.currentPage
   return page
 }
@@ -111,7 +114,7 @@ function feedbackHtml(): string {
 function detailOrder(): FinishedOutboundOrder | undefined {
   if (typeof window === 'undefined') return undefined
   const id = new URLSearchParams(window.location.search).get('id')
-  return id ? state.rows.find(row => row.id === id) : undefined
+  return id ? allOutboundRows().find(row => row.id === id) : undefined
 }
 function detailPanel(row: FinishedOutboundOrder): string {
   if (state.detailTab === 'logs') return row.logs.length ? `<div class="space-y-2">${row.logs.map(log => `<div class="rounded border p-3 text-sm"><div>${e(log.at)} · ${e(log.action)} · ${e(log.operator)}</div><p class="mt-1 text-xs text-slate-500">${e(log.remark)}</p></div>`).join('')}</div>` : '<p class="p-6 text-center text-sm text-slate-500">暂无日志</p>'
@@ -120,14 +123,14 @@ function detailPanel(row: FinishedOutboundOrder): string {
 function detailHtml(): string {
   const row = detailOrder()
   if (!row) return `<section class="space-y-3 p-4"><h1 class="text-xl font-semibold">出库单详情</h1>${feedbackHtml()}<p>未找到该出库单</p><a href="${PATH}" data-nav="${PATH}" class="text-blue-700">返回出库单列表</a></section>`
-  const info = [['出库单号', row.outboundOrderNo], ['拣货单号', row.pickOrderNo], ['关联单号', row.relatedOrderNo], ['平台单号', row.relatedOrderNo], ['跟踪单号', row.trackingNo], ['出库仓库', row.warehouse], ['出库类型', row.orderType], ['状态', row.status], ['收货单位', '—'], ['出库数量', `${outboundQuantity(row)} 件`], ['收货人', '—'], ['联系电话', '—'], ['收货地址', '—'], ['创建时间', row.createdAt], ['更新时间', row.updatedAt], ['取消时间', row.cancelledAt || '—'], ['面单下载', row.labelDownloadedAt || '—'], ['备注', row.remark]]
-  return `<section class="space-y-4 p-4"><header class="flex flex-wrap items-center justify-between gap-3"><h1 class="text-xl font-semibold">出库单详情</h1><a href="${PATH}" data-nav="${PATH}" class="rounded border bg-white px-3 py-2 text-sm">返回出库单列表</a></header>${feedbackHtml()}<section class="rounded-lg border bg-white p-4"><h2 class="mb-4 font-semibold">基础信息</h2><dl class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">${info.map(([label, value]) => `<div class="min-w-0 text-sm"><dt class="mb-1 text-xs text-slate-500">${label}</dt><dd class="break-all">${label === '面单下载' && row.labelDownloadedAt ? `<button type="button" class="text-blue-700 underline" ${action('download-file')} ${rowData(row)}>下载面单</button><span class="ml-2 text-xs text-slate-500">${e(value)}</span>` : e(value || '—')}</dd></div>`).join('')}</dl></section><section class="overflow-hidden rounded-lg border bg-white"><div class="flex border-b" role="tablist" aria-label="出库单内容">${[['products', '订单产品'], ['logs', '订单日志']].map(([tab, text]) => `<button type="button" role="tab" aria-selected="${state.detailTab === tab}" class="border-b-2 px-5 py-3 text-sm ${state.detailTab === tab ? 'border-blue-500 text-blue-600' : 'border-transparent'}" ${action('detail-tab')} data-tab="${tab}">${text}</button>`).join('')}</div><div class="p-3" data-outbound-detail-panel role="tabpanel">${detailPanel(row)}</div></section></section>`
+  const info = [['出库单号', row.outboundOrderNo], ['拣货单号', row.pickOrderNo], ['关联单号', row.relatedOrderNo], ['平台单号', row.relatedOrderNo], ['跟踪单号', row.trackingNo], ['出库仓库', row.warehouse], ['出库类型', row.orderType], ['状态', row.status], ['收货单位', row.recipientName || '—'], ['出库人', row.operatorName || '—'], ['出库数量', `${outboundQuantity(row)} 件`], ['收货人', '—'], ['联系电话', '—'], ['收货地址', '—'], ['创建时间', row.createdAt], ['更新时间', row.updatedAt], ['取消时间', row.cancelledAt || '—'], ['面单下载', row.labelDownloadedAt || '—'], ['备注', row.remark]]
+  return `<section class="space-y-4 p-4"><header class="flex flex-wrap items-center justify-between gap-3"><h1 class="text-xl font-semibold">出库单详情</h1><a href="${PATH}" data-nav="${PATH}" class="rounded border bg-white px-3 py-2 text-sm">返回出库单列表</a></header>${feedbackHtml()}${row.inventoryApplicationId ? `<a class="inline-block text-blue-700 underline" href="/wls/finished/inventory-quality?id=${encodeURIComponent(row.inventoryApplicationId)}" data-nav="/wls/finished/inventory-quality?id=${encodeURIComponent(row.inventoryApplicationId)}">查看关联成衣质检流转</a>` : ''}<section class="rounded-lg border bg-white p-4"><h2 class="mb-4 font-semibold">基础信息</h2><dl class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">${info.map(([label, value]) => `<div class="min-w-0 text-sm"><dt class="mb-1 text-xs text-slate-500">${label}</dt><dd class="break-all">${label === '面单下载' && row.labelDownloadedAt ? `<button type="button" class="text-blue-700 underline" ${action('download-file')} ${rowData(row)}>下载面单</button><span class="ml-2 text-xs text-slate-500">${e(value)}</span>` : e(value || '—')}</dd></div>`).join('')}</dl></section><section class="overflow-hidden rounded-lg border bg-white"><div class="flex border-b" role="tablist" aria-label="出库单内容">${[['products', '订单产品'], ['logs', '订单日志']].map(([tab, text]) => `<button type="button" role="tab" aria-selected="${state.detailTab === tab}" class="border-b-2 px-5 py-3 text-sm ${state.detailTab === tab ? 'border-blue-500 text-blue-600' : 'border-transparent'}" ${action('detail-tab')} data-tab="${tab}">${text}</button>`).join('')}</div><div class="p-3" data-outbound-detail-panel role="tabpanel">${detailPanel(row)}</div></section></section>`
 }
 function overlayHtml(): string {
   if (state.showColumns) return renderStandardListColumnSettings({ title: '出库单列设置', columns: visibleColumns(), preferences: preferences(), eventPrefix: PREFIX, maxFrozenWidth: 400, skipPageRerender: true }).replace(/<input\s/g, '<input data-preserve-native-click="true" ')
   const confirmation = state.confirmation
   if (!confirmation) return ''
-  const rows = confirmation.ids.map(id => state.rows.find(row => row.id === id)).filter((row): row is FinishedOutboundOrder => Boolean(row))
+  const rows = confirmation.ids.map(id => allOutboundRows().find(row => row.id === id)).filter((row): row is FinishedOutboundOrder => Boolean(row))
   const cancel = confirmation.action === 'cancel-print'
   return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="${cancel ? '取消打单' : '批量出库'}"><button type="button" class="absolute inset-0 bg-black/45" aria-label="关闭确认" ${action('close-overlay')}></button><section class="relative w-full max-w-lg rounded-lg bg-white p-5 shadow-xl"><h2 class="mb-3 text-lg font-semibold">${cancel ? '取消打单' : '批量出库'}</h2><p class="mb-3 text-sm">${cancel ? '确认取消本单打单，出库单将标记为已取消，停止后续打印和出库。打印次数和操作记录保留。' : `确认将 ${rows.length} 张出库单、共 ${rows.reduce((sum, row) => sum + outboundQuantity(row), 0)} 件登记为已出库。`}</p><ul class="max-h-40 overflow-auto text-xs">${rows.map(row => `<li class="py-1">${e(row.outboundOrderNo)} · ${outboundQuantity(row)} 件</li>`).join('')}</ul>${state.saveError ? `<p class="mt-3 text-sm text-red-700" role="alert">${e(state.saveError)} <button type="button" class="underline" ${action('reload')}>重新读取</button></p>` : ''}<div class="mt-5 flex justify-end gap-2"><button type="button" class="rounded border px-4 py-2 text-sm" ${action('close-overlay')} ${state.busy ? 'disabled' : ''}>返回</button><button type="button" class="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-40" ${action('confirm')} ${state.busy ? 'disabled' : ''}>${state.busy ? '正在保存' : state.saveError ? '重试保存' : cancel ? '确认取消打单' : '确认出库'}</button></div></section></div>`
 }
@@ -192,7 +195,7 @@ export function renderFinishedOutboundOrders(): string {
   const detail = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('id')
   if (!state.loaded && !state.loading && !readScheduled && typeof document !== 'undefined') { readScheduled = true; requestAnimationFrame(readAfterMount) }
   if (detail) return `<div data-${PREFIX}-root data-skip-page-rerender="true"><div data-outbound-content>${detailHtml()}</div><div data-outbound-overlay>${overlayHtml()}</div></div>`
-  return `<div data-${PREFIX}-root data-skip-page-rerender="true"><div data-outbound-content>${renderListWorkspace()}</div>${renderFinishedInventoryTasksPanel('outbound')}<div data-outbound-overlay>${overlayHtml()}</div></div>`
+  return `<div data-${PREFIX}-root data-skip-page-rerender="true"><div data-outbound-content>${renderListWorkspace()}</div><div data-outbound-overlay>${overlayHtml()}</div></div>`
 }
 function applyFilters(): void {
   root()?.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-${PREFIX}-field]`).forEach(input => { const key = input.dataset.wlsOutboundOrdersField as keyof FinishedOutboundFilters; if (key in state.draft) state.draft[key] = input.value })
@@ -213,7 +216,7 @@ function jump(): void {
 function openConfirmation(actionName: FinishedOutboundAction, ids: string[], target: HTMLElement): void {
   if (!ids.length || state.readError || state.loading || !state.loaded) return
   state.focusReturn = target
-  state.confirmation = { action: actionName, ids, operationId: crypto.randomUUID(), versions: Object.fromEntries(ids.map(id => [id, state.rows.find(row => row.id === id)?.version ?? -1])) }
+  state.confirmation = { action: actionName, ids, operationId: crypto.randomUUID(), versions: Object.fromEntries(ids.map(id => [id, allOutboundRows().find(row => row.id === id)?.version ?? -1])) }
   state.saveError = ''; refreshOverlay(); root()?.querySelector<HTMLButtonElement>(`[data-${PREFIX}-action="confirm"]`)?.focus()
 }
 function download(orders: FinishedOutboundOrder[]): void {
@@ -224,11 +227,11 @@ function download(orders: FinishedOutboundOrder[]): void {
 async function perform(actionName: FinishedOutboundAction, ids: string[], printWindow?: Window | null): Promise<void> {
   if (state.busy || state.readError || !state.loaded) { printWindow?.close(); return }
   const confirmation = state.confirmation
-  const versions = confirmation?.versions ?? Object.fromEntries(ids.map(id => [id, state.rows.find(row => row.id === id)?.version ?? -1]))
+  const versions = confirmation?.versions ?? Object.fromEntries(ids.map(id => [id, allOutboundRows().find(row => row.id === id)?.version ?? -1]))
   state.busy = true; state.saveError = ''; refreshOverlay()
   try {
     state.rows = await saveFinishedOutboundAction(ids, versions, actionName, confirmation?.operationId || crypto.randomUUID())
-    const orders = ids.map(id => state.rows.find(row => row.id === id)).filter((row): row is FinishedOutboundOrder => Boolean(row))
+    const orders = ids.map(id => allOutboundRows().find(row => row.id === id)).filter((row): row is FinishedOutboundOrder => Boolean(row))
     if (actionName === 'download-label') download(orders)
     if (actionName === 'print' && printWindow) {
       const url = URL.createObjectURL(new Blob([createOutboundWaybillPdf(orders) as BlobPart], { type: 'application/pdf' })); printWindow.location.href = url; window.setTimeout(() => URL.revokeObjectURL(url), 60000)

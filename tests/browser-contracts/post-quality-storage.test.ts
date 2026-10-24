@@ -1,3 +1,4 @@
+import { useEmptyInventoryQualityFixture } from '../helpers/inventory-quality-empty-fixture.ts'
 import assert from 'node:assert/strict'
 import test, { before, after } from 'node:test'
 import { chromium, type Browser, type Page } from '@playwright/test'
@@ -14,7 +15,7 @@ async function isolated(run: (page: Page) => Promise<void>) {
   page.on('pageerror', error => errors.push(error.message))
   await context.addInitScript(() => { (globalThis as any).__name = (value: unknown) => value })
   await page.route('**' + route, request => request.fulfill({ contentType: 'text/html', body: '<!doctype html><html lang="zh"><meta charset="utf-8"><body></body></html>' }))
-  try { await page.goto(base + route); await run(page); assert.deepEqual(errors, []) }
+  try { await page.goto(base + route); await useEmptyInventoryQualityFixture(page,base); await run(page); assert.deepEqual(errors, []) }
   finally { await context.close() }
 }
 
@@ -305,6 +306,8 @@ test('中心两份原PCS附件详情切换及离开后释放无人引用URL，�
   await db.commitPcsRecords({puts:rows.map((row:any)=>{const id=ns+'/flow/qcTasks/'+encodeURIComponent(row.qcTaskId);return{id,collection:'flow/qcTasks',value:row,expectedVersion:prior.find((item:any)=>item.id===id)?.version||0}}),deletes:[],files:fileIds.map((id,index)=>({id,blob:new Blob([texts[index]],{type:'text/plain'})})),operationId:'isolated-two-fixed-source-attachments',intent:'isolated original PCS documents for readonly lifecycle contract'})
   return {taskIds:rows.map((row:any)=>row.qcTaskId),fileIds,texts}
  })
+ // Complete the existing one-time configuration switch before counting readonly page writes.
+ await page.evaluate(async()=>{await (await import('/src/data/fcs/quality-management-records.ts')).prepareQualityConfigurationSchema()})
  await page.context().addInitScript(()=>{
   const state=(window as any).__sourceUrlLifecycle={events:[] as any[],writes:0},create=URL.createObjectURL,revoke=URL.revokeObjectURL
   URL.createObjectURL=function(blob:Blob){const url=create.call(URL,blob);state.events.push({operation:'create',url,bytes:blob.size});return url}
@@ -326,7 +329,7 @@ test('中心两份原PCS附件详情切换及离开后释放无人引用URL，�
  assert.equal(await page.evaluate(async url=>await (await fetch(url!)).text(),urlB),fixture.texts[1])
  await page.waitForFunction(url=>(window as any).__sourceUrlLifecycle.events.some((row:any)=>row.operation==='revoke'&&row.url===url),urlA)
  await navigate('/fcs/quality-management/basic-standards')
- await page.locator('[data-quality-management-page] tbody').waitFor()
+ await page.getByRole('heading',{name:'基本质检标准',exact:true}).waitFor()
  await page.waitForFunction(url=>(window as any).__sourceUrlLifecycle.events.some((row:any)=>row.operation==='revoke'&&row.url===url),urlB)
  const result=await page.evaluate(async({fileIds,texts})=>{
   const state=(window as any).__sourceUrlLifecycle,db=await import('/src/data/pcs-record-db.ts'),files=await db.readPcsFiles(fileIds)
@@ -352,6 +355,8 @@ test('原稽查冷直达及刷新仅读指定详情，另页原业务升检后�
   if(!audit||audit.status!=='PENDING')throw Error('实际30件检查没有生成预期待稽查')
   return {taskId:task.qcTaskId,taskNo:task.qcTaskNo,auditId:audit.id,actor,path:'/fcs/quality-management/audits/'+encodeURIComponent('PRODUCTION_RETURN|'+task.qcTaskId+'|'+audit.id)}
  })
+ // Complete the existing one-time configuration switch before counting readonly page writes.
+ await page.evaluate(async()=>{await (await import('/src/data/fcs/quality-management-records.ts')).prepareQualityConfigurationSchema()})
  await page.context().addInitScript(()=>{
   ;(window as any).__auditReadonlyWrites=0
   for(const method of ['put','add','delete'] as const){const original=IDBObjectStore.prototype[method];(IDBObjectStore.prototype as any)[method]=function(...args:any[]){(window as any).__auditReadonlyWrites++;return (original as any).apply(this,args)}}
@@ -367,7 +372,7 @@ test('原稽查冷直达及刷新仅读指定详情，另页原业务升检后�
  }finally{await other.close()}
  assert.deepEqual(otherErrors,[])
  const navigate=async(path:string)=>{await page.evaluate(path=>{const link=document.createElement('a');link.href=path;link.dataset.nav=path;link.dataset.auditNavigation='';link.textContent='切换原稽查详情';const app=document.querySelector('#app');if(!app)throw Error('实际主页面缺少#app');app.append(link)},path);await page.locator('[data-audit-navigation]').last().click()}
- await navigate('/fcs/quality-management/basic-standards');await page.locator('[data-quality-management-page] tbody').waitFor()
+ await navigate('/fcs/quality-management/basic-standards');await page.getByRole('heading',{name:'基本质检标准',exact:true}).waitFor()
  await navigate(fixture.path)
  await page.waitForFunction(()=>document.querySelector('[data-quality-management-page]')?.textContent?.includes('另页原业务完成本批升检'))
  const text=await page.locator('[data-quality-management-page]').textContent()||''

@@ -1,3 +1,4 @@
+import { useEmptyInventoryQualityFixture } from './helpers/inventory-quality-empty-fixture.ts'
 import { expect, test, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -6,6 +7,12 @@ import { listSkuArchives } from '../src/data/pcs-sku-archive-repository.ts'
 
 // 每个用例使用Playwright新建的隔离context。WLS主路径通过原页面动作保存；
 // 并发用例通过公开命令制造竞争；QC前置明确为领域夹具，均不冒称QC表单或现场验收。
+async function openFinishingInventoryApplication(page: Page) {
+  const id = new URL(page.url()).searchParams.get('id')
+  if (!id) throw new Error('缺少本次库存送检申请身份')
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(id)}`)
+}
+
 const inventoryPath = '/src/data/wls/finished-inventory-quality.ts'
 const recordsPath = '/src/data/wls/finished-inventory-records.ts'
 async function inventorySnapshot(page: Page) {
@@ -26,7 +33,7 @@ async function openApplicationPreview(page: Page) {
 }
 async function createFromUi(page: Page) {
   await openApplicationPreview(page)
-  await page.locator('[data-fiq-form="apply"] input[name="operator"]').fill('隔离仓管A')
+  await expect(page.locator('[data-fiq-form="apply"] input[name="operator"]')).toHaveCount(0)
   await page.getByRole('button', { name: '确认下架出库 80 件' }).click()
   await expect(page.getByRole('heading', { name: '库存送检流转详情' })).toBeVisible()
 }
@@ -68,14 +75,15 @@ async function completeQcFromDomainFixture(page: Page, app: any) {
       lines: app.lines.map((line: any, index: number) => ({ skuId: line.skuId, passedQty: line.receivedQty - (index === 0 ? 24 : 0), defectQty: 0, returnQty: 0, issues: [] })) }), options)
     await bridge.runPostFinishingCommand(() => bridge.completePostFinishingQcTask({ qcTaskId: app.qcTaskId, actor, processItems: [] }), options)
   }, app)
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(app.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(app.id)}`)
 }
 async function createReceivedApplication(page: Page) {
   await createFromUi(page)
   const app = (await inventorySnapshot(page)).state.applications[0]
+  await openFinishingInventoryApplication(page)
   const form = page.locator('[data-fiq-form="receive"]')
   for (const line of app.lines) await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty))
-  await form.locator('input[name="operator"]').fill('隔离后道接收员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   await form.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   return (await inventorySnapshot(page)).state.applications[0]
@@ -88,22 +96,22 @@ async function createQcCompletedApplication(page: Page) {
   return (await inventorySnapshot(page)).state.applications[0]
 }
 async function shipCategories(page: Page, appId: string) {
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(appId)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(appId)}`)
   const transfers = (await inventorySnapshot(page)).state.transfers.filter((row: any) => row.applicationId === appId && row.category !== '送后道')
   for (const transfer of transfers) {
     const form = page.locator(`[data-fiq-form="ship"][data-transfer-id="${transfer.id}"]`)
-    await form.locator('input[name="operator"]').fill('隔离后道交出员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     await form.getByRole('button', { name: /确认整批交出/ }).click()
     await expect(form).toHaveCount(0)
   }
   return transfers
 }
 async function receiveCategory(page: Page, transfer: any, short = 0) {
-  await page.goto('/wls/finished/pre-inbound')
+  await page.goto(transfer.category === '返工交接' ? `/fcs/production/inventory-rework-receipts?id=${encodeURIComponent(transfer.applicationId)}` : '/wls/finished/pre-inbound')
   const form = page.locator(`[data-fiq-form="receive-transfer"][data-transfer-id="${transfer.id}"]`)
   await expect(form).toBeVisible()
   for (const [index, line] of transfer.lines.entries()) await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.quantity - (index === 0 ? short : 0)))
-  await form.locator('input[name="operator"]').fill(transfer.category === '返工交接' ? 'goto实收员' : '隔离仓收员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   await form.getByRole('button', { name: /整批实收/ }).click()
   await expect(form).toHaveCount(0)
 }
@@ -118,7 +126,7 @@ async function putawayCategory(page: Page, transfer: any) {
     selected.push({ skuId: (await select.getAttribute('data-sku-id'))!, locationCode: locationCode! })
     await select.selectOption(locationCode!)
   }
-  await form.locator('input[name="operator"]').fill('隔离上架员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   await form.getByRole('button', { name: '确认本类实收全部上架' }).click()
   await expect(form).toHaveCount(0)
   const saved = (await inventorySnapshot(page)).state
@@ -217,7 +225,7 @@ test('原库存页面申请：事务失败不扣库不丢输入，重试只保�
   await openApplicationPreview(page)
   const before = await inventorySnapshot(page)
   expect(before.state.applications).toHaveLength(0)
-  await page.locator('[data-fiq-form="apply"] input[name="operator"]').fill('隔离仓管A')
+  await expect(page.locator('[data-fiq-form="apply"] input[name="operator"]')).toHaveCount(0)
   await page.evaluate(() => {
     const put = IDBObjectStore.prototype.put
     ;(window as any).__inventoryOriginalPut = put
@@ -228,7 +236,7 @@ test('原库存页面申请：事务失败不扣库不丢输入，重试只保�
   })
   await page.getByRole('button', { name: '确认下架出库 80 件' }).click()
   await expect(page.locator('[data-fiq-feedback]')).toContainText('空间不足')
-  await expect(page.locator('[data-fiq-form="apply"] input[name="operator"]')).toHaveValue('隔离仓管A')
+  await expect(page.locator('[data-fiq-form="apply"] input[name="operator"]')).toHaveCount(0)
   await page.evaluate(() => { IDBObjectStore.prototype.put = (window as any).__inventoryOriginalPut })
   const failed = await inventorySnapshot(page)
   expect(failed.state).toEqual(before.state)
@@ -252,12 +260,13 @@ test('原库存页面申请：事务失败不扣库不丢输入，重试只保�
 test('后道原入口整批实收79与库存QC共同保存；出80及差异1不被改写', async ({ page }, testInfo) => {
   await createFromUi(page)
   const initial = await inventorySnapshot(page), app = initial.state.applications[0]
+  await openFinishingInventoryApplication(page)
   const form = page.locator('[data-fiq-form="receive"]')
   for (let index = 0; index < app.lines.length; index++) {
     const line = app.lines[index]
     await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty - (index === 0 ? 1 : 0)))
   }
-  await form.locator('input[name="operator"]').fill('隔离后道接收员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   await form.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   const received = await inventorySnapshot(page), saved = received.state.applications[0]
@@ -277,7 +286,7 @@ test('后道原入口整批实收79与库存QC共同保存；出80及差异1不�
   expect(qc.status).not.toBe('质检完成')
   expect(Math.ceil(79 * .3)).toBe(24)
   const qcImages = await assertInventoryQcImages(page, saved)
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(saved.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(saved.id)}`)
   await page.reload()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   await testInfo.attach('inventory-receipt-qc-source', { body: JSON.stringify({ received, qc, qcImages }, null, 2), contentType: 'application/json' })
@@ -317,9 +326,10 @@ test('两个标签以相同仓款资格预览同时申请，仅一次扣库出�
 test('隔离QC完成输入后三去向由原入库及上架页面实办，goto实收结束且正常上架才可售', async ({ page }, testInfo) => {
   await createFromUi(page)
   const created = await inventorySnapshot(page), original = created.state.applications[0]
+  await openFinishingInventoryApplication(page)
   const receiveForm = page.locator('[data-fiq-form="receive"]')
   for (const line of original.lines) await receiveForm.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty))
-  await receiveForm.locator('input[name="operator"]').fill('隔离后道接收员')
+  await expect(receiveForm.locator('input[name="operator"]')).toHaveCount(0)
   await receiveForm.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   await completeQcFromDomainFixture(page, (await inventorySnapshot(page)).state.applications[0])
@@ -329,23 +339,24 @@ test('隔离QC完成输入后三去向由原入库及上架页面实办，goto�
   expect(qcFinished.state.applications[0].completedAt).toBeUndefined()
   for (const transfer of transfers) {
     const form = page.locator(`[data-fiq-form="ship"][data-transfer-id="${transfer.id}"]`)
-    await form.locator('input[name="operator"]').fill('隔离后道交出员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     await form.getByRole('button', { name: /确认整批交出/ }).click()
     await expect(page.locator(`[data-fiq-form="ship"][data-transfer-id="${transfer.id}"]`)).toHaveCount(0)
   }
   await page.goto('/wls/finished/pre-inbound')
   for (const transfer of transfers) {
+    await page.goto(transfer.category === '返工交接' ? `/fcs/production/inventory-rework-receipts?id=${encodeURIComponent(transfer.applicationId)}` : '/wls/finished/pre-inbound');
     const form = page.locator(`[data-fiq-form="receive-transfer"][data-transfer-id="${transfer.id}"]`)
     await expect(form).toBeVisible()
     for (const line of transfer.lines) await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.quantity))
-    await form.locator('input[name="operator"]').fill(transfer.category === '返工交接' ? 'goto实收员' : '隔离仓收员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     if (transfer.category === '正常返仓') {
       // 明确的前端目标篡改负例：真实表单没有任意换仓控件，领域仍须拒绝错误目标。
       const beforeWrongTarget = await inventorySnapshot(page)
       await form.evaluate(node => { node.setAttribute('data-target-id', 'ISOLATED-WRONG-WAREHOUSE') })
       await form.getByRole('button', { name: /整批实收/ }).click()
       await expect(page.locator('[data-fiq-feedback]')).toContainText('接收仓库或返工工厂不一致')
-      await expect(form.locator('input[name="operator"]')).toHaveValue('隔离仓收员')
+      await expect(form.locator('input[name="operator"]')).toHaveCount(0)
       expect((await inventorySnapshot(page)).state).toEqual(beforeWrongTarget.state)
       await form.evaluate((node, targetId) => { node.setAttribute('data-target-id', targetId) }, transfer.targetId)
     }
@@ -369,7 +380,7 @@ test('隔离QC完成输入后三去向由原入库及上架页面实办，goto�
       selected.push({ skuId: (await select.getAttribute('data-sku-id'))!, locationCode })
       await select.selectOption(locationCode)
     }
-    await form.locator('input[name="operator"]').fill('隔离上架员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     if (transfer.category === '正常返仓') {
       const beforeFault = await nativePcsSnapshot(page), beforeState = await inventorySnapshot(page)
       await page.evaluate(() => {
@@ -383,7 +394,7 @@ test('隔离QC完成输入后三去向由原入库及上架页面实办，goto�
       try {
         await form.getByRole('button', { name: '确认本类实收全部上架' }).click()
         await expect(page.locator('[data-fiq-feedback]')).toContainText('空间不足')
-        await expect(form.locator('input[name="operator"]')).toHaveValue('隔离上架员')
+        await expect(form.locator('input[name="operator"]')).toHaveCount(0)
         for (const item of selected) await expect(form.locator(`select[data-sku-id="${item.skuId}"]`)).toHaveValue(item.locationCode)
         expect(await nativePcsSnapshot(page)).toEqual(beforeFault)
         expect((await inventorySnapshot(page)).state).toEqual(beforeState.state)
@@ -410,7 +421,7 @@ test('隔离QC完成输入后三去向由原入库及上架页面实办，goto�
   const rework = final.state.transfers.find((row: any) => row.category === '返工交接')
   expect(rework.targetId).toBe('KOL-GOTO-001')
   expect(rework.lines.reduce((sum: number, line: any) => sum + line.receivedQty, 0)).toBe(3)
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(original.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(original.id)}`)
   await expect(page.getByText('已完成', { exact: true }).first()).toBeVisible()
   await testInfo.attach('inventory-three-destinations-wls-ui-result', { body: JSON.stringify({ qcInputKind: 'isolated public command fixture; QC UI evidence is outside this case', qcFinished, received, putawayFaults, final }, null, 2), contentType: 'application/json' })
 })
@@ -418,9 +429,10 @@ test('隔离QC完成输入后三去向由原入库及上架页面实办，goto�
 test('真实WLS整批实收0不建QC，逐SKU差异确认后仍不虚构检查或完成', async ({ page }, testInfo) => {
   await createFromUi(page)
   const original = (await inventorySnapshot(page)).state.applications[0]
+  await openFinishingInventoryApplication(page)
   const form = page.locator('[data-fiq-form="receive"]')
   for (const line of original.lines) await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill('0')
-  await form.locator('input[name="operator"]').fill('隔离零实收确认员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   await form.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByText('实收为0待核实差异', { exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toHaveCount(0)
@@ -430,10 +442,10 @@ test('真实WLS整批实收0不建QC，逐SKU差异确认后仍不虚构检查�
   expect(app.lines.reduce((n: number, line: any) => n + line.receivedQty, 0)).toBe(0)
   for (const difference of received.state.differences) {
     const differenceForm = page.locator(`[data-fiq-form="difference"][data-difference-id="${difference.id}"]`)
-    await differenceForm.locator('input[name="operator"]').fill('隔离差异核实员')
+    await expect(differenceForm.locator('input[name="operator"]')).toHaveCount(0)
     await differenceForm.getByRole('button', { name: '确认差异处理' }).click()
     await expect(page.locator('[data-fiq-feedback]')).toContainText('真实原因')
-    await expect(differenceForm.locator('input[name="operator"]')).toHaveValue('隔离差异核实员')
+    await expect(differenceForm.locator('input[name="operator"]')).toHaveCount(0)
     await differenceForm.locator('input[name="reason"]').fill('隔离演示：本批运输未到实物，仓管已核实')
     await differenceForm.locator('input[name="disposition"]').fill('隔离演示：保留实际0接收及缺少量，不虚构退仓或QC')
     await differenceForm.getByRole('button', { name: '确认差异处理' }).click()
@@ -454,9 +466,10 @@ test('真实WLS整批实收0不建QC，逐SKU差异确认后仍不虚构检查�
 test('真实WLS超收81保留原出库80及差异，确认真实原因去向不改QC实收基数', async ({ page }, testInfo) => {
   await createFromUi(page)
   const original = (await inventorySnapshot(page)).state.applications[0]
+  await openFinishingInventoryApplication(page)
   const form = page.locator('[data-fiq-form="receive"]')
   for (const [index, line] of original.lines.entries()) await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty + (index === 0 ? 1 : 0)))
-  await form.locator('input[name="operator"]').fill('隔离超收确认员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   await form.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   const received = await inventorySnapshot(page), app = received.state.applications[0], difference = received.state.differences[0]
@@ -466,7 +479,7 @@ test('真实WLS超收81保留原出库80及差异，确认真实原因去向不�
   const differenceForm = page.locator(`[data-fiq-form="difference"][data-difference-id="${difference.id}"]`)
   await differenceForm.locator('input[name="reason"]').fill('隔离演示：实点比原交出登记多1件')
   await differenceForm.locator('input[name="disposition"]').fill('隔离演示：按实收81开展QC，原出库80独立保留')
-  await differenceForm.locator('input[name="operator"]').fill('隔离差异核实员')
+  await expect(differenceForm.locator('input[name="operator"]')).toHaveCount(0)
   await differenceForm.getByRole('button', { name: '确认差异处理' }).click()
   await expect(page.locator(`[data-fiq-form="difference"][data-difference-id="${difference.id}"]`)).toHaveCount(0)
   await page.reload()
@@ -482,7 +495,7 @@ test('真实WLS超收81保留原出库80及差异，确认真实原因去向不�
   expect(qc.sourceKind).toBe('WAREHOUSE_STOCK')
   expect(qc.lines.reduce((n: number, line: any) => n + line.expectedQty, 0)).toBe(81)
   const qcImages = await assertInventoryQcImages(page, saved)
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(saved.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(saved.id)}`)
   const imagePath = testInfo.outputPath('over-receipt-source81.png')
   await page.screenshot({ path: imagePath, fullPage: true })
   await testInfo.attach('over-receipt-screen', { path: imagePath, contentType: 'image/png' })
@@ -540,7 +553,7 @@ test('其他分类接收上架全部完成仍等待goto实收，实际接收即�
   expect(beforeGoto.state.differences).toHaveLength(0)
   expect(beforeGoto.state.transfers.filter((row: any) => row.applicationId === app.id && ['正常返仓', '瑕疵入仓'].includes(row.category)).every((row: any) => row.receivedAt && row.putawayAt)).toBe(true)
   expect(beforeGoto.state.transfers.find((row: any) => row.id === rework.id).receivedAt).toBeUndefined()
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(app.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(app.id)}`)
   await expect(page.getByText('待分类交接及上架', { exact: true }).first()).toBeVisible()
   await receiveCategory(page, rework)
   const afterGoto = await inventorySnapshot(page), afterNative = await nativePcsSnapshot(page)
@@ -568,12 +581,12 @@ test('QC和全部去向上架已完成时真实短收差异仍阻断，确认损
   expect(before.state.transfers.filter((row: any) => row.applicationId === app.id && row.category !== '送后道').every((row: any) => row.receivedAt && (row.category === '返工交接' || row.putawayAt))).toBe(true)
   const differences = before.state.differences.filter((row: any) => row.applicationId === app.id)
   expect(differences).toHaveLength(1); expect(differences[0].quantity).toBe(-1); expect(differences[0].resolvedAt).toBeUndefined()
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(app.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(app.id)}`)
   const form = page.locator(`[data-fiq-form="difference"][data-difference-id="${differences[0].id}"]`)
-  await form.locator('input[name="operator"]').fill('隔离损耗核实员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   await form.getByRole('button', { name: '确认差异处理' }).click()
   await expect(page.locator('[data-fiq-feedback]')).toContainText('真实原因')
-  await expect(form.locator('input[name="operator"]')).toHaveValue('隔离损耗核实员')
+  await expect(form.locator('input[name="operator"]')).toHaveCount(0)
   expect((await inventorySnapshot(page)).state).toEqual(before.state)
   await form.locator('input[name="reason"]').fill('隔离演示：返仓途中遗失1件，经逐SKU清点确认')
   await form.locator('input[name="disposition"]').fill('隔离演示：登记实际运输损耗，不补造库存或修改QC')
@@ -585,7 +598,7 @@ test('QC和全部去向上架已完成时真实短收差异仍阻断，确认损
   expect(after.state.transfers).toEqual(before.state.transfers); expect(after.state.lots).toEqual(before.state.lots)
   const saved = after.state.differences.find((row: any) => row.id === differences[0].id)
   expect(saved.expectedQty).toBe(differences[0].expectedQty); expect(saved.actualQty).toBe(differences[0].actualQty); expect(saved.quantity).toBe(-1)
-  expect(saved.resolvedAt).toBeTruthy(); expect(saved.resolvedBy).toBe('隔离损耗核实员'); expect(saved.reason).toContain('遗失1件'); expect(saved.disposition).toContain('不补造库存')
+  expect(saved.resolvedAt).toBeTruthy(); expect(saved.resolvedBy).toBe('黄回货确认员'); expect(saved.reason).toContain('遗失1件'); expect(saved.disposition).toContain('不补造库存')
   expect(after.state.lots.filter((row: any) => row.warehouseId === app.warehouseId && row.styleId === app.styleId && row.quality === '正常').reduce((n: number, row: any) => n + row.quantity, 0)).toBe(94)
   await page.reload()
   expect((await inventorySnapshot(page)).state.applications.find((row: any) => row.id === app.id).completedAt).toBeTruthy()
@@ -606,10 +619,11 @@ test('四个原库存页面和两渠道PID直接读取同一SKU，申请下架�
   await createFromUi(page)
   const app = (await inventorySnapshot(page)).state.applications[0]
   stages.push(await assertStockPagesAndChannel(page, app, '申请后已下架出库'))
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(app.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(app.id)}`)
+  await openFinishingInventoryApplication(page)
   const receive = page.locator('[data-fiq-form="receive"]')
   for (const line of app.lines) await receive.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty))
-  await receive.locator('input[name="operator"]').fill('隔离跨页后道接收员')
+  await expect(receive.locator('input[name="operator"]')).toHaveCount(0)
   await receive.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   await completeQcFromDomainFixture(page, (await inventorySnapshot(page)).state.applications[0])
@@ -663,6 +677,9 @@ test('旧移货冷直达和刷新均先识别非种子持久SKU，阻止旧写�
 })
 
 test('审查补缺：库存统计包含待接收申请，出库80实收79与稽查及三去向同源', async ({ page }, info) => {
+  // The pre-existing structured-standard one-off switch is fixture preparation, before the read-only snapshot.
+  await page.goto('/fcs/quality-management/basic-standards')
+  await expect(page.getByRole('heading', { name: '基本质检标准', exact: true })).toBeVisible()
   test.setTimeout(180000)
   page.setDefaultTimeout(15000)
   await page.addInitScript(() => { (window as any).__name = (value: unknown) => value })
@@ -691,10 +708,11 @@ test('审查补缺：库存统计包含待接收申请，出库80实收79与稽�
   expect(await nativePcsSnapshot(page)).toEqual(beforePendingRead)
   await info.attach('pending-application-center', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
 
-  await page.goto(`/wls/finished/inventory-quality?id=${encodeURIComponent(app.id)}`)
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(app.id)}`)
+  await openFinishingInventoryApplication(page)
   const receive = page.locator('[data-fiq-form="receive"]')
   for (const [index, line] of app.lines.entries()) await receive.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty - (index === 0 ? 1 : 0)))
-  await receive.locator('input[name="operator"]').fill('审查补缺后道实收员')
+  await expect(receive.locator('input[name="operator"]')).toHaveCount(0)
   await receive.getByRole('button', { name: '确认整批实收并形成库存QC' }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台' })).toBeVisible()
   app = (await inventorySnapshot(page)).state.applications[0]
@@ -748,6 +766,9 @@ test('审查补缺：库存统计包含待接收申请，出库80实收79与稽�
 })
 
 test('审查补缺：库存申请关联QC缺失时不伪装待接收或空统计', async ({ page }, info) => {
+  // The pre-existing structured-standard one-off switch is fixture preparation, before the read-only snapshot.
+  await page.goto('/fcs/quality-management/basic-standards')
+  await expect(page.getByRole('heading', { name: '基本质检标准', exact: true })).toBeVisible()
   page.setDefaultTimeout(15000)
   await createFromUi(page)
   const app = (await inventorySnapshot(page)).state.applications[0]
@@ -785,3 +806,5 @@ test('审查补缺：库存申请关联QC缺失时不伪装待接收或空统计
   await expect(page.locator('[role="alert"]').filter({hasText:'库存送检申请关联的质检记录缺失'})).toHaveCount(0)
   expect(await nativePcsSnapshot(page)).toEqual(repaired)
 })
+
+test.beforeEach(async ({page,baseURL})=>{await useEmptyInventoryQualityFixture(page,baseURL)})

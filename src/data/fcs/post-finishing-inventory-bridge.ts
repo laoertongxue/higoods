@@ -1,5 +1,6 @@
-import { createInventoryPostFinishingQcTask, registerPostFinishingInventoryQcCompletion, getPostFinishingFullFlowQcTask, getPostFinishingActiveQcTask, getCurrentPostFinishingActor } from './post-finishing-full-flow.ts'
-import { completeFinishedInventoryQc, registerFinishedInventoryQcBridge } from '../wls/finished-inventory-quality.ts'
+import { registerPostFinishingInventoryParticipant } from './post-finishing-records.ts'
+import { createInventoryPostFinishingQcTask, registerPostFinishingInventoryQcCompletion, registerPostFinishingInventoryPostBridge, getPostFinishingFullFlowQcTask, getPostFinishingActiveQcTask, getCurrentPostFinishingActor } from './post-finishing-full-flow.ts'
+import { completeFinishedInventoryQc, registerFinishedInventoryQcBridge, updateFinishedInventoryPostProgress, finishedInventoryPostShippedQuantities } from '../wls/finished-inventory-quality.ts'
 import { ensureFinishedInventoryRecords, inventoryTransactionParticipant } from '../wls/finished-inventory-records.ts'
 
 /** Prepare the existing two business domains; no writes or seed copying on entry. */
@@ -7,6 +8,8 @@ export async function preparePostFinishingInventoryBridge(): Promise<void> {
   await ensureFinishedInventoryRecords()
   registerFinishedInventoryQcBridge({ receiveIntoQc: createInventoryPostFinishingQcTask })
   registerPostFinishingInventoryQcCompletion(completeFinishedInventoryQc)
+  registerPostFinishingInventoryPostBridge({progress:updateFinishedInventoryPostProgress,shipped:finishedInventoryPostShippedQuantities})
+  registerPostFinishingInventoryParticipant(inventoryTransactionParticipant)
 }
 export {isPreparedInventoryQcRoute,isPreparedQcRoute} from './post-finishing-qc-entry.ts'
 

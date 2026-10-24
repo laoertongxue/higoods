@@ -855,6 +855,9 @@ export function listPlatformSpecialCraftResultViews(filter: PlatformProcessResul
 
 export function listPlatformPostFinishingResultViews(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
   return listPostFinishingFullFlowPostTasks()
+    // This production result board requires a production-order source. Stock
+    // QC processing remains linked to its warehouse application/work order.
+    .filter(order => !order.inventoryApplicationId)
     .map(buildPostFinishingView)
     .filter((view) => matchesFilter(view, { ...filter, sourceType: 'POST_FINISHING' }))
     .map(cloneView)

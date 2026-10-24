@@ -3,7 +3,7 @@ import { resolveQualityStyleContext } from './quality-management-style-context.t
 import { getStyleArchiveById, listStyleArchives } from '../pcs-style-archive-repository.ts'
 import { getMaterialArchiveByCode, getMaterialArchiveById, getMaterialSkuRecordById, listAllMaterialSkuRecords } from '../pcs-material-archive-repository.ts'
 import { getSewingExecutionHistoryForTask } from './sewing-execution-history.ts'
-import type { InitialFullInspectionConditions } from './quality-management-types.ts'
+import type { InitialFullInspectionConditions, InspectionSnapshot } from './quality-management-types.ts'
 
 export interface ProductionInspectionSourceInput { productionOrderId?: string; productionOrderNo?: string; taskId: string; factoryId: string }
 export interface ProductionInspectionSource {
@@ -21,6 +21,7 @@ export interface ProductionInspectionSource {
   difficulty?: string
   difficultyPresent: boolean
   fabrics: Array<{ bomItemId: string; materialSkuId?: string; originalCode?: string; materialId?: string; spu?: string; status: 'RESOLVED' | 'UNRESOLVED'; path?: string }>
+  sizeMeasurements: Array<{ sizeCode: string; measurementPart: string; measurementValue: number | string; measurementUnit: string; tolerance?: number | string }>
   executionOrdinal: number
   executionStatus: 'RECORDED' | 'NO_HISTORY'
   executionFactId?: string
@@ -70,7 +71,31 @@ export function resolveProductionInspectionSource(input: ProductionInspectionSou
     return { bomItemId: row.id, materialSkuId: row.materialSkuId, originalCode: row.materialCode, materialId: valid ? root.materialId : undefined, spu: valid ? root.materialCode : undefined, status: valid ? 'RESOLVED' : 'UNRESOLVED', path: valid ? sku ? `${byId ? 'materialSkuId' : 'exactSkuCode'}→materialId→root.materialCode` : 'exactRootCode→root.materialCode' : undefined }
   })
   const execution = getSewingExecutionHistoryForTask({ factoryId: input.factoryId, taskId: input.taskId, productionOrderId: order.productionOrderId, styleCode })
-  return { productionOrderId: order.productionOrderId, productionOrderNo: order.productionOrderNo, factoryId: input.factoryId, taskId: input.taskId, styleId, styleCode, ...resolveQualityStyleContext({styleId,styleCode}), productPosition, productPositionIds: [...productPositionIds], techPackVersionId: snapshot?.sourceTechPackVersionId, difficulty: difficultyPresent ? snapshot?.garmentDifficultyGrade : undefined, difficultyPresent, fabrics, executionOrdinal: execution.ordinal, executionStatus: execution.status, executionFactId: execution.status === 'RECORDED' ? execution.fact.id : undefined, unresolved }
+  const sizeMeasurements = (snapshot?.sizeMeasurements ?? []).filter(row => row && row.sizeCode && row.measurementPart && row.measurementValue !== undefined && row.measurementUnit).map(row => ({ sizeCode: row.sizeCode, measurementPart: row.measurementPart, measurementValue: row.measurementValue, measurementUnit: row.measurementUnit, ...(row.tolerance !== undefined ? { tolerance: row.tolerance } : {}) }))
+  return { productionOrderId: order.productionOrderId, productionOrderNo: order.productionOrderNo, factoryId: input.factoryId, taskId: input.taskId, styleId, styleCode, ...resolveQualityStyleContext({styleId,styleCode}), productPosition, productPositionIds: [...productPositionIds], techPackVersionId: snapshot?.sourceTechPackVersionId, difficulty: difficultyPresent ? snapshot?.garmentDifficultyGrade : undefined, difficultyPresent, fabrics, sizeMeasurements, executionOrdinal: execution.ordinal, executionStatus: execution.status, executionFactId: execution.status === 'RECORDED' ? execution.fact.id : undefined, unresolved }
+}
+/** Resolve typed measurement items against the order-bound technical pack snapshot. */
+export function bindInspectionMeasurements(snapshot: InspectionSnapshot, source?: Pick<ProductionInspectionSource, 'sizeMeasurements' | 'techPackVersionId'>): InspectionSnapshot {
+  const bind = (value: InspectionSnapshot): InspectionSnapshot => {
+    for (const item of value.items) {
+      if (item.kind !== 'MEASUREMENT') continue
+      const part = item.measurement?.techPackPart?.trim() || item.name
+      const rows = (source?.sizeMeasurements || []).filter(row => row.measurementPart === part)
+      if (rows.length) {
+        item.measurement = { ...item.measurement, techPackPart: part, unit: item.measurement?.unit || rows[0].measurementUnit, tolerance: item.measurement?.tolerance ?? rows[0].tolerance, nominalBySize: Object.fromEntries(rows.map(row => [row.sizeCode, row.measurementValue])), source: 'TECH_PACK' }
+      } else if (item.measurement?.nominalBySize && Object.keys(item.measurement.nominalBySize).length) {
+        item.measurement = { ...item.measurement, source: 'STANDARD' }
+      } else {
+        item.measurement = { ...item.measurement, source: 'NONE' }
+      }
+    }
+    value.snapshotSchemaVersion = 2
+    if (source?.techPackVersionId) value.techPackVersionId = source.techPackVersionId
+    return value
+  }
+  bind(snapshot)
+  for (const row of snapshot.skuSnapshots || []) bind(row.snapshot)
+  return snapshot
 }
 export function evaluateInitialFullInspection(source: ProductionInspectionSource, conditions: InitialFullInspectionConditions | null): { fullInspection: boolean; reasons: InitialFullInspectionReason[]; unresolved: string[]; source: ProductionInspectionSource } {
   const reasons: InitialFullInspectionReason[] = []

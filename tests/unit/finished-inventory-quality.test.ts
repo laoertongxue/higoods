@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { beforeEach, test } from 'node:test'
-import { createFinishedInventorySeed, FINISHED_INVENTORY_LOCATIONS, FINISHED_INVENTORY_NORMAL_WAREHOUSE, FINISHED_INVENTORY_DEFECT_WAREHOUSE, FINISHED_INVENTORY_REWORK_FACTORY } from '../../src/data/wls/finished-inventory-quality-seed.ts'
+import { createFinishedInventoryBaseSeed as createFinishedInventorySeed, FINISHED_INVENTORY_LOCATIONS, FINISHED_INVENTORY_NORMAL_WAREHOUSE, FINISHED_INVENTORY_DEFECT_WAREHOUSE, FINISHED_INVENTORY_REWORK_FACTORY } from '../../src/data/wls/finished-inventory-quality-seed.ts'
 import { restoreFinishedInventoryState, captureFinishedInventoryState, readFinishedInventoryState, prepareFinishedInventoryCommit } from '../../src/data/wls/finished-inventory-records.ts'
 import { listFinishedInventoryLots, previewFinishedInventoryQuality, createFinishedInventoryQualityApplication, registerFinishedInventoryQcBridge, receiveFinishedInventoryQualityApplication,
   completeFinishedInventoryQc, listFinishedInventoryTransfers, listFinishedInventoryDifferences, shipFinishedInventoryTransfer, receiveFinishedInventoryTransfer,
   putawayFinishedInventoryTransfer, resolveFinishedInventoryDifference, getFinishedInventoryApplication, finishedInventoryAvailability, finishedInventoryRealtimeRows,
-  finishedInventoryOnlineRows, finishedInventoryLocationRows, finishedInventoryFlowRows, finishedInventoryApplicationStatus } from '../../src/data/wls/finished-inventory-quality.ts'
+  listFinishedInventoryOutboundOrders, finishedInventoryOnlineRows, finishedInventoryLocationRows, finishedInventoryFlowRows, finishedInventoryApplicationStatus } from '../../src/data/wls/finished-inventory-quality.ts'
 
 const actor = { actorId: 'TEST-WH-USER', actorName: '隔离仓管', roleName: '仓库收货人员' }
 const time = '2026-10-22T10:00:00+07:00'
@@ -259,4 +259,15 @@ test('只有正常品尚未上架时申请仍未完成，正常上架后才结�
   assert.ok(listFinishedInventoryTransfers(app.id).find(row => row.id === defect.id)!.putawayAt)
   putawayFinishedInventoryTransfer({ transferId: normal.id, locations: normal.lines.map(line => ({ skuId: line.skuId, locationCode: FINISHED_INVENTORY_LOCATIONS.find(row => row.warehouseId === normal.targetId)!.locationCode })), actor, at: time })
   assert.ok(getFinishedInventoryApplication(app.id)!.completedAt)
+})
+
+
+test('成衣质检出库列表从同一送检事实投影，读取不改库存且单据身份稳定', () => {
+  const app = create(), before = captureFinishedInventoryState()
+  const [order] = listFinishedInventoryOutboundOrders()
+  assert.equal(order.id, app.outboundId); assert.equal(order.relatedOrderNo, app.applicationNo)
+  assert.equal(order.orderType, '成衣质检'); assert.equal(order.status, '已出库')
+  assert.equal(order.operatorName, actor.actorName); assert.equal(order.products.reduce((n, row) => n + row.quantity, 0), 80)
+  assert.equal(listFinishedInventoryOutboundOrders()[0].outboundOrderNo, order.outboundOrderNo)
+  assert.deepEqual(captureFinishedInventoryState(), before)
 })

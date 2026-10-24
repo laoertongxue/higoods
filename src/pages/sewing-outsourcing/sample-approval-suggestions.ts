@@ -6,7 +6,7 @@ import { renderStandardListTable, type StandardListColumn } from '../../componen
 import { renderTablePagination } from '../../components/ui/pagination.ts'
 import { renderTabs } from '../../components/ui/tabs.ts'
 import { ensureSewingOutsourcingSampleDemo } from '../../data/fcs/sewing-outsourcing-demo.ts'
-import { readInspectionSnapshot, assertInspectionSnapshotCurrent } from '../../data/fcs/quality-management-records.ts'
+import { readInspectionSnapshot, assertInspectionSnapshotCurrent, prepareQualityConfigurationSchema } from '../../data/fcs/quality-management-records.ts'
 import { getProductionOrderTechPackSnapshot } from '../../data/fcs/production-order-tech-pack-runtime.ts'
 import { resolveQualityStyleContext } from '../../data/fcs/quality-management-style-context.ts'
 import {
@@ -103,7 +103,7 @@ export function renderSampleApprovalSuggestionsPage():string {installLeaveGuard(
 export function isSampleApprovalSuggestionDialogOpen():boolean{return !!(dialog||preview)}
 export function closeSampleApprovalSuggestionDialog():boolean{if(saving)return true;if(preview){preview=null;refreshPage();return true}if(!dialog)return false;if((dialog.kind==='APPROVAL'||dialog.kind==='RECEIVE')&&!window.confirm('尚未保存的照片或意见将不会保留，确认离开？'))return true;dialog=null;refreshPage();return true}
 async function filesToUrls(files:File[]):Promise<string[]>{if(files.length>20||files.some(file=>!file.type.startsWith('image/')||file.size>10*1024*1024))throw new Error('请选择图片，每张不超过10MB，每次不超过20张');return Promise.all(files.map(file=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error(`无法读取照片：${file.name}`));reader.readAsDataURL(file)})))}
-async function snapshotFor(record:SewingSampleApprovalRecord){const bound=getProductionOrderTechPackSnapshot(record.sample.productionOrderId);return readInspectionSnapshot({sourceKind:'PRE_PRODUCTION_SAMPLE',stage:'PRE_PRODUCTION_SAMPLE_APPROVAL',objectType:'GARMENT',...resolveQualityStyleContext({styleId:bound?.styleId,styleCode:record.sample.styleCode})})}
+async function snapshotFor(record:SewingSampleApprovalRecord){const bound=getProductionOrderTechPackSnapshot(record.sample.productionOrderId);await prepareQualityConfigurationSchema();return readInspectionSnapshot({sourceKind:'PRE_PRODUCTION_SAMPLE',stage:'PRE_PRODUCTION_SAMPLE_APPROVAL',objectType:'GARMENT',...resolveQualityStyleContext({styleId:bound?.styleId,styleCode:record.sample.styleCode})})}
 export async function handleSampleApprovalSuggestionsEvent(target:HTMLElement,event?:Event):Promise<boolean>{
   const filter=target.closest<HTMLInputElement>('[data-sample-approval-filter="keyword"]');if(filter){draftKeyword=filter.value;return true}
   const size=target.closest<HTMLSelectElement>('[data-sample-approval-field="pageSize"]');if(size){pageSize=Number(size.value)||20;activePage=1;refreshPage(true);return true}

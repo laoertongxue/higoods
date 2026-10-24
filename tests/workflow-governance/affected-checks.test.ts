@@ -622,3 +622,20 @@ test('裁剪改厂 Mock 浏览器契约路由到实际回放，性能脚本保�
   assert.deepEqual(route.fullChecks, ['node --import tsx --test tests/browser-contracts/accessory-cutting-change-mock.test.ts'])
   assert.deepEqual(route.fastChecks, ["node --check 'scripts/check-accessory-workflow-mock-performance.mjs'"])
 })
+
+
+test('成衣库存质检完整交接及共用填表/计时助手接入真实页面运行器，不以构建替代',()=>{
+ for(const path of ['tests/finished-inventory-quality-handoff.spec.ts','tests/helpers/inventory-quality-timing.ts','tests/helpers/post-finishing-qc-form.ts']){
+  const route=routeAffectedChecks([path]);assert.deepEqual(route.unknownPaths,[]);assert.equal(route.fullChecks.length,1)
+  assert.match(route.fullChecks[0],/npx playwright test/);assert.ok(route.fullChecks[0].includes('tests/finished-inventory-quality-handoff.spec.ts'));assert.ok(route.fullChecks[0].includes('--workers=1'))
+ }
+ assert.deepEqual(routeAffectedChecks(['tests/helpers/inventory-quality-unknown.ts']).unknownPaths,['tests/helpers/inventory-quality-unknown.ts'])
+})
+
+test('库存质检Mock生成器只读核对，空前置助手及默认Mock页面均实际回放',()=>{
+ const build=routeAffectedChecks(['scripts/build-inventory-quality-mock.ts'])
+ assert.deepEqual(build.unknownPaths,[]);assert.ok(build.fastChecks.includes('node --import tsx scripts/build-inventory-quality-mock.ts --check'))
+ for(const path of ['tests/finished-inventory-quality-mock.spec.ts','tests/helpers/inventory-quality-empty-fixture.ts']){
+  const route=routeAffectedChecks([path]);assert.deepEqual(route.unknownPaths,[]);assert.ok(route.fullChecks.some(command=>command.includes('tests/finished-inventory-quality-mock.spec.ts')))
+ }
+})

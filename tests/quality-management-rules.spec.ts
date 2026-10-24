@@ -1,30 +1,45 @@
+import { useEmptyInventoryQualityFixture } from './helpers/inventory-quality-empty-fixture.ts'
+import { inventoryClick, saveInventoryTimings } from './helpers/inventory-quality-timing.ts'
+import { fillPostQcRow } from './helpers/post-finishing-qc-form.ts'
 import { test, expect, type Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 
 // Business setup below only chooses an effective configurable rule in an
 // isolated browser. All QC claiming, counts, audit decisions and completion
 // exercised in these cases use the original business page controls.
+async function openFinishingInventoryApplication(page: Page) {
+  const id = new URL(page.url()).searchParams.get('id')
+  if (!id) throw new Error('缺少本次库存送检申请身份')
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(id)}`)
+}
+
 async function configuredSampling(page: Page) {
-  await page.addInitScript(()=>{(window as any).__name=(value:unknown)=>value})
+  await page.addInitScript(()=>{(window as any).__name=(value:unknown)=>value;localStorage.setItem('higood-fcs-post-finishing-current-actor-v1','PF-USER-QC-MGR')})
   await page.route('**/__quality-ui-setup',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><meta charset="utf-8"><body></body>'}))
   await page.goto('/__quality-ui-setup')
-  await page.evaluate(async()=>{
+  return await page.evaluate(async()=>{
     const path='/src/data/fcs/post-finishing-inventory-bridge.ts',q=await import(path)
+    await (await import('/src/data/fcs/quality-management-records.ts')).prepareQualityConfigurationSchema()
     await q.ensureQualityManagementRecords()
     const rule=q.buildQualityConfigurationDraft('RULE','production-return-rule-v1')
     rule.initialFullInspection=null
     await q.saveQualityConfigurationDraft(rule);await q.publishQualityConfiguration(rule.id)
+    const pending=q.listPostFinishingFullFlowQcTasks().find((row:any)=>row.status==='待质检' && row.lines.length===5 && row.lines.every((line:any)=>line.expectedQty===20 && line.sku.spuCode==='SPU-QC-001'))
+    if(!pending)throw Error('缺少已实收且待领取的100件原生QC来源')
+    return pending.qcTaskNo
   })
+}
+async function openConfiguredQc(page:Page,qcNo:string){
+  await page.goto('/fcs/craft/post-finishing/qc-workbench?taskNo='+encodeURIComponent(qcNo))
+  await page.getByRole('button',{name:'领取并固定本次检查要求',exact:true}).click()
+  await expect(page.getByText('本次固定检查要求',{exact:true})).toBeVisible()
 }
 async function allocate(page:Page,values:Array<[number,number,number]>) {
   const lines=page.locator('[data-qc-result-line]')
   await expect(lines).toHaveCount(values.length)
   for(let i=0;i<values.length;i++) {
     const line=lines.nth(i),[passed,defect,rework]=values[i]
-    await line.locator('[data-qc-result-field="passedQty"]').fill(String(passed))
-    await line.locator('[data-qc-result-field="defectQty"]').fill(String(defect))
-    await line.locator('[data-qc-result-field="returnQty"]').fill(String(rework))
-    if(defect+rework) {await line.locator('[data-qc-issue="garment-clean"]').check();await line.locator('[data-qc-issue-note]').fill('隔离验收：污渍；同一件多问题仍计一件')}
+    await fillPostQcRow(line,passed,defect,rework)
   }
 }
 async function snapshot(page:Page) {
@@ -82,9 +97,8 @@ test('旧复检标签定域退出，正常业务标签与其他偏好在冷进�
 
 test('原QC真实文件预览、配额失败保留、同名替换释放未保存文件，已保存附件保持可读',async({page},testInfo)=>{
   test.setTimeout(120000)
-  await configuredSampling(page);await page.setViewportSize({width:1024,height:768})
-  await page.goto('/fcs/craft/post-finishing/qc-workbench')
-  await page.getByRole('button',{name:'确认本次标准并开始',exact:true}).click()
+  const qcNo=await configuredSampling(page);await page.setViewportSize({width:1024,height:768})
+  await openConfiguredQc(page,qcNo)
   await expect(page.locator('[data-qc-result-line]')).toHaveCount(5)
   const zoom=page.locator('[data-post-finishing-action="full-flow-zoom-image"]').first()
   const pictureUrl=await zoom.getAttribute('data-image-url')
@@ -141,18 +155,21 @@ test('原QC真实文件预览、配额失败保留、同名替换释放未保存
 
 test('QC分区保存保留其他未提交数量、原生文件与依据输入，完成前须处理剩余草稿',async({page},testInfo)=>{
   test.setTimeout(120000)
-  await configuredSampling(page);await page.setViewportSize({width:1024,height:768})
-  await page.goto('/fcs/craft/post-finishing/qc-workbench')
-  await page.getByRole('button',{name:'确认本次标准并开始',exact:true}).click()
+  const qcNo=await configuredSampling(page);await page.setViewportSize({width:1024,height:768})
+  await openConfiguredQc(page,qcNo)
   await expect(page.locator('[data-qc-result-line]')).toHaveCount(5)
   await allocate(page,[[20,0,0],[10,0,0],[0,0,0],[0,0,0],[0,0,0]])
   const bytes=await readFile('public/materials/pcs-reviewed/tee-black.jpg')
   await page.locator('[data-qc-issue-files]').first().setInputFiles({name:'尚未提交的问题照片.jpg',mimeType:'image/jpeg',buffer:bytes})
   const basis=page.locator('details').filter({has:page.locator('[data-qc-basis-conflict]')})
   await basis.locator('summary').click();await page.locator('[data-qc-basis-conflict]').fill('保留中的冲突草稿')
-  await page.locator('[data-qc-paper-file]').setInputFiles({name:'首次纸单.jpg',mimeType:'image/jpeg',buffer:bytes})
-  await page.getByRole('button',{name:'上传并保存当前纸单',exact:true}).click()
-  await expect(page.getByRole('link',{name:'首次纸单.jpg',exact:true})).toBeVisible()
+  const readDraft=()=>page.locator('[data-qc-result-line]').evaluateAll(nodes=>nodes.map(row=>({sku:row.getAttribute('data-qc-result-line'),counts:[...row.querySelectorAll<HTMLInputElement>('[data-qc-result-field]')].map(node=>[node.getAttribute('data-qc-result-field'),node.value]),items:[...row.querySelectorAll('[data-qc-observation]')].map(item=>({id:item.getAttribute('data-qc-observation'),values:[...item.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,select,textarea')].map(node=>node.value)}))})))
+  const roundDraft=await readDraft()
+  for(let sample=0;sample<5;sample++){
+    const name=sample===0?'首次纸单.jpg':`本版补充纸单${sample+1}.jpg`
+    await page.locator('[data-qc-paper-file]').setInputFiles({name,mimeType:'image/jpeg',buffer:bytes})
+    await inventoryClick(page,'保存纸单并保留全部未提交检查项',page.getByRole('button',{name:'上传并保存当前纸单',exact:true}),async()=>{await expect(page.getByRole('link',{name,exact:true})).toBeVisible();expect(await readDraft()).toEqual(roundDraft)})
+  }
   await expect(page.locator('[data-qc-result-field="passedQty"]').first()).toHaveValue('20')
   await expect(page.locator('[data-qc-result-field="passedQty"]').nth(1)).toHaveValue('10')
   await expect(page.locator('[data-qc-basis-conflict]')).toHaveValue('保留中的冲突草稿')
@@ -185,21 +202,23 @@ test('QC分区保存保留其他未提交数量、原生文件与依据输入，
   await acceptClick(page,'确认完成QC并生成对应去向')
   await expect(page.locator('[data-qc-workbench-task]')).toHaveCount(0)
   const final=(await snapshot(page)).find(row=>row.id.endsWith(encodeURIComponent(qc.qcTaskId)))!.value
-  expect(final.status).toBe('质检完成');expect(final.inspection.papers).toHaveLength(2)
+  expect(final.status).toBe('质检完成');expect(final.inspection.papers).toHaveLength(6)
+  expect(final.inspection.papers.map((paper:any)=>paper.name)).toEqual(expect.arrayContaining(['首次纸单.jpg','本版补充纸单2.jpg','本版补充纸单5.jpg','提交轮次前另选纸单.jpg']))
+  await saveInventoryTimings(page,testInfo)
   expect(final.frozenProcessItems).toEqual([])
   await testInfo.attach('qc-local-section-save',{body:JSON.stringify({qc:final,nativeFileRetained:true,unsavedCompletionBlocked:true},null,2),contentType:'application/json'})
 })
 
 test('原QC完整30→50→100：分轮/稽查/当前纸单/正常出货，刷新同一事实',async({page},testInfo)=>{
-  await configuredSampling(page)
-  await page.goto('/fcs/craft/post-finishing/qc-workbench')
-  await expect(page.getByRole('button',{name:'确认本次标准并开始',exact:true})).toBeVisible()
-  await page.getByRole('button',{name:'确认本次标准并开始',exact:true}).click()
+  const qcNo=await configuredSampling(page)
+  await openConfiguredQc(page,qcNo)
   await expect(page.locator('[data-qc-result-line]')).toHaveCount(5)
   await expect(page.locator('[data-qc-workbench-task]')).toContainText('尚需检查 30')
   await allocate(page,[[17,2,1],[10,0,0],[0,0,0],[0,0,0],[0,0,0]])
-  await page.locator('[data-qc-result-line]').first().locator('[data-qc-issue="garment-accessory"]').check()
-  await page.locator('[data-qc-result-line]').first().locator('[data-qc-issue-note]').fill('应有扣子实物缺失，按辅料配件项目记录；一件多个问题不重复计件')
+  const firstLine=page.locator('[data-qc-result-line]').first(),issueNote='应有扣子实物缺失，按辅料配件项目记录；一件多个问题不重复计件'
+  const accessory=firstLine.locator('[data-qc-observation="garment-accessory"]')
+  if(await accessory.count()){await accessory.locator('[data-qc-observation-result]').selectOption('FAIL');await accessory.locator('[data-qc-observation-defect]').selectOption({index:1});await accessory.locator('[data-qc-observation-note]').fill(issueNote)}
+  else {await firstLine.locator('[data-qc-issue="garment-accessory"]').check();await firstLine.locator('[data-qc-issue-note]').fill(issueNote)}
   await page.getByRole('button',{name:'提交第1轮检查',exact:true}).click()
   await expect(page.getByRole('heading',{name:'处理本轮稽查'})).toBeVisible()
   await expect(page.getByRole('button',{name:'确认完成QC并生成对应去向',exact:true})).toHaveCount(0)
@@ -280,7 +299,7 @@ test('原QC完整30→50→100：分轮/稽查/当前纸单/正常出货，刷�
 })
 
 test('六类中心真实原页面直达，记录/稽查/分析只读；旧复检地址全部退役',async({page},testInfo)=>{
-  for(const [section,title] of [['basic-standards','基本质检标准'],['additional-standards','附加质检标准'],['inspection-rules','检验方式与升级规则'],['records','质检记录'],['audits','稽查与升级记录'],['statistics','质检统计分析']]) {
+  for(const [section,title] of [['basic-standards','基本质检标准'],['additional-standards','附加质检标准'],['inspection-rules','检验方式与升级规则'],['records','质检记录汇总'],['audits','稽查与升级记录'],['statistics','质检统计分析']]) {
     await page.goto('/fcs/quality-management/'+section)
     await expect(page.getByRole('heading',{name:title,exact:true}).first()).toBeVisible()
     await expect(page.locator('[data-quality-management-page]')).toBeVisible()
@@ -309,15 +328,16 @@ for(const [received,target,escalate] of [[79,24,true],[81,25,false]] as const) t
   await page.goto('/wls/finished/stock/realtime')
   const row=page.locator('tr').filter({hasText:'SKU-GC-20001'}).first()
   await row.getByRole('link',{name:'本仓本款全部送检'}).click()
-  await page.locator('[data-fiq-form="apply"] input[name="operator"]').fill('隔离库存完整链路仓管')
+  await expect(page.locator('[data-fiq-form="apply"] input[name="operator"]')).toHaveCount(0)
   await page.getByRole('button',{name:'确认下架出库 80 件'}).click()
   await expect(page.getByRole('heading',{name:'库存送检流转详情'})).toBeVisible()
   const application=(await snapshot(page)).find(row=>row.collection==='higood-finished-inventory/applications')!.value
+  await openFinishingInventoryApplication(page)
   const receive=page.locator('[data-fiq-form="receive"]')
   for(const [i,line] of application.lines.entries())await receive.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty+(i===0?received-80:0)))
-  await receive.locator('input[name="operator"]').fill('隔离后道实收员')
+  await expect(receive.locator('input[name="operator"]')).toHaveCount(0)
   await receive.getByRole('button',{name:'确认整批实收并形成库存QC'}).click()
-  const applicationUrl=page.url()
+  const applicationUrl=page.url().replace('/wls/finished/inventory-quality','/fcs/craft/post-finishing/inventory-quality')
   await page.getByRole('link',{name:'进入后道原质检工作台'}).click()
   await page.getByRole('button',{name:'领取并固定本次检查要求',exact:true}).click()
   await expect(page.locator('[data-qc-workbench-task]')).toContainText(`实际接收${received}件`)
@@ -351,15 +371,17 @@ for(const [received,target,escalate] of [[79,24,true],[81,25,false]] as const) t
   await testInfo.attach(`inventory-${received}-actual-qc-completed`,{body:JSON.stringify({qc},null,2),contentType:'application/json'})
   if(received===79){
     const productionNo=await page.evaluate(async()=>{const path='/src/data/fcs/post-finishing-inventory-bridge.ts',flow=await import(path);return flow.listPostFinishingFullFlowQcTasks().find((row:any)=>row.sourceKind!=='WAREHOUSE_STOCK'&&row.status==='待质检')!.qcTaskNo})
+    await page.goto('/fcs/craft/post-finishing/qc-workbench')
     await page.locator('[data-post-finishing-field="qc-task-input"]').fill(productionNo)
     await page.getByRole('button',{name:'领取并固定本次检查要求',exact:true}).click()
     await expect(page.locator('[data-qc-workbench-task]')).toContainText(productionNo)
     expect((await page.evaluate(()=>(window as any).__inventoryQcCuttingReads)).length).toBeGreaterThan(0)
-    // A cold inventory link still opens the current production task. Its
-    // source preparation must follow the displayed task, not the query hint.
+    // An inventory source link retains its exact batch; an active production
+    // task is a visible blocker and must never silently replace that batch.
     await page.goto(`/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(qc.qcTaskNo)}`)
-    await expect(page.locator('[data-qc-workbench-task]')).toContainText(productionNo)
-    expect((await page.evaluate(()=>(window as any).__inventoryQcCuttingReads)).length).toBeGreaterThan(0)
+    await expect(page.locator('[data-qc-workbench-task]')).toHaveCount(0)
+    await expect(page.getByRole('link',{name:'继续当前质检单'})).toBeVisible()
+    await expect(page.locator('[data-post-finishing-field="qc-task-input"]')).toHaveValue(qc.qcTaskNo)
   }
   await page.goto(applicationUrl)
   await expect(page.getByRole('heading',{name:'库存送检流转详情',exact:true})).toBeVisible()
@@ -368,11 +390,11 @@ for(const [received,target,escalate] of [[79,24,true],[81,25,false]] as const) t
   const shippingIds=await page.locator('[data-fiq-form="ship"]').evaluateAll(nodes=>nodes.map(node=>(node as HTMLElement).dataset.transferId!))
   for(const id of shippingIds){
     const form=page.locator(`[data-fiq-form="ship"][data-transfer-id="${id}"]`)
-    await form.locator('input[name="operator"]').fill('隔离分类交出员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     await form.getByRole('button',{name:/确认整批交出/}).click();await expect(form).toHaveCount(0)
   }
   for(const form of await page.locator('[data-fiq-form="difference"]').all()){
-    await form.locator('input[name="operator"]').fill('隔离差异核实员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     await form.locator('input[name="reason"]').fill(`实物点数${received}，保留原出80事实`)
     await form.locator('input[name="disposition"]').fill('真实差异独立登记，不改QC和出库')
     await form.getByRole('button',{name:'确认差异处理'}).click();await expect(form).toHaveCount(0)
@@ -381,9 +403,10 @@ for(const [received,target,escalate] of [[79,24,true],[81,25,false]] as const) t
   const transfers=(await snapshot(page)).filter(row=>row.collection==='higood-finished-inventory/transfers'&&row.value.category!=='送后道').map(row=>row.value)
   expect(transfers).toHaveLength(escalate?3:2)
   for(const transfer of transfers){
+    await page.goto(transfer.category === '返工交接' ? `/fcs/production/inventory-rework-receipts?id=${encodeURIComponent(transfer.applicationId)}` : '/wls/finished/pre-inbound');
     const form=page.locator(`[data-fiq-form="receive-transfer"][data-transfer-id="${transfer.id}"]`)
     for(const line of transfer.lines)await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.quantity))
-    await form.locator('input[name="operator"]').fill('隔离实际接收员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     await form.getByRole('button',{name:/整批实收/}).click()
     await expect(form).toHaveCount(0)
   }
@@ -395,7 +418,7 @@ for(const [received,target,escalate] of [[79,24,true],[81,25,false]] as const) t
   for(const id of putawayIds){
     const form=page.locator(`[data-fiq-form="putaway"][data-transfer-id="${id}"]`)
     for(const select of await form.locator('select[name="location"]').all())await select.selectOption({index:1})
-    await form.locator('input[name="operator"]').fill('隔离实际上架员')
+    await expect(form.locator('input[name="operator"]')).toHaveCount(0)
     await form.getByRole('button',{name:'确认本类实收全部上架'}).click();await expect(form).toHaveCount(0)
   }
   await page.goto(applicationUrl);await expect(page.getByText('已完成',{exact:true}).first()).toBeVisible()
@@ -414,18 +437,17 @@ for(const [received,target,escalate] of [[79,24,true],[81,25,false]] as const) t
 
 
 test('条件检查项可按本批实际颜色尺码选择依据澄清，不适用SKU不增加该项',async({page},testInfo)=>{
-  await configuredSampling(page)
+  const qcNo=await configuredSampling(page)
   await page.evaluate(async()=>{
     const path='/src/data/fcs/quality-management-records.ts',q=await import(path)
     const draft=q.buildQualityConfigurationDraft('BASIC','garment-basic-v1')
     draft.items.push({id:'conditional-l-new-item',dimension:'缝制工艺',name:'仅L码袖口要求',content:'仅L码检查袖口',criterion:'本项目的正式要求',references:[],applicability:{sourceKinds:['PRODUCTION_RETURN'],stages:['POST_FINISHING_QC'],attributes:[{key:'size',value:'L'}]}})
     await q.saveQualityConfigurationDraft(draft);await q.publishQualityConfiguration(draft.id)
   })
-  await page.goto('/fcs/craft/post-finishing/qc-workbench')
-  await page.getByRole('button',{name:'确认本次标准并开始',exact:true}).click()
+  await openConfiguredQc(page,qcNo)
   const l=page.locator('[data-qc-result-line="SPU-QC-001-L"]'),m=page.locator('[data-qc-result-line="SPU-QC-001-M"]')
-  await expect(l.locator('[data-qc-issue="conditional-l-new-item"]')).toHaveCount(1)
-  await expect(m.locator('[data-qc-issue="conditional-l-new-item"]')).toHaveCount(0)
+  await expect(l.locator('[data-qc-observation="conditional-l-new-item"], [data-qc-issue="conditional-l-new-item"]')).toHaveCount(1)
+  await expect(m.locator('[data-qc-observation="conditional-l-new-item"], [data-qc-issue="conditional-l-new-item"]')).toHaveCount(0)
   const basis=page.locator('[data-qc-basis-item]')
   await basis.locator('..').locator('summary').click()
   await expect(basis.locator('option[value="conditional-l-new-item"]')).toHaveCount(1)
@@ -449,17 +471,18 @@ for(const mode of ['full','sample'] as const) test(`库存80件精确案例：${
   if(mode==='full'){
     await page.route('**/__inventory-exact-rule',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><meta charset="utf-8"><body>'}))
     await page.goto('/__inventory-exact-rule')
-    await page.evaluate(async()=>{const path='/src/data/fcs/quality-management-records.ts',q=await import(path);await q.ensureQualityManagementRecords();const rule=q.buildQualityConfigurationDraft('RULE','warehouse-stock-rule-v1');rule.defaultPercent=100;await q.saveQualityConfigurationDraft(rule);await q.publishQualityConfiguration(rule.id)})
+    await page.evaluate(async()=>{const path='/src/data/fcs/quality-management-records.ts',q=await import(path);await q.prepareQualityConfigurationSchema();await q.ensureQualityManagementRecords();const rule=q.buildQualityConfigurationDraft('RULE','warehouse-stock-rule-v1');rule.defaultPercent=100;await q.saveQualityConfigurationDraft(rule);await q.publishQualityConfiguration(rule.id)})
   }
   await page.setViewportSize({width:1024,height:768});await page.goto('/wls/finished/stock/realtime')
   await page.locator('tr').filter({hasText:'SKU-GC-20001'}).first().getByRole('link',{name:'本仓本款全部送检'}).click()
-  await page.locator('[data-fiq-form="apply"] input[name="operator"]').fill('精确案例隔离仓管')
+  await expect(page.locator('[data-fiq-form="apply"] input[name="operator"]')).toHaveCount(0)
   await page.getByRole('button',{name:'确认下架出库 80 件'}).click()
   await expect(page.getByRole('heading',{name:'库存送检流转详情'})).toBeVisible()
-  const application=(await snapshot(page)).find(row=>row.collection==='higood-finished-inventory/applications')!.value,applicationUrl=page.url()
+  const application=(await snapshot(page)).find(row=>row.collection==='higood-finished-inventory/applications')!.value,applicationUrl=page.url().replace('/wls/finished/inventory-quality','/fcs/craft/post-finishing/inventory-quality')
+  await openFinishingInventoryApplication(page)
   const receive=page.locator('[data-fiq-form="receive"]')
   for(const line of application.lines)await receive.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty))
-  await receive.locator('input[name="operator"]').fill('精确案例隔离实收员');await receive.getByRole('button',{name:'确认整批实收并形成库存QC'}).click()
+  await expect(receive.locator('input[name="operator"]')).toHaveCount(0);await receive.getByRole('button',{name:'确认整批实收并形成库存QC'}).click()
   await page.getByRole('link',{name:'进入后道原质检工作台'}).click();await page.getByRole('button',{name:'领取并固定本次检查要求',exact:true}).click()
   await expect(page.locator('[data-qc-workbench-task]')).toContainText(`尚需检查 ${mode==='full'?80:24}`)
   const inputs=page.locator('[data-qc-result-line]'),remaining=await inputs.evaluateAll(nodes=>nodes.map(node=>Number((node as HTMLElement).dataset.remaining)))
@@ -475,11 +498,11 @@ for(const mode of ['full','sample'] as const) test(`库存80件精确案例：${
   const transfers=rows.filter(row=>row.collection==='higood-finished-inventory/transfers'&&row.value.applicationId===application.id&&row.value.category!=='送后道').map(row=>row.value)
   expect(transfers).toHaveLength(2);expect(transfers.map(row=>row.category).sort()).toEqual(['正常返仓','瑕疵入仓'].sort())
   await page.goto(applicationUrl)
-  for(const transfer of transfers){const form=page.locator(`[data-fiq-form="ship"][data-transfer-id="${transfer.id}"]`);await form.locator('input[name="operator"]').fill('精确案例分类交出员');await form.getByRole('button',{name:/确认整批交出/}).click();await expect(form).toHaveCount(0)}
+  for(const transfer of transfers){const form=page.locator(`[data-fiq-form="ship"][data-transfer-id="${transfer.id}"]`);await expect(form.locator('input[name="operator"]')).toHaveCount(0);await form.getByRole('button',{name:/确认整批交出/}).click();await expect(form).toHaveCount(0)}
   await page.goto('/wls/finished/pre-inbound')
-  for(const transfer of transfers){const form=page.locator(`[data-fiq-form="receive-transfer"][data-transfer-id="${transfer.id}"]`);for(const line of transfer.lines)await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.quantity));await form.locator('input[name="operator"]').fill('精确案例分类实收员');await form.getByRole('button',{name:/整批实收/}).click();await expect(form).toHaveCount(0)}
+  for(const transfer of transfers){await page.goto(transfer.category === '返工交接' ? `/fcs/production/inventory-rework-receipts?id=${encodeURIComponent(transfer.applicationId)}` : '/wls/finished/pre-inbound');const form=page.locator(`[data-fiq-form="receive-transfer"][data-transfer-id="${transfer.id}"]`);for(const line of transfer.lines)await form.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.quantity));await expect(form.locator('input[name="operator"]')).toHaveCount(0);await form.getByRole('button',{name:/整批实收/}).click();await expect(form).toHaveCount(0)}
   await page.goto('/wls/finished/putaway')
-  for(const transfer of transfers){const form=page.locator(`[data-fiq-form="putaway"][data-transfer-id="${transfer.id}"]`);await expect(form).toBeVisible();for(const select of await form.locator('select[name="location"]').all())await select.selectOption({index:1});await form.locator('input[name="operator"]').fill('精确案例上架员');await form.getByRole('button',{name:'确认本类实收全部上架'}).click();await expect(form).toHaveCount(0)}
+  for(const transfer of transfers){const form=page.locator(`[data-fiq-form="putaway"][data-transfer-id="${transfer.id}"]`);await expect(form).toBeVisible();for(const select of await form.locator('select[name="location"]').all())await select.selectOption({index:1});await expect(form.locator('input[name="operator"]')).toHaveCount(0);await form.getByRole('button',{name:'确认本类实收全部上架'}).click();await expect(form).toHaveCount(0)}
   await page.goto(applicationUrl);await expect(page.getByText('已完成',{exact:true}).first()).toBeVisible();await page.reload();await expect(page.getByText('已完成',{exact:true}).first()).toBeVisible()
   rows=await snapshot(page);const lots=rows.filter(row=>row.collection==='higood-finished-inventory/lots').map(row=>row.value),defectTransfer=transfers.find(row=>row.category==='瑕疵入仓')!
   const normal=lots.filter(row=>row.warehouseId===application.warehouseId&&row.styleId===application.styleId&&row.quality==='正常').reduce((n,row)=>n+row.quantity,0)
@@ -532,7 +555,8 @@ test('审查补缺：有效配置详情显示四条件及附加覆盖的新要�
   return{basic:basic.id,additional:additional.id,rule:rule.id}
  })
  await page.goto('/fcs/quality-management/inspection-rules/'+encodeURIComponent(ids.rule))
- await expect(page.locator('main')).toContainText('基础款及冷启动基础款：未启用')
+ await expect(page.locator('main')).toContainText('基础款及冷启动基础款')
+ await expect(page.locator('main')).toContainText('未启用')
  await expect(page.locator('main')).toContainText('真正执行的前7个车缝任务')
  await expect(page.locator('main')).toContainText('CNIDML002、CNIDML018')
  await page.goto('/fcs/quality-management/additional-standards/'+encodeURIComponent(ids.additional))
@@ -648,3 +672,5 @@ test('main合并兼容：QC紧急参考刷新打印保留真实来源，并继�
  await expect(root.locator('[data-print-ready-feedback]')).toHaveText('图片和条码已就绪。')
  await page.screenshot({path:'output/qc-main-publication-20261023/priority-print-merged.png',fullPage:true})
 })
+
+test.beforeEach(async ({page,baseURL})=>{await useEmptyInventoryQualityFixture(page,baseURL)})

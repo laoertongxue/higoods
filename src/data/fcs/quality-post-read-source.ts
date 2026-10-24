@@ -52,7 +52,7 @@ function view(task:PostFinishingQcTask,delivery:PostFinishingFactoryReturnDelive
   defectReceivedQty:app?sum('瑕疵入仓','receivedQty'):undefined,defectPutawayQty:app?sum('瑕疵入仓','putawayQty'):undefined,
   destinationSummary:transfers.map(row=>`${row.category}：${finishedInventoryTransferStatus(row)}`).join('；'),
   ...(detail?{snapshot:inspection?.snapshot,basisClarifications:inspection?.basisClarifications,independentChecks:task.independentChecks,
-   rounds:inspection?.rounds.map(round=>({id:round.id,roundNumber:round.roundNumber,percent:round.percent,target:round.target,submittedAt:round.submittedAt,passedQty:round.lines.reduce((n,line)=>n+line.passedQty,0),defectQty:round.lines.reduce((n,line)=>n+line.defectQty,0),returnedQty:round.lines.reduce((n,line)=>n+line.returnQty,0),issues:round.lines.flatMap(line=>line.issues || [])}))}:{}),
+   rounds:inspection?.rounds.map(round=>({id:round.id,roundNumber:round.roundNumber,percent:round.percent,target:round.target,submittedAt:round.submittedAt,passedQty:round.lines.reduce((n,line)=>n+line.passedQty,0),defectQty:round.lines.reduce((n,line)=>n+line.defectQty,0),returnedQty:round.lines.reduce((n,line)=>n+line.returnQty,0),issues:round.lines.flatMap(line=>line.issues || []),observations:round.lines.flatMap(line=>line.observations || [])}))}:{}),
  }
 }
 const applicationRecordPrefix='inventory-application:'

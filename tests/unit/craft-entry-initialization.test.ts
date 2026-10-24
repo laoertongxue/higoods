@@ -327,7 +327,7 @@ test('原后道出货直达等候部位票及已提交事实，失败不放行�
         if(name.endsWith('/pcs-record-runtime.ts'))return{ensurePcsRecordState:async()=>{events.push('PCS')}}
         if(name.endsWith('/cutting-record-repository.ts')&&path.includes('/HOH-POST-'))return{readCuttingRecordsByPrefix:async(prefix:string)=>{assert.equal(prefix,'part-ticket');events.push('part-ticket-scope');return{revision:7,records:[{id:'part-ticket:records:T1'}],relatedRecords:[]}}}
         if(name.endsWith('/post-finishing-inventory-bridge.ts'))return{preparePostFinishingInventoryBridge:async()=>{events.push('inventory')}}
-        if(name.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>false,isPreparedInventoryQcRoute:()=>false}
+        if(name.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>false,isPreparedInventoryQcRoute:()=>false,isPreparedInventoryPostRoute:()=>false}
         if(name.endsWith('/post-finishing-records.ts'))return{ensurePostFinishingExecutionRecordState:async()=>{events.push('post');if(failure)throw Error(failure)}}
         events.push(name)
         throw Error('production preparation still required')
@@ -360,7 +360,7 @@ test('生产质检通用主单不读取无关库存，但仍保留正式生产�
         if(name.endsWith('/pcs-record-runtime.ts'))return{ensurePcsRecordState:async()=>{events.push('PCS')}}
         if(name.endsWith('/post-finishing-records.ts'))return{ensurePostFinishingExecutionRecordState:async()=>{events.push('post')}}
         if(name.endsWith('/post-finishing-inventory-bridge.ts'))return{preparePostFinishingInventoryBridge:async()=>{events.push('inventory')}}
-        if(name.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>false,isPreparedInventoryQcRoute:()=>false}
+        if(name.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>false,isPreparedInventoryQcRoute:()=>false,isPreparedInventoryPostRoute:()=>false}
         events.push(name);throw Error('formal production preparation required')
       }}
     await assert.rejects(execute(dependencies,'/fcs/print/preview'),/formal production preparation required/)

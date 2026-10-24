@@ -1,7 +1,7 @@
-import type { InspectionSnapshot, InspectionIssue, InspectionAuditView } from './quality-management-types.ts'
+import type { InspectionSnapshot, InspectionIssue, InspectionAuditView, InspectionItemObservation, InspectionStandardItem } from './quality-management-types.ts'
 import { calculateInspectionTarget, evaluateRoundAudit, validateAuditUpgrade, validateInspectionIssues } from './quality-management-rules.ts'
 
-export interface PostQcCount { skuId: string; passedQty: number; defectQty: number; returnQty: number; issues?: InspectionIssue[]; issuePhotoUrls?: string[] }
+export interface PostQcCount { skuId: string; passedQty: number; defectQty: number; returnQty: number; issues?: InspectionIssue[]; issuePhotoUrls?: string[]; observations?: InspectionItemObservation[] }
 export interface PostQcRound {
   id: string; operationId: string; intent: string; roundNumber: number; submittedAt: string; actorId: string
   percent: number; target: number; lines: PostQcCount[]
@@ -23,6 +23,35 @@ function count(value: number): void { if (!Number.isSafeInteger(value) || value 
 export function createPostQcInspection(snapshot: InspectionSnapshot, reasons: string[] = []): PostQcInspection {
   if (!snapshot.ruleSnapshot) throw new Error('当前环节没有适用检验方式规则，不能开检。')
   return { snapshot: copy(snapshot), percent: reasons.length ? 100 : snapshot.ruleSnapshot.defaultPercent, fullReasons: [...new Set(reasons)], rounds: [], audits: [], paperVersion: 1, papers: [] }
+}
+function numericMeasurement(value: number | string | undefined): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+  if (typeof value === 'string' && value.trim()) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : undefined }
+  return undefined
+}
+function observationFailsTolerance(item: InspectionStandardItem, observation: InspectionItemObservation, sizeCode: string | undefined): boolean {
+  const measurement = item.measurement
+  const measured = numericMeasurement(observation.measuredValue)
+  const nominal = numericMeasurement(sizeCode ? measurement?.nominalBySize?.[sizeCode] : undefined)
+  const tolerance = numericMeasurement(measurement?.tolerance)
+  return measured !== undefined && nominal !== undefined && tolerance !== undefined && Math.abs(measured - nominal) > tolerance
+}
+export function validatePostQcObservations(snapshot: Pick<InspectionSnapshot, 'items' | 'context'>, observations: InspectionItemObservation[]): void {
+  const seen = new Set<string>()
+  const sizeCode = String(snapshot.context.attributes?.size || '')
+  for (const observation of observations) {
+    const item = snapshot.items.find(row => row.id === observation.itemId)
+    if (!item) throw new Error('项目检查记录含不属于本次固定标准的项目。')
+    if (seen.has(observation.itemId)) throw new Error('同一检查项目不能重复记录。')
+    seen.add(observation.itemId)
+    if (!['PASS', 'FAIL', 'NOT_APPLICABLE'].includes(observation.result)) throw new Error('项目检查结果无效。')
+    if (item.kind === 'MEASUREMENT' && observation.result !== 'NOT_APPLICABLE' && observation.measuredValue === undefined) throw new Error(`${item.name}须填写实测值。`)
+    if (observation.measuredValue !== undefined && numericMeasurement(observation.measuredValue) === undefined) throw new Error(`${item.name}实测值须为数字或有效文本。`)
+    if (observation.result === 'FAIL' && item.defectCodes?.length && !observation.defectCode) throw new Error(`${item.name}不合格须选择缺陷代码。`)
+    if (observation.defectCode && item.defectCodes?.length && !item.defectCodes.some(code => code.code === observation.defectCode)) throw new Error(`${item.name}缺陷代码不属于本次固定标准。`)
+    if (observation.result === 'FAIL' && !item.defectCodes?.length && !observation.note?.trim() && !observation.defectCode) throw new Error(`${item.name}不合格须填写问题说明或缺陷代码。`)
+    if (observation.result === 'PASS' && observationFailsTolerance(item, observation, sizeCode)) throw new Error(`${item.name}实测值超出技术包公差，不能判定合格。`)
+  }
 }
 export function getPostQcSummary(inspection: PostQcInspection, supply: PostQcSupply[]) {
   const lines = supply.map(row => {
@@ -62,10 +91,21 @@ export function submitPostQcRound(inspection: PostQcInspection, supply: PostQcSu
     if (!available) throw new Error('检查结果含不属于本批的SKU。')
     count(line.passedQty); count(line.defectQty); count(line.returnQty)
     if (line.passedQty + line.defectQty + line.returnQty > available.uninspectedQty) throw new Error('本轮检查量超过该SKU剩余未检实物。')
-    const issues = line.issues || []
-    validateInspectionIssues(inspection.snapshot.skuSnapshots?.find(row => row.skuId === line.skuId)?.snapshot || inspection.snapshot, issues)
-    if (line.defectQty + line.returnQty > 0 && !issues.length) throw new Error('有瑕疵或返工时，须标记本次标准中的具体问题。')
-    return copy({ ...line, issues })
+    const skuSnapshot = inspection.snapshot.skuSnapshots?.find(row => row.skuId === line.skuId)?.snapshot || inspection.snapshot
+    const observations = line.observations || []
+    validatePostQcObservations(skuSnapshot, observations)
+    if (observations.some(row => row.result === 'FAIL') && line.defectQty + line.returnQty === 0) throw new Error('项目检查已有不合格，但瑕疵/返工件数为0，请核对按件口径。')
+    const issues = new Map((line.issues || []).map(issue => [issue.itemId, issue]))
+    for (const observation of observations.filter(row => row.result === 'FAIL')) {
+      const item = skuSnapshot.items.find(row => row.id === observation.itemId)
+      const existing = issues.get(observation.itemId)
+      const note = observation.note?.trim() || item?.defectCodes?.find(row => row.code === observation.defectCode)?.name || observation.defectCode
+      issues.set(observation.itemId, { itemId: observation.itemId, note: existing?.note || note, evidenceFileIds: [...new Set([...(existing?.evidenceFileIds || []), ...(observation.evidenceFileIds || [])])] })
+    }
+    const normalizedIssues = [...issues.values()]
+    validateInspectionIssues(skuSnapshot, normalizedIssues)
+    if (line.defectQty + line.returnQty > 0 && !normalizedIssues.length) throw new Error('有瑕疵或返工时，须标记本次标准中的具体问题。')
+    return copy({ ...line, issues: normalizedIssues, observations: observations.map(row => ({ ...row, skuId: line.skuId })) })
   })
   const actual = next.reduce((sum, row) => sum + row.passedQty + row.defectQty + row.returnQty, 0)
   if (actual < summary.remainingQty) throw new Error(`本轮尚需检查${summary.remainingQty}件；未足当前应检量，请先核对未提交输入。`)

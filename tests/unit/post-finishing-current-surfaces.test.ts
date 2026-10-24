@@ -163,7 +163,8 @@ test('新演示已完成QC具有实际轮次与固定标准，汇集和打印读
   const completed=flow.listPostFinishingFullFlowQcTasks().filter(row=>row.status==='质检完成')
   assert(completed.length>0)
   for(const task of completed) {
-    assert(task.inspection?.snapshot.items.length);assert(task.inspection.rounds.length);assert(task.inspection.papers.length)
+    assert(task.inspection?.snapshot.items.length);assert(task.inspection.rounds.length)
+    if(task.sourceKind!=='WAREHOUSE_STOCK')assert(task.inspection.papers.length)
     assert.equal(task.inspection.snapshot.selectedAt,task.claimedAt)
     assert(task.inspection.snapshot.selectedAt>='2026-10-22T00:00:00.000Z')
     assert(task.inspection.snapshot.selectedAt<=task.inspection.rounds[0].submittedAt)

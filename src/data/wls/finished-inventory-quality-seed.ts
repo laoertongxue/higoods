@@ -2,6 +2,7 @@ import { listSkuArchives } from '../pcs-sku-archive-repository.ts'
 import { KOL_GOTO_FACTORY_ID, GOTO_GLOBAL_FACTORY_NAME } from '../fcs/factory-mock-data.ts'
 import { warehouseSeed } from './seed/shared-seed.ts'
 import type { FinishedInventoryState, FinishedInventoryLot } from './finished-inventory-quality-types.ts'
+import inventoryMock from './finished-inventory-quality-mock.json' with {type:'json'}
 
 export const FINISHED_INVENTORY_SEED_VERSION = '2026-10-23-quality-v2'
 // 取正式静态仓库ID，不以“成衣仓”/F&M等相似名称猜测合并。
@@ -23,7 +24,7 @@ const inventorySkus = listSkuArchives().filter(sku => sku.styleId === 'style_r1_
   .filter(sku => sku.skuImageUrl.startsWith('/materials/pcs-reviewed/') && sku.deliveryMode !== 'VIRTUAL_BUNDLE')
 
 /** 新的明确演示基线，库位数量是本版本声明的样本，不是对旧用户资料随机分摊。 */
-export function createFinishedInventorySeed(): FinishedInventoryState {
+export function createFinishedInventoryBaseSeed(): FinishedInventoryState {
   const counts = new Map<string, number>()
   inventorySkus.forEach(sku => counts.set(sku.styleId, (counts.get(sku.styleId) || 0) + 1))
   const seen = new Map<string, number>()
@@ -46,4 +47,12 @@ export function createFinishedInventorySeed(): FinishedInventoryState {
   lots.push({ ...first, id: 'FI-LOT-EXISTING-DEFECT', quality: '瑕疵', quantity: 3, locationCode: normalLocations[0]!.locationCode })
   lots.push({ ...first, id: 'FI-LOT-EXISTING-DAMAGE', quality: '破损', quantity: 2, locationCode: normalLocations[0]!.locationCode })
   return { lots, exclusions, applications: [], transfers: [], movements: [], differences: [], scopes: [] }
+}
+
+/** Fixed examples are read in memory. Only later business changes are persisted. */
+export function createFinishedInventorySeed(): FinishedInventoryState {
+  const seed=createFinishedInventoryBaseSeed()
+  const examples=structuredClone(inventoryMock.inventory) as unknown as FinishedInventoryState
+  for(const key of ['lots','exclusions','applications','transfers','movements','differences','scopes'] as const)(seed[key] as unknown[]).push(...examples[key])
+  return seed
 }

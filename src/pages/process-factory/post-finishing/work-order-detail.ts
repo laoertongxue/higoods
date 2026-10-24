@@ -1,3 +1,5 @@
+import { getFinishedInventoryApplication, listFinishedInventoryTransfers, finishedInventoryTransferStatus } from '../../../data/wls/finished-inventory-quality.ts'
+import { postFinishingQualitySourceLabel } from '../../../data/fcs/post-finishing-qc-entry.ts'
 import { runPostFinishingCommand } from '../../../data/fcs/post-finishing-records.ts'
 import { showPostFinishingActionFailure } from './storage-notice.ts'
 // @page-pattern: detail
@@ -8,6 +10,7 @@ import {
   appendPostFinishingProcessCompletion,
   correctPostFinishingProcessCompletion,
   getCurrentPostFinishingActor,
+  getPostFinishingFullFlowQcTask,
   getPostFinishingFullFlowPostTask,
   getPostFinishingMaterialReadiness,
   getPostFinishingProcessProgress,
@@ -154,12 +157,12 @@ function openEntry(task: PostFinishingPostTask, mode: EntryMode, processItem?: P
 }
 function renderTask(task: PostFinishingPostTask, withQueryAction = true): string {
   const progress = getPostFinishingProcessProgress(task)
-  const material = getPostFinishingMaterialReadiness(task.productionOrderNo)
-  const current = currentActor()
+  const material = task.inventoryApplicationId ? {applicable:false,status:'不适用',label:'成衣库存质检按本批加工项目办理'} : getPostFinishingMaterialReadiness(task.productionOrderNo)
+  const current = task.inventoryApplicationId ? getCurrentPostFinishingActor(POST_FINISHING_ACCEPTANCE_ACTORS.postOperator.actorId) : currentActor()
   const first = progress.processes.find((item) => item.applicable && item.availableQty > 0) || progress.processes.find((item) => item.applicable)
   const action = withQueryAction ? query().get('action') : ''
   const autoDialog = action === 'register' && first ? entryDialog(task, 'register', first.processItem) : action === 'outbound' && progress.availableForOutboundQty > 0 ? entryDialog(task, 'outbound') : ''
-  return `<div class="min-w-0 space-y-4 p-4" data-web-post-task="${escapeHtml(task.postTaskId)}" data-skip-page-rerender="true">${renderPostFinishingPageHeader('后道加工单详情', `${task.postTaskNo} / ${task.productionOrderNo}`, `<div class="flex flex-wrap items-end gap-2"><a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回列表</a></div>`)}${message ? `<div role="status" class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">${escapeHtml(message)}</div>` : ''}${material.applicable && material.status !== '已入库' ? `<section class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>后道辅料未到齐。</strong>${escapeHtml(material.label)}。现场核对后仍可登记加工。</section>` : ''}<section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><h2 class="break-all font-mono text-lg font-semibold">${escapeHtml(task.postTaskNo)}</h2><div class="mt-1 break-all text-sm text-muted-foreground">质检单 ${escapeHtml(task.qcTaskNo)} · 回货单 ${escapeHtml(task.deliveryOrderNo)}</div><div class="mt-2 text-sm">实际加工链：${task.processItems.map(escapeHtml).join(' → ')}</div></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">当前录入人：${escapeHtml(current.actorName)}</div></div></div><div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">${[['应加工', progress.totalExpectedQty], ['全部后道完成', progress.totalCompletedQty], ['已准备出货', progress.totalReservedQty], ['可准备出货', progress.availableForOutboundQty]].map(([label, quantity]) => `<div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">${label}</div><div class="mt-1 font-semibold">${quantity} 件</div></div>`).join('')}</div>${ progress.availableForOutboundQty > 0 ? `<button type="button" class="mt-4 rounded-md bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white" data-post-finishing-work-order-detail-action="open-outbound" data-task-id="${escapeHtml(task.postTaskId)}">准备出货 · 可交 ${progress.availableForOutboundQty} 件</button>` : ''}</section>${processCards(task, progress)}${skuProgress(task, progress)}${downstreamHtml(task)}${recordsHtml(task, progress)}${autoDialog}</div>`
+  return `<div class="min-w-0 space-y-4 p-4" data-web-post-task="${escapeHtml(task.postTaskId)}" data-skip-page-rerender="true">${renderPostFinishingPageHeader('后道加工单详情', `${task.postTaskNo} / ${task.productionOrderNo}`, `<div class="flex flex-wrap items-end gap-2"><a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回列表</a></div>`)}${message ? `<div role="status" class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">${escapeHtml(message)}</div>` : ''}${material.applicable && material.status !== '已入库' ? `<section class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>后道辅料未到齐。</strong>${escapeHtml(material.label)}。现场核对后仍可登记加工。</section>` : ''}<section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><h2 class="break-all font-mono text-lg font-semibold">${escapeHtml(task.postTaskNo)}</h2><p class="mt-2 text-sm text-blue-700">业务类型：${postFinishingQualitySourceLabel(getPostFinishingFullFlowQcTask(task.qcTaskId)?.sourceKind)}</p><div class="mt-1 break-all text-sm text-muted-foreground">质检单 ${escapeHtml(task.qcTaskNo)} · ${task.inventoryApplicationId ? '送检申请' : '回货单'} ${escapeHtml(task.deliveryOrderNo)}</div><div class="mt-2 text-sm">实际加工链：${task.processItems.map(escapeHtml).join(' → ')}</div></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">当前录入人：${escapeHtml(current.actorName)}</div></div></div><div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">${[['应加工', progress.totalExpectedQty], ['全部后道完成', progress.totalCompletedQty], ['已准备出货', progress.totalReservedQty], ['可准备出货', progress.availableForOutboundQty]].map(([label, quantity]) => `<div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">${label}</div><div class="mt-1 font-semibold">${quantity} 件</div></div>`).join('')}</div>${ progress.availableForOutboundQty > 0 && !task.inventoryApplicationId ? `<button type="button" class="mt-4 rounded-md bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white" data-post-finishing-work-order-detail-action="open-outbound" data-task-id="${escapeHtml(task.postTaskId)}">准备出货 · 可交 ${progress.availableForOutboundQty} 件</button>` : ''}</section>${processCards(task, progress)}${skuProgress(task, progress)}${task.inventoryApplicationId ? inventoryDownstreamHtml(task) : downstreamHtml(task)}${recordsHtml(task, progress)}${autoDialog}</div>`
 }
 function refreshTask(taskId: string): void {
   document.querySelector('[data-post-finishing-action-error]')?.remove()
@@ -208,7 +211,7 @@ export async function handlePostFinishingWorkOrderDetailEvent(target: HTMLElemen
       if (pending.has(key)) return true
       const mode = root.dataset.mode as EntryMode
       const values = readQuantities(root)
-      const actor = mode === 'correct' ? readSupervisor(root) : currentActor()
+      const actor = mode === 'correct' ? readSupervisor(root) : task.inventoryApplicationId ? getCurrentPostFinishingActor(POST_FINISHING_ACCEPTANCE_ACTORS.postOperator.actorId) : currentActor()
       const intent = root.dataset.operationId || ''
       const responsibleId = root.querySelector<HTMLSelectElement>('[data-post-entry-responsible]')?.value
       const responsible = postActors().find((item) => item.actorId === responsibleId)
@@ -244,6 +247,11 @@ export async function handlePostFinishingWorkOrderDetailEvent(target: HTMLElemen
     } else return false
   } catch (error) { showPostFinishingActionFailure(`${error instanceof Error ? error.message : String(error)} 本次输入已保留。`, target) }
   return true
+}
+function inventoryDownstreamHtml(task: PostFinishingPostTask): string {
+  const app = getFinishedInventoryApplication(task.inventoryApplicationId!)
+  const transfers = listFinishedInventoryTransfers(task.inventoryApplicationId).filter(row=>row.category==='正常返仓')
+  return `<section class="rounded-xl border bg-white p-4"><h2 class="font-semibold">成衣库存质检出货</h2><p class="my-2 text-sm">正常货须全部加工项完成后整批交出；各SKU按正常可放行量登记，不另建分批出货。</p>${transfers.map(row=>`<p class="my-2 text-sm">${escapeHtml(row.applicationNo)}-RETURN · ${row.lines.reduce((n,line)=>n+line.quantity,0)} 件 · ${escapeHtml(finishedInventoryTransferStatus(row))}</p>`).join('')}<a class="text-blue-700 underline" href="/fcs/craft/post-finishing/outbound-orders?sourceKind=WAREHOUSE_STOCK&keyword=${encodeURIComponent(app?.applicationNo || task.deliveryOrderNo)}" data-nav="/fcs/craft/post-finishing/outbound-orders?sourceKind=WAREHOUSE_STOCK&keyword=${encodeURIComponent(app?.applicationNo || task.deliveryOrderNo)}">进入后道出货单</a></section>`
 }
 export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): string {
   installEntryGuard()

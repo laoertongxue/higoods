@@ -330,6 +330,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'FilePlus2',
           children: [
             { key: 'production-demand-inbox', title: '生产需求单', icon: 'Inbox', href: '/fcs/production/demand-inbox' },
+            { key: 'production-inventory-rework-receipts', title: 'goto_global返工接收', icon: 'PackageCheck', href: '/fcs/production/inventory-rework-receipts' },
             { key: 'production-orders', title: '生产单管理', icon: 'FilePlus2', href: '/fcs/production/orders' },
             { key: 'production-preparation-timing', title: '生产准备时效', icon: 'TimerReset', href: '/fcs/production/preparation-timing' },
             { key: 'production-preparation-timing-statistics', title: '生产准备时效统计', icon: 'BarChart3', href: '/fcs/production/preparation-timing-statistics' },
@@ -649,6 +650,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'PackageCheck',
           children: [
             { key: 'pfos-post-finishing-tasks', title: '后道生产任务', icon: 'ListTodo', href: '/fcs/craft/post-finishing/tasks' },
+            { key: 'pfos-post-finishing-inventory-quality', title: '成衣质检收货与交接', icon: 'PackageCheck', href: '/fcs/craft/post-finishing/inventory-quality' },
             { key: 'pfos-post-finishing-material-transfers', title: '后道辅料调拨单', icon: 'PackageOpen', href: '/fcs/craft/post-finishing/material-transfers' },
             { key: 'pfos-post-finishing-qc-execute', title: '执行质检', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-workbench' },
             { key: 'pfos-post-finishing-qc-orders', title: '质检清单', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-orders' },
@@ -763,7 +765,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '成衣库存查询',
           icon: 'Archive',
           children: [
-            { key: 'wls-finished-inventory-quality', title: '库存质检', icon: 'ClipboardCheck', href: '/wls/finished/inventory-quality' },
+            { key: 'wls-finished-inventory-quality', title: '成衣库存质检', icon: 'ClipboardCheck', href: '/wls/finished/inventory-quality' },
             { key: 'wls-finished-stock-realtime', title: '即时库存查询', icon: 'Archive', href: '/wls/finished/stock/realtime' },
             { key: 'wls-finished-stock-flow', title: '库存流水查询', icon: 'History', href: '/wls/finished/stock/flow' },
             { key: 'wls-finished-stock-location', title: '仓位库存查询', icon: 'MapPin', href: '/wls/finished/stock/location' },

@@ -1,3 +1,4 @@
+import { useEmptyInventoryQualityFixture } from './helpers/inventory-quality-empty-fixture.ts'
 import {test,expect} from '@playwright/test'
 import {readFile} from 'node:fs/promises'
 
@@ -7,7 +8,7 @@ test('记录筛选跨页导出全部结果；列隐藏、冻结、拖序及每�
  await page.goto('/fcs/quality-management/records')
  await page.locator('[data-qm-filter="sourceKind"]').selectOption('PRODUCTION_RETURN')
  await page.locator('[data-qm-action="query"]').click()
- const root=page.locator('[data-quality-management-page]');await expect(root.locator('h2').filter({hasText:'质检记录 ·'})).toContainText('12条');const title=await root.innerText(),total=Number(title.match(/质检记录 · (\d+)条/)?.[1])
+ const root=page.locator('[data-quality-management-page]');await expect(root.locator('h2').filter({hasText:'质检记录汇总 ·'})).toContainText('12条');const title=await root.innerText(),total=Number(title.match(/质检记录汇总 · (\d+)条/)?.[1])
  expect(total).toBeGreaterThan(10)
  await page.locator('[data-qm-field="pageSize"]').selectOption('10')
  await expect(root.locator('tbody tr')).toHaveCount(10)
@@ -37,3 +38,5 @@ test('记录筛选跨页导出全部结果；列隐藏、冻结、拖序及每�
  await testInfo.attach('record-list-preferences',{body:JSON.stringify({total,saved,after,heads}),contentType:'application/json'})
  await testInfo.attach('record-list-refreshed',{body:await page.screenshot({fullPage:true}),contentType:'image/png'})
 })
+
+test.beforeEach(async ({page,baseURL})=>{await useEmptyInventoryQualityFixture(page,baseURL)})

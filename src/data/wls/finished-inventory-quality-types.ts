@@ -37,6 +37,7 @@ export interface FinishedInventoryApplication {
   styleId: string; styleNo: string; styleName: string; imageUrl: string; lines: FinishedInventoryApplicationLine[]
   createdAt: string; createdBy: string; outboundId: string; receivedAt?: string; receivedBy?: string
   qcTaskId?: string; qcTaskNo?: string; qcCompletedAt?: string; qcResults?: FinishedInventoryQcResult[]
+  postTaskId?: string; postTaskNo?: string; processItems?: string[]; postCompletedAt?: string
   completedAt?: string
 }
 export interface FinishedInventoryDifference {

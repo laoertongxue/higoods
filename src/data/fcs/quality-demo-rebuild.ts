@@ -68,7 +68,9 @@ function inventorySelection(rows:Row[]) {
     return false
   }}
 }
-async function rebuildDatabase(database:string):Promise<DemoRebuildResult> {
+export const INVENTORY_HANDOFF_REBUILD_ID = 'inventory-quality-handoff-20261024-v2'
+async function rebuildDatabase(database:string, inventoryOnly=false):Promise<DemoRebuildResult> {
+  const rebuildId = inventoryOnly ? INVENTORY_HANDOFF_REBUILD_ID : QUALITY_DEMO_REBUILD_ID
   const available=await indexedDB.databases()
   if(!available.some(db=>db.name===database))return {database,alreadyCompleted:false,deletedRecords:0,deletedFiles:0,retainedInventoryApplications:0}
   const db=await new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open(database);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})
@@ -77,7 +79,7 @@ async function rebuildDatabase(database:string):Promise<DemoRebuildResult> {
     const tx=db.transaction(stores,'readwrite'),records=tx.objectStore('records'),meta=tx.objectStore('meta')
     let report:DemoRebuildResult={database,alreadyCompleted:false,deletedRecords:0,deletedFiles:0,retainedInventoryApplications:0}
     tx.oncomplete=()=>resolve(report);tx.onabort=()=>reject(tx.error||new Error('演示数据重建未完成，可重试'));tx.onerror=()=>{}
-    const marker=meta.get(QUALITY_DEMO_REBUILD_ID)
+    const marker=meta.get(rebuildId)
     marker.onsuccess=()=>{
       if(marker.result){report.alreadyCompleted=true;return}
       const commandRead=database==='higood-cutting-records-v1'?tx.objectStore('commands').getAll():null
@@ -87,11 +89,13 @@ async function rebuildDatabase(database:string):Promise<DemoRebuildResult> {
         const rows=read.result as Row[],stock=inventorySelection(rows)
         const retainedQc=new Set(rows.filter(row=>row.id.startsWith(inventory+'applications/')&&!stock.selected.has(row.value?.id)).map(row=>row.value?.qcTaskId).filter(Boolean))
         report.retainedInventoryApplications=stock.retained
+        const selectedQc=new Set(rows.filter(row=>row.id.startsWith(inventory+'applications/')&&stock.selected.has(row.value?.id)).map(row=>row.value?.qcTaskId).filter(Boolean))
+        const selectedPost=new Set(rows.filter(row=>row.id.startsWith(post+'flow/postTasks/') && (selectedQc.has(row.value?.qcTaskId) || stock.selected.has(row.value?.inventoryApplicationId))).map(row=>row.value?.postTaskId).filter(Boolean))
         const removed:Row[]=[],kept:Row[]=[]
         for(const row of rows){let remove=false
           if(database==='higood-pcs-records'){
-            if(row.id.startsWith(quality))remove=true
-            if(row.id.startsWith(post)){
+            if(!inventoryOnly && row.id.startsWith(quality))remove=true
+            if(row.id.startsWith(post) && !inventoryOnly){
               const [scope,collection]=row.id.slice(post.length).split('/')
               if(scope==='flow'&&garmentCollections.has(collection))remove=!(collection==='qcTasks'&&retainedQc.has(row.value?.qcTaskId))
               if(['numbering','references','authorizations'].includes(scope))remove=true
@@ -99,6 +103,9 @@ async function rebuildDatabase(database:string):Promise<DemoRebuildResult> {
               // Shared auxiliary archives stay with their existing owner.
               if(scope==='archive') remove = ['higood-fcs-post-finishing-spu-technical-parameters-v1','higood-fcs-post-finishing-outbound-orders-v1'].some(key => row.id===post+'archive/'+encodeURIComponent(key))
             }
+            if(inventoryOnly && row.id.startsWith(post+'flow/qcTasks/'))remove=selectedQc.has(row.value?.qcTaskId)
+            if(inventoryOnly && row.id.startsWith(post+'logs/'))remove=selectedQc.has(row.value?.objectId) || selectedPost.has(row.value?.objectId)
+            if(inventoryOnly && (row.id.startsWith(post+'flow/postTasks/') || row.id.startsWith(post+'flow/processCompletions/')))remove=selectedPost.has(row.value?.postTaskId)
             remove ||= stock.remove(row)
           }else remove=/^production-context:(samples|sample-commands|sample-meta):/.test(row.id)||row.id===`source-migration:${sampleKey}`
           ;(remove?removed:kept).push(row)
@@ -112,17 +119,25 @@ async function rebuildDatabase(database:string):Promise<DemoRebuildResult> {
         }
         const used=new Set([...kept.flatMap(row=>[...refs(row.value,knownFiles)]),...keptCommands.flatMap(command=>[...refs(command.result,knownFiles)])]),candidates=new Set([...removed.flatMap(row=>[...refs(row.value,knownFiles)]),...removedCommands.flatMap(command=>[...refs(command.result,knownFiles)])])
         for(const row of removed)records.delete(row.id)
+        if(inventoryOnly){
+          // Materialize only the reset demo lots/scopes with newer CAS versions.
+          // Tabs holding pre-switch stock cannot overwrite this new baseline.
+          const seeds=createFinishedInventorySeed()
+          for(const lot of seeds.lots){const id=inventory+'lots/'+encodeURIComponent(lot.id),prior=rows.find(row=>row.id===id)
+            if(!prior || removed.includes(prior))records.put({id,collection:'higood-finished-inventory/lots',value:lot,version:((prior as any)?.version||0)+1})}
+          for(const row of removed.filter(row=>row.id.startsWith(inventory+'scopes/')))records.put({...row,value:{...row.value,revision:(row.value.revision||0)+1},version:((row as any).version||0)+1})
+        }
         for(const id of candidates)if(!used.has(id)){tx.objectStore('files').delete(id);report.deletedFiles++}
         report.deletedRecords=removed.length
         if(database==='higood-pcs-records'){
           const prior=rows.find(row=>row.id===post+'revision')
           const schema=rows.find(row=>row.id===post+'flow/schemaVersion/value')
-          records.put({id:post+'flow/schemaVersion/value',collection:'flow/schemaVersion',value:5,version:(schema?.version||0)+1})
+          if(!inventoryOnly)records.put({id:post+'flow/schemaVersion/value',collection:'flow/schemaVersion',value:5,version:(schema?.version||0)+1})
           records.put({id:post+'revision',collection:'revision',value:{format:1},version:(prior?.version||0)+1})
         }else {
           const revision=meta.get('revision');revision.onsuccess=()=>meta.put({id:'revision',value:(revision.result?.value||0)+1})
         }
-        meta.put({id:QUALITY_DEMO_REBUILD_ID,completedAt:new Date().toISOString(),report})
+        meta.put({id:rebuildId,completedAt:new Date().toISOString(),report})
       }
     }
   })}finally{db.close()}
@@ -146,4 +161,10 @@ export async function rebuildQualityPostFinishingDemo():Promise<DemoRebuildResul
   for(const key of [sampleKey,'higood-fcs-post-finishing-spu-technical-parameters-v1','higood-fcs-post-finishing-outbound-orders-v1','higood-fcs-post-finishing-outbound-orders-v1:archive','higood-fcs-post-finishing-document-numbering-v1','higood-fcs-post-finishing-qc-reference-v1','higood-fcs-post-finishing-authorization-consumptions-v1'])localStorage.removeItem(key)
   localStorage.setItem(QUALITY_DEMO_REBUILD_ID+':retired-keys','done')
   return results
+}
+
+/** External, one-time switch for this task only; never imported by business routes. */
+export async function rebuildInventoryQualityHandoffDemo():Promise<DemoRebuildResult> {
+  await (await import('../pcs-record-db.ts')).readPcsRecordProjection([{prefix:inventory}],()=>null)
+  return rebuildDatabase('higood-pcs-records',true)
 }

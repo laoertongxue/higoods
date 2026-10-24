@@ -176,3 +176,23 @@ test('空数组仅在没有附加自有字段时作叶节点；附加对象仍�
   }finally{invalid.restore()}
  }
 })
+
+
+test('重读库存加工使用的静态QC基线只复制可变记录，固定标准不重复整树克隆且输入隔离',async()=>{
+ const f=await fixture(1),clone=globalThis.structuredClone
+ try{
+  const snapshot=nativeClone(f.boundary.rows.get(namespace+'/flow/qcTasks/QC-STORE-0').value.inspection.snapshot)
+  f.state.qcTasks.push({qcTaskId:'STATIC-QC',status:'质检中',inspection:{snapshot,rounds:[]},independentChecks:[]})
+  await f.api.ensurePostFinishingRecordState()
+  const fixed=f.api.projectPostFinishingStaticRecords('flow',(row:any)=>row.value?.qcTaskId==='STATIC-QC'?row.value.inspection.snapshot:null).find(Boolean)
+  assert.ok(Object.isFrozen(fixed));assert.ok(Object.isFrozen(fixed.items[0]))
+  let fixedTreeClones=0
+  globalThis.structuredClone=((value:any,...rest:any[])=>{if(value?.qcTasks?.some((row:any)=>row.inspection?.snapshot===fixed))fixedTreeClones++;return (clone as any)(value,...rest)}) as typeof structuredClone
+  f.state.qcTasks.find((row:any)=>row.qcTaskId==='STATIC-QC').note='尚未保存输入'
+  f.boundary.rows.get(revisionId).version++
+  await f.api.ensurePostFinishingRecordState()
+  const restored=f.state.qcTasks.find((row:any)=>row.qcTaskId==='STATIC-QC')
+  assert.equal(fixedTreeClones,0);assert.equal(restored.note,undefined);assert.equal(restored.inspection.snapshot,fixed)
+  assert.throws(()=>{restored.inspection.snapshot.items[0].name='不能改固定标准'},/read only|readonly|Cannot assign/);assert.equal(f.boundary.commits.length,0)
+ }finally{globalThis.structuredClone=clone;f.restore()}
+})

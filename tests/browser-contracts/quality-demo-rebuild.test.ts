@@ -85,3 +85,32 @@ test('库存仅删除独立演示链，混入外部库存的返仓链及共同�
  });assert.deepEqual(result.actual.sort((a,b)=>a.id.localeCompare(b.id)),result.expected.sort((a,b)=>a.id.localeCompare(b.id)));assert.deepEqual(result.files,['chain-shared']);assert.equal(result.first[0].retainedInventoryApplications,2)
  }finally{await context.close();await browser.close()}
 })
+
+test('库存交接定向切换仅清理关联演示链，保留其他QC和共用文件，旧标签CAS失败且重试不清新记录',{timeout:120000},async()=>{
+ const browser=await chromium.launch(),context=await browser.newContext(),page=await context.newPage()
+ await context.addInitScript(()=>{(globalThis as any).__name=(v:any)=>v})
+ await page.route('**/__inventory-handoff-reset',route=>route.fulfill({contentType:'text/html',body:'<html></html>'}))
+ try{await page.goto(base+'/__inventory-handoff-reset');const result=await page.evaluate(async()=>{
+  const db=await import('/src/data/pcs-record-db.ts'),reset=await import('/src/data/fcs/quality-demo-rebuild.ts')
+  const seed=(await import('/src/data/wls/finished-inventory-quality-seed.ts')).createFinishedInventorySeed(),lot=seed.lots[0],ns='higood-finished-inventory/',post='higood-fcs-post-finishing-records/'
+  const lotId=ns+'lots/'+encodeURIComponent(lot.id),appId=ns+'applications/OLD-HANDOFF'
+  const app={id:'OLD-HANDOFF',operationId:'old-handoff',applicationNo:'INVQC-OLD-HANDOFF',warehouseId:lot.warehouseId,warehouseName:lot.warehouseName,styleId:lot.styleId,styleNo:lot.styleNo,styleName:lot.styleName,imageUrl:lot.imageUrl,lines:[{...lot,outboundQty:1,allocations:[{lotId:lot.id,quantity:1,locationCode:lot.locationCode}]}],qcTaskId:'OLD-HANDOFF-QC',createdAt:'2026-10-23T09:00:00+07:00',createdBy:'旧演示',outboundId:'OLD-HANDOFF-OUT'}
+  const values=[
+   {id:lotId,collection:ns+'lots',value:{...lot,quantity:lot.quantity-1}},
+   {id:appId,collection:ns+'applications',value:app},
+   {id:post+'flow/qcTasks/OLD-HANDOFF-QC',collection:'flow/qcTasks',value:{qcTaskId:'OLD-HANDOFF-QC',inventoryApplicationId:app.id,file:'pcs-file:old-handoff-file'}},
+   {id:post+'flow/postTasks/OLD-POST',collection:'flow/postTasks',value:{postTaskId:'OLD-POST',qcTaskId:'OLD-HANDOFF-QC',inventoryApplicationId:app.id}},
+   {id:post+'flow/processCompletions/OLD-PROCESS',collection:'flow/processCompletions',value:{recordId:'OLD-PROCESS',postTaskId:'OLD-POST'}},
+   {id:post+'logs/OLD-HANDOFF',collection:'logs',value:{objectId:'OLD-HANDOFF-QC',file:'pcs-file:shared-handoff-file'}},
+   {id:post+'flow/qcTasks/KEEP',collection:'flow/qcTasks',value:{qcTaskId:'KEEP',file:'pcs-file:shared-handoff-file'}},
+   {id:'unrelated/KEEP',collection:'unrelated',value:{name:'保留其他模块'}},
+  ]
+  await db.commitPcsRecords({puts:values.map(row=>({...row,expectedVersion:0})),deletes:[],files:[{id:'old-handoff-file',blob:new Blob(['old'])},{id:'shared-handoff-file',blob:new Blob(['shared'])}],operationId:'handoff-reset-input',intent:'legacy demo contract'})
+  const first=await reset.rebuildInventoryQualityHandoffDemo(),after=await db.readPcsRecords()
+  let stale='';try{await db.commitPcsRecords({puts:[{...values[0],expectedVersion:1}],deletes:[],operationId:'old-tab-write',intent:'stale inventory save'})}catch(e){stale=String(e)}
+  await db.commitPcsRecords({puts:[{id:'new-after-handoff/KEEP',collection:'new-after-handoff',value:{saved:true},expectedVersion:0}],deletes:[],operationId:'new-handoff',intent:'new after reset'})
+  const second=await reset.rebuildInventoryQualityHandoffDemo(),again=await db.readPcsRecords()
+  return {first,second,stale,appGone:!after.records.some(row=>row.id===appId),lot:after.records.find(row=>row.id===lotId),original:lot,keep:after.records.filter(row=>row.id.endsWith('/KEEP')),files:after.files.map(file=>file.id),newKept:again.records.some(row=>row.id==='new-after-handoff/KEEP'),oldQcGone:!after.records.some(row=>row.id.endsWith('/OLD-HANDOFF-QC')),postGone:!after.records.some(row=>row.id.endsWith('/OLD-POST') || row.id.endsWith('/OLD-PROCESS')),oldLogGone:!after.records.some(row=>row.id===post+'logs/OLD-HANDOFF')}
+ });assert.equal(result.appGone,true);assert.equal(result.postGone,true);assert.equal(result.oldQcGone,true);assert.equal(result.oldLogGone,true);assert.deepEqual(result.lot?.value,result.original);assert.equal(result.lot?.version,2);assert.equal(result.keep.length,2);assert.deepEqual(result.files,['shared-handoff-file']);assert.match(result.stale,/其他页面修改/);assert.equal(result.second.alreadyCompleted,true);assert.equal(result.newKept,true)
+ }finally{await context.close();await browser.close()}
+})

@@ -131,7 +131,7 @@ export function registerPostFinishingRepository(scope: string, read: () => unkno
   // mutable value can share a version-cache alias with a failed candidate.
   if (previous && (previous.read!==read || previous.replace!==replace)) { ready=false; cachedReadAvailable=false }
   repositories.set(scope, { read, replace })
-  if (!seeds.has(scope) && (seeds.size || ready)) { seeds.set(scope, copy(read())); ready = false; pendingRepositoryScopes.add(scope) }
+  if (!seeds.has(scope) && (seeds.size || ready)) { seeds.set(scope, copy(read())); protectInspectionSnapshots(seeds); ready = false; pendingRepositoryScopes.add(scope) }
 }
 /** Read the original static baseline without hydrating or cloning saved execution history.
  * The projection must be pure; returned rows are immediately reduced by the caller. */
@@ -242,15 +242,16 @@ function validateFlowRecords(records: PcsStoredRecord[], validateRestoredActors 
       || !record.responsible?.actorId || !record.recordedBy?.actorId || !record.recordedAt) throw new Error('加工完成记录格式不完整，原资料保留。')
     // External backups must meet the same actor contract as live registration.
     // This applies only to new item records, never to unknown historical H.
-    if (validateRestoredActors && [record.responsible, record.recordedBy].some(actor =>
+    const inventoryTask = records.some(parent=>!parent.deleted && parent.collection==='flow/postTasks' && (parent.value as any)?.postTaskId===record.postTaskId && (parent.value as any)?.inventoryApplicationId)
+    if (validateRestoredActors && [record.responsible, record.recordedBy].some((actor,index) =>
       typeof actor?.actorId !== 'string' || !actor.actorId.trim() || typeof actor.actorName !== 'string' || !actor.actorName.trim()
-      || !['后道操作员', '后道主管'].includes(actor.roleName))) throw new Error('加工责任人或录入人身份不完整，资料未导入。')
+      || (!(inventoryTask && index===1) && !['后道操作员', '后道主管'].includes(actor.roleName)))) throw new Error('加工责任人或录入人身份不完整，资料未导入。')
   }
 }
 function restoreReadRepositories(records: PcsStoredRecord[], scopes: Iterable<string>, referenceFreeValues?: WeakSet<object>): void {
   for (const scope of scopes) {
     const repo = repositories.get(scope)!
-    const value: any = copy(seeds.get(scope))
+    const value: any = copyMutable(seeds.get(scope))
     const merged = new Map(flatten(scope, value))
     for (const row of records) if (row.id.startsWith(`${namespace}/${scope}/`)) {
       if (row.deleted) merged.delete(row.id)
@@ -354,6 +355,9 @@ async function readPostFinishingRecordState(scope:ExecutionReadScope|null=null):
       }
     }
     if (!seeds.size) for (const [scope, repo] of repositories) seeds.set(scope, copy(repo.read()))
+    // Static QC standards are immutable too. Reuse their protected trees when
+    // restoring mutable baseline records instead of cloning every standard again.
+    protectInspectionSnapshots(seeds)
     const read = await readPcsRecords([namespace],scope ? executionRecordSelection(scope) : undefined)
     validateFlowRecords(read.records)
     stored = new Map(read.records.map(row => [row.id, row]))
@@ -428,13 +432,17 @@ function assertFixedSnapshotIdentities(before:ReturnType<typeof allRows>,after:R
     }
   }
 }
+let preparedInventoryParticipant: PostFinishingCommitParticipant | undefined
+export function registerPostFinishingInventoryParticipant(participant: PostFinishingCommitParticipant): void { preparedInventoryParticipant = participant }
+
 export async function runPostFinishingCommand<T>(recipe: () => T, options: PostFinishingCommandOptions = {}): Promise<T> {
   return runPostFinishingRecordCommand(recipe,options)
 }
 async function runPostFinishingRecordCommand<T>(recipe:()=>T,options:PostFinishingCommandOptions):Promise<T> {
   if (typeof window === 'undefined') return recipe()
-  const participants = options.participants || []
-  if (new Set(participants.map(row => row.key)).size !== participants.length) throw new Error('关联业务重复提交，本次未保存。')
+  const explicitParticipants = options.participants || []
+  if (new Set(explicitParticipants.map(row => row.key)).size !== explicitParticipants.length) throw new Error('关联业务重复提交，本次未保存。')
+  const participants = preparedInventoryParticipant && !explicitParticipants.some(row=>row.key===preparedInventoryParticipant!.key) ? [...explicitParticipants,preparedInventoryParticipant] : explicitParticipants
   for (const participant of participants) await participant.prepare()
   if (!ready) await ensurePreparedPostFinishingRecordState()
   if (!ready || failure) throw new Error(failure || '请重新读取后道资料后重试。')

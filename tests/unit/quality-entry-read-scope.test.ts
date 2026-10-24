@@ -57,7 +57,7 @@ test('后道QC清单和执行不读取无关辅料；查看工作台不计算无
   const calls:string[]=[]
   const run=new Function('dependencies','exportName',`with(dependencies){${js};return createAsyncRenderer(async()=>({[exportName]:()=>'<main>原页面</main>'}),exportName)}`)({loadModule:async(path:string)=>{
    calls.push(path)
-   if(path.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>false,isPreparedInventoryQcRoute:()=>false}
+   if(path.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>false,isPreparedInventoryQcRoute:()=>false,isPreparedInventoryPostRoute:()=>false}
    if(path.endsWith('/store.ts'))return{appStore:{getState:()=>({pathname:'/fcs/craft/post-finishing/qc-workbench'})}}
    if(path.endsWith('/accessory-warehouse-post-finishing.ts'))return{prepareAccessoryPostFinishing:async()=>calls.push('accessory-ready')}
    if(path.endsWith('/storage-notice.ts'))return{renderPostFinishingStorageNotice:()=>''}
@@ -78,7 +78,7 @@ test('已确认库存QC只准备成衣资料；未识别生产QC仍经过完整�
    if(path.endsWith('/pcs-record-runtime.ts'))return{ensurePcsRecordState:async(keys:string[]=[])=>{scopes.push(keys)}}
    if(path.endsWith('/post-finishing-records.ts'))return{ensurePostFinishingExecutionRecordState:async()=>{}}
    if(path.endsWith('/post-finishing-inventory-bridge.ts'))return{preparePostFinishingInventoryBridge:async()=>{calls.push('inventory-ready')}}
-   if(path.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>inventory,isPreparedInventoryQcRoute:()=>inventory}
+   if(path.endsWith('/post-finishing-qc-entry.ts'))return{isPreparedQcRoute:()=>inventory,isPreparedInventoryQcRoute:()=>inventory,isPreparedInventoryPostRoute:()=>inventory}
    if(path.endsWith('/quality-management-records.ts'))return{ensureQualityManagementRecords:async()=>{}}
    if(path.endsWith('/production-context-records.ts'))throw Error('original production source requested')
    return{}

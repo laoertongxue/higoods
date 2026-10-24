@@ -47,7 +47,7 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       'renderProductionOrderProgressTrackingPage', 'renderSewingProductionOrderDurationPage',
     ].includes(exportName)
     const qcOnly=['renderPostFinishingQcOrdersPage','renderPostFinishingQcWorkbenchPage'].includes(exportName)
-    const inventoryQcOnly=postFinishingScope && (await import('../data/fcs/post-finishing-qc-entry.ts')).isPreparedInventoryQcRoute((await import('../state/store.ts')).appStore.getState().pathname)
+    const inventoryQcOnly=postFinishingScope && (await import('../data/fcs/post-finishing-qc-entry.ts')).isPreparedInventoryPostRoute((await import('../state/store.ts')).appStore.getState().pathname)
     if ((postFinishingScope && !inventoryQcOnly && exportName!=='renderPostFinishingQcWorkbenchPage' && exportName!=='renderPostFinishingFullFlowPrintPage') || ppicReturnReadScope) {
       // 必须在页面和命令可用前注册必要分摊事实；直接后道入口与填报入口一致。
       await import('../data/fcs/ppic-daily-return-records.ts')

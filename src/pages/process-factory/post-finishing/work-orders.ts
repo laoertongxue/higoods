@@ -1,3 +1,6 @@
+import { getFinishedInventoryApplication, listFinishedInventoryTransfers } from '../../../data/wls/finished-inventory-quality.ts'
+import { FINISHED_INVENTORY_POST_FACTORY } from '../../../data/wls/finished-inventory-quality-seed.ts'
+import { postFinishingQualitySourceLabel } from '../../../data/fcs/post-finishing-qc-entry.ts'
 import { showPostFinishingActionFailure } from './storage-notice.ts'
 // @page-pattern: list
 
@@ -40,7 +43,7 @@ function removeStartDialog(): void {
 
 function renderStartLookupDialog(task?: PostFinishingPostTask): string {
   const totalQty = task?.lines.reduce((sum, line) => sum + line.expectedQty, 0) || 0
-  const material = task ? getPostFinishingMaterialReadiness(task.productionOrderNo) : undefined
+  const material = task && !task.inventoryApplicationId ? getPostFinishingMaterialReadiness(task.productionOrderNo) : undefined
   const materialWarning = material?.applicable && material.status !== '已入库'
     ? `<div class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"><strong>提示：后道辅料未到齐。</strong>${escapeHtml(material.label)}。本提示不阻断登记加工，请现场确认后继续。</div>`
     : ''
@@ -73,8 +76,9 @@ function renderSkuLines(row: WorkOrderRow): string {
 }
 
 const columns: StandardListColumn<WorkOrderRow>[] = [
-  { key: 'documents', title: '单据', width: 180, required: true, freezeable: true, render: (row) => `<div>加工单：<strong class="break-all font-mono">${escapeHtml(row.task.postTaskNo)}</strong></div><div class="mt-1 text-xs">质检：<span class="font-mono text-blue-700">${escapeHtml(row.task.qcTaskNo)}</span></div><div class="mt-1 text-xs">生产：<span class="font-mono text-blue-700">${escapeHtml(row.task.productionOrderNo)}</span></div><div class="mt-1 break-all text-[11px] text-muted-foreground">第 ${row.task.returnIndex} 次回货 · ${escapeHtml(row.task.deliveryOrderNo)}</div>` },
-  { key: 'factory', title: '工厂', width: 120, required: true, render: (row) => `<div><span class="text-xs text-muted-foreground">来源：</span>${escapeHtml(row.delivery?.sewingFactoryName || '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">后道：</span>${escapeHtml(row.delivery?.managedPostFactoryName || '—')}</div>` },
+  { key:'sourceKind',title:'业务类型',width:150,required:true,render:row=>postFinishingQualitySourceLabel(row.qcTask?.sourceKind) },
+  { key: 'documents', title: '单据', width: 180, required: true, freezeable: true, render: (row) => `<div>加工单：<strong class="break-all font-mono">${escapeHtml(row.task.postTaskNo)}</strong></div><div class="mt-1 text-xs">质检：<span class="font-mono text-blue-700">${escapeHtml(row.task.qcTaskNo)}</span></div><div class="mt-1 text-xs">生产：<span class="font-mono text-blue-700">${escapeHtml(row.task.productionOrderNo || '不适用（成衣库存质检）')}</span></div><div class="mt-1 break-all text-[11px] text-muted-foreground">${row.task.inventoryApplicationId ? '送检申请' : `第 ${row.task.returnIndex} 次回货`} · ${escapeHtml(row.task.deliveryOrderNo)}</div>` },
+  { key: 'factory', title: '工厂', width: 120, required: true, render: (row) => `<div><span class="text-xs text-muted-foreground">来源：</span>${escapeHtml((row.task.inventoryApplicationId ? getFinishedInventoryApplication(row.task.inventoryApplicationId)?.warehouseName : row.delivery?.sewingFactoryName) || '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">后道：</span>${escapeHtml((row.task.inventoryApplicationId ? FINISHED_INVENTORY_POST_FACTORY.name : row.delivery?.managedPostFactoryName) || '—')}</div>` },
   { key: 'sku', title: 'SKU 明细', width: 200, required: true, render: renderSkuLines },
   { key: 'process', title: '任务范围 / 后道项目', width: 160, required: true, render: (row) => `<div class="text-xs font-medium">${escapeHtml(`${row.task.responsibility.taskTypeLabel} · ${row.task.responsibility.responsibilityLabel}`)}</div><div class="mt-1 text-[11px] text-muted-foreground">来源：${escapeHtml(row.task.sourceType)}</div><div class="mt-2 flex flex-wrap gap-1">${row.task.processItems.map((item) => `<span class="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">${escapeHtml(item)}</span>`).join('')}</div>` },
   { key: 'material', title: '辅料到位', width: 120, required: true, render: (row) => row.materialReadiness.applicable ? `<div class="text-xs ${row.materialReadiness.status === '已入库' ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(row.materialReadiness.status)}</div><div class="mt-1 text-[11px] text-muted-foreground">仅提示，不阻断开工</div>${row.materialReadiness.transferOrderNo ? `<a data-nav="/fcs/craft/post-finishing/material-transfers?transferId=${encodeURIComponent(row.materialReadiness.transferOrderNo)}" class="mt-1 block font-mono text-[11px] text-blue-700 hover:underline">${escapeHtml(row.materialReadiness.transferOrderNo)}</a>` : ''}` : '<span class="text-xs text-muted-foreground">质检补加工不读取主调拨状态</span>' },
@@ -88,6 +92,7 @@ const columns: StandardListColumn<WorkOrderRow>[] = [
   { key: 'unprocessed', title: '尚未完成后道', width: 108, required: true, align: 'center', render: (row) => `${row.unprocessedQty} 件` },
   { key: 'available-outbound', title: '可准备出货', width: 90, required: true, align: 'center', render: (row) => `${row.progress.availableForOutboundQty} 件` },
   { key: 'downstream', title: '出货进度', width: 200, required: true, render: (row) => {
+    if(row.task.inventoryApplicationId){ const transfers=listFinishedInventoryTransfers(row.task.inventoryApplicationId).filter(item=>item.category==='正常返仓');return transfers.map(item=>`<div class="text-xs">正常货 ${item.lines.reduce((n,line)=>n+line.quantity,0)} 件 · ${!item.shippedAt ? row.task.status==='后道完成'?'待整批交出':'待后道加工' : !item.receivedAt?'待仓接收':item.putawayAt?'已上架':'待上架'}</div>`).join('') }
     const ready=row.outbounds.filter(item=>item.status==='待出货').reduce((sum,item)=>sum+item.lines.reduce((n,line)=>n+line.outboundQty,0),0)
     const received=row.outbounds.filter(item=>item.status==='已接收入库').reduce((sum,item)=>sum+item.lines.reduce((n,line)=>n+(line.receivedQty||0),0),0)
     const waiting=row.outbounds.filter(item=>item.status==='待仓库接收').reduce((sum,item)=>sum+item.lines.reduce((n,line)=>n+line.outboundQty,0),0)
@@ -95,7 +100,7 @@ const columns: StandardListColumn<WorkOrderRow>[] = [
   } },
   { key: 'status', title: '后道状态', width: 84, required: true, render: (row) => renderPostStatusBadge(row.task.status) },
   { key: 'time', title: '时间', width: 125, required: true, render: (row) => `<div><span class="text-xs text-muted-foreground">创建：</span>${escapeHtml(row.qcTask?.completedAt ? new Date(row.qcTask.completedAt).toLocaleString('zh-CN') : '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">开始：</span>${escapeHtml(row.task.startedAt ? new Date(row.task.startedAt).toLocaleString('zh-CN') : '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">完成：</span>${escapeHtml(row.task.completedAt ? new Date(row.task.completedAt).toLocaleString('zh-CN') : '—')}</div>` },
-  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true, render: (row) => `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}${row.task.status !== '后道完成' ? '?action=register' : ''}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">${row.task.status !== '后道完成' ? '登记加工' : '查看加工单'}</a>${row.progress.availableForOutboundQty > 0 ? `<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}?action=outbound" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">准备出货</a>` : ''}<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}#records" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看记录</a><a data-nav="/fcs/craft/post-finishing/print?type=POST_ORDER&id=${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印加工单</a><a data-nav="/fcs/craft/post-finishing/audit-records?deliveryId=${encodeURIComponent(row.task.deliveryId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看全流程</a></div>` },
+  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true, render: (row) => `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}${row.task.status !== '后道完成' ? '?action=register' : ''}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">${row.task.status !== '后道完成' ? '登记加工' : '查看加工单'}</a>${row.task.inventoryApplicationId && row.task.status==='后道完成' ? `<a class="text-xs text-blue-700" data-nav="/fcs/craft/post-finishing/outbound-orders?sourceKind=WAREHOUSE_STOCK&keyword=${encodeURIComponent(row.task.deliveryOrderNo)}">办理整批出货</a>` : ''}${row.progress.availableForOutboundQty > 0 && !row.task.inventoryApplicationId ? `<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}?action=outbound" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">准备出货</a>` : ''}<a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}#records" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看记录</a><a data-nav="/fcs/craft/post-finishing/print?type=POST_ORDER&id=${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印加工单</a><a data-nav="${row.task.inventoryApplicationId ? `/wls/finished/inventory-quality?id=${encodeURIComponent(row.task.inventoryApplicationId)}` : `/fcs/craft/post-finishing/audit-records?deliveryId=${encodeURIComponent(row.task.deliveryId)}`}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看全流程</a></div>` },
 ]
 
 export function renderPostFinishingWorkOrdersPage(): string {
@@ -104,6 +109,7 @@ export function renderPostFinishingWorkOrdersPage(): string {
   const status = current.get('status') || ''
   const processItem = current.get('processItem') || ''
   const factory = current.get('factory') || ''
+  const sourceKind = current.get('sourceKind') || ''
   const allTasks = listPostFinishingFullFlowPostTasks()
   const outbounds = listPostFinishingFullFlowOutboundOrders()
   const materialReadinessByProduction = new Map<string, WorkOrderRow['materialReadiness']>()
@@ -115,7 +121,7 @@ export function renderPostFinishingWorkOrdersPage(): string {
     }
     return readiness
   }
-  const rows = allTasks.map((task): WorkOrderRow => {
+  const rows = allTasks.filter(task=>!sourceKind || (task.sourceKind || getPostFinishingFullFlowQcTask(task.qcTaskId)?.sourceKind || 'PRODUCTION_RETURN')===sourceKind).map((task): WorkOrderRow => {
     const progress = getPostFinishingProcessProgress(task)
     return {
       task,
@@ -125,25 +131,26 @@ export function renderPostFinishingWorkOrdersPage(): string {
       progress,
       outbounds: outbounds.filter((item) => item.postTaskId === task.postTaskId),
       unprocessedQty: Math.max(0, progress.totalExpectedQty - progress.totalCompletedQty),
-      materialReadiness: readMaterialReadiness(task.productionOrderNo),
+      materialReadiness: task.inventoryApplicationId ? {applicable:false,status:'不适用',label:'成衣库存质检按本批加工项目办理'} : readMaterialReadiness(task.productionOrderNo),
     }
   }).filter((row) => {
     const searchable = [row.task.postTaskNo, row.task.qcTaskNo, row.task.deliveryOrderNo, row.task.productionOrderNo, row.delivery?.sewingFactoryName, row.delivery?.managedPostFactoryName, ...row.task.processItems, ...row.task.lines.map((line) => line.sku.skuCode)].filter(Boolean).join(' ').toLowerCase()
     return (!keyword || searchable.includes(keyword))
       && (!status || row.task.status === status)
       && (!processItem || row.task.processItems.some((item) => item === processItem))
-      && (!factory || row.delivery?.managedPostFactoryName === factory)
+      && (!factory || (row.task.inventoryApplicationId ? FINISHED_INVENTORY_POST_FACTORY.name : row.delivery?.managedPostFactoryName) === factory)
+      && (!sourceKind || (row.qcTask?.sourceKind || 'PRODUCTION_RETURN') === sourceKind)
   })
   const unprocessedQty = rows.reduce((sum, row) => sum + row.unprocessedQty, 0)
   const pageSize = Math.max(10, Math.min(50, Number(current.get('pageSize') || 20)))
   const slice = paginateStandardListRows(rows, Number(current.get('page') || 1), pageSize)
   const preferences: StandardListColumnPreferences = { order: columns.map((column) => column.key), visibleKeys: columns.map((column) => column.key), frozenKeys: ['documents'], pageSize }
   const processItems = [...new Set(allTasks.flatMap((task) => task.processItems))]
-  const factories = [...new Set(allTasks.map((task) => getPostFinishingFactoryReturn(task.deliveryId)?.managedPostFactoryName).filter((value): value is string => Boolean(value)))]
+  const factories = [...new Set(allTasks.map((task) => task.inventoryApplicationId ? FINISHED_INVENTORY_POST_FACTORY.name : getPostFinishingFactoryReturn(task.deliveryId)?.managedPostFactoryName).filter((value): value is string => Boolean(value)))]
   return renderStandardListPage({
     title: '后道加工单',
     primaryActionsHtml: '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-orders-action="open-start" data-skip-page-rerender="true">登记加工</button>',
-    filtersHtml: `<form action="/fcs/craft/post-finishing/work-orders" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3 xl:grid-cols-5"><label class="text-xs text-muted-foreground md:col-span-2">关键词<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="后道加工单/质检单/生产单/款式/后道项目"/></label><label class="text-xs text-muted-foreground">当前状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['待后道','后道中','后道完成'], status)}</select></label><label class="text-xs text-muted-foreground">后道项目<select name="processItem" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(processItems, processItem)}</select></label><label class="text-xs text-muted-foreground">工厂<select name="factory" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(factories, factory)}</select></label><div class="flex items-end justify-end gap-2 md:col-span-3 xl:col-span-5"><a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
+    filtersHtml: `<form action="/fcs/craft/post-finishing/work-orders" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3 xl:grid-cols-5"><label class="text-xs text-muted-foreground md:col-span-2">关键词<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="后道加工单/质检单/生产单/款式/后道项目"/></label><label class="text-xs text-muted-foreground">业务类型<select name="sourceKind" aria-label="业务类型" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部类型</option>${(['WAREHOUSE_STOCK','PRODUCTION_RETURN'] as const).map(kind=>`<option value="${kind}" ${sourceKind===kind?'selected':''}>${postFinishingQualitySourceLabel(kind)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">当前状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['待后道','后道中','后道完成'], status)}</select></label><label class="text-xs text-muted-foreground">后道项目<select name="processItem" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(processItems, processItem)}</select></label><label class="text-xs text-muted-foreground">工厂<select name="factory" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(factories, factory)}</select></label><div class="flex items-end justify-end gap-2 md:col-span-3 xl:col-span-5"><a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
     statsHtml: renderStandardListStats([
       { label: '后道加工单', value: `${rows.length} 张` },
       { label: '等待后道', value: `${rows.filter((row) => row.task.status === '待后道').length} 张` },

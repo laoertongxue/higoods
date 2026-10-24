@@ -160,6 +160,7 @@ export function receiveFinishedInventoryQualityApplication(input: { applicationI
 /** 根QC完成命令内调用：结果和三去向准备关系与QC同一次PCS事务保存。 */
 export function completeFinishedInventoryQc(input: {
   applicationId: string; qcTaskId: string; qcTaskNo?: string; completedAt?: string; operatorName?: string
+  postTaskId?: string; postTaskNo?: string; processItems?: string[]
   lines?: Array<{ skuId: string; passedQty: number; defectQty: number; returnedQty: number; uninspectedQty: number; releasedQty: number }>
   results?: Array<{ skuId: string; inspectedQty: number; passedQty: number; defectQty: number; reworkQty: number }>
 }): FinishedInventoryApplication {
@@ -182,6 +183,7 @@ export function completeFinishedInventoryQc(input: {
   })
   const time = at(input.completedAt), operator = input.operatorName || '后道质检'
   application.qcCompletedAt = time; application.qcResults = results
+  application.postTaskId = input.postTaskId; application.postTaskNo = input.postTaskNo; application.processItems = input.processItems ? [...input.processItems] : []
   const categories: Array<{ category: FinishedInventoryTransferCategory; targetId: string; targetName: string; quantity: (result: FinishedInventoryQcResult) => number }> = [
     { category: '正常返仓', targetId: application.warehouseId, targetName: application.warehouseName, quantity: row => row.releasedQty },
     { category: '瑕疵入仓', targetId: FINISHED_INVENTORY_DEFECT_WAREHOUSE.id, targetName: FINISHED_INVENTORY_DEFECT_WAREHOUSE.name, quantity: row => row.defectQty },
@@ -206,6 +208,7 @@ function updateCompletion(application: FinishedInventoryApplication, time: strin
 export function shipFinishedInventoryTransfer(input: { transferId: string; actor: FinishedInventoryActor | string; at?: string }): FinishedInventoryTransfer {
   assertPostFinishingWrite()
   const transfer = transferById(input.transferId), application = appById(transfer.applicationId)
+  if (transfer.category === '正常返仓' && application.postTaskId && !application.postCompletedAt) throw new Error('本批已选择后道加工，须全部加工项完成后才能整批交出正常货。')
   if (!application.qcCompletedAt || transfer.category === '送后道') throw new Error('本批QC未完成，不能交出库存货。')
   if (transfer.shippedAt) throw new Error('本类货已经整批交出，不能分批或重复出货。')
   transfer.shippedAt = at(input.at); transfer.shippedBy = actorName(input.actor)
@@ -273,9 +276,12 @@ export function finishedInventoryApplicationStatus(application: FinishedInventor
   if (!application.receivedAt) return '待后道实收'
   if (!application.qcTaskId) return '实收为0待核实差异'
   if (!application.qcCompletedAt) return '待完成QC'
+  if (application.postTaskId && !application.postCompletedAt) return '待后道加工'
   return '待分类交接及上架'
 }
 export function finishedInventoryTransferStatus(transfer: FinishedInventoryTransfer): string {
+  const application = getFinishedInventoryApplication(transfer.applicationId)
+  if (transfer.category === '正常返仓' && !transfer.shippedAt && application?.postTaskId && !application.postCompletedAt) return '待后道加工'
   if (!transfer.shippedAt) return '待整批交出'
   if (!transfer.receivedAt) return '待整批接收'
   if (transfer.category === '返工交接' || transfer.category === '送后道' || transfer.putawayAt) return '已完成'
@@ -357,3 +363,29 @@ export function finishedInventoryFlowRows() {
 
 /** 已切换仓/SKU的旧写入口必须拒绝旧源；不凭相似仓名扩大作用域。 */
 export function ownsFinishedInventoryStock(warehouseName: string, skuCode: string): boolean { return readFinishedInventoryState().lots.some(row => row.warehouseName === warehouseName && row.skuCode === skuCode) }
+
+/** 成衣质检出库单直接读取同事务保存的送检事实，不跨库复制或再次扣减。 */
+export function listFinishedInventoryOutboundOrders(): import('./finished-outbound-orders.ts').FinishedOutboundOrder[] {
+  return listFinishedInventoryApplications().map(app => ({
+    id: app.outboundId, outboundOrderNo: `${app.applicationNo}-OUT`, relatedOrderNo: app.applicationNo,
+    inventoryApplicationId: app.id, recipientName: FINISHED_INVENTORY_POST_FACTORY.name, operatorName: app.createdBy,
+    trackingNo: '', warehouse: app.warehouseName, platform: '', orderType: '成衣质检', status: '已出库',
+    createdAt: app.createdAt, updatedAt: app.createdAt, shippedAt: app.createdAt, deadline: '', pickedAt: '',
+    cancelledAt: '', labelDownloadedAt: '', printedAt: '', pickOrderNo: '', isKol: false, printCount: 0, version: 1,
+    remark: `成衣库存送后道质检 · ${app.styleName}`,
+    products: app.lines.map(line => ({ spu: app.styleNo, sku: line.skuCode, imageUrl: line.imageUrl,
+      quantity: line.outboundQty, pendingQuantity: 0, locations: line.allocations.map(row => ({ name: row.locationCode, quantity: row.quantity })), inventoryUpdatedAt: app.createdAt })),
+    logs: [{ at: app.createdAt, action: '成衣质检下架出库', operator: app.createdBy, remark: `送往${FINISHED_INVENTORY_POST_FACTORY.name}，关联${app.applicationNo}` }],
+  }))
+}
+
+/** Called by the original processing command; committed with its process records. */
+export function updateFinishedInventoryPostProgress(input: { applicationId: string; postTaskId: string; completedAt?: string }): void {
+  assertPostFinishingWrite()
+  const application = appById(input.applicationId)
+  if (application.postTaskId !== input.postTaskId) throw new Error('库存申请与后道加工单不一致，本次未保存。')
+  application.postCompletedAt = input.completedAt
+}
+export function finishedInventoryPostShippedQuantities(applicationId: string): Array<{ skuId: string; quantity: number }> {
+  return listFinishedInventoryTransfers(applicationId).filter(row=>row.category==='正常返仓' && Boolean(row.shippedAt)).flatMap(row=>row.lines.map(line=>({skuId:line.skuId,quantity:line.quantity})))
+}

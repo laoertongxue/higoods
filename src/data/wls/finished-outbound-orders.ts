@@ -24,7 +24,10 @@ export type FinishedOutboundOrder = {
   trackingNo: string
   warehouse: string
   platform: string
-  orderType: '现货订单' | '预售订单'
+  orderType: '现货订单' | '预售订单' | '成衣质检'
+  inventoryApplicationId?: string
+  recipientName?: string
+  operatorName?: string
   status: FinishedOutboundStatus
   createdAt: string
   updatedAt: string
@@ -189,6 +192,7 @@ export function filterFinishedOutboundOrders(
 
 /** 纯业务动作：打印记录历史与下载事实分别保留；本函数不改传入记录。 */
 export function applyFinishedOutboundAction(order: FinishedOutboundOrder, action: FinishedOutboundAction, at: string): FinishedOutboundOrder {
+  if (order.orderType === '成衣质检') throw new Error('成衣质检出库已在送检时完成，请从关联送检单查看流转。')
   // Calendar validation is required even for inactive records; source timezone
   // remains explicit for priority calculation and is never inferred here.
   if (parseQcShippingDeadlineMillis(order.deadline, order.deadlineTimeZone || 'Asia/Jakarta') === undefined) throw new Error('出库单揽收时效无效，请依据来源核对后再操作。')

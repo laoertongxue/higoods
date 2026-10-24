@@ -331,6 +331,8 @@ export async function resolvePage(pathname: string): Promise<string> {
   if (normalizedPathname.startsWith('/fcs/quality-management/')) {
     return (await import('../pages/quality-management/index.ts')).renderQualityManagementPage(pathname)
   }
+  // The inventory entry owns its prepared source; loading the complete WLS registry here also loads unrelated dyeing/receiving pages.
+  if (normalizedPathname === '/wls/finished/stock/realtime') return (await import('../pages/wls/finished/stock-realtime.ts')).renderFinishedStockRealtime()
   if (normalizedPathname === '/wls/finished/inventory-quality' || normalizedPathname.startsWith('/wls/finished/inventory-quality/')) {
     return (await import('../pages/wls/finished/inventory-quality.ts')).renderFinishedInventoryQuality()
   }
@@ -443,6 +445,9 @@ export async function resolvePage(pathname: string): Promise<string> {
 
   // 后道命名页复用原渲染器与记录读取，不为命中一个页面先载入
   // 整份 FCS 路由表的染整交接、质量扣款等静态来源。
+  if (['/fcs/craft/post-finishing/inventory-quality', '/fcs/production/inventory-rework-receipts'].includes(normalizedPathname)) {
+    return (await import('../pages/wls/finished/inventory-quality.ts')).renderFinishedInventoryQualityPage()
+  }
   if (normalizedPathname.startsWith('/fcs/craft/post-finishing/')) {
     if (normalizedPathname === '/fcs/craft/post-finishing/material-transfers') {
       // This page prepares the complete material scope itself. The generic

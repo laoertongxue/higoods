@@ -90,6 +90,8 @@ const QUALITY_BROWSER_PATHS = [
   'tests/quality-inventory-generic-print-entry.spec.ts',
   'tests/quality-fei-print-lazy-boundary.spec.ts',
   'tests/finished-inventory-quality-flow.spec.ts',
+  'tests/finished-inventory-quality-handoff.spec.ts',
+  'tests/finished-inventory-quality-mock.spec.ts',
   'tests/sample-approval-quality.spec.ts',
   'tests/print-service-post-route-card.spec.ts',
 ]
@@ -195,7 +197,11 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       add(fullChecks, 'node scripts/verification/run-quality-native-contracts.mjs')
       continue
     }
-    if (QUALITY_BROWSER_PATHS.includes(path)) {
+    if (path === 'scripts/build-inventory-quality-mock.ts') {
+      add(fastChecks, 'node --import tsx scripts/build-inventory-quality-mock.ts --check')
+      continue
+    }
+    if (QUALITY_BROWSER_PATHS.includes(path) || ['tests/helpers/inventory-quality-timing.ts','tests/helpers/post-finishing-qc-form.ts','tests/helpers/inventory-quality-empty-fixture.ts'].includes(path)) {
       add(fullChecks, QUALITY_BROWSER_CHECK)
       continue
     }

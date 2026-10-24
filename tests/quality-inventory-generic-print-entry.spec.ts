@@ -1,3 +1,5 @@
+import { useEmptyInventoryQualityFixture } from './helpers/inventory-quality-empty-fixture.ts'
+import { fillPostQcRow } from './helpers/post-finishing-qc-form.ts'
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -42,6 +44,12 @@ interface PrintProbe {
     images: Array<{ src: string; complete: boolean; width: number; height: number }>
     codes: Array<{ value: string | null; bars: number }>
   }>
+}
+
+async function openFinishingInventoryApplication(page: Page) {
+  const id = new URL(page.url()).searchParams.get('id')
+  if (!id) throw new Error('缺少本次库存送检申请身份')
+  await page.goto(`/fcs/craft/post-finishing/inventory-quality?id=${encodeURIComponent(id)}`)
 }
 
 async function pcsRows(page: Page): Promise<NativeRow[]> {
@@ -108,7 +116,7 @@ async function originalStockQcFromUi(page: Page) {
   await expect(page.getByRole('heading', { name: '即时库存查询 — 成衣', exact: true })).toBeVisible()
   await page.locator('tr').filter({ hasText: 'SKU-GC-20001' }).first().getByRole('link', { name: '本仓本款全部送检' }).click()
   await expect(page.getByRole('heading', { name: '确认整批库存送检', exact: true })).toBeVisible()
-  await page.locator('[data-fiq-form="apply"] input[name="operator"]').fill('隔离打印回归仓管')
+  await expect(page.locator('[data-fiq-form="apply"] input[name="operator"]')).toHaveCount(0)
   await page.getByRole('button', { name: '确认下架出库 80 件', exact: true }).click()
   await expect(page.getByRole('heading', { name: '库存送检流转详情', exact: true })).toBeVisible()
   const applications = (await pcsRows(page)).filter(row => !row.deleted && row.collection === 'higood-finished-inventory/applications')
@@ -116,9 +124,10 @@ async function originalStockQcFromUi(page: Page) {
   let application = applications[0].value as FinishedInventoryApplication
   expect(application.lines.reduce((n, line) => n + line.outboundQty, 0)).toBe(80)
   expect(application.lines).toHaveLength(2)
+  await openFinishingInventoryApplication(page)
   const receive = page.locator('[data-fiq-form="receive"]')
   for (const line of application.lines) await receive.locator(`input[name="quantity"][data-sku-id="${line.skuId}"]`).fill(String(line.outboundQty))
-  await receive.locator('input[name="operator"]').fill('隔离打印回归后道实收员')
+  await expect(receive.locator('input[name="operator"]')).toHaveCount(0)
   await receive.getByRole('button', { name: '确认整批实收并形成库存QC', exact: true }).click()
   await expect(page.getByRole('link', { name: '进入后道原质检工作台', exact: true })).toBeVisible()
   application = (await pcsRows(page)).find(row => !row.deleted && row.id === applications[0].id)!.value as FinishedInventoryApplication
@@ -138,9 +147,7 @@ async function originalStockQcFromUi(page: Page) {
     expect(Number.isSafeInteger(capacities[index]) && capacities[index] >= 0).toBe(true)
     const passed = Math.min(remaining, capacities[index])
     remaining -= passed
-    await cards.nth(index).locator('[data-qc-result-field="passedQty"]').fill(String(passed))
-    await cards.nth(index).locator('[data-qc-result-field="defectQty"]').fill('0')
-    await cards.nth(index).locator('[data-qc-result-field="returnQty"]').fill('0')
+    await fillPostQcRow(cards.nth(index),passed)
   }
   expect(remaining).toBe(0)
   await page.getByRole('button', { name: '提交第1轮检查', exact: true }).click()
@@ -177,7 +184,7 @@ async function assertDetail(page: Page, application: FinishedInventoryApplicatio
   await expect(root).toBeVisible()
   await expect(root).toHaveAttribute('data-print-document-no', qc.qcTaskNo)
   await expect(root).toContainText('不适用（库存送检）')
-  await expect(root).toContainText('成衣仓库存送检')
+  await expect(root).toContainText('成衣库存质检')
   await expect(root).toContainText(qc.sourceWarehouseName!)
   await expect(root).toContainText(`申请 ${application.id}`)
   const table = root.locator('.pf-qc-sku-table tbody tr')
@@ -277,7 +284,7 @@ test('库存原页面完成QC后，通用详情打印冷直达及刷新读取原
   await expect.poll(() => printPage.evaluate(() => (window as any).__inventoryGenericPrintProbe.calls.length)).toBe(1)
   probe = await printPage.evaluate(() => (window as any).__inventoryGenericPrintProbe as PrintProbe)
   expect(probe.calls[0].path).toBe(path)
-  expect(probe.calls[0].text).toContain('成衣仓库存送检')
+  expect(probe.calls[0].text).toContain('成衣库存质检')
   expect(probe.calls[0].codes).toEqual([{ value: qc.qcTaskNo, bars: await printPage.locator('[data-testid="post-finishing-qc-detail-print"] [data-real-barcode] rect').count() }])
   expect(probe.calls[0].codes[0].bars).toBeGreaterThan(0)
   expect(probe.calls[0].images.every(image => image.complete && image.width > 0 && image.height > 0)).toBe(true)
@@ -290,3 +297,5 @@ test('库存原页面完成QC后，通用详情打印冷直达及刷新读取原
   expect(errors).toEqual([])
   await info.attach('cold-refresh-print-observation-and-native-after', { body: JSON.stringify({ path, probe, errors, after: await nativeFingerprint(printPage) }, null, 2), contentType: 'application/json' })
 })
+
+test.beforeEach(async ({page,baseURL})=>{await useEmptyInventoryQualityFixture(page,baseURL)})

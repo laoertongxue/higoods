@@ -1,4 +1,4 @@
-import { INSPECTION_STAGES, type AdditionalInspectionStandard, type InspectionApplicability, type InspectionConfiguration, type InspectionContext, type InspectionIssue, type InspectionRuleConfig, type InspectionSnapshot, type InspectionStandard, type ResolvedInspectionItem, type ResolvedInspectionStandard } from './quality-management-types.ts'
+import { INSPECTION_STAGES, type AdditionalInspectionStandard, type InspectionApplicability, type InspectionConfiguration, type InspectionContext, type InspectionIssue, type InspectionRuleConfig, type InspectionSnapshot, type InspectionStandard, type InspectionStandardItem, type ResolvedInspectionItem, type ResolvedInspectionStandard } from './quality-management-types.ts'
 
 export function normalizeInspectionContext(context: InspectionContext): InspectionContext {
   return { ...context, stage: context.stage || INSPECTION_STAGES[context.sourceKind], objectType: context.objectType || 'GARMENT' }
@@ -129,6 +129,56 @@ export function resolveInspectionStandard(input: { basicStandards: InspectionSta
 }
 function integer(value: number, label: string): void { if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label}必须为非负整数。`) }
 function percent(value: number): void { if (!Number.isFinite(value) || value <= 0 || value > 100) throw new Error('检查比例须大于0且不超过100（例如30表示30%）。') }
+const ITEM_KINDS = ['TEXT','MEASUREMENT','VISUAL','FUNCTIONAL','ATTRIBUTE'] as const
+const ITEM_METHODS = ['VISUAL','MEASURE','FUNCTIONAL','DOCUMENT'] as const
+const SEVERITIES = ['CRITICAL','MAJOR','MINOR'] as const
+const DISPOSITIONS = ['DEFECT','REWORK','BOTH'] as const
+const EVIDENCE_REQUIREMENTS = ['NONE','PHOTO','MEASUREMENT','DOCUMENT'] as const
+function assertEnum(value: unknown, allowed: readonly string[], label: string): void {
+  if (value !== undefined && !allowed.includes(String(value))) throw new Error(`${label}不在支持范围。`)
+}
+function validateDefectCodes(value: unknown, label: string): void {
+  if (value === undefined) return
+  if (!Array.isArray(value) || value.some(row => !row || typeof row !== 'object')) throw new Error(`${label}缺陷代码格式不完整。`)
+  const seen = new Set<string>()
+  for (const row of value as Array<Record<string, unknown>>) {
+    const code = String(row.code || '').trim()
+    if (!code || !String(row.name || '').trim()) throw new Error(`${label}缺陷代码须包含代码和名称。`)
+    if (seen.has(code)) throw new Error(`${label}缺陷代码不能重复。`)
+    seen.add(code)
+    assertEnum(row.severity, SEVERITIES, `${label}缺陷严重度`)
+    assertEnum(row.disposition, DISPOSITIONS, `${label}缺陷处置`)
+  }
+}
+function validateMeasurementSpec(value: unknown, label: string): void {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label}测量定义格式不完整。`)
+  const measurement = value as Record<string, unknown>
+  if (!String(measurement.techPackPart || '').trim() && !Object.keys((measurement.nominalBySize as object) || {}).length) throw new Error(`${label}须绑定技术包部位或提供标准值。`)
+  if (measurement.tolerance !== undefined && typeof measurement.tolerance !== 'number' && typeof measurement.tolerance !== 'string') throw new Error(`${label}公差格式无效。`)
+  if (measurement.nominalBySize !== undefined && (typeof measurement.nominalBySize !== 'object' || Array.isArray(measurement.nominalBySize))) throw new Error(`${label}标准值格式无效。`)
+}
+function validateTypedItems(items: InspectionStandardItem[], label: string): void {
+  items.forEach((item, index) => {
+    const itemLabel = `${label}第${index + 1}项`
+    assertEnum(item.kind, ITEM_KINDS, `${itemLabel}类型`)
+    assertEnum(item.method, ITEM_METHODS, `${itemLabel}方法`)
+    assertEnum(item.severity, SEVERITIES, `${itemLabel}严重度`)
+    assertEnum(item.disposition, DISPOSITIONS, `${itemLabel}处置`)
+    assertEnum(item.evidenceRequirement, EVIDENCE_REQUIREMENTS, `${itemLabel}证据要求`)
+    if (item.kind === 'MEASUREMENT') validateMeasurementSpec(item.measurement, itemLabel)
+    validateDefectCodes(item.defectCodes, itemLabel)
+  })
+}
+function validateOverrideExecutionFields(override: AdditionalInspectionStandard['overrides'][number], label: string): void {
+  const values = override.values as Record<string, unknown>
+  for (const field of override.fields) {
+    if (['kind','method','severity','disposition','evidenceRequirement'].includes(field)) {
+      assertEnum(values[field], field === 'kind' ? ITEM_KINDS : field === 'method' ? ITEM_METHODS : field === 'severity' ? SEVERITIES : field === 'disposition' ? DISPOSITIONS : EVIDENCE_REQUIREMENTS, `${label}${field}`)
+    }
+    if (field === 'measurement') validateMeasurementSpec(values.measurement, `${label}测量定义`)
+    if (field === 'defectCodes') validateDefectCodes(values.defectCodes, label)
+  }
+}
 export function calculateInspectionTarget(input: { quantity: number; percent: number; minQuantity?: number }): number {
   integer(input.quantity, '本批数量'); integer(input.minQuantity ?? 0, '最低检查量'); percent(input.percent)
   return Math.min(input.quantity, Math.max(Math.ceil(input.quantity * input.percent / 100), input.minQuantity ?? 0))
@@ -179,6 +229,7 @@ function validateConfiguration(config: InspectionConfiguration, all: InspectionC
   } else {
     const ids = new Set<string>()
     for (const item of config.items) { if (!item.id || !item.dimension.trim() || !item.name.trim() || !item.content.trim() || !item.criterion.trim()) throw new Error('检查项须有稳定编号、维度、名称、检查内容和判定要求。'); if (ids.has(item.id)) throw new Error('检查项编号不能重复。'); ids.add(item.id) }
+    validateTypedItems(config.items, '检查项')
     if (config.kind === 'BASIC' && !config.items.length) throw new Error('基本标准至少包含一个检查项。')
     if (config.kind === 'ADDITIONAL') {
       if (config.level === 'STYLE' && !config.applicability.styleIds?.length) throw new Error('指定款附加标准须明确款式范围。')
@@ -186,6 +237,7 @@ function validateConfiguration(config: InspectionConfiguration, all: InspectionC
       if (!config.items.length && !config.overrides.length) throw new Error('附加标准至少新增或覆盖一个检查项。')
       for (const override of config.overrides) {
         if (!override.targetItemId || !override.fields.length || override.fields.some(field => !Object.hasOwn(override.values, field))) throw new Error('覆盖须明确原检查项、覆盖字段及新要求。')
+        validateOverrideExecutionFields(override, '覆盖要求')
         validateOverrideDependency(config, override.targetItemId, override.applicability, all, overlaps, knownStyles)
       }
     }

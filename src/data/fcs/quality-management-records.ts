@@ -6,6 +6,9 @@ import { prepareQualityInspectionScopeIdentityAliases } from './quality-manageme
 
 export const QUALITY_CONFIGURATION_NAMESPACE = 'higood-fcs-quality-management'
 export const QUALITY_CONFIGURATION_REVISION_ID = `${QUALITY_CONFIGURATION_NAMESPACE}/scope/revision`
+export const QUALITY_CONFIGURATION_SCHEMA_VERSION = 2
+const QUALITY_CONFIGURATION_SCHEMA_ID = `${QUALITY_CONFIGURATION_NAMESPACE}/scope/schema`
+let schemaPrepared = false
 export const DEFAULT_FABRIC_SPU_WHITELIST = ['CNIDML002','CNIDML018','CNIDML021','CNIDML031','CNIDML043','CNIDML003','CNIDML132','CNIDML076','CNIDML160','CNIDML030','CNIDML046','CNIDML059','CNIDML022','CNIDML328','CNIDML006','CNIDML129','CNIDML074','CNIDML347','CNIDML095','CNIDML040']
 const seedAt = '2026-10-22T00:00:00.000Z'
 const stages = Object.values(INSPECTION_STAGES)
@@ -18,9 +21,44 @@ const dimensions = [
   ['ironing','整烫外观','死褶、极光、烫黄、版型走样','封版样衣','封版样衣'],
   ['clean','清洁度','污渍、油渍、线头、毛屑','目视及手感','目视及手感'],
 ]
+const itemMeta = {
+  fabric: { kind: 'VISUAL' as const, method: 'VISUAL' as const, severity: 'MAJOR' as const, disposition: 'DEFECT' as const, evidenceRequirement: 'PHOTO' as const, defectCodes: [
+    { code: 'FABRIC_COLOR_DIFF', name: '色差', severity: 'MAJOR' as const, disposition: 'DEFECT' as const },
+    { code: 'FABRIC_HOLE', name: '破洞', severity: 'CRITICAL' as const, disposition: 'DEFECT' as const },
+    { code: 'FABRIC_DEFECT', name: '瑕疵点', severity: 'MAJOR' as const, disposition: 'DEFECT' as const },
+    { code: 'FABRIC_SKEW', name: '纬斜', severity: 'MAJOR' as const, disposition: 'DEFECT' as const },
+  ] },
+  sewing: { kind: 'VISUAL' as const, method: 'VISUAL' as const, severity: 'MAJOR' as const, disposition: 'BOTH' as const, evidenceRequirement: 'PHOTO' as const, defectCodes: [
+    { code: 'SEWING_JUMP', name: '跳线', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+    { code: 'SEWING_FLOAT', name: '浮线', severity: 'MINOR' as const, disposition: 'REWORK' as const },
+    { code: 'SEWING_BREAK', name: '断线', severity: 'CRITICAL' as const, disposition: 'REWORK' as const },
+    { code: 'SEWING_STITCH', name: '针距不符', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+    { code: 'SEWING_SEAM', name: '缝份不符', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+    { code: 'SEWING_CROOKED', name: '线迹歪斜', severity: 'MINOR' as const, disposition: 'REWORK' as const },
+  ] },
+  accessory: { kind: 'FUNCTIONAL' as const, method: 'FUNCTIONAL' as const, severity: 'MAJOR' as const, disposition: 'BOTH' as const, evidenceRequirement: 'PHOTO' as const, defectCodes: [
+    { code: 'ACCESSORY_BUTTON', name: '扣子不牢', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+    { code: 'ACCESSORY_ZIPPER', name: '拉链不顺', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+    { code: 'ACCESSORY_LABEL', name: '唛头不正确', severity: 'MAJOR' as const, disposition: 'DEFECT' as const },
+    { code: 'ACCESSORY_CARE_LABEL', name: '洗标不正确', severity: 'MAJOR' as const, disposition: 'DEFECT' as const },
+    { code: 'ACCESSORY_HANGTAG', name: '吊牌不正确', severity: 'MINOR' as const, disposition: 'DEFECT' as const },
+  ] },
+  ironing: { kind: 'VISUAL' as const, method: 'VISUAL' as const, severity: 'MAJOR' as const, disposition: 'BOTH' as const, evidenceRequirement: 'PHOTO' as const, defectCodes: [
+    { code: 'IRONING_DEAD_FOLD', name: '死褶', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+    { code: 'IRONING_SHINE', name: '极光', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+    { code: 'IRONING_BURN', name: '烫黄', severity: 'CRITICAL' as const, disposition: 'DEFECT' as const },
+    { code: 'IRONING_SHAPE', name: '版型走样', severity: 'MAJOR' as const, disposition: 'REWORK' as const },
+  ] },
+  clean: { kind: 'VISUAL' as const, method: 'VISUAL' as const, severity: 'MAJOR' as const, disposition: 'DEFECT' as const, evidenceRequirement: 'PHOTO' as const, defectCodes: [
+    { code: 'CLEAN_STAIN', name: '污渍', severity: 'MAJOR' as const, disposition: 'DEFECT' as const },
+    { code: 'CLEAN_OIL', name: '油渍', severity: 'MAJOR' as const, disposition: 'DEFECT' as const },
+    { code: 'CLEAN_THREAD', name: '线头', severity: 'MINOR' as const, disposition: 'REWORK' as const },
+    { code: 'CLEAN_LINT', name: '毛屑', severity: 'MINOR' as const, disposition: 'REWORK' as const },
+  ] },
+}
 export const DEFAULT_GARMENT_INSPECTION_STANDARD: InspectionStandard = { ...base, kind: 'BASIC', items: [
-  ...[['neck','领围'],['shoulder','肩宽'],['chest','胸围'],['length','衣长'],['sleeve','袖长'],['hem','下摆']].map(([key,name]) => ({ id: `garment-size-${key}`, dimension: '尺寸规格', name, content: `按正式尺寸资料检查${name}；其余关键部位依据资料另行增加`, criterion: '封版样衣及尺寸公差表，不另编公差', references: [{ id: 'size-sealed-sample', name: '封版样衣', kind: 'PHYSICAL_SAMPLE' as const }, { id: 'size-tolerance', name: '尺寸公差表', kind: 'DOCUMENT' as const }] })),
-  ...dimensions.slice(1).map(([key, dimension, content, criterion, ...refs]) => ({ id: `garment-${key}`, dimension, name: dimension, content, criterion, references: refs.map((name,index) => ({ id: `${key}-ref-${index + 1}`, name, kind: name === '封版样衣' ? 'PHYSICAL_SAMPLE' as const : 'DOCUMENT' as const })) })),
+  ...[['neck','领围'],['shoulder','肩宽'],['chest','胸围'],['length','衣长'],['sleeve','袖长'],['hem','下摆']].map(([key,name]) => ({ id: `garment-size-${key}`, dimension: '尺寸规格', name, content: `按正式尺寸资料检查${name}；其余关键部位依据资料另行增加`, criterion: '封版样衣及尺寸公差表，不另编公差', references: [{ id: 'size-sealed-sample', name: '封版样衣', kind: 'PHYSICAL_SAMPLE' as const }, { id: 'size-tolerance', name: '尺寸公差表', kind: 'DOCUMENT' as const }], kind: 'MEASUREMENT' as const, method: 'MEASURE' as const, measurement: { techPackPart: name, unit: 'cm', gauge: '软尺', method: '平铺测量', source: 'TECH_PACK' as const }, severity: 'MAJOR' as const, disposition: 'DEFECT' as const, evidenceRequirement: 'MEASUREMENT' as const, defectCodes: [{ code: `SIZE_${key.toUpperCase()}_OUT`, name: `${name}超差`, severity: 'MAJOR' as const, disposition: 'DEFECT' as const }] })),
+  ...dimensions.slice(1).map(([key, dimension, content, criterion, ...refs]) => ({ id: `garment-${key}`, dimension, name: dimension, content, criterion, references: refs.map((name,index) => ({ id: `${key}-ref-${index + 1}`, name, kind: name === '封版样衣' ? 'PHYSICAL_SAMPLE' as const : 'DOCUMENT' as const })), ...itemMeta[key as keyof typeof itemMeta] })),
 ] }
 function defaultRule(sourceKind: 'PRODUCTION_RETURN' | 'WAREHOUSE_STOCK'): InspectionRuleConfig {
   const id = sourceKind === 'PRODUCTION_RETURN' ? 'production-return-rule' : 'warehouse-stock-rule'
@@ -60,6 +98,23 @@ export async function ensureQualityManagementConfiguration(): Promise<void> {
     configurations = next; persisted = new Map(result.records.map(row => [row.id,row])); revision = persisted.get(QUALITY_CONFIGURATION_REVISION_ID)?.version ?? 0
     operations = nextOperations; ready = true; readError = ''
   } catch (error) { readError = error instanceof Error ? error.message : '质检配置读取失败。'; throw error }
+}
+/** STORE-04 version switch: remove old demo configurations, keep one schema marker. */
+export async function prepareQualityConfigurationSchema(): Promise<void> {
+  if (schemaPrepared || typeof window === 'undefined' || typeof indexedDB === 'undefined') return
+  const result = await readPcsRecords([QUALITY_CONFIGURATION_NAMESPACE])
+  const schema = result.records.find(row => row.id === QUALITY_CONFIGURATION_SCHEMA_ID && !row.deleted)
+  if (Number(schema?.value && (schema.value as { version?: number }).version) === QUALITY_CONFIGURATION_SCHEMA_VERSION) { schemaPrepared = true; return }
+  const deletes = result.records.filter(row => row.id !== QUALITY_CONFIGURATION_SCHEMA_ID && !row.deleted).map(row => ({ id: row.id, expectedVersion: row.version }))
+  await commitPcsRecords({
+    puts: [{ id: QUALITY_CONFIGURATION_SCHEMA_ID, collection: 'quality/scope', value: { version: QUALITY_CONFIGURATION_SCHEMA_VERSION }, expectedVersion: schema?.version || 0 }],
+    deletes,
+    operationId: 'quality-schema-v2',
+    intent: JSON.stringify({ action: 'STORE-04 typed item schema reset', version: QUALITY_CONFIGURATION_SCHEMA_VERSION }),
+  })
+  configurations = new Map(seeds.map(row => [row.id, structuredClone(row)]))
+  persisted = new Map(); operations = []; revision = 0; ready = false; readError = ''
+  schemaPrepared = true
 }
 async function commitConfigurations(changed: InspectionConfiguration[], action: QualityConfigurationOperation['action'], primary: InspectionConfiguration): Promise<void> {
   if (!ready) await ensureQualityManagementConfiguration()
@@ -135,7 +190,7 @@ export function buildInspectionSnapshotFromConfigurations(raw: InspectionContext
   const rules = all.filter((row): row is InspectionRuleConfig => row.kind === 'RULE' && row.status === 'EFFECTIVE' && row.objectType === context.objectType && matchesInspectionApplicability(row.applicability, context))
   if (context.sourceKind !== 'PRE_PRODUCTION_SAMPLE' && rules.length !== 1) throw new Error(rules.length ? '有多份同时适用的检查规则。' : '没有适用的有效检查规则。')
   const rule = context.sourceKind === 'PRE_PRODUCTION_SAMPLE' ? undefined : rules[0]
-  return structuredClone({ ...standard, id: `inspection-${newId()}`, selectedAt: new Date().toISOString(), configRevision, context, references: context.references ?? [], ruleSnapshot: rule ? { id: rule.id, version: rule.version, quantityBasis: rule.quantityBasis, defaultPercent: rule.defaultPercent, minQuantity: rule.minQuantity, percentSteps: rule.percentSteps, roundThresholds: rule.roundThresholds, initialFullInspection: rule.initialFullInspection } : null })
+  return structuredClone({ ...standard, id: `inspection-${newId()}`, selectedAt: new Date().toISOString(), configRevision, snapshotSchemaVersion: 2, context, references: context.references ?? [], ruleSnapshot: rule ? { id: rule.id, version: rule.version, quantityBasis: rule.quantityBasis, defaultPercent: rule.defaultPercent, minQuantity: rule.minQuantity, percentSteps: rule.percentSteps, roundThresholds: rule.roundThresholds, initialFullInspection: rule.initialFullInspection } : null })
 }
 export async function assertInspectionSnapshotCurrent(snapshot: InspectionSnapshot): Promise<void> {
   await ensureQualityManagementConfiguration()

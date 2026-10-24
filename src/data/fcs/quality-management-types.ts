@@ -16,6 +16,29 @@ export interface InspectionApplicability {
   attributes?: Array<{ key: string; value: string | number | boolean }>
 }
 export interface InspectionReference { id: string; name: string; kind: 'DOCUMENT' | 'PHYSICAL_SAMPLE' | 'OTHER'; value?: string; description?: string; imageUrl?: string; sourceId?: string; sourceVersion?: number; missing?: boolean }
+export type InspectionItemKind = 'TEXT' | 'MEASUREMENT' | 'VISUAL' | 'FUNCTIONAL' | 'ATTRIBUTE'
+export type InspectionItemMethod = 'VISUAL' | 'MEASURE' | 'FUNCTIONAL' | 'DOCUMENT'
+export type InspectionSeverity = 'CRITICAL' | 'MAJOR' | 'MINOR'
+export type InspectionDisposition = 'DEFECT' | 'REWORK' | 'BOTH'
+export type InspectionEvidenceRequirement = 'NONE' | 'PHOTO' | 'MEASUREMENT' | 'DOCUMENT'
+export interface InspectionMeasurementSpec {
+  /** Technical-pack measurement part (for example 胸围). */
+  techPackPart?: string
+  unit?: string
+  gauge?: string
+  method?: string
+  /** Single tolerance used when the tech pack supplies one; null means no numeric judgement. */
+  tolerance?: number | string
+  /** Resolved at QC start from the order-bound technical pack, keyed by size code. */
+  nominalBySize?: Record<string, number | string>
+  source?: 'TECH_PACK' | 'STANDARD' | 'NONE'
+}
+export interface InspectionDefectCode {
+  code: string
+  name: string
+  severity: InspectionSeverity
+  disposition: InspectionDisposition
+}
 export interface InspectionContext {
   sourceKind: InspectionSourceKind
   stage?: string
@@ -36,8 +59,15 @@ export interface InspectionStandardItem {
   unit?: string
   references: InspectionReference[]
   applicability?: InspectionApplicability
+  kind?: InspectionItemKind
+  method?: InspectionItemMethod
+  measurement?: InspectionMeasurementSpec
+  defectCodes?: InspectionDefectCode[]
+  severity?: InspectionSeverity
+  disposition?: InspectionDisposition
+  evidenceRequirement?: InspectionEvidenceRequirement
 }
-export type InspectionOverrideField = 'dimension' | 'name' | 'content' | 'criterion' | 'unit' | 'references' | 'applicability'
+export type InspectionOverrideField = 'dimension' | 'name' | 'content' | 'criterion' | 'unit' | 'references' | 'applicability' | 'kind' | 'method' | 'measurement' | 'defectCodes' | 'severity' | 'disposition' | 'evidenceRequirement'
 export interface InspectionItemOverride {
   targetItemId: string
   fields: InspectionOverrideField[]
@@ -112,8 +142,23 @@ export interface InspectionSnapshot extends ResolvedInspectionStandard {
   references: InspectionReference[]
   ruleSnapshot: InspectionRuleSnapshot | null
   skuSnapshots?: Array<{ skuId: string; snapshot: InspectionSnapshot }>
+  /** 2 = typed item/measurement schema; absent means legacy text-only snapshot. */
+  snapshotSchemaVersion?: number
+  techPackVersionId?: string
 }
 export interface InspectionIssue { itemId: string; note?: string; evidenceFileIds?: string[] }
+export interface InspectionItemObservation {
+  itemId: string
+  skuId?: string
+  skuCode?: string
+  sizeName?: string
+  result: 'PASS' | 'FAIL' | 'NOT_APPLICABLE'
+  measuredValue?: number | string
+  measurementUnit?: string
+  defectCode?: string
+  note?: string
+  evidenceFileIds?: string[]
+}
 export interface InspectionRoundResult {
   /** Original round facts; absent for history that never recorded them. */
   percent?: number
@@ -124,6 +169,7 @@ export interface InspectionRoundResult {
   defectQty: number
   returnedQty: number
   issues: InspectionIssue[]
+  observations?: InspectionItemObservation[]
   submittedAt: string
 }
 export interface InspectionAuditView {
